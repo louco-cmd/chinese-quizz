@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Collection</title>
+  <style>
+    :root {
+      --width: 360px;
+      --height: 480px;
+      --accent: #ff7a59;
+      --btn-size: 52px;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color: #222;
+    }
+
+    .topbar {
+      width: calc(var(--width) + 120px);
+      max-width: 95vw;
+      display:flex;
+      justify-content: space-between;
+      align-items:center;
+      margin-bottom: 18px;
+    }
+
+    .title { font-weight:700; font-size:18px; }
+    .counter { font-size:14px; color:#666; }
+
+    /* Home button */
+    .home-btn {
+      background: #ff7a59;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-right: auto;
+    }
+
+    #card-container {
+      position: relative;
+      width: var(--width);
+      height: var(--height);
+      perspective: 1200px;
+    }
+
+    .card {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 18px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.22);
+      background: linear-gradient(160deg,#ffffff,#f6f7fa);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 22px;
+      box-sizing: border-box;
+      transition: transform 320ms cubic-bezier(.2,.9,.2,1), opacity 260ms;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    .card .chinese {
+      font-size: 110px;
+      line-height: 1;
+      margin: 0;
+      letter-spacing: 6px;
+      text-shadow: 0 6px 18px rgba(0,0,0,0.15);
+      transform: translateY(-8px);
+    }
+
+    .card .pinyin {
+      margin-top: 6px;
+      font-size: 20px;
+      color: #333;
+      font-weight:600;
+    }
+
+    .card .english {
+      margin-top: 12px;
+      font-size: 18px;
+      color: #444;
+      font-weight:700;
+    }
+
+    .card .description {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #666;
+      text-align: center;
+      padding: 0 6px;
+    }
+
+    /* edit button on card */
+    .edit-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #ff7a59;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      z-index: 10;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    .edit-btn:hover { background: #ff5722; }
+
+    /* navigation buttons */
+    .nav-btn {
+      width: var(--btn-size);
+      height: var(--btn-size);
+      border-radius: 50%;
+      background: rgba(255,255,255,0.92);
+      border: none;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 22px;
+      transition: transform 120ms ease, background 120ms;
+      user-select: none;
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    #prevBtn { left: -64px; }
+    #nextBtn { right: -64px; }
+    .nav-btn:hover { transform: translateY(-50%) scale(1.06); }
+
+    /* modal */
+    #editModal {
+      position: fixed;
+      top:0; left:0; right:0; bottom:0;
+      background: rgba(0,0,0,0.3);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #editModal .modal {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 300px;
+    }
+    #editModal input, #editModal textarea {
+      width: 100%;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <button class="home-btn" onclick="window.location='index.html'">Home</button>
+    <div class="title">My Card Collection</div>
+    <div class="counter" id="counter">— / —</div>
+  </div>
+
+  <div style="position:relative;display:flex;align-items:center;">
+    <div id="card-container"></div>
+    <button id="prevBtn" class="nav-btn">‹</button>
+    <button id="nextBtn" class="nav-btn">›</button>
+  </div>
+
+  <!-- modal -->
+  <div id="editModal" style="display:none;">
+    <div class="modal">
+      <h3>Edit Word</h3>
+      <form id="editForm">
+        <input type="hidden" id="editId" />
+        <label>Chinese</label>
+        <input type="text" id="editChinese" required />
+        <label>Pinyin</label>
+        <input type="text" id="editPinyin" />
+        <label>English</label>
+        <input type="text" id="editEnglish" />
+        <label>Description</label>
+        <textarea id="editDescription"></textarea>
+        <div style="text-align:right;margin-top:10px;">
+          <button type="button" id="cancelEdit">Cancel</button>
+          <button type="submit">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script>
+let words=[], idx=0;
+const container=document.getElementById('card-container');
+const prevBtn=document.getElementById('prevBtn');
+const nextBtn=document.getElementById('nextBtn');
+const counter=document.getElementById('counter');
+
+// modal
+const editModal=document.getElementById('editModal');
+const editForm=document.getElementById('editForm');
+const cancelEdit=document.getElementById('cancelEdit');
+const editId=document.getElementById('editId');
+const editChinese=document.getElementById('editChinese');
+const editPinyin=document.getElementById('editPinyin');
+const editEnglish=document.getElementById('editEnglish');
+const editDescription=document.getElementById('editDescription');
+
+async function loadWords(){
+  const res=await fetch('/liste'); words=await res.json();
+  if(!words.length){container.innerHTML='<p>No words yet.</p>'; return;}
+  idx=0; showCard();
+}
+
+function updateCounter(){counter.textContent=`${idx+1} / ${words.length}`;}
+
+function createCardElement(word){
+  const card=document.createElement('div');
+  card.className='card';
+  card.style.zIndex = 1;
+  card.innerHTML=`
+    <button class="edit-btn">✏️ Edit</button>
+    <div class="chinese">${word.chinese}</div>
+    <div class="pinyin">${word.pinyin||''}</div>
+    <div class="english">${word.english||''}</div>
+    <div class="description">${word.description||''}</div>`;
+  card.querySelector('.edit-btn').onclick=()=>openEdit(word);
+  return card;
+}
+
+function showCard(direction){
+  const oldCard=container.querySelector('.card');
+  const word=words[idx]; if(!word) return;
+  const newCard=createCardElement(word);
+  newCard.classList.add('visible');
+  container.appendChild(newCard);
+
+  if(oldCard){
+    if(direction==='right'){ // Next
+      oldCard.style.zIndex = 1;
+      oldCard.classList.add('exit-left');
+    } else if(direction==='left'){ // Prev
+      oldCard.style.zIndex = 1;
+      oldCard.classList.add('exit-right');
+    }
+    oldCard.addEventListener('transitionend',()=>oldCard.remove(),{once:true});
+  }
+
+  updateCounter();
+}
+
+// navigation
+prevBtn.onclick = ()=>{ idx=(idx-1+words.length)%words.length; showCard('left'); };
+nextBtn.onclick = ()=>{ idx=(idx+1)%words.length; showCard('right'); };
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft') prevBtn.click();
+  else if(e.key==='ArrowRight') nextBtn.click();
+});
+
+// modal
+function openEdit(word){
+  editId.value = word.id;
+  editChinese.value = word.chinese;
+  editPinyin.value = word.pinyin||'';
+  editEnglish.value = word.english||'';
+  editDescription.value = word.description||'';
+  editModal.style.display='flex';
+}
+cancelEdit.onclick=()=>{editModal.style.display='none';};
+editForm.onsubmit=async(e)=>{
+  e.preventDefault();
+  const payload={
+    chinese:editChinese.value,
+    pinyin:editPinyin.value,
+    english:editEnglish.value,
+    description:editDescription.value
+  };
+  try{
+    await fetch(`/update/${editId.value}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    words[idx]={...words[idx],...payload};
+    showCard(); // refresh
+  }catch(err){alert("Update failed");}
+  editModal.style.display='none';
+};
+
+loadWords();
+</script>
+</body>
+</html>

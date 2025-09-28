@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chinese Quiz</title>
+<style>
+  body {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    height:100vh;
+    margin:0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg,#f5f7fa,#c3cfe2);
+  }
+  .quiz-container {
+    width: 360px;
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.2);
+    text-align:center;
+  }
+  .question {
+    font-size:20px;
+    margin-bottom:20px;
+    font-weight:bold;
+  }
+  .quiz-fields {
+    display:flex;
+    gap:8px;
+    justify-content:center;
+    margin-bottom:20px;
+  }
+  .quiz-fields input {
+    width:50px;
+    font-size:18px;
+    text-align:center;
+    padding:6px;
+    border-radius:6px;
+    border:1px solid #ccc;
+  }
+  button {
+    padding:8px 16px;
+    border:none;
+    border-radius:6px;
+    background:#ff7a59;
+    color:white;
+    cursor:pointer;
+    font-size:16px;
+  }
+  button:hover { background:#ff5722; }
+  #quizResult { margin-top:15px; font-size:16px; min-height:20px; }
+  
+</style>
+</head>
+<body>
+
+  <!-- Place ce bouton en haut de la page quiz -->
+<button id="cancelQuiz" style="
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  padding: 8px 12px;
+  border-radius:6px;
+  background:#ff7a59;
+  color:white;
+  border:none;
+  cursor:pointer;
+  font-weight:600;
+">Annuler le quiz</button>
+
+
+<div class="quiz-container">
+  <div class="question" id="quizQuestion"></div>
+  <div class="quiz-fields" id="quizFields"></div>
+  <button id="checkBtn">Check</button>
+  <div id="quizResult"></div>
+</div>
+
+<script>
+let quizWords = []; // tableau de mots du quiz
+let quizIdx = 0;
+let quizInputs = [];
+const quizQuestion = document.getElementById('quizQuestion');
+const quizFields = document.getElementById('quizFields');
+const checkBtn = document.getElementById('checkBtn');
+const quizResult = document.getElementById('quizResult');
+
+// Charger les mots depuis le serveur (tous pour l'exemple)
+async function loadQuizWords() {
+  const res = await fetch('/liste');
+  quizWords = await res.json();
+  if(quizWords.length === 0) {
+    quizQuestion.textContent = 'No words available.';
+    checkBtn.style.display = 'none';
+    return;
+  }
+  quizIdx = 0;
+  showQuizWord();
+}
+
+function showQuizWord() {
+  quizFields.innerHTML = '';
+  quizInputs = [];
+  quizResult.textContent = '';
+
+  if(quizIdx >= quizWords.length){
+    quizQuestion.textContent = '🎉 Quiz finished!';
+    checkBtn.style.display='none';
+    setTimeout(()=>{ window.location.href = '/'; }, 2000);
+    return;
+  }
+
+  const word = quizWords[quizIdx];
+  quizQuestion.textContent = `How do you say "${word.english}"?`;
+
+  // Choix du mode: pinyin pour l'instant
+  const answer = word.pinyin; 
+  const answerParts = answer.split(' ');
+
+  answerParts.forEach((part, i) => {
+    const inp = document.createElement('input');
+    inp.type='text';
+    inp.maxLength = part.length;
+    inp.placeholder = part.length + ' chars';
+    inp.addEventListener('input', (e)=>{
+      if(e.target.value.length >= e.target.maxLength && quizInputs[i+1]){
+        quizInputs[i+1].focus();
+      }
+    });
+    quizFields.appendChild(inp);
+    quizInputs.push(inp);
+  });
+  quizInputs[0].focus();
+}
+
+// Vérification
+checkBtn.onclick = () => {
+  const userAnswer = quizInputs.map(inp => inp.value.trim()).join('').toLowerCase();
+  const correctAnswer = quizWords[quizIdx].pinyin.replace(/\s+/g,'').toLowerCase();
+  if(userAnswer === correctAnswer){
+    quizResult.textContent = '✅ Correct!';
+  } else {
+    quizResult.textContent = `❌ Wrong! Correct: ${quizWords[quizIdx].pinyin}`;
+  }
+  quizIdx++;
+  setTimeout(showQuizWord, 1000);
+};
+
+loadQuizWords();
+
+document.getElementById('cancelQuiz').onclick = () => {
+    // Optionnel : réinitialiser les variables du quiz
+    currentIndex = 0;
+    userAnswers = [];
+    // Retour à la home
+    window.location.href = 'index.html'; // ou le chemin exact de ta home
+};
+
+</script>
+
+</body>
+</html>

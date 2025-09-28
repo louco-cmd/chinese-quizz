@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Home - Vocabulary App</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; padding:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; min-height:100vh; background:#f0f0f0; }
+header { width:100%; background:#ff7a59; color:#fff; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; }
+header h1 { margin:0; font-size:20px; }
+.tabs { display:flex; margin-top:20px; gap:10px; }
+.tab { padding:8px 16px; border-radius:6px; cursor:pointer; background:#ddd; }
+.tab.active { background:#ff7a59; color:#fff; }
+.tab-content { margin-top:20px; width:90%; max-width:400px; background:#fff; padding:20px; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,0.1); }
+input, textarea, select, button { width:100%; margin-top:6px; margin-bottom:12px; padding:8px; border-radius:5px; border:1px solid #ccc; box-sizing:border-box; }
+button { background:#ff7a59; color:#fff; font-weight:600; border:none; cursor:pointer; }
+button:hover { background:#ff5722; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Vocabulary App</h1>
+  <button id="collectionBtn" style="
+    background:#fff;color:#ff7a59;border:none;padding:6px 12px;border-radius:6px;font-weight:600;cursor:pointer;
+  ">Voir ma collection</button>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="add">Ajouter un mot</div>
+  <div class="tab" data-tab="quiz">Quiz</div>
+</div>
+
+<div id="add" class="tab-content">
+  <h2>Ajouter un mot</h2>
+  <form id="addForm">
+    <label>Caractère chinois</label>
+    <input type="text" id="chinese" required />
+    <label>Pinyin</label>
+    <input type="text" id="pinyin" />
+    <label>Anglais</label>
+    <input type="text" id="english" required />
+    <label>Description</label>
+    <textarea id="description"></textarea>
+    <button type="submit">Ajouter</button>
+  </form>
+  <div id="addResult"></div>
+</div>
+
+<div id="quiz" class="tab-content" style="display:none;">
+  <h2>Quiz Setup</h2>
+  <form id="quizForm">
+    <label>Type de quiz
+      <select id="quizType">
+        <option value="englishToPinyin">Anglais → Pinyin</option>
+        <option value="englishToChinese">Anglais → Caractère</option>
+      </select>
+    </label>
+    <label>Nombre de mots
+      <select id="quizCount">
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+        <option value="all">Tous</option>
+      </select>
+    </label>
+    <button type="submit">Lancer le quiz</button>
+  </form>
+</div>
+
+<script>
+// Tabs
+const tabs = document.querySelectorAll('.tab');
+tabs.forEach(tab=>{
+  tab.onclick=()=>{
+    tabs.forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(tc=>tc.style.display='none');
+    document.getElementById(tab.dataset.tab).style.display='block';
+  };
+});
+
+// Add word
+addForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const payload = {
+    chinese: document.getElementById('chinese').value,
+    pinyin: document.getElementById('pinyin').value,
+    english: document.getElementById('english').value,
+    description: document.getElementById('description').value
+  };
+
+  try {
+    const res = await fetch('/ajouter', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      document.getElementById('addResult').textContent = '✅ Mot ajouté !';
+      addForm.reset();
+    } else {
+      document.getElementById('addResult').textContent = `❌ ${data.message}`;
+    }
+
+  } catch(err) {
+    document.getElementById('addResult').textContent = '❌ Erreur serveur';
+  }
+};
+
+
+// Quiz setup - redirection vers 2 pages distinctes
+const quizForm = document.getElementById('quizForm');
+quizForm.onsubmit = (e)=>{
+  e.preventDefault();
+  const type = document.getElementById('quizType').value;
+  const count = document.getElementById('quizCount').value;
+
+  if(type === 'englishToPinyin') {
+    window.location = `quiz-pinyin.html?count=${count}`;
+  } else {
+    window.location = `quiz-character.html?count=${count}`;
+  }
+};
+
+// Collection page
+document.getElementById('collectionBtn').onclick = () => {
+  window.location = 'collection.html';
+};
+</script>
+
+</body>
+</html>

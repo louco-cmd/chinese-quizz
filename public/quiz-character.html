@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quiz: English → Chinese Characters</title>
+<style>
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+    color: #222;
+  }
+
+  #quiz-container {
+    width: 360px;
+    padding: 24px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 16px;
+    box-shadow: 0 12px 24px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .english-word {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  .input-container {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .char-input {
+    width: 50px;
+    font-size: 24px;
+    text-align: center;
+    padding: 6px;
+  }
+
+  .buttons {
+    display: flex;
+    gap: 12px;
+  }
+
+  button {
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    background: #ff7a59;
+    color: white;
+  }
+
+  button:hover { background: #ff5722; }
+
+  #feedback {
+    margin-top: 16px;
+    font-size: 18px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+ <!-- Place ce bouton en haut de la page quiz -->
+<button id="cancelQuiz" style="
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  padding: 8px 12px;
+  border-radius:6px;
+  background:#ff7a59;
+  color:white;
+  border:none;
+  cursor:pointer;
+  font-weight:600;
+">Annuler le quiz</button>
+
+
+<div id="quiz-container">
+  <div class="english-word" id="englishWord"></div>
+  <div class="input-container" id="inputContainer"></div>
+  <div class="buttons">
+    <button id="submitBtn">Submit</button>
+  </div>
+  <div id="feedback"></div>
+</div>
+
+<script>
+let words = [];
+let idx = 0;
+
+// Fetch all words
+async function loadWords() {
+  const res = await fetch('/liste');
+  words = await res.json();
+  if (!words.length) {
+    document.getElementById('quiz-container').innerHTML = '<p>No words available.</p>';
+    return;
+  }
+  idx = 0;
+  showWord();
+}
+
+// Show current word
+function showWord() {
+  const word = words[idx];
+  document.getElementById('englishWord').textContent = word.english;
+
+  const inputContainer = document.getElementById('inputContainer');
+  inputContainer.innerHTML = '';
+  for (let i = 0; i < word.chinese.length; i++) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 1;
+    input.className = 'char-input';
+    inputContainer.appendChild(input);
+
+    // Auto focus next input
+    input.addEventListener('input', () => {
+      if (input.value.length === input.maxLength) {
+        const next = input.nextElementSibling;
+        if (next) next.focus();
+      }
+    });
+  }
+
+  document.getElementById('feedback').textContent = '';
+}
+
+// Submit answer
+document.getElementById('submitBtn').addEventListener('click', () => {
+  const word = words[idx];
+  const inputs = document.querySelectorAll('.char-input');
+  const answer = Array.from(inputs).map(i => i.value.trim()).join('');
+  const correct = answer === word.chinese;
+
+  const feedback = document.getElementById('feedback');
+  feedback.textContent = correct ? '✅ Correct!' : `❌ Wrong. Answer: ${word.chinese}`;
+
+  // Next word after short delay
+  setTimeout(() => {
+    idx++;
+    if (idx >= words.length) {
+      window.location.href = '/'; // Return to home
+    } else {
+      showWord();
+    }
+  }, 1000);
+});
+
+loadWords();
+document.getElementById('cancelQuiz').onclick = () => {
+    // Optionnel : réinitialiser les variables du quiz
+    currentIndex = 0;
+    userAnswers = [];
+    // Retour à la home
+    window.location.href = 'index.html'; // ou le chemin exact de ta home
+};
+
+</script>
+</body>
+</html>
