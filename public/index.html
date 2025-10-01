@@ -4,71 +4,126 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Home - Vocabulary App</title>
-<style>
-body { font-family: Arial, sans-serif; margin:0; padding:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; min-height:100vh; background:#f0f0f0; }
-header { width:100%; background:#ff7a59; color:#fff; padding:12px 20px; display:flex; align-items:center; justify-content:space-between; }
-header h1 { margin:0; font-size:20px; }
-.tabs { display:flex; margin-top:20px; gap:10px; }
-.tab { padding:8px 16px; border-radius:6px; cursor:pointer; background:#ddd; }
-.tab.active { background:#ff7a59; color:#fff; }
-.tab-content { margin-top:20px; width:90%; max-width:400px; background:#fff; padding:20px; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,0.1); }
-input, textarea, select, button { width:100%; margin-top:6px; margin-bottom:12px; padding:8px; border-radius:5px; border:1px solid #ccc; box-sizing:border-box; }
-button { background:#ff7a59; color:#fff; font-weight:600; border:none; cursor:pointer; }
-button:hover { background:#ff5722; }
-</style>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
 </head>
 <body>
+<nav class="navbar navbar-expand-lg bg-primary navbar-dark">
+  <div class="container-fluid d-flex justify-content-between">
+    <!-- Titre -->
+    <h1 class="navbar-brand text-white fw-bold" href="#">Vocabulary App</h1>
 
-<header>
-  <h1>Vocabulary App</h1>
-  <button id="collectionBtn" style="
-    background:#fff;color:#ff7a59;border:none;padding:6px 12px;border-radius:6px;font-weight:600;cursor:pointer;
-  ">Voir ma collection</button>
-</header>
+    <!-- Bouton -->
+    <div class="d-flex">
+      <button id="collectionBtn" class="btn btn-outline-light w-auto">Voir ma collection</button>
+    </div>
+  </div>
+</nav>
 
-<div class="tabs">
-  <div class="tab active" data-tab="add">Ajouter un mot</div>
-  <div class="tab" data-tab="quiz">Quiz</div>
-</div>
+<section class="container mt-4 col-12 col-md-10 col-lg-6">
+<ul class="nav nav-tabs tabs">
+  <li class="nav-item">
+    <a class="nav-link active tab" data-tab="add" href="#">Ajouter un mot</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link tab" data-tab="quiz" href="#">Quizz</a>
+  </li>
+</ul>
 
 <div id="add" class="tab-content">
-  <h2>Ajouter un mot</h2>
-  <form id="addForm">
-    <label>Caractère chinois</label>
-    <input type="text" id="chinese" required />
-    <label>Pinyin</label>
-    <input type="text" id="pinyin" />
-    <label>Anglais</label>
-    <input type="text" id="english" required />
-    <label>Description</label>
-    <textarea id="description"></textarea>
-    <button type="submit">Ajouter</button>
+  <h2 class="my-4">Ajouter un mot</h2>
+  <form id="addForm" class="p-4 bg-light rounded shadow-sm">
+    
+    <!-- Caractère chinois -->
+    <div class="mb-3">
+      <label for="chinese" class="form-label">Caractère chinois</label>
+      <input 
+        type="text" 
+        id="chinese" 
+        class="form-control" 
+        required
+      >
+    </div>
+
+    <!-- Pinyin -->
+    <div class="mb-3">
+      <label for="pinyin" class="form-label">Pinyin</label>
+      <input 
+        type="text" 
+        id="pinyin" 
+        class="form-control"
+      >
+    </div>
+
+    <!-- Anglais -->
+    <div class="mb-3">
+      <label for="english" class="form-label">Anglais</label>
+      <input 
+        type="text" 
+        id="english" 
+        class="form-control" 
+        required
+      >
+    </div>
+
+    <!-- Description -->
+    <div class="mb-3">
+      <label for="description" class="form-label">Description</label>
+      <textarea 
+        id="description" 
+        class="form-control"
+        rows="3"
+      ></textarea>
+    </div>
+
+    <!-- Bouton -->
+    <div class="d-grid">
+      <button type="submit" class="btn btn-primary">
+        Ajouter
+      </button>
+    </div>
   </form>
-  <div id="addResult"></div>
+
+  <div id="addResult" class="mt-3"></div>
 </div>
 
 <div id="quiz" class="tab-content" style="display:none;">
-  <h2>Quiz Setup</h2>
-  <form id="quizForm">
-    <label>Type de quiz
-      <select id="quizType">
+  <h2 class="my-4">Quiz Setup</h2>
+  <form id="quizForm" class="p-4 bg-light rounded shadow-sm">
+
+    <!-- Type de quiz -->
+    <div class="mb-3">
+      <label for="quizType" class="form-label">Type de quiz</label>
+      <select id="quizType" class="form-select">
         <option value="englishToPinyin">Anglais → Pinyin</option>
         <option value="englishToChinese">Anglais → Caractère</option>
       </select>
-    </label>
-    <label>Nombre de mots
-      <select id="quizCount">
+    </div>
+
+    <!-- Nombre de mots -->
+    <div class="mb-3">
+      <label for="quizCount" class="form-label">Nombre de mots</label>
+      <select id="quizCount" class="form-select">
         <option value="10">10</option>
         <option value="20">20</option>
         <option value="30">30</option>
         <option value="40">40</option>
         <option value="all">Tous</option>
       </select>
-    </label>
-    <button type="submit">Lancer le quiz</button>
+    </div>
+
+    <!-- Bouton -->
+    <div class="d-grid">
+      <button type="submit" class="btn btn-primary">Lancer le quiz</button>
+    </div>
+
   </form>
 </div>
 
+</section>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 // Tabs
 const tabs = document.querySelectorAll('.tab');
