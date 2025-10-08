@@ -7,16 +7,17 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>
   #card-container, #list-container {
-    transition: transform 0.5s ease, opacity 0.5s ease;
+    transition: all 0.5s ease;
   }
+  .hidden { opacity: 0; transform: translateY(50px); pointer-events: none; height:0; }
+  .visible { opacity: 1; transform: translateY(0); pointer-events: all; height:auto; }
 </style>
 </head>
 <body>
+
 <nav class="navbar navbar-expand-lg bg-primary navbar-dark">
   <div class="container-fluid d-flex justify-content-between">
-    <!-- Titre -->
     <h1 class="navbar-brand text-white fw-bold" onclick="window.location='dashboard.html'">Vocabulary App</h1>
-    <!-- Bouton -->
     <div class="d-flex">
       <button id="collectionBtn" class="btn btn-outline-light w-auto" onclick="window.location='dashboard.html'">Back to home</button>
     </div>
@@ -24,30 +25,21 @@
 </nav>
 
 <section class="section d-flex flex-column align-items-center mt-4">
+  <div id="card-container" class="d-flex justify-content-center visible mb-3 position-relative"></div>
 
-  <!-- Liste -->
-  <div id="list-container" class="w-100" style="max-width: 600px; display:none;">
-    <table class="table table-striped table-hover">
-      <thead class="table-dark">
-        <tr>
-          <th>Chinese</th>
-          <th>Pinyin</th>
-          <th>English</th>
-        </tr>
+  <div id="list-container" class="container mt-4 hidden">
+    <table class="table table-striped">
+      <thead>
+        <tr><th>Chinois</th><th>Pinyin</th><th>English</th></tr>
       </thead>
       <tbody id="listBody"></tbody>
     </table>
   </div>
 
-  <!-- Conteneur carte -->
-  <div id="card-container" class="d-flex justify-content-center mb-3 position-relative"></div>
-
-  <!-- Boutons carte -->
   <div class="d-flex justify-content-between w-100" style="max-width: 18rem;">
     <button id="prevBtn" class="btn btn-primary rounded-circle px-3 py-2">‹</button>
     <button id="nextBtn" class="btn btn-primary rounded-circle px-3 py-2">›</button>
   </div>
-
 </section>
 
 <!-- Modal Bootstrap -->
@@ -60,29 +52,12 @@
       </div>
       <form id="editForm" class="p-3">
         <input type="hidden" id="editId" />
-        
-        <div class="mb-3">
-          <label for="editChinese" class="form-label">Chinese</label>
-          <input type="text" class="form-control" id="editChinese" required>
-        </div>
-
-        <div class="mb-3">
-          <label for="editPinyin" class="form-label">Pinyin</label>
-          <input type="text" class="form-control" id="editPinyin">
-        </div>
-
-        <div class="mb-3">
-          <label for="editEnglish" class="form-label">English</label>
-          <input type="text" class="form-control" id="editEnglish">
-        </div>
-
-        <div class="mb-3">
-          <label for="editDescription" class="form-label">Description</label>
-          <textarea class="form-control" id="editDescription" rows="3"></textarea>
-        </div>
-
+        <div class="mb-3"><label for="editChinese" class="form-label">Chinese</label><input type="text" class="form-control" id="editChinese" required></div>
+        <div class="mb-3"><label for="editPinyin" class="form-label">Pinyin</label><input type="text" class="form-control" id="editPinyin"></div>
+        <div class="mb-3"><label for="editEnglish" class="form-label">English</label><input type="text" class="form-control" id="editEnglish"></div>
+        <div class="mb-3"><label for="editDescription" class="form-label">Description</label><textarea class="form-control" id="editDescription" rows="3"></textarea></div>
         <div class="text-end">
-          <button type="button" class="btn btn-secondary me-2" id="cancelEdit" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-primary">Save</button>
         </div>
       </form>

@@ -81,28 +81,19 @@ function showList() {
 
 function toggleView(view){
   if(view==='list'){
-    listContainer.classList.remove('hidden');
-    listContainer.classList.add('visible');
-    
-    cardContainer.classList.remove('visible');
-    cardContainer.classList.add('hidden');
+    listContainer.classList.remove('hidden'); listContainer.classList.add('visible');
+    cardContainer.classList.remove('visible'); cardContainer.classList.add('hidden');
   } else {
-    cardContainer.classList.remove('hidden');
-    cardContainer.classList.add('visible');
-    
-    listContainer.classList.remove('visible');
-    listContainer.classList.add('hidden');
+    cardContainer.classList.remove('hidden'); cardContainer.classList.add('visible');
+    listContainer.classList.remove('visible'); listContainer.classList.add('hidden');
   }
 }
 
-
-// Scroll to list
-cardContainer.addEventListener('wheel', (e)=>{
-  if(Math.abs(e.deltaY) > 30){
-    toggleView('list');
-  }
+// Scroll pour passer de carte à liste
+window.addEventListener('wheel', (e)=>{
+  if(e.deltaY > 30 && cardContainer.classList.contains('visible')) toggleView('list');
+  else if(e.deltaY < -30 && listContainer.classList.contains('visible')) toggleView('card');
 });
-
 
 // Modal
 function openEdit(word){
