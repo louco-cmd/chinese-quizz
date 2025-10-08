@@ -125,7 +125,14 @@
 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
+
+const chineseInput = document.getElementById('chinese');
+const pinyinInput = document.getElementById('pinyin');
+const englishInput = document.getElementById('english');
+const messageDiv = document.getElementById('addResult'); // déjà dans ton HTML
+
 // -----------------------------
 // Tabs
 // -----------------------------
@@ -176,6 +183,31 @@ addForm.onsubmit = async (e) => {
   }
 };
 
+chineseInput.addEventListener("blur", async () => {
+  const chinese = chineseInput.value.trim();
+  if (!chinese) return;
+
+  try {
+    const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`);
+    const data = await res.json();
+
+    if (data.exists) {
+      // Remplir les champs automatiquement
+      pinyinInput.value = data.mot.pinyin || "";
+      englishInput.value = data.mot.english || "";
+      messageDiv.textContent = "Mot existant, champs remplis automatiquement";
+      messageDiv.style.color = "green";
+    } else {
+      pinyinInput.value = "";
+      englishInput.value = "";
+      messageDiv.textContent = "Nouveau mot à intégrer dans la base";
+      messageDiv.style.color = "orange";
+    }
+  } catch (err) {
+    messageDiv.textContent = "Erreur lors de la vérification";
+    messageDiv.style.color = "red";
+  }
+});
 // -----------------------------
 // Quiz Setup Form
 // -----------------------------
