@@ -79,23 +79,30 @@ function showList() {
   });
 }
 
-// Toggle view
 function toggleView(view){
   if(view==='list'){
-    listContainer.style.display='block';
-    cardContainer.style.display='none';
+    listContainer.classList.remove('hidden');
+    listContainer.classList.add('visible');
+    
+    cardContainer.classList.remove('visible');
+    cardContainer.classList.add('hidden');
   } else {
-    listContainer.style.display='none';
-    cardContainer.style.display='flex';
+    cardContainer.classList.remove('hidden');
+    cardContainer.classList.add('visible');
+    
+    listContainer.classList.remove('visible');
+    listContainer.classList.add('hidden');
   }
 }
 
+
 // Scroll to list
 cardContainer.addEventListener('wheel', (e)=>{
-  if(Math.abs(e.deltaY)>30){
+  if(Math.abs(e.deltaY) > 30){
     toggleView('list');
   }
 });
+
 
 // Modal
 function openEdit(word){
