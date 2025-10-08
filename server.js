@@ -1,15 +1,16 @@
 const { Pool } = require("pg");
 const path = require("path");
 const express = require("express");
+const passport = require("passport");
+const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 const app = express();
 
-// Servir le dossier "public"
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json());
+app.use(passport.initialize());
 
 // -------------------- Connexion PostgreSQL --------------------
-// Render/Neon utilisent DATABASE_URL avec SSL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
@@ -18,40 +19,91 @@ const pool = new Pool({
 // -------------------- Initialisation --------------------
 (async () => {
   try {
-    // Création de la table si elle n'existe pas
+    // Table mots
     await pool.query(`
       CREATE TABLE IF NOT EXISTS mots (
         id SERIAL PRIMARY KEY,
         chinese TEXT NOT NULL,
         english TEXT NOT NULL,
         pinyin TEXT,
-        description TEXT
+        description TEXT,
+        hsk TEXT
       )
     `);
-    console.log("✅ Table 'mots' vérifiée ou créée.");
+
+    // Table users
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        name TEXT,
+        provider TEXT NOT NULL,
+        provider_id TEXT UNIQUE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    console.log("✅ Tables 'mots' et 'users' vérifiées ou créées.");
 
     // Ajouter quelques mots initiaux si table vide
     const countRes = await pool.query("SELECT COUNT(*) FROM mots");
     if (parseInt(countRes.rows[0].count) === 0) {
       await pool.query(`
-        INSERT INTO mots (chinese, pinyin, english, description) VALUES
-          ('你好', 'ni hao', 'hello', 'greeting'),
-          ('谢谢', 'xie xie', 'thank you', 'thanks expression'),
-          ('再见', 'zai jian', 'goodbye', 'farewell')
+        INSERT INTO mots (chinese, pinyin, english, description, hsk) VALUES
+          ('你好', 'nǐ hǎo', 'hello', 'greeting', '1'),
+          ('谢谢', 'xiè xie', 'thank you', 'thanks expression', '1'),
+          ('再见', 'zài jiàn', 'goodbye', 'farewell', '1')
       `);
       console.log("✅ Quelques mots ont été ajoutés à la table.");
     }
 
-    // Test de connexion
     const res = await pool.query('SELECT NOW()');
     console.log('✅ Connection OK ! Current time:', res.rows[0].now);
-
   } catch (err) {
     console.error("❌ Erreur lors de l'initialisation :", err);
   }
 })();
 
-// -------------------- Routes --------------------
+// -------------------- Authentification Google --------------------
+passport.use(new GoogleStrategy(
+  {
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "/auth/google/callback",
+  },
+  async function (accessToken, refreshToken, profile, done) {
+    try {
+      const { id, displayName, emails } = profile;
+      const email = emails[0].value;
+
+      const userRes = await pool.query("SELECT * FROM users WHERE provider_id = $1", [id]);
+
+      if (userRes.rows.length === 0) {
+        await pool.query(
+          "INSERT INTO users (email, name, provider, provider_id) VALUES ($1, $2, $3, $4)",
+          [email, displayName, "google", id]
+        );
+        console.log(`👤 Nouvel utilisateur créé : ${email}`);
+      }
+
+      done(null, { id, email, displayName });
+    } catch (error) {
+      done(error, null);
+    }
+  }
+));
+
+app.get("/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+
+app.get(
+  "/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: "/" }),
+  (req, res) => {
+    res.redirect("/dashboard");
+  }
+);
+
+// -------------------- Routes API --------------------
 
 // Récupérer un mot aléatoire
 app.get("/mot", async (req, res) => {
@@ -78,15 +130,15 @@ app.post("/verifier", async (req, res) => {
 
 // Ajouter un mot
 app.post("/ajouter", async (req, res) => {
-  const { chinese, pinyin, english, description } = req.body;
+  const { chinese, pinyin, english, description, hsk } = req.body;
   try {
     const { rows } = await pool.query("SELECT * FROM mots WHERE chinese = $1", [chinese]);
     if (rows.length > 0)
-      return res.json({ success: false, message: "Ce caractère chinois existe déjà !" });
+      return res.json({ success: false, message: "Ce mot existe déjà !" });
 
     await pool.query(
-      "INSERT INTO mots (chinese, pinyin, english, description) VALUES ($1, $2, $3, $4)",
-      [chinese, pinyin, english, description]
+      "INSERT INTO mots (chinese, pinyin, english, description, hsk) VALUES ($1, $2, $3, $4, $5)",
+      [chinese, pinyin, english, description, hsk]
     );
     res.json({ success: true });
   } catch (err) {
@@ -97,7 +149,7 @@ app.post("/ajouter", async (req, res) => {
 // Lister tous les mots
 app.get("/liste", async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM mots");
+    const { rows } = await pool.query("SELECT * FROM mots ORDER BY id ASC");
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -107,11 +159,11 @@ app.get("/liste", async (req, res) => {
 // Corriger un mot
 app.put("/update/:id", async (req, res) => {
   const { id } = req.params;
-  const { chinese, pinyin, english, description } = req.body;
+  const { chinese, pinyin, english, description, hsk } = req.body;
   try {
     await pool.query(
-      "UPDATE mots SET chinese=$1, pinyin=$2, english=$3, description=$4 WHERE id=$5",
-      [chinese, pinyin, english, description, id]
+      "UPDATE mots SET chinese=$1, pinyin=$2, english=$3, description=$4, hsk=$5 WHERE id=$6",
+      [chinese, pinyin, english, description, hsk, id]
     );
     res.json({ success: true });
   } catch (err) {
