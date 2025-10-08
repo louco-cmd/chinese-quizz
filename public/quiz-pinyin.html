@@ -133,27 +133,25 @@ function showQuizWord() {
   quizInputs[0].focus();
 }
 
-// Fonction utilitaire pour supprimer les accents
-function removeAccents(str) {
+// Fonction utilitaire pour supprimer accents et mettre en minuscules
+function normalizePinyin(str) {
   return str
-    .normalize("NFD")               // décompose (é → e +  ́)
-    .replace(/[\u0300-\u036f]/g, "") // enlève les diacritiques
+    .normalize("NFD")                // décompose les lettres accentuées
+    .replace(/[\u0300-\u036f]/g, "") // supprime les diacritiques
+    .replace(/\s+/g, "")             // supprime tous les espaces
     .toLowerCase()
     .trim();
 }
-
 
 // Vérification
 quizForm.onsubmit = (e) => {
   e.preventDefault();
 
-  const userAnswer = removeAccents(
-    quizInputs.map(inp => inp.value).join("").replace(/\s+/g, "")
+  const userAnswer = normalizePinyin(
+    quizInputs.map(inp => inp.value).join("")
   );
 
-  const correctAnswer = removeAccents(
-    quizWords[quizIdx].pinyin.replace(/\s+/g, "")
-  );
+  const correctAnswer = normalizePinyin(quizWords[quizIdx].pinyin);
 
   if (userAnswer === correctAnswer) {
     quizResult.textContent = "✅ Correct!";
@@ -169,6 +167,7 @@ quizForm.onsubmit = (e) => {
   quizIdx++;
   setTimeout(showQuizWord, 2000);
 };
+
 
 // Annuler le quiz
 cancelQuiz.onclick = () => {
