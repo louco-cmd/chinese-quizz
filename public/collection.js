@@ -1,4 +1,5 @@
 let words=[], idx=0;
+let touchStartY = 0;
 const cardContainer=document.getElementById('card-container');
 const prevBtn=document.getElementById('prevBtn');
 const nextBtn=document.getElementById('nextBtn');
@@ -35,7 +36,7 @@ function createCardElement(word) {
   card.innerHTML = `
     <div class="card bg-dark text-center text-white mt-3 p-4 pb-0 card-body d-flex flex-column justify-content-between" style="height:500px;">
       <div>
-        <h2 class="card-title display-5" style="font-size:60px;">${word.chinese}</h2>
+        <h2 class="card-title display-5" style="font-size:80px; margin-bottom:20px;">${word.chinese}</h2>
         <p class="card-text">Pinyin : ${word.pinyin || ''}</p>
         <p class="card-text">English : ${word.english || ''}</p>
         <p class="card-text" style="color: rgba(255,255,255,0.6);">${word.description || ''}</p>
@@ -83,16 +84,34 @@ function toggleView(view){
   if(view==='list'){
     listContainer.classList.remove('hidden'); listContainer.classList.add('visible');
     cardContainer.classList.remove('visible'); cardContainer.classList.add('hidden');
+    prevBtn.style.display = 'none';
+    nextBtn.style.display = 'none';
   } else {
     cardContainer.classList.remove('hidden'); cardContainer.classList.add('visible');
     listContainer.classList.remove('visible'); listContainer.classList.add('hidden');
+    prevBtn.style.display = 'inline-block';
+    nextBtn.style.display = 'inline-block';
   }
 }
+
 
 // Scroll pour passer de carte à liste
 window.addEventListener('wheel', (e)=>{
   if(e.deltaY > 30 && cardContainer.classList.contains('visible')) toggleView('list');
   else if(e.deltaY < -30 && listContainer.classList.contains('visible')) toggleView('card');
+});
+
+
+cardContainer.addEventListener('touchstart', e => {
+  touchStartY = e.touches[0].clientY;
+});
+
+cardContainer.addEventListener('touchend', e => {
+  const touchEndY = e.changedTouches[0].clientY;
+  const deltaY = touchEndY - touchStartY;
+  if(Math.abs(deltaY) > 30){ // seuil de swipe
+    toggleView('list');
+  }
 });
 
 // Modal
