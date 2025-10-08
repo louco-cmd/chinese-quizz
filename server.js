@@ -14,9 +14,13 @@ app.use(express.static(path.join(__dirname, "public"))); // pages HTML statiques
 app.set("view engine", "ejs"); // pages dynamiques
 app.set("views", path.join(__dirname, "views"));
 
-// Session pour Passport
+// -------------------- Connexion PostgreSQL --------------------
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
 
-
+// Session pour Passport (après la création de pool)
 app.use(session({
   store: new pgSession({ pool }),
   secret: "keyboard cat",
@@ -25,12 +29,6 @@ app.use(session({
 }));
 app.use(passport.initialize());
 app.use(passport.session());
-
-// -------------------- Connexion PostgreSQL --------------------
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
 
 // -------------------- Initialisation --------------------
 (async () => {
