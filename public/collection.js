@@ -33,7 +33,7 @@ function createCardElement(word) {
   card.style.width = '18rem';
   card.style.zIndex = 1;
   card.innerHTML = `
-    <div class="card bg-dark text-center text-white mt-3 p-4 pb-0 card-body d-flex flex-column justify-content-between" style="height:300px;">
+    <div class="card bg-dark text-center text-white mt-3 p-4 pb-0 card-body d-flex flex-column justify-content-between" style="height:500px;">
       <div>
         <h2 class="card-title display-5" style="font-size:60px;">${word.chinese}</h2>
         <p class="card-text">Pinyin : ${word.pinyin || ''}</p>
