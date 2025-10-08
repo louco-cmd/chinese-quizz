@@ -2,7 +2,8 @@ const { Pool } = require("pg");
 const path = require("path");
 const express = require("express");
 const passport = require("passport");
-const session = require("express-session");
+const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 const app = express();
@@ -14,7 +15,14 @@ app.set("view engine", "ejs"); // pages dynamiques
 app.set("views", path.join(__dirname, "views"));
 
 // Session pour Passport
-app.use(session({ secret: "keyboard cat", resave: false, saveUninitialized: false }));
+
+
+app.use(session({
+  store: new pgSession({ pool }),
+  secret: "keyboard cat",
+  resave: false,
+  saveUninitialized: false
+}));
 app.use(passport.initialize());
 app.use(passport.session());
 
