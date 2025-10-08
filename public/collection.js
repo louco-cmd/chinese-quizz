@@ -28,6 +28,16 @@ async function loadWords(){
   showList();
 }
 
+// scroll control
+cardContainer.addEventListener('wheel', (e) => {
+  const canScroll = cardContainer.scrollHeight > cardContainer.clientHeight;
+  
+  // Si la carte tient dans le conteneur, on autorise le toggle
+  if(!canScroll && Math.abs(e.deltaY) > 30){
+    toggleView('list');
+  }
+});
+
 // Card creation
 function createCardElement(word) {
   const card = document.createElement('div');
