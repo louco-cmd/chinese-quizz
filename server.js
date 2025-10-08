@@ -61,6 +61,12 @@ app.use(passport.session());
   }
 })();
 
+// -------------------- Protection --------------------
+function ensureAuth(req, res, next) {
+  if (req.isAuthenticated()) return next();
+  res.status(401).json({ error: "Non authentifié" });
+}
+
 // -------------------- Passport Google --------------------
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
@@ -111,10 +117,20 @@ app.get("/auth/google/callback",
 );
 
 // API mots
-app.get("/mot", async (req, res) => {
+app.get("/mes-mots", ensureAuth, async (req, res) => {
+  const userId = req.user.id;
+
   try {
-    const { rows } = await pool.query("SELECT * FROM mots ORDER BY RANDOM() LIMIT 1");
-    res.json(rows[0]);
+    const { rows } = await pool.query(`
+      SELECT mots.*
+      FROM mots
+      JOIN user_mots ON mots.id = user_mots.mot_id
+      WHERE user_mots.user_id = $1
+      ORDER BY mots.id ASC
+    `, [userId]);
+
+    res.json(rows);
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -132,21 +148,50 @@ app.post("/verifier", async (req, res) => {
   }
 });
 
-app.post("/ajouter", async (req, res) => {
+app.post("/ajouter", ensureAuth , async (req, res) => {
   const { chinese, pinyin, english, description, hsk } = req.body;
-  try {
-    const { rows } = await pool.query("SELECT * FROM mots WHERE chinese=$1", [chinese]);
-    if (rows.length > 0) return res.json({ success: false, message: "Mot déjà existant" });
+  const userId = req.user.id; // récupère l'utilisateur connecté
 
-    await pool.query(
-      "INSERT INTO mots (chinese,pinyin,english,description,hsk) VALUES ($1,$2,$3,$4,$5)",
-      [chinese,pinyin,english,description,hsk]
+  try {
+    // 1. Vérifier si le mot existe déjà dans la table mots
+    let { rows } = await pool.query("SELECT * FROM mots WHERE chinese=$1", [chinese]);
+    let motId;
+
+    if (rows.length > 0) {
+      // Le mot existe déjà
+      motId = rows[0].id;
+    } else {
+      // Créer le mot
+      const insertRes = await pool.query(
+        "INSERT INTO mots (chinese,pinyin,english,description,hsk) VALUES ($1,$2,$3,$4,$5) RETURNING id",
+        [chinese, pinyin, english, description, hsk]
+      );
+      motId = insertRes.rows[0].id;
+    }
+
+    // 2. Vérifier si le mot est déjà lié à l'utilisateur
+    const { rows: userMotRows } = await pool.query(
+      "SELECT * FROM user_mots WHERE user_id=$1 AND mot_id=$2",
+      [userId, motId]
     );
-    res.json({ success: true });
+
+    if (userMotRows.length > 0) {
+      return res.json({ success: false, message: "Mot déjà dans votre liste" });
+    }
+
+    // 3. Ajouter le lien utilisateur ↔ mot
+    await pool.query(
+      "INSERT INTO user_mots (user_id, mot_id) VALUES ($1,$2)",
+      [userId, motId]
+    );
+
+    res.json({ success: true, motId });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 app.get("/liste", async (req, res) => {
   try {
