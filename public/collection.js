@@ -41,7 +41,7 @@ cardContainer.addEventListener('wheel', (e) => {
 // Card creation
 function createCardElement(word) {
   const card = document.createElement('div');
-  card.style.width = '18rem';
+  card.style.width = '20rem';
   card.style.zIndex = 1;
   card.innerHTML = `
     <div class="card bg-dark text-center text-white mt-3 p-4 pb-0 card-body d-flex flex-column justify-content-between" style="height:500px;">
