@@ -15,7 +15,7 @@ const editEnglish=document.getElementById('editEnglish');
 const editDescription=document.getElementById('editDescription');
 
 async function loadWords(){
-  const res=await fetch('/liste'); words=await res.json();
+  const res=await fetch('/mes-mots'); words=await res.json();
   if(!words.length){container.innerHTML='<p>No words yet.</p>'; return;}
   idx=0; showCard();
 }
