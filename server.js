@@ -248,6 +248,26 @@ app.get('/quiz-mots', ensureAuth, async (req, res) => {
   }
 });
 
+app.get('/account-info', async (req, res) => {
+  const userId = req.session.userId; // ou autre méthode d’identification
+  const user = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
+  const words = await db.query('SELECT * FROM mots WHERE user_id = $1', [userId]);
+
+  // calcul des stats HSK
+  const stats = { HSK1:0, HSK2:0, HSK3:0, Street:0 };
+  words.rows.forEach(w => {
+    if (w.hsk) stats[`HSK${w.hsk}`]++;
+    else stats.Street++;
+  });
+
+  res.json({
+    name: user.rows[0].name,
+    photo: user.rows[0].photo,
+    wordCount: words.rows.length,
+    stats
+  });
+});
+
 
 // -------------------- Lancer serveur --------------------
 const PORT = process.env.PORT || 3000;
