@@ -8,19 +8,19 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
 const app = express();
 
-// -------------------- Configuration --------------------
-app.use(express.json());
-app.use(express.static(path.join(__dirname, "public"))); // pages HTML statiques
-app.set("view engine", "ejs"); // pages dynamiques
-app.set("views", path.join(__dirname, "views"));
-
 // -------------------- Connexion PostgreSQL --------------------
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
 
-// Session pour Passport (après la création de pool)
+// -------------------- Configuration Express --------------------
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+
+// -------------------- Session PostgreSQL --------------------
 app.use(session({
   store: new pgSession({ pool }),
   secret: "keyboard cat",
@@ -30,7 +30,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// -------------------- Initialisation --------------------
+// -------------------- Initialisation des tables --------------------
 (async () => {
   try {
     await pool.query(`
@@ -56,7 +56,6 @@ app.use(passport.session());
     `);
 
     console.log("✅ Tables 'mots' et 'users' vérifiées ou créées.");
-
   } catch (err) {
     console.error("❌ Erreur lors de l'initialisation :", err);
   }
@@ -88,11 +87,20 @@ passport.use(new GoogleStrategy({
   }
 ));
 
+// -------------------- Serialize / Deserialize --------------------
 passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((user, done) => done(null, user));
+
+passport.deserializeUser(async (user, done) => {
+  try {
+    const res = await pool.query("SELECT * FROM users WHERE provider_id=$1", [user.id]);
+    if (res.rows.length === 0) return done(null, false); // utilisateur supprimé
+    done(null, res.rows[0]);
+  } catch (err) {
+    done(err, null);
+  }
+});
 
 // -------------------- Routes --------------------
-// Page d'accueil
 app.get("/", (req, res) => res.render("index", { user: req.user }));
 
 // Auth Google
