@@ -230,6 +230,25 @@ app.get("/check-mot/:chinese", async (req, res) => {
   }
 });
 
+app.get('/quiz-mots', ensureAuth, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT mots.*
+      FROM mots
+      JOIN user_mots ON mots.id = user_mots.mot_id
+      WHERE user_mots.user_id = $1
+      ORDER BY RANDOM()
+    `, [userId]);
+
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // -------------------- Lancer serveur --------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));

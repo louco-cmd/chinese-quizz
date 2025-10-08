@@ -77,18 +77,22 @@ function shuffleArray(arr) {
 
 // Charger les mots et limiter leur nombre
 async function loadQuizWords(count = 10) {
-  const res = await fetch('/liste');
-  let allWords = await res.json();
-  if (!allWords.length) {
-    quizQuestion.textContent = 'No words available.';
+  const res = await fetch('/quiz-mots');
+  const mots = await res.json();
+
+  if (!mots.length) {
+    quizQuestion.textContent = '⚠️ Aucun mot disponible. Ajoutez des mots pour lancer le quiz.';
     checkBtn.style.display = 'none';
     return;
   }
 
-  shuffleArray(allWords);
+  shuffleArray(mots);
 
-  quizWords = count === 'all' ? allWords : allWords.slice(0, count);
+  // Si count est "all" ou supérieur au nombre de mots, utiliser tous les mots
+  quizWords = (count === 'all' || count >= mots.length) ? mots : mots.slice(0, count);
+
   quizIdx = 0;
+  checkBtn.style.display = 'inline-block'; // au cas où il était masqué
   showQuizWord();
 }
 
