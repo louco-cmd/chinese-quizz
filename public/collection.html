@@ -55,9 +55,16 @@
   <div id="card-container" class="d-flex justify-content-center visible mb-3 position-relative"></div>
 
   <div id="list-container" class="container mt-4 hidden">
+    <div class="mb-3" style="max-width: 400px;">
+      <input type="text" id="searchInput" class="form-control" placeholder="Looking for a word...">
+    </div>
     <table class="table table-striped">
       <thead>
-        <tr><th>Chinese</th><th>Pinyin</th><th>English</th></tr>
+        <tr>
+          <th>Chinese</th>
+          <th>Pinyin</th>
+          <th>English</th>
+        </tr>
       </thead>
       <tbody id="listBody"></tbody>
     </table>

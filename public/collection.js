@@ -5,6 +5,7 @@ const prevBtn=document.getElementById('prevBtn');
 const nextBtn=document.getElementById('nextBtn');
 const listContainer=document.getElementById('list-container');
 const listBody=document.getElementById('listBody');
+const searchInput = document.getElementById('searchInput');
 
 // modal
 const editModal=document.getElementById('editModal');
@@ -157,5 +158,14 @@ editForm.onsubmit = async (e)=>{
   const bsModal = bootstrap.Modal.getInstance(editModal);
   if(bsModal) bsModal.hide();
 };
+
+//search a specific word in list
+searchInput.addEventListener('input', () => {
+  const query = searchInput.value.toLowerCase();
+  document.querySelectorAll('#listBody tr').forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = text.includes(query) ? '' : 'none';
+  });
+});
 
 loadWords();
