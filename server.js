@@ -216,6 +216,20 @@ app.put("/update/:id", async (req, res) => {
   }
 });
 
+app.get("/check-mot/:chinese", async (req, res) => {
+  const { chinese } = req.params;
+  try {
+    const { rows } = await pool.query("SELECT * FROM mots WHERE chinese=$1", [chinese]);
+    if (rows.length > 0) {
+      res.json({ exists: true, mot: rows[0] });
+    } else {
+      res.json({ exists: false });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // -------------------- Lancer serveur --------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
