@@ -9,7 +9,7 @@
 <body>
   <nav class="navbar navbar-expand-lg bg-primary navbar-dark">
     <div class="container-fluid d-flex justify-content-between">
-      <h1 class="navbar-brand text-white fw-bold" onclick="window.location='dashboard.html'"> 加油！</h1>
+      <h1 class="navbar-brand text-white fw-bold cursor-pointer" onclick="window.location='dashboard.html'"> 加油！</h1>
       <div class="d-flex">
         <button class="btn btn-outline-light" onclick="window.location='dashboard.html'">Back to home</button>
       </div>
@@ -55,7 +55,7 @@ const hskStatsElement = document.getElementById('hskStats'); // Renommé
 async function loadUserData() {
   // 1. Charger les données utilisateur
   try {
-    const resUser = await fetch('/api/user');
+    const resUser = await fetch('/account-info');
     
     // Vérification de la réponse HTTP (meilleure pratique)
     if (!resUser.ok) {

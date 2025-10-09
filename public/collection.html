@@ -8,21 +8,27 @@
 <style>
   #card-container,
   #list-container {
-    transition: all 0.5s ease;
+    transition: opacity 0.5s ease, transform 0.5s ease, max-height 0.5s ease-in-out;
   }
 
   .hidden {
     opacity: 0;
     transform: translateY(50px);
     pointer-events: none;
-    height: 0;
+    /* Correction Clé 1 : Utilisation de max-height et overflow */
+    max-height: 0;
+    overflow: hidden;
+    /* La visibilité permet d'assurer que l'élément est complètement ignoré */
+    visibility: hidden;
   }
 
   .visible {
     opacity: 1;
     transform: translateY(0);
     pointer-events: all;
-    height: auto;
+    /* Correction Clé 2 : Une grande valeur fixe pour la transition */
+    max-height: 2000px; /* Doit être plus grand que le contenu de la liste/carte */
+    visibility: visible;
   }
 
   #listBody tr {
@@ -33,51 +39,58 @@
   #listBody tr:hover {
     background-color: rgba(0, 123, 255, 0.1); /* light blue effect */
   }
-  html, body {
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* La couleur de fond de la carte */
+  .card-custom-bg {
+    background-color: #f7fcf7; /* Très clair */
+    border: 1px solid #c8e6c9;
+  }
+
+  /* Classe pour le pinyin en grande taille */
+  .fs-pinyin {
+    font-size: 2.25rem; /* 36px */
+  }
+
+ .fs-chinese {
+    font-size: 6.25rem; /* 100px */
+    line-height: 1.2;
 }
 
+  /* Nouvelle classe pour les caractères chinois plus petits (4+ caractères) */
+  .fs-chinese-small {
+      font-size: 5.25rem; /* 84px */ /* Ajusté à votre demande */
+      line-height: 1.2;
+  }
 
-        /* La couleur de fond de la carte */
-        .card-custom-bg {
-            background-color: #f7fcf7; /* Très clair */
-            border: 1px solid #c8e6c9; 
-        }
 
-        /* Classe pour le pinyin en grande taille */
-        .fs-pinyin {
-            font-size: 2.25rem; /* 36px */
-        }
-        
-        /* Classe pour le caractère chinois en très grande taille */
-        .fs-chinese {
-            font-size: 6.25rem; /* 100px */
-            line-height: 1.2;
-        }
+  /* Étiquette HSK verte */
+  .hsk-tag-custom {
+    background-color: white;
+    color: #4CAF50; /* Vert spécifique pour le texte */
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-radius: 0.25rem; /* Bootstrap small radius */
+  }
 
-        /* Étiquette HSK verte */
-        .hsk-tag-custom {
-            background-color: white; 
-            color: #4CAF50; /* Vert spécifique pour le texte */
-            font-weight: bold;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            border-radius: .25rem; /* Bootstrap small radius */
-        }
-
-        /* Texte secondaire / Note de contexte */
-        .text-context {
-            color: #999;
-            font-size: 0.875rem; /* 14px */
-        }
-    </style>
+  /* Texte secondaire / Note de contexte */
+  .text-context {
+    color: #999;
+    font-size: 0.875rem; /* 14px */
+  }
+</style>
 </head>
 <body>
 
 <nav class="navbar navbar-expand-lg bg-primary navbar-dark">
   <div class="container-fluid d-flex justify-content-between">
-    <a class="navbar-brand text-white fw-bold" onclick="window.location='dashboard.html'">加油！</a>
+    <a class="navbar-brand text-white cursor-pointer fw-bold" onclick="window.location='dashboard.html'">加油！</a>
     <div class="d-flex">
       <button id="collectionBtn" class="btn btn-outline-light w-auto" onclick="window.location='dashboard.html'">Back to home</button>
     </div>
@@ -133,6 +146,229 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="collection.js"></script>
+<script>
+
+  let words=[], idx=0;
+let touchStartY = 0;
+const cardContainer=document.getElementById('card-container');
+const prevBtn=document.getElementById('prevBtn');
+const nextBtn=document.getElementById('nextBtn');
+const listContainer=document.getElementById('list-container');
+const listBody=document.getElementById('listBody');
+const searchInput = document.getElementById('searchInput');
+
+// modal
+const editModal=document.getElementById('editModal');
+const editForm=document.getElementById('editForm');
+const editId=document.getElementById('editId');
+const editChinese=document.getElementById('editChinese');
+const editPinyin=document.getElementById('editPinyin');
+const editEnglish=document.getElementById('editEnglish');
+const editDescription=document.getElementById('editDescription');
+
+// Load words
+async function loadWords(){
+  const res=await fetch('/mes-mots'); 
+  words=await res.json();
+  if(!words.length){
+    cardContainer.innerHTML='<p>No words yet.</p>';
+    return;
+  }
+  idx=0; 
+  showCard();
+  showList();
+}
+
+// scroll control
+cardContainer.addEventListener('wheel', (e) => {
+  const canScroll = cardContainer.scrollHeight > cardContainer.clientHeight;
+  
+  // Si la carte tient dans le conteneur, on autorise le toggle
+  if(!canScroll && Math.abs(e.deltaY) > 30){
+    toggleView('list');
+  }
+});
+
+// Card creation
+function createCardElement(word) {
+  const card = document.createElement('div');
+  card.classList.add('col', 'mb-4'); 
+  
+  // Détermine le niveau HSK à afficher
+  const hskLevelDisplay = word.hsk || 'Street';
+
+  // LOGIQUE CLÉ : Choisir la classe de taille de police en fonction de la longueur du mot chinois
+  const chineseFontSizeClass = (word.chinese && word.chinese.length >= 3) ? 'fs-chinese-small' : 'fs-chinese';
+  // Correction: Si 3 caractères ou PLUS, on passe en petit. Si 2 ou moins, on garde le grand.
+
+  card.innerHTML = `
+    <div class="card card-custom-bg rounded-4 shadow-lg p-3 mx-auto" style="width: 320px; height: 500px; position: relative;">
+
+        <div class="position-absolute top-0 end-0 mt-3 me-3">
+            <span class="hsk-tag-custom py-1 px-2 border border-light">HSK : ${hskLevelDisplay}</span>
+        </div>
+
+        <div class="bg-white border rounded-3 p-4 mb-3 mt-3 flex-grow-0">
+            <div class="text-dark text-center ${chineseFontSizeClass}">${word.chinese}</div>
+        </div>
+
+        <div class="flex-grow-1 d-flex flex-column justify-content-between">
+            <div>
+                <div class="fs-pinyin fw-bold text-dark mb-1">${word.pinyin || ''}</div>
+
+                <div class="fs-5 text-success mb-3">
+                    ${word.english || 'No Translation'}
+                </div>
+
+                <div class="pt-3 border-top border-light-subtle">
+                    <div class="text-context">
+                        ${word.description || 'No description provided.'}
+                    </div>
+                </div>
+            </div>
+
+            <a href="#" class="btn btn-link text-success edit-btn mt-auto">✏️ Edit</a>
+        </div>
+        
+    </div>
+  `;
+  
+  card.querySelector('.edit-btn').onclick = () => openEdit(word);
+  return card;
+}
+
+function showCard() {
+  if (!words.length) return;
+  const word = words[idx];
+  if (!word) return;
+  cardContainer.innerHTML = '';
+  const newCard = createCardElement(word);
+  cardContainer.appendChild(newCard);
+}
+
+// Navigation
+prevBtn.onclick = ()=>{ idx=(idx-1+words.length)%words.length; showCard(); toggleView('card'); };
+nextBtn.onclick = ()=>{ idx=(idx+1)%words.length; showCard(); toggleView('card'); };
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft') prevBtn.click();
+  else if(e.key==='ArrowRight') nextBtn.click();
+});
+
+// List view
+function showList() {
+  listBody.innerHTML = '';
+  words.forEach((word,i)=>{
+    const row=document.createElement('tr');
+    row.innerHTML = `<td>${word.chinese}</td><td>${word.pinyin||''}</td><td>${word.english||''}</td>`;
+    row.onclick = ()=>{
+      idx=i;
+      showCard();
+      toggleView('card');
+    };
+    listBody.appendChild(row);
+  });
+}
+
+function toggleView(view){
+  if(view==='list'){
+    // Afficher la liste
+    listContainer.classList.remove('hidden'); 
+    listContainer.classList.add('visible');
+    
+    // Cacher la carte
+    cardContainer.classList.remove('visible'); 
+    cardContainer.classList.add('hidden');
+    
+    // Cacher les boutons de navigation
+    prevBtn.style.display = 'none';
+    nextBtn.style.display = 'none';
+    
+    // OPTIMISATION: Scroller au début de la liste
+    window.scrollTo({ top: listContainer.offsetTop, behavior: 'smooth' });
+
+  } else {
+    // Afficher la carte
+    cardContainer.classList.remove('hidden'); 
+    cardContainer.classList.add('visible');
+    
+    // Cacher la liste
+    listContainer.classList.remove('visible'); 
+    listContainer.classList.add('hidden');
+    
+    // Afficher les boutons de navigation
+    prevBtn.style.display = 'inline-block';
+    nextBtn.style.display = 'inline-block';
+    
+    // OPTIMISATION: Scroller au début de la carte
+    window.scrollTo({ top: cardContainer.offsetTop, behavior: 'smooth' });
+  }
+}
+
+
+// Scroll pour passer de carte à liste
+window.addEventListener('wheel', (e)=>{
+  if(e.deltaY > 30 && cardContainer.classList.contains('visible')) toggleView('list');
+  else if(e.deltaY < -30 && listContainer.classList.contains('visible')) toggleView('card');
+});
+
+
+cardContainer.addEventListener('touchstart', e => {
+  touchStartY = e.touches[0].clientY;
+});
+
+cardContainer.addEventListener('touchend', e => {
+  const touchEndY = e.changedTouches[0].clientY;
+  const deltaY = touchEndY - touchStartY;
+  if(Math.abs(deltaY) > 30){ // seuil de swipe
+    toggleView('list');
+  }
+});
+
+// Modal
+function openEdit(word){
+  editId.value = word.id;
+  editChinese.value = word.chinese;
+  editPinyin.value = word.pinyin||'';
+  editEnglish.value = word.english||'';
+  editDescription.value = word.description||'';
+  const modal = new bootstrap.Modal(editModal);
+  modal.show();
+}
+
+// Edit submit
+editForm.onsubmit = async (e)=>{
+  e.preventDefault();
+  const payload={
+    chinese: editChinese.value,
+    pinyin: editPinyin.value,
+    english: editEnglish.value,
+    description: editDescription.value
+  };
+  try{
+    await fetch(`/update/${editId.value}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    words[idx]={...words[idx], ...payload};
+    showCard();
+    showList();
+  }catch(err){alert("Update failed");}
+  const bsModal = bootstrap.Modal.getInstance(editModal);
+  if(bsModal) bsModal.hide();
+};
+
+//search a specific word in list
+searchInput.addEventListener('input', () => {
+  const query = searchInput.value.toLowerCase();
+  document.querySelectorAll('#listBody tr').forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = text.includes(query) ? '' : 'none';
+  });
+});
+
+loadWords();
+
+</script>
 </body>
 </html>
