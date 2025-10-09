@@ -44,17 +44,37 @@ function createCardElement(word) {
   const card = document.createElement('div');
   card.style.width = '20rem';
   card.style.zIndex = 1;
-  card.innerHTML = `
-    <div class="card bg-dark text-center text-white mt-3 p-4 pb-0 card-body d-flex flex-column justify-content-between" style="height:500px;">
-      <div>
-        <h2 class="card-title display-5" style="font-size:80px; margin-bottom:20px;">${word.chinese}</h2>
-        <p class="card-text">Pinyin : ${word.pinyin || ''}</p>
-        <p class="card-text">English : ${word.english || ''}</p>
-        <p class="card-text" style="color: rgba(255,255,255,0.6);">${word.description || ''}</p>
-      </div>
-      <a href="#" class="btn btn-link text-white edit-btn">✏️ Edit</a>
-    </div>
-  `;
+     card.innerHTML = `
+        <div class="card card-custom-bg rounded-4 shadow-lg p-3 mx-auto" style="width: 340px; height: 500px; position: relative;">
+
+            <div class="position-absolute top-0 end-0 mt-3 me-3">
+                <span class="hsk-tag-custom py-1 px-2 border border-light">HSK : ${word.hsk || 'Street'}</span>
+            </div>
+
+            <div class="bg-white border rounded-3 p-4 pt-5 mb-3 mt-3 flex-grow-0">
+                <div class="fs-chinese text-dark text-center">${word.chinese}</div>
+            </div>
+
+            <div class="flex-grow-1 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="fs-pinyin fw-bold text-dark mb-1">${word.pinyin || ''}</div>
+
+                    <div class="fs-5 text-success mb-3">
+                        ${word.english || 'No Translation'}
+                    </div>
+
+                    <div class="pt-3 border-top border-light-subtle">
+                        <div class="text-context">
+                            ${word.description || 'No description provided.'}
+                        </div>
+                    </div>
+                </div>
+
+                <a href="#" class="btn btn-link text-success edit-btn mt-auto">✏️ Edit</a>
+            </div>
+            
+        </div>
+    `;
   card.querySelector('.edit-btn').onclick = () => openEdit(word);
   return card;
 }
