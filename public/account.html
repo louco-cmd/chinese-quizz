@@ -5,9 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>加油！my account</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    .text-center {
+      align-items: center;
+    }
+  </style>
 </head>
 <body>
-  <nav class="navbar navbar-expand-lg bg-primary navbar-dark">
+  <nav class="navbar navbar-expand-lg bg-primary navbar-dark px-2">
     <div class="container-fluid d-flex justify-content-between">
       <h1 class="navbar-brand text-white fw-bold cursor-pointer" onclick="window.location='dashboard.html'"> 加油！</h1>
       <div class="d-flex">
@@ -20,13 +26,14 @@
     <div class="row g-4">
 
       <!-- Carte info utilisateur -->
-      <div class="col-12 col-md-4">
-        <div class="card shadow-sm p-3 text-center">
-          <img id="userPhoto" src="" alt="Photo utilisateur" class="rounded-circle mb-3" style="width:120px;height:120px;object-fit:cover;">
-          <h3 id="userName"></h3>
-          <p id="wordCount" class="mb-0"></p>
-        </div>
-      </div>
+<div class="col-12 col-md-4">
+    <div class="card shadow-sm p-3 text-center">
+        <div id="userPhotoContainer" class="rounded-circle mb-3 mx-auto bg-light text-primary d-flex justify-content-center align-items-center" style="width:120px;height:120px;border: 1px solid #ccc;">
+             </div>
+        <h3 id="userName"></h3>
+        <p id="wordCount" class="mb-0"></p>
+    </div>
+</div>
 
       <!-- Statistiques -->
       <div class="col-12 col-md-8">
@@ -41,17 +48,16 @@
     </div>
   </section>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 // Récupérer les éléments
-// BONNE PRATIQUE : les noms finissent par 'Element' pour la clarté.
 const userNameElement = document.getElementById('userName'); 
-const userPhotoElement = document.getElementById('userPhoto'); 
+// L'ancienne variable userPhotoElement n'est plus nécessaire
 const wordCountElement = document.getElementById('wordCount'); 
 const hskStatsElement = document.getElementById('hskStats'); 
 
-// URL d'avatar par défaut définie globalement pour la propreté
-const DEFAULT_AVATAR_URL = 'https://i.pravatar.cc/120?img=1'; 
+// Variable pour le conteneur de l'avatar
+const userPhotoContainer = document.getElementById('userPhotoContainer'); 
 
 async function loadUserData() {
   try {
@@ -64,9 +70,10 @@ async function loadUserData() {
     const data = await res.json(); 
     
     // 1. Affichage des infos utilisateur
-    // UTILISATION CORRECTE DES NOMS DE VARIABLES (Element)
     userNameElement.textContent = data.name;
-    userPhotoElement.src = DEFAULT_AVATAR_URL; 
+    
+    // Injecte l'icône de l'utilisateur (bi-person-fill)
+    userPhotoContainer.innerHTML = '<i class="bi bi-person-fill" style="font-size: 60px;"></i>';
     
     // 2. Affichage du nombre de mots
     wordCountElement.textContent = `Nombre de mots : ${data.wordCount}`;
@@ -91,12 +98,11 @@ async function loadUserData() {
 
   } catch (err) {
     console.error('Erreur de chargement des données de compte:', err);
-    // Afficher un message d'erreur clair
     wordCountElement.textContent = 'Erreur de chargement des données.';
   }
 }
 
-// Initialisation (IIFE asynchrone)
+// Initialisation
 (async () => {
     await loadUserData(); 
 })();
