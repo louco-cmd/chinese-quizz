@@ -42,96 +42,64 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-   // Récupérer les éléments
-const userNameElement = document.getElementById('userName'); // Renommé pour éviter le conflit
-const userPhotoElement = document.getElementById('userPhoto'); // Renommé
-const wordCountElement = document.getElementById('wordCount'); // Renommé
-const hskStatsElement = document.getElementById('hskStats'); // Renommé
+<script>
+// Récupérer les éléments
+// BONNE PRATIQUE : les noms finissent par 'Element' pour la clarté.
+const userNameElement = document.getElementById('userName'); 
+const userPhotoElement = document.getElementById('userPhoto'); 
+const wordCountElement = document.getElementById('wordCount'); 
+const hskStatsElement = document.getElementById('hskStats'); 
 
-/**
- * Charge les données utilisateur et les statistiques de mots.
- */
+// URL d'avatar par défaut définie globalement pour la propreté
+const DEFAULT_AVATAR_URL = 'https://i.pravatar.cc/120?img=1'; 
+
 async function loadUserData() {
-  // 1. Charger les données utilisateur
   try {
-    const resUser = await fetch('/account-info');
+    const res = await fetch('/account-info'); 
     
-    // Vérification de la réponse HTTP (meilleure pratique)
-    if (!resUser.ok) {
-        throw new Error(`Erreur HTTP: ${resUser.status}`);
+    if (!res.ok) {
+        throw new Error(`Erreur HTTP: ${res.status}`);
     }
     
-    const user = await resUser.json();
-
-    userNameElement.textContent = user.name || 'Utilisateur inconnu';
-    // Assurez-vous que l'élément a été renommé en JS
-    userPhotoElement.src = user.photoUrl || 'https://via.placeholder.com/120';
-  } catch (err) {
-    console.error('Erreur lors du chargement des données utilisateur:', err);
-    // Si la requête utilisateur échoue, on peut arrêter ici si l'info est vitale.
-    return;
-  }
-
-  // 2. Charger les données des mots et calculer les stats
-  try {
-    const resWords = await fetch('/api/user-words');
+    const data = await res.json(); 
     
-    if (!resWords.ok) {
-        throw new Error(`Erreur HTTP: ${resWords.status}`);
-    }
-
-    const words = await resWords.json();
+    // 1. Affichage des infos utilisateur
+    // UTILISATION CORRECTE DES NOMS DE VARIABLES (Element)
+    userNameElement.textContent = data.name;
+    userPhotoElement.src = DEFAULT_AVATAR_URL; 
     
-    // Affichage du nombre total de mots
-    wordCountElement.textContent = `Nombre de mots : ${words.length}`;
+    // 2. Affichage du nombre de mots
+    wordCountElement.textContent = `Nombre de mots : ${data.wordCount}`;
 
-    // Calcul des Stats HSK
-    const stats = { HSK1: 0, HSK2: 0, HSK3: 0, HSK4: 0, HSK5: 0, HSK6: 0, Street: 0 };
-
-    words.forEach(word => {
-        // Gère les HSK numériques (1 à 6) ou vides/autres ('Street')
-        const hskValue = word.hsk ? `HSK${word.hsk}` : 'Street';
-        
-        // Vérifie si la clé existe dans notre objet stats
-        if(stats.hasOwnProperty(hskValue)) {
-            stats[hskValue]++;
-        } else {
-            // Optionnel : compter aussi les niveaux HSK invalides (ex: HSK7) dans Street
-            stats.Street++;
-        }
-    });
-
-    // Afficher stats
+    // 3. Affichage des Stats HSK
     hskStatsElement.innerHTML = '';
-    for(const level in stats) {
-        const li = document.createElement('li');
-        li.className = 'list-group-item d-flex justify-content-between align-items-center';
-        li.textContent = level;
-
-        const badge = document.createElement('span');
-        // Utilise bg-success ou une autre couleur pour 'Street' pour les différencier
-        const badgeClass = level === 'Street' ? 'bg-success' : 'bg-primary'; 
-        
-        badge.className = `badge ${badgeClass} rounded-pill`;
-        badge.textContent = stats[level];
-        
-        li.appendChild(badge);
-        hskStatsElement.appendChild(li);
+    
+    // Utilisation de data.stats, qui est renvoyé par le serveur
+    for(const level in data.stats) {
+      const li = document.createElement('li');
+      li.className = 'list-group-item d-flex justify-content-between align-items-center';
+      li.textContent = level;
+      
+      const badge = document.createElement('span');
+      const badgeClass = level === 'Street' ? 'bg-success' : 'bg-primary'; 
+      badge.className = `badge ${badgeClass} rounded-pill`;
+      badge.textContent = data.stats[level];
+      
+      li.appendChild(badge);
+      hskStatsElement.appendChild(li);
     }
 
   } catch (err) {
-    console.error('Erreur lors du chargement des mots ou du calcul des stats:', err);
+    console.error('Erreur de chargement des données de compte:', err);
+    // Afficher un message d'erreur clair
     wordCountElement.textContent = 'Erreur de chargement des données.';
   }
 }
 
-// Initialisation (Utilisation d'une IIFE asynchrone pour exécuter la fonction immédiatement)
+// Initialisation (IIFE asynchrone)
 (async () => {
-    // Si le script est à la fin du <body>, les éléments sont déjà là.
     await loadUserData(); 
 })();
-// J'ai enlevé l'écouteur 'DOMContentLoaded' car le script est en fin de <body>.
-  </script>
+</script>
 </body>
 </html>

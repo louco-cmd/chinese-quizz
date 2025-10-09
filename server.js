@@ -248,24 +248,43 @@ app.get('/quiz-mots', ensureAuth, async (req, res) => {
   }
 });
 
-app.get('/account-info', async (req, res) => {
-  const userId = req.session.userId; // ou autre méthode d’identification
-  const user = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
-  const words = await db.query('SELECT * FROM mots WHERE user_id = $1', [userId]);
+// Remplacez votre route app.get('/account-info', ...) par ceci :
+app.get('/account-info', ensureAuth, async (req, res) => {
+  const userId = req.user.id; 
 
-  // calcul des stats HSK
-  const stats = { HSK1:0, HSK2:0, HSK3:0, Street:0 };
-  words.rows.forEach(w => {
-    if (w.hsk) stats[`HSK${w.hsk}`]++;
-    else stats.Street++;
-  });
+  try {
+    // 1. Récupérer les données utilisateur
+    // Nous demandons UNIQUEMENT les colonnes existantes : name et email
+    const userRes = await pool.query('SELECT name, email FROM users WHERE id = $1', [userId]);
+    const user = userRes.rows[0] || {};
+    
+    // 2. Récupérer les mots de l'utilisateur (on n'a besoin que du hsk pour les stats)
+    const wordsRes = await pool.query(`
+      SELECT mots.hsk
+      FROM mots
+      JOIN user_mots ON mots.id = user_mots.mot_id
+      WHERE user_mots.user_id = $1
+    `, [userId]);
+    
+    // Calcul des Stats HSK
+    const stats = { HSK1: 0, HSK2: 0, HSK3: 0, HSK4: 0, HSK5: 0, HSK6: 0, Street: 0 };
+    wordsRes.rows.forEach(w => {
+      const hskKey = w.hsk && stats[`HSK${w.hsk}`] !== undefined ? `HSK${w.hsk}` : 'Street';
+      stats[hskKey]++;
+    });
 
-  res.json({
-    name: user.rows[0].name,
-    photo: user.rows[0].photo,
-    wordCount: words.rows.length,
-    stats
-  });
+    // 3. Renvoyer toutes les données
+    res.json({
+      name: user.name,
+      // Nous ne renvoyons plus photoUrl, le client utilisera un avatar par défaut
+      wordCount: wordsRes.rows.length,
+      stats: stats
+    });
+
+  } catch (err) {
+    console.error("Erreur API /account-info:", err);
+    res.status(500).json({ error: "Erreur serveur lors de la récupération des données" });
+  }
 });
 
 
