@@ -21,49 +21,7 @@
       navigator.serviceWorker.register('/sw.js');
     }
   </script>
-  <style>
-    /* Style des items de navigation */
-    .nav-link {
-        color: #6c757d;
-        text-decoration: none;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        padding: 8px 12px;
-        border-radius: 8px;
-        transition: all 0.2s ease;
-    }
-
-    .nav-link:hover {
-        background-color: #f8f9fa;
-        color: #495057;
-    }
-
-    .nav-link.active {
-        color: #0d6efd;
-        background-color: #e3f2fd;
-    }
-
-    .nav-icon {
-        font-size: 1.25rem;
-    }
-
-    .nav-text {
-        font-size: 0.75rem;
-    }
-
-    /* Désactivé */
-    .nav-link.disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-
-    .nav-link.disabled:hover {
-        background-color: transparent;
-        color: #6c757d;
-    }
-  </style>
+  
 </head>
 <body>
   
@@ -359,6 +317,7 @@ class SimpleNavigation {
         }
     }
 }
+
 // Détection automatique de la page active
 function setActiveNavItem() {
     const path = window.location.pathname;
