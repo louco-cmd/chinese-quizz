@@ -117,6 +117,11 @@ app.get("/", (req, res) => {
   }
 });
 
+app.get("/dashboard", ensureAuth, (req, res) => {
+  res.render("dashboard", { user: req.user });
+});
+
+
 // Auth Google
 app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));
 app.get("/auth/google/callback",
