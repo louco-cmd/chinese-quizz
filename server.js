@@ -121,6 +121,22 @@ app.get("/dashboard", ensureAuth, (req, res) => {
   res.render("dashboard", { user: req.user });
 });
 
+// 🆕 NOUVELLE ROUTE pour chercher dans TOUS les mots
+app.get("/api/tous-les-mots", ensureAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT * FROM mots 
+      ORDER BY id ASC
+    `);
+
+    console.log(`📚 Chargement de ${rows.length} mots depuis la table 'mots'`);
+    res.json(rows);
+
+  } catch (err) {
+    console.error('❌ Erreur /api/tous-les-mots:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Auth Google
 app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));

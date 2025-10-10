@@ -430,58 +430,75 @@ function showCharacterModal(character, originalWord, targetElement) {
   }
 
   async function fetchCharacterData(character) {
-    try {
-      const maintenant = Date.now();
-      if (!cacheMots || (maintenant - dernierFetch) > CACHE_DURATION) {
-        const response = await fetch('/mes-mots');
-        if (!response.ok) {
-          throw new Error(`Erreur API: ${response.status}`);
-        }
-        cacheMots = await response.json();
-        dernierFetch = maintenant;
+  try {
+    const maintenant = Date.now();
+    if (!cacheMots || (maintenant - dernierFetch) > CACHE_DURATION) {
+      console.log('🔄 Chargement de TOUS les mots depuis /api/tous-les-mots...');
+      
+      // 🎯 CHANGE ICI : utilise la nouvelle route
+      const response = await fetch('/api/tous-les-mots');
+      console.log('📡 Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`Erreur API: ${response.status}`);
       }
       
-      // Cherche le CARACTÈRE EXACT dans la base
-      const caractereExact = cacheMots.find(mot => 
-        mot.chinese && mot.chinese === character
-      );
+      cacheMots = await response.json();
+      dernierFetch = maintenant;
       
-      if (!caractereExact) {
-        throw new Error('Caractère seul non trouvé');
+      console.log('📊 Nombre total de mots chargés:', cacheMots.length);
+      console.log('🔍 Exemple de mots:', cacheMots.slice(0, 3).map(m => m.chinese));
+    }
+    
+    console.log('🔎 Recherche du caractère:', character);
+    
+    // 🎯 Recherche dans TOUS les mots
+    const caractereExact = cacheMots.find(mot => {
+      const found = mot.chinese && mot.chinese === character;
+      if (found) {
+        console.log('✅ CARACTÈRE TROUVÉ dans tous les mots:', mot);
       }
-      
-      // Met à jour le modal avec les données du CARACTÈRE
-      if (hoverModal) {
-        hoverModal.innerHTML = `
-          <div class="text-center">
-            <div style="font-size: 24px; margin-bottom: 8px;">${caractereExact.chinese}</div>
-            <div style="color: #e74c3c; font-weight: bold; margin-bottom: 4px;">${caractereExact.pinyin || 'N/A'}</div>
-            <div style="color: #2c3e50; font-size: 13px; margin-bottom: 3px;">
-              ${caractereExact.english || 'Aucune traduction'}
-            </div>
-            ${caractereExact.hsk ? `
-              <div style="font-size: 11px; color: #7f8c8d; border-top: 1px solid #ecf0f1; padding-top: 4px; margin-top: 4px;">
-                HSK ${caractereExact.hsk}
-              </div>
-            ` : ''}
+      return found;
+    });
+    
+    if (!caractereExact) {
+      throw new Error('Caractère seul non trouvé dans la base complète');
+    }
+    
+    // Met à jour le modal
+    if (hoverModal) {
+      hoverModal.innerHTML = `
+        <div class="text-center">
+          <div style="font-size: 24px; margin-bottom: 8px;">${caractereExact.chinese}</div>
+          <div style="color: #e74c3c; font-weight: bold; margin-bottom: 4px;">${caractereExact.pinyin || 'N/A'}</div>
+          <div style="color: #2c3e50; font-size: 13px; margin-bottom: 3px;">
+            ${caractereExact.english || 'Aucune traduction'}
           </div>
-        `;
-      }
-      
-    } catch (error) {
-      if (hoverModal) {
-        hoverModal.innerHTML = `
-          <div class="text-center">
-            <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
-            <div style="color: #95a5a6; font-size: 13px;">Caractère seul non trouvé</div>
-            <div style="font-size: 11px; color: #bdc3c7; margin-top: 4px;">
-              (Pas de traduction individuelle)
+          ${caractereExact.hsk ? `
+            <div style="font-size: 11px; color: #7f8c8d; border-top: 1px solid #ecf0f1; padding-top: 4px; margin-top: 4px;">
+              HSK ${caractereExact.hsk}
             </div>
+          ` : ''}
+        </div>
+      `;
+    }
+    
+  } catch (error) {
+    console.error('❌ Erreur fetchCharacterData:', error);
+    
+    if (hoverModal) {
+      hoverModal.innerHTML = `
+        <div class="text-center">
+          <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
+          <div style="color: #95a5a6; font-size: 13px;">Caractère seul non trouvé</div>
+          <div style="font-size: 11px; color: #bdc3c7; margin-top: 4px;">
+            (Pas dans la base de données)
           </div>
-        `;
-      }
+        </div>
+      `;
     }
   }
+}
 
   function showCard() {
     if (!words.length) return;
