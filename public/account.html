@@ -328,12 +328,12 @@ function setActiveNavItem() {
     });
     
     // Détermine quelle page est active
-    let activePage = 'dashboard'; // par défaut
+    let activePage = 'account.html'; // par défaut
     
     if (currentPath.includes('collection')) {
-        activePage = 'collection';
-    } else if (currentPath.includes('account')) {
-        activePage = 'account';
+        activePage = 'collection.html';
+    } else if (currentPath.includes('dashboard')) {
+        activePage = 'dashboard';
     }
     
     // Ajoute active à l'item correspondant

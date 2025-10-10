@@ -798,10 +798,10 @@ function setActiveNavItem() {
     });
     
     // Détermine quelle page est active
-    let activePage = 'dashboard'; // par défaut
+    let activePage = 'collection.html'; // par défaut
     
-    if (currentPath.includes('collection')) {
-        activePage = 'collection.html';
+    if (currentPath.includes('dashboard')) {
+        activePage = 'dashboard';
     } else if (currentPath.includes('account')) {
         activePage = 'account.html';
     }
