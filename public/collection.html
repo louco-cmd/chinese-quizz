@@ -167,474 +167,368 @@
 <script>
 
   let words=[], idx=0;
-let touchStartY = 0;
-const cardContainer=document.getElementById('card-container');
-const prevBtn=document.getElementById('prevBtn');
-const nextBtn=document.getElementById('nextBtn');
-const listContainer=document.getElementById('list-container');
-const listBody=document.getElementById('listBody');
-const searchInput = document.getElementById('searchInput');
+  let touchStartY = 0;
+  const cardContainer=document.getElementById('card-container');
+  const prevBtn=document.getElementById('prevBtn');
+  const nextBtn=document.getElementById('nextBtn');
+  const listContainer=document.getElementById('list-container');
+  const listBody=document.getElementById('listBody');
+  const searchInput = document.getElementById('searchInput');
 
-// modal
-const editModal=document.getElementById('editModal');
-const editForm=document.getElementById('editForm');
-const editId=document.getElementById('editId');
-const editChinese=document.getElementById('editChinese');
-const editPinyin=document.getElementById('editPinyin');
-const editEnglish=document.getElementById('editEnglish');
-const editDescription=document.getElementById('editDescription');
+  // modal
+  const editModal=document.getElementById('editModal');
+  const editForm=document.getElementById('editForm');
+  const editId=document.getElementById('editId');
+  const editChinese=document.getElementById('editChinese');
+  const editPinyin=document.getElementById('editPinyin');
+  const editEnglish=document.getElementById('editEnglish');
+  const editDescription=document.getElementById('editDescription');
 
-// Load words
-async function loadWords(){
-  const res=await fetch('/mes-mots'); 
-  words=await res.json();
-  if(!words.length){
-    cardContainer.innerHTML='<p>No words yet.</p>';
-    return;
-  }
-  idx=0; 
-  showCard();
-  showList();
-}
+  // 🎯 VARIABLES POUR LE SYSTÈME DE HOVER
+  let hoverModal = null;
+  let cacheMots = null;
+  let dernierFetch = 0;
+  const CACHE_DURATION = 5 * 60 * 1000;
 
-// scroll control
-cardContainer.addEventListener('wheel', (e) => {
-  const canScroll = cardContainer.scrollHeight > cardContainer.clientHeight;
-  
-  // Si la carte tient dans le conteneur, on autorise le toggle
-  if(!canScroll && Math.abs(e.deltaY) > 30){
-    toggleView('list');
-  }
-});
-
-//create card element
-function createCardElement(word) {
-  const card = document.createElement('div');
-  card.classList.add('col', 'mb-4'); 
-  
-  const hskLevelDisplay = word.hsk || 'Street';
-  const chineseFontSizeClass = (word.chinese && word.chinese.length >= 3) ? 'fs-chinese-small' : 'fs-chinese';
-
-  card.innerHTML = `
-    <div class="card card-custom-bg rounded-4 shadow-lg p-3 mx-auto" style="width: 320px; height: 500px; position: relative;">
-
-        <div class="position-absolute top-0 end-0 mt-3 me-3">
-            <span class="hsk-tag-custom py-1 px-2 border border-light">HSK : ${hskLevelDisplay}</span>
-        </div>
-
-        <div class="bg-white border rounded-3 p-4 py-2 mt-3 flex-grow-0">
-            <!-- MODIFICATION : Ajout d'un data-id au lieu d'un id -->
-            <div class="text-dark text-center text-box ${chineseFontSizeClass} chinese-container" data-word-id="${word.id}">
-                ${word.chinese}
-            </div>
-        </div>
-
-        <div class="flex-grow-1 d-flex flex-column justify-content-between">
-            <div>
-                <div class="fs-pinyin fw-bold text-dark mb-1">${word.pinyin || ''}</div>
-                <div class="fs-5 text-success mb-3">${word.english || 'No Translation'}</div>
-                <div class="pt-3 border-top border-light-subtle">
-                    <div class="text-context">${word.description || 'No description provided.'}</div>
-                </div>
-            </div>
-            <a href="#" class="btn btn-link text-success edit-btn mt-auto">✏️ Edit</a>
-        </div>
-    </div>
-  `;
-
-  // Debug : vérifie si l'élément existe
-  const chineseContainer = card.querySelector('.chinese-container');
-  console.log('📦 Container trouvé:', chineseContainer);
-  console.log('🔤 Mot chinois:', word.chinese);
-  console.log('🆔 ID word:', word.id);
-
-  if (chineseContainer && word.chinese) {
-    transformChineseCharacters(word.chinese, chineseContainer);
-  } else {
-    console.error('❌ Container ou mot chinois manquant');
-  }
-
-  card.querySelector('.edit-btn').onclick = () => openEdit(word);
-  return card;
-}
-
-function transformChineseCharacters(chineseWord, container) {
-  console.log('🎯 transformChineseCharacters appelée');
-  console.log('🔤 Mot:', chineseWord);
-  console.log('📦 Container:', container);
-
-  if (!container || !chineseWord) {
-    console.error('❌ Container ou mot manquant');
-    return;
-  }
-
-  const characters = Array.from(chineseWord);
-  console.log('🔡 Caractères détectés:', characters);
-  
-  // 🎯 NOUVEAU : Vérifie si un seul caractère
-  if (characters.length <= 1) {
-    console.log('⏭️ Un seul caractère - fonctionnalité désactivée');
-    // Laisse le texte original, pas de transformation
-    container.textContent = chineseWord;
-    
-    // Style visuel pour indiquer que c'est désactivé
-    container.style.cursor = 'default';
-    container.style.opacity = '1';
-    return;
-  }
-  
-  // Sauvegarde le texte original au cas où
-  const originalText = container.textContent;
-  
-  container.innerHTML = '';
-  
-  characters.forEach((character, index) => {
-    const span = document.createElement('span');
-    span.className = 'chinese-character';
-    span.setAttribute('data-char', character);
-    span.textContent = character;
-    
-    // Style visible
-    span.style.display = 'inline-block';
-    span.style.margin = '0 2px';
-    span.style.cursor = 'pointer';
-    span.style.transition = 'all 0.2s ease';
-    span.style.padding = '2px 4px';
-    span.style.borderRadius = '3px';
-    
-    // Log au hover
-    span.addEventListener('mouseenter', (e) => {
-      console.log('🐭 HOVER sur caractère:', character);
-      handleCharacterHover(e);
-    });
-    
-    span.addEventListener('mouseleave', (e) => {
-      console.log('🚪 LEAVE caractère:', character);
-      handleCharacterLeave(e);
-    });
-    
-    container.appendChild(span);
-  });
-  
-  console.log('✅ Caractères transformés');
-}
-// Gestionnaires simplifiés pour debug
-function handleCharacterHover(event) {
-  console.log('🎯 handleCharacterHover appelé');
-  const character = event.target.getAttribute('data-char');
-  console.log('🔤 Caractère hover:', character);
-  
-  // Test simple sans API d'abord
-  showSimpleModal(character, event.target);
-}
-
-function handleCharacterHover(event) {
-  console.log('🎯 handleCharacterHover appelé');
-  const character = event.target.getAttribute('data-char');
-  console.log('🔤 Caractère hover:', character);
-  
-  showCharacterModal(character, event.target);
-}
-
-function showCharacterModal(character, targetElement) {
-  console.log('🪟 showCharacterModal appelé');
-  
-  if (!hoverModal) {
-    hoverModal = document.createElement('div');
-    hoverModal.className = 'character-modal';
-    hoverModal.style.cssText = `
-      position: fixed;
-      background: white;
-      border: 2px solid #4CAF50; // Vert maintenant que ça marche
-      border-radius: 8px;
-      padding: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      z-index: 10000;
-      max-width: 200px;
-      font-size: 14px;
-      display: none;
-    `;
-    document.body.appendChild(hoverModal);
-    console.log('✅ Modal créé');
-  }
-
-  const rect = targetElement.getBoundingClientRect();
-  hoverModal.style.left = `${rect.left + window.scrollX}px`;
-  hoverModal.style.top = `${rect.bottom + window.scrollY + 5}px`;
-  hoverModal.style.display = 'block';
-  
-  // Message de chargement
-  hoverModal.innerHTML = `
-    <div class="text-center">
-      <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
-      <div style="color: #e74c3c; font-weight: bold;">Chargement...</div>
-    </div>
-  `;
-  
-  console.log('✅ Modal affiché - appel API en cours');
-  
-  // Appel API
-  fetchCharacterData(character);
-}
-
-// Cache pour les mots
-let cacheMots = null;
-let dernierFetch = 0;
-const CACHE_DURATION = 5 * 60 * 1000;
-
-async function fetchCharacterData(character) {
-  console.log('🌐 fetchCharacterData appelé pour:', character);
-  
-  try {
-    // Vérifie le cache
-    const maintenant = Date.now();
-    if (!cacheMots || (maintenant - dernierFetch) > CACHE_DURATION) {
-      console.log('🔄 Chargement des mots depuis API...');
-      
-      const response = await fetch('/mes-mots');
-      console.log('📡 Response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
-      }
-      
-      cacheMots = await response.json();
-      dernierFetch = maintenant;
-      console.log('✅ Mots chargés:', cacheMots.length);
-    } else {
-      console.log('💾 Utilisation du cache');
+  // Load words
+  async function loadWords(){
+    const res=await fetch('/mes-mots'); 
+    words=await res.json();
+    if(!words.length){
+      cardContainer.innerHTML='<p>No words yet.</p>';
+      return;
     }
-    
-    // Cherche le caractère dans les mots
-    console.log('🔍 Recherche du caractère dans', cacheMots.length, 'mots');
-    
-    const motsContenantCaractere = cacheMots.filter(mot => {
-      const contient = mot.chinese && mot.chinese.includes(character);
-      if (contient) {
-        console.log('📖 Mot trouvé:', mot.chinese, '->', mot.english);
-      }
-      return contient;
-    });
-    
-    console.log('🎯 Mots contenant le caractère:', motsContenantCaractere.length);
-    
-    if (motsContenantCaractere.length === 0) {
-      throw new Error('Caractère non trouvé dans votre collection');
-    }
-    
-    // Prend le premier mot trouvé
-    const motTrouve = motsContenantCaractere[0];
-    const pinyinCaractere = extractPinyinForCharacter(motTrouve.pinyin, motTrouve.chinese, character);
-    
-    console.log('✅ Données trouvées:', {
-      caractere: character,
-      pinyin: pinyinCaractere,
-      motComplet: motTrouve.chinese,
-      traduction: motTrouve.english
-    });
-    
-    // Met à jour le modal
-    if (hoverModal) {
-      hoverModal.innerHTML = `
-        <div class="text-center">
-          <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
-          <div style="color: #e74c3c; font-weight: bold; margin-bottom: 4px;">${pinyinCaractere}</div>
-          <div style="color: #2c3e50; font-size: 13px; margin-bottom: 3px;">
-            Fait partie de: ${motTrouve.english}
-          </div>
-          <div style="font-size: 11px; color: #7f8c8d; border-top: 1px solid #ecf0f1; padding-top: 4px; margin-top: 4px;">
-            Mot: ${motTrouve.chinese}
-            ${motTrouve.hsk ? ` • HSK ${motTrouve.hsk}` : ''}
-          </div>
-        </div>
-      `;
-    }
-    
-  } catch (error) {
-    console.error('❌ Erreur fetchCharacterData:', error);
-    
-    if (hoverModal) {
-      hoverModal.innerHTML = `
-        <div class="text-center">
-          <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
-          <div style="color: #e74c3c; font-weight: bold; margin-bottom: 4px;">${character}</div>
-          <div style="color: #95a5a6; font-size: 13px;">${error.message}</div>
-        </div>
-      `;
-    }
-  }
-}
-
-function extractPinyinForCharacter(pinyinComplet, motChinois, caractereCible) {
-  if (!pinyinComplet || !motChinois) {
-    console.log('❌ Pinyin ou mot chinois manquant');
-    return 'N/A';
-  }
-  
-  const caracteres = Array.from(motChinois);
-  const syllabes = pinyinComplet.split(' ');
-  
-  console.log('🔤 Extraction pinyin:', {
-    pinyinComplet,
-    motChinois,
-    caractereCible,
-    caracteres,
-    syllabes
-  });
-  
-  const index = caracteres.indexOf(caractereCible);
-  
-  if (index >= 0 && index < syllabes.length) {
-    const result = syllabes[index];
-    console.log('✅ Pinyin extrait:', result);
-    return result;
-  }
-  
-  console.log('⚠️ Pinyin non trouvé, retour complet:', pinyinComplet);
-  return pinyinComplet;
-}
-
-let hoverModal = null;
-
-function hideCharacterModal() {
-  console.log('🎯 hideCharacterModal appelé');
-  if (hoverModal) {
-    hoverModal.style.display = 'none';
-    console.log('✅ Modal caché');
-  }
-}
-
-function showCard() {
-  if (!words.length) return;
-  const word = words[idx];
-  if (!word) return;
-  cardContainer.innerHTML = '';
-  const newCard = createCardElement(word);
-  cardContainer.appendChild(newCard);
-}
-
-// Navigation
-prevBtn.onclick = ()=>{ idx=(idx-1+words.length)%words.length; showCard(); toggleView('card'); };
-nextBtn.onclick = ()=>{ idx=(idx+1)%words.length; showCard(); toggleView('card'); };
-window.addEventListener('keydown',e=>{
-  if(e.key==='ArrowLeft') prevBtn.click();
-  else if(e.key==='ArrowRight') nextBtn.click();
-});
-
-// List view
-function showList() {
-  listBody.innerHTML = '';
-  words.forEach((word,i)=>{
-    const row=document.createElement('tr');
-    row.innerHTML = `<td>${word.chinese}</td><td>${word.pinyin||''}</td><td>${word.english||''}</td>`;
-    row.onclick = ()=>{
-      idx=i;
-      showCard();
-      toggleView('card');
-    };
-    listBody.appendChild(row);
-  });
-}
-
-function toggleView(view){
-  if(view==='list'){
-    // Afficher la liste
-    listContainer.classList.remove('hidden'); 
-    listContainer.classList.add('visible');
-    
-    // Cacher la carte
-    cardContainer.classList.remove('visible'); 
-    cardContainer.classList.add('hidden');
-    
-    // Cacher les boutons de navigation
-    prevBtn.style.display = 'none';
-    nextBtn.style.display = 'none';
-    
-    // OPTIMISATION: Scroller au début de la liste
-    window.scrollTo({ top: listContainer.offsetTop, behavior: 'smooth' });
-
-  } else {
-    // Afficher la carte
-    cardContainer.classList.remove('hidden'); 
-    cardContainer.classList.add('visible');
-    
-    // Cacher la liste
-    listContainer.classList.remove('visible'); 
-    listContainer.classList.add('hidden');
-    
-    // Afficher les boutons de navigation
-    prevBtn.style.display = 'inline-block';
-    nextBtn.style.display = 'inline-block';
-    
-    // OPTIMISATION: Scroller au début de la carte
-    window.scrollTo({ top: cardContainer.offsetTop, behavior: 'smooth' });
-  }
-}
-
-
-// Scroll pour passer de carte à liste
-window.addEventListener('wheel', (e)=>{
-  if(e.deltaY > 30 && cardContainer.classList.contains('visible')) toggleView('list');
-  else if(e.deltaY < -30 && listContainer.classList.contains('visible')) toggleView('card');
-});
-
-
-cardContainer.addEventListener('touchstart', e => {
-  touchStartY = e.touches[0].clientY;
-});
-
-cardContainer.addEventListener('touchend', e => {
-  const touchEndY = e.changedTouches[0].clientY;
-  const deltaY = touchEndY - touchStartY;
-  if(Math.abs(deltaY) > 30){ // seuil de swipe
-    toggleView('list');
-  }
-});
-
-// Modal
-function openEdit(word){
-  editId.value = word.id;
-  editChinese.value = word.chinese;
-  editPinyin.value = word.pinyin||'';
-  editEnglish.value = word.english||'';
-  editDescription.value = word.description||'';
-  const modal = new bootstrap.Modal(editModal);
-  modal.show();
-}
-
-// Edit submit
-editForm.onsubmit = async (e)=>{
-  e.preventDefault();
-  const payload={
-    chinese: editChinese.value,
-    pinyin: editPinyin.value,
-    english: editEnglish.value,
-    description: editDescription.value
-  };
-  try{
-    await fetch(`/update/${editId.value}`,{
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
-    });
-    words[idx]={...words[idx], ...payload};
+    idx=0; 
     showCard();
     showList();
-  }catch(err){alert("Update failed");}
-  const bsModal = bootstrap.Modal.getInstance(editModal);
-  if(bsModal) bsModal.hide();
-};
+  }
 
-//search a specific word in list
-searchInput.addEventListener('input', () => {
-  const query = searchInput.value.toLowerCase();
-  document.querySelectorAll('#listBody tr').forEach(row => {
-    const text = row.textContent.toLowerCase();
-    row.style.display = text.includes(query) ? '' : 'none';
+  // scroll control
+  cardContainer.addEventListener('wheel', (e) => {
+    const canScroll = cardContainer.scrollHeight > cardContainer.clientHeight;
+    
+    // Si la carte tient dans le conteneur, on autorise le toggle
+    if(!canScroll && Math.abs(e.deltaY) > 30){
+      toggleView('list');
+    }
   });
-});
 
-loadWords();
+  //create card element
+  function createCardElement(word) {
+    const card = document.createElement('div');
+    card.classList.add('col', 'mb-4'); 
+    
+    const hskLevelDisplay = word.hsk || 'Street';
+    const chineseFontSizeClass = (word.chinese && word.chinese.length >= 3) ? 'fs-chinese-small' : 'fs-chinese';
+
+    card.innerHTML = `
+      <div class="card card-custom-bg rounded-4 shadow-lg p-3 mx-auto" style="width: 320px; height: 500px; position: relative;">
+
+          <div class="position-absolute top-0 end-0 mt-3 me-3">
+              <span class="hsk-tag-custom py-1 px-2 border border-light">HSK : ${hskLevelDisplay}</span>
+          </div>
+
+          <div class="bg-white border rounded-3 p-4 py-2 mt-3 flex-grow-0">
+              <div class="text-dark text-center text-box ${chineseFontSizeClass} chinese-container" data-word-id="${word.id}">
+                  ${word.chinese}
+              </div>
+          </div>
+
+          <div class="flex-grow-1 d-flex flex-column justify-content-between">
+              <div>
+                  <div class="fs-pinyin fw-bold text-dark mb-1">${word.pinyin || ''}</div>
+                  <div class="fs-5 text-success mb-3">${word.english || 'No Translation'}</div>
+                  <div class="pt-3 border-top border-light-subtle">
+                      <div class="text-context">${word.description || 'No description provided.'}</div>
+                  </div>
+              </div>
+              <a href="#" class="btn btn-link text-success edit-btn mt-auto">✏️ Edit</a>
+          </div>
+      </div>
+    `;
+
+    // Transforme les caractères chinois
+    const chineseContainer = card.querySelector('.chinese-container');
+    if (chineseContainer && word.chinese) {
+      transformChineseCharacters(word.chinese, chineseContainer);
+    }
+
+    card.querySelector('.edit-btn').onclick = () => openEdit(word);
+    return card;
+  }
+
+  // 🎯 SYSTÈME DE HOVER POUR CARACTÈRES
+  function transformChineseCharacters(chineseWord, container) {
+    if (!container || !chineseWord) return;
+
+    const characters = Array.from(chineseWord);
+    
+    // Stocke le mot original dans le container
+    container.setAttribute('data-original-word', chineseWord);
+    
+    // Désactivation pour 1 caractère
+    if (characters.length <= 1) {
+      container.textContent = chineseWord;
+      container.style.cursor = 'default';
+      return;
+    }
+    
+    container.innerHTML = '';
+    
+    characters.forEach((character) => {
+      const span = document.createElement('span');
+      span.className = 'chinese-character';
+      span.setAttribute('data-char', character);
+      span.textContent = character;
+      
+      span.style.cssText = `
+        display: inline-block;
+        margin: 0 1px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        padding: 1px 3px;
+        border-radius: 2px;
+      `;
+      
+      // Effet hover visuel
+      span.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = '#e3f2fd';
+        this.style.transform = 'scale(1.05)';
+      });
+      
+      span.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = '';
+        this.style.transform = '';
+      });
+      
+      span.addEventListener('mouseenter', handleCharacterHover);
+      span.addEventListener('mouseleave', handleCharacterLeave);
+      
+      container.appendChild(span);
+    });
+  }
+
+  function handleCharacterHover(event) {
+    const character = event.target.getAttribute('data-char');
+    
+    // Récupère le mot original depuis le container parent
+    const container = event.target.closest('.chinese-container');
+    const originalWord = container.getAttribute('data-original-word');
+    
+    showCharacterModal(character, originalWord, event.target);
+  }
+
+  function handleCharacterLeave(event) {
+    setTimeout(() => {
+      if (hoverModal) {
+        hoverModal.style.display = 'none';
+      }
+    }, 100);
+  }
+
+  function showCharacterModal(character, originalWord, targetElement) {
+    if (!hoverModal) {
+      hoverModal = document.createElement('div');
+      hoverModal.className = 'character-modal';
+      hoverModal.style.cssText = `
+        position: fixed;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        max-width: 200px;
+        font-size: 14px;
+        display: none;
+      `;
+      document.body.appendChild(hoverModal);
+    }
+
+    const rect = targetElement.getBoundingClientRect();
+    hoverModal.style.left = `${rect.left + window.scrollX}px`;
+    hoverModal.style.top = `${rect.bottom + window.scrollY + 5}px`;
+    hoverModal.style.display = 'block';
+    
+    hoverModal.innerHTML = `
+      <div class="text-center">
+        <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
+        <div style="color: #e74c3c; font-weight: bold;">Recherche...</div>
+      </div>
+    `;
+    
+    // Appel API
+    fetchCharacterData(character);
+  }
+
+  async function fetchCharacterData(character) {
+    try {
+      const maintenant = Date.now();
+      if (!cacheMots || (maintenant - dernierFetch) > CACHE_DURATION) {
+        const response = await fetch('/mes-mots');
+        if (!response.ok) {
+          throw new Error(`Erreur API: ${response.status}`);
+        }
+        cacheMots = await response.json();
+        dernierFetch = maintenant;
+      }
+      
+      // Cherche le CARACTÈRE EXACT dans la base
+      const caractereExact = cacheMots.find(mot => 
+        mot.chinese && mot.chinese === character
+      );
+      
+      if (!caractereExact) {
+        throw new Error('Caractère seul non trouvé');
+      }
+      
+      // Met à jour le modal avec les données du CARACTÈRE
+      if (hoverModal) {
+        hoverModal.innerHTML = `
+          <div class="text-center">
+            <div style="font-size: 24px; margin-bottom: 8px;">${caractereExact.chinese}</div>
+            <div style="color: #e74c3c; font-weight: bold; margin-bottom: 4px;">${caractereExact.pinyin || 'N/A'}</div>
+            <div style="color: #2c3e50; font-size: 13px; margin-bottom: 3px;">
+              ${caractereExact.english || 'Aucune traduction'}
+            </div>
+            ${caractereExact.hsk ? `
+              <div style="font-size: 11px; color: #7f8c8d; border-top: 1px solid #ecf0f1; padding-top: 4px; margin-top: 4px;">
+                HSK ${caractereExact.hsk}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }
+      
+    } catch (error) {
+      if (hoverModal) {
+        hoverModal.innerHTML = `
+          <div class="text-center">
+            <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
+            <div style="color: #95a5a6; font-size: 13px;">Caractère seul non trouvé</div>
+            <div style="font-size: 11px; color: #bdc3c7; margin-top: 4px;">
+              (Pas de traduction individuelle)
+            </div>
+          </div>
+        `;
+      }
+    }
+  }
+
+  function showCard() {
+    if (!words.length) return;
+    const word = words[idx];
+    if (!word) return;
+    cardContainer.innerHTML = '';
+    const newCard = createCardElement(word);
+    cardContainer.appendChild(newCard);
+  }
+
+  // Navigation
+  prevBtn.onclick = ()=>{ idx=(idx-1+words.length)%words.length; showCard(); toggleView('card'); };
+  nextBtn.onclick = ()=>{ idx=(idx+1)%words.length; showCard(); toggleView('card'); };
+  window.addEventListener('keydown',e=>{
+    if(e.key==='ArrowLeft') prevBtn.click();
+    else if(e.key==='ArrowRight') nextBtn.click();
+  });
+
+  // List view
+  function showList() {
+    listBody.innerHTML = '';
+    words.forEach((word,i)=>{
+      const row=document.createElement('tr');
+      row.innerHTML = `<td>${word.chinese}</td><td>${word.pinyin||''}</td><td>${word.english||''}</td>`;
+      row.onclick = ()=>{
+        idx=i;
+        showCard();
+        toggleView('card');
+      };
+      listBody.appendChild(row);
+    });
+  }
+
+  function toggleView(view){
+    if(view==='list'){
+      listContainer.classList.remove('hidden'); 
+      listContainer.classList.add('visible');
+      cardContainer.classList.remove('visible'); 
+      cardContainer.classList.add('hidden');
+      prevBtn.style.display = 'none';
+      nextBtn.style.display = 'none';
+      window.scrollTo({ top: listContainer.offsetTop, behavior: 'smooth' });
+    } else {
+      cardContainer.classList.remove('hidden'); 
+      cardContainer.classList.add('visible');
+      listContainer.classList.remove('visible'); 
+      listContainer.classList.add('hidden');
+      prevBtn.style.display = 'inline-block';
+      nextBtn.style.display = 'inline-block';
+      window.scrollTo({ top: cardContainer.offsetTop, behavior: 'smooth' });
+    }
+  }
+
+  // Scroll pour passer de carte à liste
+  window.addEventListener('wheel', (e)=>{
+    if(e.deltaY > 30 && cardContainer.classList.contains('visible')) toggleView('list');
+    else if(e.deltaY < -30 && listContainer.classList.contains('visible')) toggleView('card');
+  });
+
+  cardContainer.addEventListener('touchstart', e => {
+    touchStartY = e.touches[0].clientY;
+  });
+
+  cardContainer.addEventListener('touchend', e => {
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchEndY - touchStartY;
+    if(Math.abs(deltaY) > 30){
+      toggleView('list');
+    }
+  });
+
+  // Modal
+  function openEdit(word){
+    editId.value = word.id;
+    editChinese.value = word.chinese;
+    editPinyin.value = word.pinyin||'';
+    editEnglish.value = word.english||'';
+    editDescription.value = word.description||'';
+    const modal = new bootstrap.Modal(editModal);
+    modal.show();
+  }
+
+  // Edit submit
+  editForm.onsubmit = async (e)=>{
+    e.preventDefault();
+    const payload={
+      chinese: editChinese.value,
+      pinyin: editPinyin.value,
+      english: editEnglish.value,
+      description: editDescription.value
+    };
+    try{
+      await fetch(`/update/${editId.value}`,{
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      });
+      words[idx]={...words[idx], ...payload};
+      showCard();
+      showList();
+    }catch(err){alert("Update failed");}
+    const bsModal = bootstrap.Modal.getInstance(editModal);
+    if(bsModal) bsModal.hide();
+  };
+
+  //search a specific word in list
+  searchInput.addEventListener('input', () => {
+    const query = searchInput.value.toLowerCase();
+    document.querySelectorAll('#listBody tr').forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(query) ? '' : 'none';
+    });
+  });
+
+  loadWords();
 
 </script>
 </body>
