@@ -307,24 +307,92 @@
       container.appendChild(span);
     });
   }
+let hoverTimeout = null;
+let isHoveringModal = false;
 
-  function handleCharacterHover(event) {
-    const character = event.target.getAttribute('data-char');
-    
-    // Récupère le mot original depuis le container parent
-    const container = event.target.closest('.chinese-container');
-    const originalWord = container.getAttribute('data-original-word');
-    
-    showCharacterModal(character, originalWord, event.target);
+function handleCharacterHover(event) {
+  const character = event.target.getAttribute('data-char');
+  
+  // Annule tout timeout en cours
+  if (hoverTimeout) {
+    clearTimeout(hoverTimeout);
+    hoverTimeout = null;
   }
+  
+  const container = event.target.closest('.chinese-container');
+  const originalWord = container.getAttribute('data-original-word');
+  
+  showCharacterModal(character, originalWord, event.target);
+}
 
-  function handleCharacterLeave(event) {
-    setTimeout(() => {
+function handleCharacterLeave(event) {
+  // 🆕 Vérifie qu'on ne soit pas en train de hover le modal lui-même
+  if (!isHoveringModal) {
+    hoverTimeout = setTimeout(() => {
       if (hoverModal) {
         hoverModal.style.display = 'none';
       }
-    }, 100);
+    }, 150); // 🆕 Légèrement plus long pour plus de confort
   }
+}
+
+function showCharacterModal(character, originalWord, targetElement) {
+  if (hoverTimeout) {
+    clearTimeout(hoverTimeout);
+    hoverTimeout = null;
+  }
+  
+  if (!hoverModal) {
+    hoverModal = document.createElement('div');
+    hoverModal.className = 'character-modal';
+    hoverModal.style.cssText = `
+      position: fixed;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      max-width: 200px;
+      font-size: 14px;
+      display: none;
+    `;
+    
+    // 🆕 Événements pour le modal lui-même
+    hoverModal.addEventListener('mouseenter', () => {
+      isHoveringModal = true;
+      if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = null;
+      }
+    });
+    
+    hoverModal.addEventListener('mouseleave', () => {
+      isHoveringModal = false;
+      hoverTimeout = setTimeout(() => {
+        if (hoverModal) {
+          hoverModal.style.display = 'none';
+        }
+      }, 100);
+    });
+    
+    document.body.appendChild(hoverModal);
+  }
+
+  const rect = targetElement.getBoundingClientRect();
+  hoverModal.style.left = `${rect.left + window.scrollX}px`;
+  hoverModal.style.top = `${rect.bottom + window.scrollY + 5}px`;
+  hoverModal.style.display = 'block';
+  
+  hoverModal.innerHTML = `
+    <div class="text-center">
+      <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
+      <div style="color: #e74c3c; font-weight: bold;">Recherche...</div>
+    </div>
+  `;
+  
+  fetchCharacterData(character);
+}
 
   function showCharacterModal(character, originalWord, targetElement) {
     if (!hoverModal) {
