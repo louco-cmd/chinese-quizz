@@ -121,7 +121,7 @@
             
             <!-- Collection -->
             <div class="nav-item">
-                <a href="/collection" class="nav-link" data-page="collection" title="Ma Collection">
+                <a href="/collectio.html" class="nav-link" data-page="collection" title="Ma Collection">
                     <i class="bi bi-journal-bookmark-fill nav-icon"></i>
                     <span class="nav-text">Collection</span>
                 </a>
@@ -129,7 +129,7 @@
             
             <!-- Account -->
             <div class="nav-item">
-                <a href="/account" class="nav-link" data-page="account" title="Mon Compte">
+                <a href="/account.html" class="nav-link" data-page="account" title="Mon Compte">
                     <i class="bi bi-person-fill nav-icon"></i>
                     <span class="nav-text">Compte</span>
                 </a>
@@ -427,9 +427,9 @@ function setActiveNavItem() {
     let activePage = 'dashboard'; // par défaut
     
     if (currentPath.includes('collection')) {
-        activePage = 'collection';
+        activePage = 'collection.html';
     } else if (currentPath.includes('account')) {
-        activePage = 'account';
+        activePage = 'account.html';
     }
     
     // Ajoute active à l'item correspondant
