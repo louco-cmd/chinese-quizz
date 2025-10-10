@@ -102,10 +102,21 @@
   </script>
 </head>
 <body>
- <div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
+  
+<div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
   <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
     加油！
   </span>
+  
+  <!-- Icône notifications -->
+  <div class="position-relative">
+    <i class="bi bi-bell fs-4" style="cursor: pointer;"></i>
+    <!-- Badge de notification -->
+    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+      3
+      <span class="visually-hidden">notifications</span>
+    </span>
+  </div>
 </div>
 
  <nav class="bottom-nav">
@@ -146,7 +157,14 @@
     </div>
   </nav>
 
+
+
   <section class="container mt-4 col-12 col-md-10 col-lg-6">
+
+        <!-- Greeting Message - DIRECTEMENT depuis les données EJS -->
+  
+    <h3 class="mb-5">Welcome back, <%= userData.name %>!</h3>
+
     <ul class="nav nav-tabs tabs">
       <li class="nav-item">
         <a class="nav-link active tab" data-tab="add" href="#">Add a word</a>
