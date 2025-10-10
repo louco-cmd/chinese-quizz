@@ -8,10 +8,8 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
     body {
-        padding-bottom: 80px; /* Espace pour la bottom nav */
+        padding-bottom: 80px;
     }
-
-    /* Bottom Navigation Simple */
     .bottom-nav {
         position: fixed;
         bottom: 0;
@@ -22,33 +20,14 @@
         z-index: 1000;
         padding: 8px 0;
     }
-
-    /* Desktop - Icônes centrées */
     @media (min-width: 768px) {
-        .nav-container {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-        }
-        
-        .nav-item {
-            flex: 0 0 auto; /* Pas de flex grow, taille automatique */
-        }
+        .nav-container { display: flex; justify-content: center; gap: 20px; }
+        .nav-item { flex: 0 0 auto; }
     }
-
-    /* Mobile - Layout étendu */
     @media (max-width: 767.98px) {
-        .nav-container {
-            display: flex;
-            justify-content: space-around;
-        }
-        
-        .nav-item {
-            flex: 1;
-        }
+        .nav-container { display: flex; justify-content: space-around; }
+        .nav-item { flex: 1; }
     }
-
-    /* Style des items de navigation */
     .nav-link {
         color: #6c757d;
         text-decoration: none;
@@ -60,119 +39,59 @@
         border-radius: 8px;
         transition: all 0.2s ease;
     }
-
-    .nav-link:hover {
-        background-color: #f8f9fa;
-        color: #495057;
-    }
-
-    .nav-link.active {
-        color: #0d6efd;
-        background-color: #e3f2fd;
-    }
-
-    .nav-icon {
-        font-size: 1.25rem;
-    }
-
-    .nav-text {
-        font-size: 0.75rem;
-    }
-
-    /* Désactivé */
-    .nav-link.disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-
-    .nav-link.disabled:hover {
-        background-color: transparent;
-        color: #6c757d;
-    }
+    .nav-link:hover { background-color: #f8f9fa; color: #495057; }
+    .nav-link.active { color: #0d6efd; background-color: #e3f2fd; }
+    .nav-link.disabled { opacity: 0.4; cursor: not-allowed; }
   </style>
 </head>
 <body>
- <div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
-  <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
-    加油！
-  </span>
-</div>
- <nav class="bottom-nav">
-    <div class="container-fluid">
-        <div class="nav-container">
-            <!-- Home -->
-            <div class="nav-item">
-                <a href="/dashboard" class="nav-link active" data-page="dashboard" title="Dashboard">
-                    <i class="bi bi-house-door-fill nav-icon"></i>
-                    <span class="nav-text">Home</span>
-                </a>
-            </div>
-            
-            <!-- Collection -->
-            <div class="nav-item">
-                <a href="/collection.html" class="nav-link" data-page="collection" title="Ma Collection">
-                    <i class="bi bi-journal-bookmark-fill nav-icon"></i>
-                    <span class="nav-text">Collection</span>
-                </a>
-            </div>
-            
-            <!-- Account -->
-            <div class="nav-item">
-                <a href="/account.html" class="nav-link" data-page="account" title="Mon Compte">
-                    <i class="bi bi-person-fill nav-icon"></i>
-                    <span class="nav-text">Compte</span>
-                </a>
-            </div>
-            
-            <!-- Duel (désactivé pour l'instant) -->
-            <div class="nav-item">
-                <a href="#" class="nav-link disabled" data-page="duel" title="Duel (Bientôt)">
-                    <i class="bi bi-joystick nav-icon"></i>
-                    <span class="nav-text">Duel</span>
-                </a>
-            </div>
-        </div>
-    </div>
-  </nav>
-  <!-- Bottom Navigation Simple et Centrée -->
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
+    <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
+      加油！
+    </span>
+  </div>
+
+  <!-- SEULEMENT UNE BOTTOM NAV -->
   <nav class="bottom-nav">
     <div class="container-fluid">
         <div class="nav-container">
             <!-- Home -->
             <div class="nav-item">
-                <a href="/views/dashboard.ejs" class="nav-link active" data-page="dashboard" title="Dashboard">
-                    <i class="bi bi-house-door-fill nav-icon"></i>
-                    <span class="nav-text">Home</span>
+                <a href="/dashboard" class="nav-link" data-page="dashboard" title="Dashboard">
+                    <i class="bi bi-house-door-fill"></i>
+                    <span>Home</span>
                 </a>
             </div>
             
             <!-- Collection -->
             <div class="nav-item">
-                <a href="/public/collection.html" class="nav-link" data-page="collection" title="Ma Collection">
-                    <i class="bi bi-journal-bookmark-fill nav-icon"></i>
-                    <span class="nav-text">Collection</span>
+                <a href="/collection" class="nav-link" data-page="collection" title="Ma Collection">
+                    <i class="bi bi-journal-bookmark-fill"></i>
+                    <span>Collection</span>
                 </a>
             </div>
             
             <!-- Account -->
             <div class="nav-item">
-                <a href="/public/account.html" class="nav-link" data-page="account" title="Mon Compte">
-                    <i class="bi bi-person-fill nav-icon"></i>
-                    <span class="nav-text">Compte</span>
+                <a href="/account" class="nav-link active" data-page="account" title="Mon Compte">
+                    <i class="bi bi-person-fill"></i>
+                    <span>Compte</span>
                 </a>
             </div>
             
-            <!-- Duel (désactivé pour l'instant) -->
+            <!-- Duel -->
             <div class="nav-item">
-                <a href="#" class="nav-link disabled" data-page="duel" title="Duel (Bientôt)">
-                    <i class="bi bi-joystick nav-icon"></i>
-                    <span class="nav-text">Duel</span>
+                <a href="#" class="nav-link disabled">
+                    <i class="bi bi-joystick"></i>
+                    <span>Duel</span>
                 </a>
             </div>
         </div>
     </div>
   </nav>
 
+  <!-- Contenu de la page Account -->
   <section class="container my-4">
     <div class="row g-4">
       <!-- Carte info utilisateur -->
@@ -188,9 +107,7 @@
       <div class="col-12 col-md-8">
         <div class="card shadow-sm p-3">
           <h4>Statistiques des mots</h4>
-          <ul id="hskStats" class="list-group list-group-flush mt-3">
-            <!-- Ex : <li class="list-group-item">HSK1 : 10 mots</li> -->
-          </ul>
+          <ul id="hskStats" class="list-group list-group-flush mt-3"></ul>
         </div>
       </div>
     </div>
@@ -198,98 +115,37 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// Navigation System Simple
-class SimpleNavigation {
-    constructor() {
-        this.currentPage = 'dashboard';
-        this.init();
-    }
+// Navigation simple - juste le highlight actif
+function setActiveNavItem() {
+    const path = window.location.pathname;
+    console.log('Current path:', path); // Debug
     
-    init() {
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const targetPage = link.getAttribute('data-page');
-                
-                if (targetPage === this.currentPage || link.classList.contains('disabled')) {
-                    return;
-                }
-                
-                this.navigateTo(targetPage);
-            });
-        });
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+        const page = link.getAttribute('data-page');
         
-        this.showPage('dashboard');
-    }
-    
-    navigateTo(page) {
-        this.updateActiveNavItem(page);
-        this.showPage(page);
-        history.pushState({ page }, '', `#${page}`);
-        this.currentPage = page;
-    }
-    
-    updateActiveNavItem(page) {
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('active');
-        });
-        
-        const activeLink = document.querySelector(`[data-page="${page}"]`);
-        if (activeLink) {
-            activeLink.classList.add('active');
+        // Highlight basé sur l'URL actuelle
+        if (path.includes(page)) {
+            link.classList.add('active');
+            console.log('Active page:', page); // Debug
         }
-    }
-    
-    showPage(page) {
-        document.querySelectorAll('.page-content').forEach(content => {
-            content.classList.add('d-none');
-        });
-        
-        const activePage = document.getElementById(page);
-        if (activePage) {
-            activePage.classList.remove('d-none');
-        }
-    }
-    
-    handlePopState(event) {
-        if (event.state && event.state.page) {
-            this.navigateTo(event.state.page);
-        }
-    }
+    });
 }
 
-// 🚀 Initialisation
-document.addEventListener('DOMContentLoaded', function() {
-    const nav = new SimpleNavigation();
-    window.addEventListener('popstate', (e) => nav.handlePopState(e));
-    
-    const hash = window.location.hash.substring(1);
-    if (hash && ['dashboard', 'collection', 'account'].includes(hash)) {
-        nav.navigateTo(hash);
-    }
-});
-
-// Ton code existant pour loadUserData()...
+// Chargement des données utilisateur
 async function loadUserData() {
   try {
     const res = await fetch('/account-info'); 
-    
-    if (!res.ok) {
-        throw new Error(`Erreur HTTP: ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
     
     const data = await res.json(); 
     
-    // 1. Affichage des infos utilisateur
+    // Affichage des infos
     document.getElementById('userName').textContent = data.name;
-    
-    // Injecte l'icône de l'utilisateur
     document.getElementById('userPhotoContainer').innerHTML = '<i class="bi bi-person-fill" style="font-size: 60px;"></i>';
-    
-    // 2. Affichage du nombre de mots
     document.getElementById('wordCount').textContent = `Nombre de mots : ${data.wordCount}`;
 
-    // 3. Affichage des Stats HSK
+    // Stats HSK
     const hskStatsElement = document.getElementById('hskStats');
     hskStatsElement.innerHTML = '';
     
@@ -308,34 +164,19 @@ async function loadUserData() {
     }
 
   } catch (err) {
-    console.error('Erreur de chargement des données de compte:', err);
+    console.error('Erreur chargement données:', err);
     document.getElementById('wordCount').textContent = 'Erreur de chargement des données.';
   }
 }
 
 // Initialisation
-(async () => {
-    await loadUserData(); 
-})();
+document.addEventListener('DOMContentLoaded', function() {
+    setActiveNavItem(); // Active la navigation
+    loadUserData();     // Charge les données
+});
 
-// Détection automatique de la page active
-function setActiveNavItem() {
-    const path = window.location.pathname;
-    
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-        // Active si le data-page correspond à l'URL
-        if (path.includes(link.getAttribute('data-page'))) {
-            link.classList.add('active');
-        }
-    });
-}
-
-// Appeler au chargement
-document.addEventListener('DOMContentLoaded', setActiveNavItem);
-
-// Appeler au chargement
-document.addEventListener('DOMContentLoaded', setActiveNavItem);
+// Gérer les changements d'URL (quand on utilise les boutons précédent/suivant)
+window.addEventListener('popstate', setActiveNavItem);
 </script>
 </body>
 </html>

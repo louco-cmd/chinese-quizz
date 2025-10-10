@@ -109,10 +109,9 @@ passport.deserializeUser(async (user, done) => {
 // -------------------- Routes --------------------
 app.get("/", (req, res) => {
   if (req.user) {
-    // Utilisateur connecté → redirige vers le dashboard
-    res.render("dashboard");
+    // Redirige vers dashboard qui a déjà toute la logique
+    res.redirect("/dashboard");
   } else {
-    // Utilisateur non connecté → montre la page login
     res.render("index", { user: req.user });
   }
 });
