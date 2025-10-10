@@ -121,40 +121,20 @@ app.get('/dashboard', ensureAuth, async (req, res) => {
   const userId = req.user.id; 
 
   try {
-    // 1. Récupérer les données utilisateur
-    const userRes = await pool.query('SELECT name, email FROM users WHERE id = $1', [userId]);
+    // Récupérer seulement le nom de l'utilisateur
+    const userRes = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
     const user = userRes.rows[0] || {};
-    
-    // 2. Récupérer les mots de l'utilisateur
-    const wordsRes = await pool.query(`
-      SELECT mots.hsk
-      FROM mots
-      JOIN user_mots ON mots.id = user_mots.mot_id
-      WHERE user_mots.user_id = $1
-    `, [userId]);
-    
-    // Calcul des Stats HSK
-    const stats = { HSK1: 0, HSK2: 0, HSK3: 0, HSK4: 0, HSK5: 0, HSK6: 0, Street: 0 };
-    wordsRes.rows.forEach(w => {
-      const hskKey = w.hsk && stats[`HSK${w.hsk}`] !== undefined ? `HSK${w.hsk}` : 'Street';
-      stats[hskKey]++;
-    });
 
-    // 3. CALCULER LE TOTAL
-    const totalWords = Object.values(stats).reduce((a, b) => a + b, 0);
-
-    // 4. 🎯 RENDER AVEC LES DONNÉES
+    // Rendre avec seulement les données nécessaires
     res.render('dashboard', {
       userData: {
-        name: user.name,
-        wordCount: wordsRes.rows.length,
-        totalWords: totalWords,
-        stats: stats
-      }
+        name: user.name || 'Friend' // Fallback si pas de nom
+      },
+      currentPage: 'dashboard'
     });
 
   } catch (err) {
-    console.error("Erreur:", err);
+    console.error("Erreur dashboard:", err);
     res.status(500).send("Erreur serveur");
   }
 });
