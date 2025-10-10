@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>加油！Collection</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
 <style>
   #card-container,
   #list-container {
@@ -88,6 +90,84 @@
    min-height: 170px;
    align-content: center;
   }
+  /* Bottom Navigation Simple */
+    .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        border-top: 1px solid #dee2e6;
+        z-index: 1000;
+        padding: 8px 0;
+    }
+
+    /* Desktop - Icônes centrées */
+    @media (min-width: 768px) {
+        .nav-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        .nav-item {
+            flex: 0 0 auto; /* Pas de flex grow, taille automatique */
+        }
+    }
+
+    /* Mobile - Layout étendu */
+    @media (max-width: 767.98px) {
+        .nav-container {
+            display: flex;
+            justify-content: space-around;
+        }
+        
+        .nav-item {
+            flex: 1;
+        }
+    }
+
+    /* Style des items de navigation */
+    .nav-link {
+        color: #6c757d;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .nav-link:hover {
+        background-color: #f8f9fa;
+        color: #495057;
+    }
+
+    .nav-link.active {
+        color: #0d6efd;
+        background-color: #e3f2fd;
+    }
+
+    .nav-icon {
+        font-size: 1.25rem;
+    }
+
+    .nav-text {
+        font-size: 0.75rem;
+    }
+
+    /* Désactivé */
+    .nav-link.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .nav-link.disabled:hover {
+        background-color: transparent;
+        color: #6c757d;
+    }
 </style>
   <!-- Ajoute ces lignes -->
   <link rel="manifest" href="/manifest.json">
@@ -106,14 +186,49 @@
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg bg-primary navbar-dark px-2">
-  <div class="container-fluid d-flex justify-content-between">
-    <a class="navbar-brand text-white cursor-pointer fw-bold" onclick="window.location='/dashboard'">加油！</a>
-    <div class="d-flex">
-      <button id="collectionBtn" class="btn btn-outline-light w-auto" onclick="window.location='/dashboard'">Back to home</button>
+ <div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
+  <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
+    加油！
+  </span>
+</div>
+
+ <nav class="bottom-nav">
+    <div class="container-fluid">
+        <div class="nav-container">
+            <!-- Home -->
+            <div class="nav-item">
+                <a href="/views/dashboard.ejs" class="nav-link active" data-page="dashboard" title="Dashboard">
+                    <i class="bi bi-house-door-fill nav-icon"></i>
+                    <span class="nav-text">Home</span>
+                </a>
+            </div>
+            
+            <!-- Collection -->
+            <div class="nav-item">
+                <a href="/public/collection.html" class="nav-link" data-page="collection" title="Ma Collection">
+                    <i class="bi bi-journal-bookmark-fill nav-icon"></i>
+                    <span class="nav-text">Collection</span>
+                </a>
+            </div>
+            
+            <!-- Account -->
+            <div class="nav-item">
+                <a href="/public/account.html" class="nav-link" data-page="account" title="Mon Compte">
+                    <i class="bi bi-person-fill nav-icon"></i>
+                    <span class="nav-text">Compte</span>
+                </a>
+            </div>
+            
+            <!-- Duel (désactivé pour l'instant) -->
+            <div class="nav-item">
+                <a href="#" class="nav-link disabled" data-page="duel" title="Duel (Bientôt)">
+                    <i class="bi bi-joystick nav-icon"></i>
+                    <span class="nav-text">Duel</span>
+                </a>
+            </div>
+        </div>
     </div>
-  </div>
-</nav>
+  </nav>
 
 <section class="section d-flex flex-column align-items-center mt-4">
   <div id="card-container" class="d-flex justify-content-center visible mb-3 position-relative"></div>
@@ -614,7 +729,89 @@ function showCharacterModal(character, originalWord, targetElement) {
   });
 
   loadWords();
-
+// Navigation System Simple
+class SimpleNavigation {
+    constructor() {
+        this.currentPage = 'dashboard';
+        this.init();
+    }
+    
+    init() {
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetPage = link.getAttribute('data-page');
+                
+                if (targetPage === this.currentPage || link.classList.contains('disabled')) {
+                    return;
+                }
+                
+                this.navigateTo(targetPage);
+            });
+        });
+        
+        this.showPage('dashboard');
+    }
+    
+    navigateTo(page) {
+        this.updateActiveNavItem(page);
+        this.showPage(page);
+        history.pushState({ page }, '', `#${page}`);
+        this.currentPage = page;
+    }
+    
+    updateActiveNavItem(page) {
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        const activeLink = document.querySelector(`[data-page="${page}"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+    }
+    
+    showPage(page) {
+        document.querySelectorAll('.page-content').forEach(content => {
+            content.classList.add('d-none');
+        });
+        
+        const activePage = document.getElementById(page);
+        if (activePage) {
+            activePage.classList.remove('d-none');
+        }
+    }
+    
+    handlePopState(event) {
+        if (event.state && event.state.page) {
+            this.navigateTo(event.state.page);
+        }
+    }
+}
+// Détection automatique de la page active
+function setActiveNavItem() {
+    const currentPath = window.location.pathname;
+    
+    // Retire active de tous les items
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+    });
+    
+    // Détermine quelle page est active
+    let activePage = 'dashboard'; // par défaut
+    
+    if (currentPath.includes('collection')) {
+        activePage = 'collection';
+    } else if (currentPath.includes('account')) {
+        activePage = 'account';
+    }
+    
+    // Ajoute active à l'item correspondant
+    const activeLink = document.querySelector(`[data-page="${activePage}"]`);
+    if (activeLink) {
+        activeLink.classList.add('active');
+    }
+}
 </script>
 </body>
 </html>
