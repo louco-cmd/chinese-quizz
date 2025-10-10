@@ -110,7 +110,7 @@ passport.deserializeUser(async (user, done) => {
 app.get("/", (req, res) => {
   if (req.user) {
     // Utilisateur connecté → redirige vers le dashboard
-    res.redirect("/dashboard");
+    res.render("/dashboard");
   } else {
     // Utilisateur non connecté → montre la page login
     res.render("index", { user: req.user });
@@ -126,7 +126,7 @@ app.get("/dashboard", ensureAuth, (req, res) => {
 app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));
 app.get("/auth/google/callback",
   passport.authenticate("google", { failureRedirect: "/" }),
-  (req, res) => res.redirect("/dashboard.html")
+  (req, res) => res.render("/dashboard")
 );
 
 // API mots
