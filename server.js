@@ -120,20 +120,23 @@ app.get('/dashboard', ensureAuth, async (req, res) => {
   const userId = req.user.id; 
 
   try {
-    // Récupérer seulement le nom de l'utilisateur
     const userRes = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
     const user = userRes.rows[0] || {};
 
-    // Rendre avec seulement les données nécessaires
+    // 🎯 CORRECTION : Bien définir userData
+    const userData = {
+      name: user.name || 'Friend'
+    };
+
+    console.log('📊 Rendering dashboard with:', { userData, currentPage: 'dashboard' });
+
     res.render('dashboard', {
-      userData: {
-        name: user.name || 'Friend' // Fallback si pas de nom
-      },
+      userData: userData,  // 🎯 Maintenant userData est défini
       currentPage: 'dashboard'
     });
 
   } catch (err) {
-    console.error("Erreur dashboard:", err);
+    console.error("❌ Dashboard error:", err);
     res.status(500).send("Erreur serveur");
   }
 });
