@@ -107,7 +107,15 @@ passport.deserializeUser(async (user, done) => {
 });
 
 // -------------------- Routes --------------------
-app.get("/", (req, res) => res.render("index", { user: req.user }));
+app.get("/", (req, res) => {
+  if (req.user) {
+    // Utilisateur connecté → redirige vers le dashboard
+    res.redirect("/dashboard");
+  } else {
+    // Utilisateur non connecté → montre la page login
+    res.render("index", { user: req.user });
+  }
+});
 
 // Auth Google
 app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));

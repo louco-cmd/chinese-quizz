@@ -1,11 +1,11 @@
 {
-  "name": "Mon App Chinois",
-  "short_name": "ChinoisApp", 
-  "description": "App pour apprendre le chinois",
+  "name": "加油！jiayou!",
+  "short_name": "Jiayou", 
+  "description": "add oil on your Chinese learning journey!",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "theme_color": "#0d6efd",
   "orientation": "portrait",
   "icons": [
     {
