@@ -2,19 +2,19 @@
   <div class="container-fluid">
     <div class="nav-container">
       <div class="nav-item">
-        <a href="/dashboard" class="nav-link <%= currentPage === 'dashboard' ? 'active' : '' %>" title="Dashboard">
+        <a href="/dashboard" class="nav-link <%= typeof currentPage !== 'undefined' && currentPage === 'dashboard' ? 'active' : '' %>" title="Dashboard">
           <i class="bi bi-house-door-fill"></i>
           <span>Home</span>
         </a>
       </div>
       <div class="nav-item">
-        <a href="/collection" class="nav-link <%= currentPage === 'collection' ? 'active' : '' %>" title="Collection">
+        <a href="/collection" class="nav-link <%= typeof currentPage !== 'undefined' && currentPage === 'collection' ? 'active' : '' %>" title="Collection">
           <i class="bi bi-journal-bookmark-fill"></i>
           <span>Collection</span>
         </a>
       </div>
       <div class="nav-item">
-        <a href="/account" class="nav-link <%= currentPage === 'account' ? 'active' : '' %>" title="Account">
+        <a href="/account.html" class="nav-link <%= typeof currentPage !== 'undefined' && currentPage === 'account' ? 'active' : '' %>" title="Account">
           <i class="bi bi-person-fill"></i>
           <span>Account</span>
         </a>
@@ -28,3 +28,28 @@
     </div>
   </div>
 </nav>
+
+<style>
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: white; border-top: 1px solid #dee2e6;
+  z-index: 1000; padding: 8px 0;
+}
+@media (min-width: 768px) {
+  .nav-container { display: flex; justify-content: center; gap: 20px; }
+  .nav-item { flex: 0 0 auto; }
+}
+@media (max-width: 767.98px) {
+  .nav-container { display: flex; justify-content: space-around; }
+  .nav-item { flex: 1; }
+}
+.nav-link {
+  color: #6c757d; text-decoration: none;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; padding: 8px 12px; border-radius: 8px;
+  transition: all 0.2s ease;
+}
+.nav-link:hover { background-color: #f8f9fa; color: #495057; }
+.nav-link.active { color: #0d6efd; background-color: #e3f2fd; }
+.nav-link.disabled { opacity: 0.4; cursor: not-allowed; }
+</style>
