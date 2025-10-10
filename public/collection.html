@@ -223,13 +223,12 @@ function createCardElement(word) {
         </div>
 
         <div class="bg-white border rounded-3 p-4 py-2 mt-3 flex-grow-0">
-            <!-- MODIFICATION MINIME ICI : ajout d'un ID unique -->
-            <div class="text-dark text-center text-box ${chineseFontSizeClass}" id="chinese-${word.id}">
+            <!-- MODIFICATION : Ajout d'un data-id au lieu d'un id -->
+            <div class="text-dark text-center text-box ${chineseFontSizeClass} chinese-container" data-word-id="${word.id}">
                 ${word.chinese}
             </div>
         </div>
 
-        <!-- Le reste de ton HTML inchangé -->
         <div class="flex-grow-1 d-flex flex-column justify-content-between">
             <div>
                 <div class="fs-pinyin fw-bold text-dark mb-1">${word.pinyin || ''}</div>
@@ -243,74 +242,109 @@ function createCardElement(word) {
     </div>
   `;
 
-  // APRÈS avoir set l'innerHTML, on transforme les caractères
-  transformChineseCharacters(word.chinese, word.id);
+  // Debug : vérifie si l'élément existe
+  const chineseContainer = card.querySelector('.chinese-container');
+  console.log('📦 Container trouvé:', chineseContainer);
+  console.log('🔤 Mot chinois:', word.chinese);
+  console.log('🆔 ID word:', word.id);
+
+  if (chineseContainer && word.chinese) {
+    transformChineseCharacters(word.chinese, chineseContainer);
+  } else {
+    console.error('❌ Container ou mot chinois manquant');
+  }
 
   card.querySelector('.edit-btn').onclick = () => openEdit(word);
   return card;
 }
 
-// Cache pour les mots
-let cacheMots = null;
-let dernierFetch = 0;
-const CACHE_DURATION = 5 * 60 * 1000;
+// 🚀 VERSION SIMPLIFIÉE pour debug
+function transformChineseCharacters(chineseWord, container) {
+  console.log('🎯 transformChineseCharacters appelée');
+  console.log('🔤 Mot:', chineseWord);
+  console.log('📦 Container:', container);
 
-// Transforme les caractères chinois en spans interactifs
-function transformChineseCharacters(chineseWord, wordId) {
-  const container = document.getElementById(`chinese-${wordId}`);
-  if (!container || !chineseWord) return;
+  if (!container || !chineseWord) {
+    console.error('❌ Container ou mot manquant');
+    return;
+  }
 
   const characters = Array.from(chineseWord);
+  console.log('🔡 Caractères détectés:', characters);
+  
+  // Sauvegarde le texte original au cas où
+  const originalText = container.textContent;
   
   container.innerHTML = '';
-  characters.forEach((character) => {
+  
+  characters.forEach((character, index) => {
     const span = document.createElement('span');
     span.className = 'chinese-character';
     span.setAttribute('data-char', character);
     span.textContent = character;
     
+    // Style visible pour debug
     span.style.display = 'inline-block';
-    span.style.margin = '0 1px';
+    span.style.margin = '0 2px';
     span.style.cursor = 'pointer';
     span.style.transition = 'all 0.2s ease';
+    span.style.padding = '2px 4px';
+    span.style.border = '1px dashed #ccc'; // Bordure visible pour debug
+    span.style.borderRadius = '3px';
     
-    span.addEventListener('mouseenter', handleCharacterHover);
-    span.addEventListener('mouseleave', handleCharacterLeave);
+    // Log au hover
+    span.addEventListener('mouseenter', (e) => {
+      console.log('🐭 HOVER sur caractère:', character);
+      handleCharacterHover(e);
+    });
+    
+    span.addEventListener('mouseleave', (e) => {
+      console.log('🚪 LEAVE caractère:', character);
+      handleCharacterLeave(e);
+    });
     
     container.appendChild(span);
   });
+  
+  console.log('✅ Caractères transformés');
 }
 
-// Gestionnaire des événements hover
-let hoverModal = null;
-
+// Gestionnaires simplifiés pour debug
 function handleCharacterHover(event) {
+  console.log('🎯 handleCharacterHover appelé');
   const character = event.target.getAttribute('data-char');
-  showCharacterModal(character, event.target);
+  console.log('🔤 Caractère hover:', character);
+  
+  // Test simple sans API d'abord
+  showSimpleModal(character, event.target);
 }
 
-function handleCharacterLeave() {
+function handleCharacterLeave(event) {
+  console.log('🎯 handleCharacterLeave appelé');
   hideCharacterModal();
 }
 
-// Affiche le modal avec les infos du caractère
-function showCharacterModal(character, targetElement) {
+// Modal simple pour test
+function showSimpleModal(character, targetElement) {
+  console.log('🪟 showSimpleModal appelé');
+  
   if (!hoverModal) {
     hoverModal = document.createElement('div');
     hoverModal.className = 'character-modal';
     hoverModal.style.cssText = `
       position: fixed;
       background: white;
-      border: 1px solid #ddd;
+      border: 2px solid red; // Bordure rouge visible
       border-radius: 8px;
       padding: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
       z-index: 10000;
       max-width: 200px;
       font-size: 14px;
       display: none;
     `;
     document.body.appendChild(hoverModal);
+    console.log('✅ Modal créé');
   }
 
   const rect = targetElement.getBoundingClientRect();
@@ -318,78 +352,23 @@ function showCharacterModal(character, targetElement) {
   hoverModal.style.top = `${rect.bottom + window.scrollY + 5}px`;
   hoverModal.style.display = 'block';
   
-  // Contenu temporaire
   hoverModal.innerHTML = `
     <div class="text-center">
       <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
-      <div style="color: #e74c3c; font-weight: bold;">Chargement...</div>
+      <div style="color: #e74c3c; font-weight: bold;">TEST - Ça marche !</div>
     </div>
   `;
-
-  // Appel API
-  fetchCharacterData(character);
+  
+  console.log('✅ Modal affiché');
 }
 
-// Cache les infos du caractère
-async function fetchCharacterData(character) {
-  try {
-    const maintenant = Date.now();
-    if (!cacheMots || (maintenant - dernierFetch) > CACHE_DURATION) {
-      const response = await fetch('/mes-mots');
-      if (!response.ok) throw new Error('Erreur lors du chargement des mots');
-      cacheMots = await response.json();
-      dernierFetch = maintenant;
-    }
-    
-    const motsContenantCaractere = cacheMots.filter(mot => 
-      mot.chinese && mot.chinese.includes(character)
-    );
-    
-    if (motsContenantCaractere.length === 0) {
-      throw new Error('Caractère non trouvé');
-    }
-    
-    const motTrouve = motsContenantCaractere[0];
-    const pinyinCaractere = extractPinyinForCharacter(motTrouve.pinyin, motTrouve.chinese, character);
-    
-    if (hoverModal) {
-      hoverModal.innerHTML = `
-        <div class="text-center">
-          <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
-          <div style="color: #e74c3c; font-weight: bold; margin-bottom: 4px;">${pinyinCaractere}</div>
-          <div style="color: #2c3e50; font-size: 13px;">
-            Fait partie de: ${motTrouve.english}
-          </div>
-          <div style="font-size: 11px; color: #7f8c8d; margin-top: 4px;">
-            ${motTrouve.hsk ? `HSK ${motTrouve.hsk}` : ''}
-          </div>
-        </div>
-      `;
-    }
-    
-  } catch (error) {
-    if (hoverModal) {
-      hoverModal.innerHTML = `
-        <div class="text-center">
-          <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
-          <div style="color: #95a5a6; font-size: 13px;">${error.message}</div>
-        </div>
-      `;
-    }
-  }
-}
-
-function extractPinyinForCharacter(pinyinComplet, motChinois, caractereCible) {
-  if (!pinyinComplet || !motChinois) return 'N/A';
-  const caracteres = Array.from(motChinois);
-  const syllabes = pinyinComplet.split(' ');
-  const index = caracteres.indexOf(caractereCible);
-  return (index >= 0 && index < syllabes.length) ? syllabes[index] : pinyinComplet;
-}
+let hoverModal = null;
 
 function hideCharacterModal() {
+  console.log('🎯 hideCharacterModal appelé');
   if (hoverModal) {
     hoverModal.style.display = 'none';
+    console.log('✅ Modal caché');
   }
 }
 
