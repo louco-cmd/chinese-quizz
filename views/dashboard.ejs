@@ -434,28 +434,20 @@ class SimpleNavigation {
 }
 // Détection automatique de la page active
 function setActiveNavItem() {
-    const currentPath = window.location.pathname;
+    const path = window.location.pathname;
     
-    // Retire active de tous les items
     document.querySelectorAll('.nav-link').forEach(link => {
         link.classList.remove('active');
+        // Active si le data-page correspond à l'URL
+        if (path.includes(link.getAttribute('data-page'))) {
+            link.classList.add('active');
+        }
     });
-    
-    // Détermine quelle page est active
-    let activePage = 'dashboard'; // par défaut
-    
-    if (currentPath.includes('collection')) {
-        activePage = 'collection.html';
-    } else if (currentPath.includes('account')) {
-        activePage = 'account.html';
-    }
-    
-    // Ajoute active à l'item correspondant
-    const activeLink = document.querySelector(`[data-page="${activePage}"]`);
-    if (activeLink) {
-        activeLink.classList.add('active');
-    }
 }
+
+// Appeler au chargement
+document.addEventListener('DOMContentLoaded', setActiveNavItem);
+
   </script>
 
 </body>
