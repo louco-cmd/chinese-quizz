@@ -207,17 +207,13 @@ cardContainer.addEventListener('wheel', (e) => {
   }
 });
 
-// Card creation
+//create card element
 function createCardElement(word) {
   const card = document.createElement('div');
   card.classList.add('col', 'mb-4'); 
   
-  // Détermine le niveau HSK à afficher
   const hskLevelDisplay = word.hsk || 'Street';
-
-  // LOGIQUE CLÉ : Choisir la classe de taille de police en fonction de la longueur du mot chinois
   const chineseFontSizeClass = (word.chinese && word.chinese.length >= 3) ? 'fs-chinese-small' : 'fs-chinese';
-  // Correction: Si 3 caractères ou PLUS, on passe en petit. Si 2 ou moins, on garde le grand.
 
   card.innerHTML = `
     <div class="card card-custom-bg rounded-4 shadow-lg p-3 mx-auto" style="width: 320px; height: 500px; position: relative;">
@@ -227,32 +223,174 @@ function createCardElement(word) {
         </div>
 
         <div class="bg-white border rounded-3 p-4 py-2 mt-3 flex-grow-0">
-            <div class="text-dark text-center text-box ${chineseFontSizeClass}">${word.chinese}</div>
+            <!-- MODIFICATION MINIME ICI : ajout d'un ID unique -->
+            <div class="text-dark text-center text-box ${chineseFontSizeClass}" id="chinese-${word.id}">
+                ${word.chinese}
+            </div>
         </div>
 
+        <!-- Le reste de ton HTML inchangé -->
         <div class="flex-grow-1 d-flex flex-column justify-content-between">
             <div>
                 <div class="fs-pinyin fw-bold text-dark mb-1">${word.pinyin || ''}</div>
-
-                <div class="fs-5 text-success mb-3">
-                    ${word.english || 'No Translation'}
-                </div>
-
+                <div class="fs-5 text-success mb-3">${word.english || 'No Translation'}</div>
                 <div class="pt-3 border-top border-light-subtle">
-                    <div class="text-context">
-                        ${word.description || 'No description provided.'}
-                    </div>
+                    <div class="text-context">${word.description || 'No description provided.'}</div>
                 </div>
             </div>
-
             <a href="#" class="btn btn-link text-success edit-btn mt-auto">✏️ Edit</a>
         </div>
-        
     </div>
   `;
-  
+
+  // APRÈS avoir set l'innerHTML, on transforme les caractères
+  transformChineseCharacters(word.chinese, word.id);
+
   card.querySelector('.edit-btn').onclick = () => openEdit(word);
   return card;
+}
+
+// Cache pour les mots
+let cacheMots = null;
+let dernierFetch = 0;
+const CACHE_DURATION = 5 * 60 * 1000;
+
+// Transforme les caractères chinois en spans interactifs
+function transformChineseCharacters(chineseWord, wordId) {
+  const container = document.getElementById(`chinese-${wordId}`);
+  if (!container || !chineseWord) return;
+
+  const characters = Array.from(chineseWord);
+  
+  container.innerHTML = '';
+  characters.forEach((character) => {
+    const span = document.createElement('span');
+    span.className = 'chinese-character';
+    span.setAttribute('data-char', character);
+    span.textContent = character;
+    
+    span.style.display = 'inline-block';
+    span.style.margin = '0 1px';
+    span.style.cursor = 'pointer';
+    span.style.transition = 'all 0.2s ease';
+    
+    span.addEventListener('mouseenter', handleCharacterHover);
+    span.addEventListener('mouseleave', handleCharacterLeave);
+    
+    container.appendChild(span);
+  });
+}
+
+// Gestionnaire des événements hover
+let hoverModal = null;
+
+function handleCharacterHover(event) {
+  const character = event.target.getAttribute('data-char');
+  showCharacterModal(character, event.target);
+}
+
+function handleCharacterLeave() {
+  hideCharacterModal();
+}
+
+// Affiche le modal avec les infos du caractère
+function showCharacterModal(character, targetElement) {
+  if (!hoverModal) {
+    hoverModal = document.createElement('div');
+    hoverModal.className = 'character-modal';
+    hoverModal.style.cssText = `
+      position: fixed;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 10000;
+      max-width: 200px;
+      font-size: 14px;
+      display: none;
+    `;
+    document.body.appendChild(hoverModal);
+  }
+
+  const rect = targetElement.getBoundingClientRect();
+  hoverModal.style.left = `${rect.left + window.scrollX}px`;
+  hoverModal.style.top = `${rect.bottom + window.scrollY + 5}px`;
+  hoverModal.style.display = 'block';
+  
+  // Contenu temporaire
+  hoverModal.innerHTML = `
+    <div class="text-center">
+      <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
+      <div style="color: #e74c3c; font-weight: bold;">Chargement...</div>
+    </div>
+  `;
+
+  // Appel API
+  fetchCharacterData(character);
+}
+
+// Cache les infos du caractère
+async function fetchCharacterData(character) {
+  try {
+    const maintenant = Date.now();
+    if (!cacheMots || (maintenant - dernierFetch) > CACHE_DURATION) {
+      const response = await fetch('/mes-mots');
+      if (!response.ok) throw new Error('Erreur lors du chargement des mots');
+      cacheMots = await response.json();
+      dernierFetch = maintenant;
+    }
+    
+    const motsContenantCaractere = cacheMots.filter(mot => 
+      mot.chinese && mot.chinese.includes(character)
+    );
+    
+    if (motsContenantCaractere.length === 0) {
+      throw new Error('Caractère non trouvé');
+    }
+    
+    const motTrouve = motsContenantCaractere[0];
+    const pinyinCaractere = extractPinyinForCharacter(motTrouve.pinyin, motTrouve.chinese, character);
+    
+    if (hoverModal) {
+      hoverModal.innerHTML = `
+        <div class="text-center">
+          <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
+          <div style="color: #e74c3c; font-weight: bold; margin-bottom: 4px;">${pinyinCaractere}</div>
+          <div style="color: #2c3e50; font-size: 13px;">
+            Fait partie de: ${motTrouve.english}
+          </div>
+          <div style="font-size: 11px; color: #7f8c8d; margin-top: 4px;">
+            ${motTrouve.hsk ? `HSK ${motTrouve.hsk}` : ''}
+          </div>
+        </div>
+      `;
+    }
+    
+  } catch (error) {
+    if (hoverModal) {
+      hoverModal.innerHTML = `
+        <div class="text-center">
+          <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
+          <div style="color: #95a5a6; font-size: 13px;">${error.message}</div>
+        </div>
+      `;
+    }
+  }
+}
+
+function extractPinyinForCharacter(pinyinComplet, motChinois, caractereCible) {
+  if (!pinyinComplet || !motChinois) return 'N/A';
+  const caracteres = Array.from(motChinois);
+  const syllabes = pinyinComplet.split(' ');
+  const index = caracteres.indexOf(caractereCible);
+  return (index >= 0 && index < syllabes.length) ? syllabes[index] : pinyinComplet;
+}
+
+function hideCharacterModal() {
+  if (hoverModal) {
+    hoverModal.style.display = 'none';
+  }
 }
 
 function showCard() {
