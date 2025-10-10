@@ -1,0 +1,30 @@
+<nav class="bottom-nav">
+  <div class="container-fluid">
+    <div class="nav-container">
+      <div class="nav-item">
+        <a href="/dashboard" class="nav-link <%= currentPage === 'dashboard' ? 'active' : '' %>" title="Dashboard">
+          <i class="bi bi-house-door-fill"></i>
+          <span>Home</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="/collection" class="nav-link <%= currentPage === 'collection' ? 'active' : '' %>" title="Collection">
+          <i class="bi bi-journal-bookmark-fill"></i>
+          <span>Collection</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="/account" class="nav-link <%= currentPage === 'account' ? 'active' : '' %>" title="Account">
+          <i class="bi bi-person-fill"></i>
+          <span>Account</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="#" class="nav-link disabled" title="Duel (Soon)">
+          <i class="bi bi-joystick"></i>
+          <span>Duel</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</nav>

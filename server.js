@@ -333,6 +333,30 @@ app.get('/account-info', ensureAuth, async (req, res) => {
   }
 });
 
+app.get('/collection', ensureAuth, async (req, res) => {
+  const userId = req.user.id;
+  const cardIndex = parseInt(req.query.card) || 0;
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT mots.* FROM mots
+      JOIN user_mots ON mots.id = user_mots.mot_id
+      WHERE user_mots.user_id = $1
+      ORDER BY mots.id ASC
+    `, [userId]);
+
+    // Réorganiser les mots pour commencer à l'index demandé
+    const sortedWords = [...rows.slice(cardIndex), ...rows.slice(0, cardIndex)];
+
+    res.render('collection', {
+      words: sortedWords,
+      currentPage: 'collection'
+    });
+  } catch (err) {
+    console.error('Collection error:', err);
+    res.status(500).send('Server error');
+  }
+});
 
 // -------------------- Lancer serveur --------------------
 const PORT = process.env.PORT || 3000;

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>加油！Collection</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { padding-bottom: 80px; }
+    
+    .card-custom-bg {
+      background-color: #f7fcf7;
+      border: 1px solid #c8e6c9;
+    }
+    
+    .fs-pinyin { font-size: 2.25rem; }
+    .fs-chinese { font-size: 6.25rem; line-height: 1.2; }
+    .fs-chinese-small { font-size: 4.25rem; line-height: 1.2; }
+    
+    .hsk-tag-custom {
+      background-color: white;
+      color: #4CAF50;
+      font-weight: bold;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .text-context { color: #999; font-size: 0.875rem; }
+    .text-box { min-height: 170px; align-content: center; }
+    
+    /* Transitions */
+    #card-container, #list-container { 
+      transition: opacity 0.3s ease; 
+    }
+    .d-none { opacity: 0; pointer-events: none; }
+    .d-block { opacity: 1; pointer-events: all; }
+    
+    /* Navigation */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: white; border-top: 1px solid #dee2e6;
+      z-index: 1000; padding: 8px 0;
+    }
+    @media (min-width: 768px) {
+      .nav-container { display: flex; justify-content: center; gap: 20px; }
+      .nav-item { flex: 0 0 auto; }
+    }
+    @media (max-width: 767.98px) {
+      .nav-container { display: flex; justify-content: space-around; }
+      .nav-item { flex: 1; }
+    }
+    .nav-link {
+      color: #6c757d; text-decoration: none;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 4px; padding: 8px 12px; border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+    .nav-link.active { color: #0d6efd; background-color: #e3f2fd; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
+    <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
+      加油！
+    </span>
+  </div>
+
+  <!-- Navigation -->
+  <%- include('partials/navbar', {currentPage: 'collection'}) %>
+
+  <!-- Main Content -->
+  <section class="section d-flex flex-column align-items-center mt-4">
+    <!-- Card View -->
+    <div id="card-container" class="d-flex justify-content-center d-block mb-2">
+      <% if (words && words.length > 0) { %>
+        <div class="col mb-4">
+          <div class="card card-custom-bg rounded-4 shadow-lg p-3 mx-auto" style="width: 320px; height: 500px; position: relative;">
+            <div class="position-absolute top-0 end-0 mt-3 me-3">
+              <span class="hsk-tag-custom py-1 px-2 border border-light">HSK : <%= words[0].hsk || 'Street' %></span>
+            </div>
+            <div class="bg-white border rounded-3 p-4 py-2 mt-3 flex-grow-0">
+              <div class="text-dark text-center text-box <%= words[0].chinese && words[0].chinese.length >= 3 ? 'fs-chinese-small' : 'fs-chinese' %>">
+                <%= words[0].chinese %>
+              </div>
+            </div>
+            <div class="flex-grow-1 d-flex flex-column justify-content-between">
+              <div>
+                <div class="fs-pinyin fw-bold text-dark mb-1"><%= words[0].pinyin || '' %></div>
+                <div class="fs-5 text-success mb-3"><%= words[0].english || 'No Translation' %></div>
+                <div class="pt-3 border-top border-light-subtle">
+                  <div class="text-context"><%= words[0].description || 'No description provided.' %></div>
+                </div>
+              </div>
+              <a href="#" class="btn btn-link text-success edit-btn mt-auto" onclick="openEditModal(<%= JSON.stringify(words[0]).replace(/"/g, '&quot;') %>)">✏️ Edit</a>
+            </div>
+          </div>
+        </div>
+      <% } else { %>
+        <p class="text-muted">No words in your collection yet.</p>
+      <% } %>
+    </div>
+
+    <!-- List View (caché par défaut) -->
+    <div id="list-container" class="container mt-4 d-none">
+      <div class="mb-3" style="max-width: 400px;">
+        <input type="text" id="searchInput" class="form-control" placeholder="Looking for a word...">
+      </div>
+      <table class="table table-striped">
+        <thead>
+          <tr><th>Chinese</th><th>Pinyin</th><th>English</th></tr>
+        </thead>
+        <tbody id="listBody">
+          <% if (words && words.length > 0) { %>
+            <% words.forEach((word, i) => { %>
+              <tr style="cursor: pointer;" onclick="showCard(<%= i %>)">
+                <td><%= word.chinese %></td>
+                <td><%= word.pinyin || '' %></td>
+                <td><%= word.english || '' %></td>
+              </tr>
+            <% }) %>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <% if (words && words.length > 0) { %>
+      <div class="d-flex justify-content-between w-100" style="max-width: 18rem;">
+        <button class="btn btn-primary rounded-circle px-3 py-2" onclick="prevCard()">‹</button>
+        <button class="btn btn-primary rounded-circle px-3 py-2" onclick="nextCard()">›</button>
+      </div>
+    <% } %>
+  </section>
+
+  <!-- Edit Modal -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Word</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="editForm" class="p-3">
+          <input type="hidden" id="editId" />
+          <div class="mb-3"><label class="form-label">Chinese</label><input type="text" class="form-control" id="editChinese" required></div>
+          <div class="mb-3"><label class="form-label">Pinyin</label><input type="text" class="form-control" id="editPinyin"></div>
+          <div class="mb-3"><label class="form-label">English</label><input type="text" class="form-control" id="editEnglish"></div>
+          <div class="mb-3"><label class="form-label">Description</label><textarea class="form-control" id="editDescription" rows="3"></textarea></div>
+          <div class="text-end">
+            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let words = <%- JSON.stringify(words || []) %>;
+    let currentIndex = 0;
+
+    // Navigation des cartes
+    function showCard(index) {
+      currentIndex = index;
+      window.location.href = `/collection?card=${index}`;
+    }
+
+    function prevCard() {
+      currentIndex = (currentIndex - 1 + words.length) % words.length;
+      window.location.href = `/collection?card=${currentIndex}`;
+    }
+
+    function nextCard() {
+      currentIndex = (currentIndex + 1) % words.length;
+      window.location.href = `/collection?card=${currentIndex}`;
+    }
+
+    // Gestion des vues
+    function toggleView(view) {
+      if (view === 'list') {
+        document.getElementById('card-container').classList.replace('d-block', 'd-none');
+        document.getElementById('list-container').classList.replace('d-none', 'd-block');
+      } else {
+        document.getElementById('card-container').classList.replace('d-none', 'd-block');
+        document.getElementById('list-container').classList.replace('d-block', 'd-none');
+      }
+    }
+
+    // Recherche
+    document.getElementById('searchInput')?.addEventListener('input', function() {
+      const query = this.value.toLowerCase();
+      document.querySelectorAll('#listBody tr').forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(query) ? '' : 'none';
+      });
+    });
+
+    // Modal d'édition
+    function openEditModal(word) {
+      document.getElementById('editId').value = word.id;
+      document.getElementById('editChinese').value = word.chinese;
+      document.getElementById('editPinyin').value = word.pinyin || '';
+      document.getElementById('editEnglish').value = word.english || '';
+      document.getElementById('editDescription').value = word.description || '';
+      new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
+
+    document.getElementById('editForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      // Implémente la sauvegarde ici
+    });
+
+    // Navigation au clavier
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') prevCard();
+      if (e.key === 'ArrowRight') nextCard();
+    });
+  </script>
+</body>
+</html>
