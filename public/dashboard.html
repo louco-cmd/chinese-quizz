@@ -1,243 +1,256 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title> 加油！</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title> 加油！</title>
 
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Ajoute ces lignes -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#3b82f6"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <!-- Icônes pour iOS -->
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+  <!-- Détection PWA -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg bg-primary navbar-dark px-2">
-  <div class="container-fluid d-flex justify-content-between">
-    <!-- Titre -->
-    <a class="navbar-brand text-white fw-bold" href="#">加油！</a>
+  <nav class="navbar navbar-expand-lg bg-primary navbar-dark px-2">
+    <div class="container-fluid d-flex justify-content-between">
+      <!-- Titre -->
+      <a class="navbar-brand text-white fw-bold" href="#">加油！</a>
 
-    <!-- Bouton -->
-    <div class="d-flex">
-      <button id="collectionBtn" class="btn btn-outline-light w-auto">See my collection</button>
+      <!-- Bouton -->
+      <div class="d-flex">
+        <button id="collectionBtn" class="btn btn-outline-light w-auto">See my collection</button>
+      </div>
     </div>
-  </div>
-</nav>
+  </nav>
 
-<section class="container mt-4 col-12 col-md-10 col-lg-6">
-<ul class="nav nav-tabs tabs">
-  <li class="nav-item">
-    <a class="nav-link active tab" data-tab="add" href="#">Add a word</a>
-  </li>
-  <li class="nav-item">
-    <a class="nav-link tab" data-tab="quiz" href="#">Quizz</a>
-  </li>
-</ul>
+  <section class="container mt-4 col-12 col-md-10 col-lg-6">
+    <ul class="nav nav-tabs tabs">
+      <li class="nav-item">
+        <a class="nav-link active tab" data-tab="add" href="#">Add a word</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link tab" data-tab="quiz" href="#">Quizz</a>
+      </li>
+    </ul>
 
-<div id="add" class="tab-content">
-  <!-- <h2 class="my-4">Ajouter un mot</h2>-->
-  <form id="addForm" class="p-4 bg-light rounded shadow-sm">
-    
-    <!-- Caractère chinois -->
-    <div class="mb-3">
-      <label for="chinese" class="form-label">Chinese Characters</label>
-      <input 
-        type="text" 
-        id="chinese" 
-        class="form-control" 
-        required
-      >
+    <div id="add" class="tab-content">
+      <!-- <h2 class="my-4">Ajouter un mot</h2>-->
+      <form id="addForm" class="p-4 bg-light rounded shadow-sm">
+
+        <!-- Caractère chinois -->
+        <div class="mb-3">
+          <label for="chinese" class="form-label">Chinese Characters</label>
+          <input
+            type="text"
+            id="chinese"
+            class="form-control"
+            required
+          >
+        </div>
+
+        <!-- Pinyin -->
+        <div class="mb-3">
+          <label for="pinyin" class="form-label">Pinyin</label>
+          <input
+            type="text"
+            id="pinyin"
+            class="form-control"
+          >
+        </div>
+
+        <!-- Anglais -->
+        <div class="mb-3">
+          <label for="english" class="form-label">English</label>
+          <input
+            type="text"
+            id="english"
+            class="form-control"
+            required
+          >
+        </div>
+
+        <!-- Description -->
+        <div class="mb-3">
+          <label for="description" class="form-label">Description</label>
+          <textarea
+            id="description"
+            class="form-control"
+            rows="3"
+          ></textarea>
+        </div>
+
+        <!-- Bouton -->
+        <div class="d-grid">
+          <button type="submit" class="btn btn-primary">
+            Add Word
+          </button>
+        </div>
+      </form>
+
+      <div id="addResult" class="mt-3"></div>
     </div>
 
-    <!-- Pinyin -->
-    <div class="mb-3">
-      <label for="pinyin" class="form-label">Pinyin</label>
-      <input 
-        type="text" 
-        id="pinyin" 
-        class="form-control"
-      >
+    <div id="quiz" class="tab-content" style="display:none;">
+      <!--<h2 class="my-4">Quiz Setup</h2>-->
+      <form id="quizForm" class="p-4 bg-light rounded shadow-sm">
+
+        <!-- Type de quiz -->
+        <div class="mb-3">
+          <label for="quizType" class="form-label">Quiz type</label>
+          <select id="quizType" class="form-select">
+            <option value="englishToPinyin">English → Pinyin</option>
+            <option value="englishToChinese">English → Characters</option>
+          </select>
+        </div>
+
+        <!-- Nombre de mots -->
+        <div class="mb-3">
+          <label for="quizCount" class="form-label">Amount of words</label>
+          <select id="quizCount" class="form-select">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+            <option value="40">40</option>
+            <option value="all">Tous</option>
+          </select>
+        </div>
+
+        <!-- Bouton -->
+        <div class="d-grid">
+          <button type="submit" class="btn btn-primary">Launch the quiz</button>
+        </div>
+
+      </form>
     </div>
 
-    <!-- Anglais -->
-    <div class="mb-3">
-      <label for="english" class="form-label">English</label>
-      <input 
-        type="text" 
-        id="english" 
-        class="form-control" 
-        required
-      >
-    </div>
-
-    <!-- Description -->
-    <div class="mb-3">
-      <label for="description" class="form-label">Description</label>
-      <textarea 
-        id="description" 
-        class="form-control"
-        rows="3"
-      ></textarea>
-    </div>
-
-    <!-- Bouton -->
-    <div class="d-grid">
-      <button type="submit" class="btn btn-primary">
-        Add Word
+    <div class="d-flex justify-content-center my-4">
+      <button class="btn btn-outline-secondary" onclick="window.location.href='account.html'">
+        my account
       </button>
     </div>
-  </form>
 
-  <div id="addResult" class="mt-3"></div>
-</div>
+  </section>
 
-<div id="quiz" class="tab-content" style="display:none;">
-  <!--<h2 class="my-4">Quiz Setup</h2>-->
-  <form id="quizForm" class="p-4 bg-light rounded shadow-sm">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Type de quiz -->
-    <div class="mb-3">
-      <label for="quizType" class="form-label">Quiz type</label>
-      <select id="quizType" class="form-select">
-        <option value="englishToPinyin">English → Pinyin</option>
-        <option value="englishToChinese">English → Characters</option>
-      </select>
-    </div>
+  <script>
+    const chineseInput = document.getElementById('chinese');
+    const pinyinInput = document.getElementById('pinyin');
+    const englishInput = document.getElementById('english');
+    const messageDiv = document.getElementById('addResult'); // déjà dans ton HTML
 
-    <!-- Nombre de mots -->
-    <div class="mb-3">
-      <label for="quizCount" class="form-label">Amount of words</label>
-      <select id="quizCount" class="form-select">
-        <option value="10">10</option>
-        <option value="20">20</option>
-        <option value="30">30</option>
-        <option value="40">40</option>
-        <option value="all">Tous</option>
-      </select>
-    </div>
+    // -----------------------------
+    // Tabs
+    // -----------------------------
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+      tab.onclick = () => {
+        // Active la tab
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
 
-    <!-- Bouton -->
-    <div class="d-grid">
-      <button type="submit" class="btn btn-primary">Launch the quiz</button>
-    </div>
-
-  </form>
-</div>
-<div class="d-flex justify-content-center my-4">
-  <button class="btn btn-outline-secondary" onclick="window.location.href='account.html'">
-my account  </button>
-</div>
-
-</section>
-
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-<script>
-
-const chineseInput = document.getElementById('chinese');
-const pinyinInput = document.getElementById('pinyin');
-const englishInput = document.getElementById('english');
-const messageDiv = document.getElementById('addResult'); // déjà dans ton HTML
-
-// -----------------------------
-// Tabs
-// -----------------------------
-const tabs = document.querySelectorAll('.tab');
-tabs.forEach(tab => {
-  tab.onclick = () => {
-    // Active la tab
-    tabs.forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-
-    // Affiche le contenu correspondant
-    document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = 'none');
-    document.getElementById(tab.dataset.tab).style.display = 'block';
-  };
-});
-
-// -----------------------------
-// Add Word Form
-// -----------------------------
-const addForm = document.getElementById('addForm');
-addForm.onsubmit = async (e) => {
-  e.preventDefault();
-
-  const payload = {
-    chinese: document.getElementById('chinese').value,
-    pinyin: document.getElementById('pinyin').value,
-    english: document.getElementById('english').value,
-    description: document.getElementById('description').value
-  };
-
-  try {
-    const res = await fetch('/ajouter', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
+        // Affiche le contenu correspondant
+        document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = 'none');
+        document.getElementById(tab.dataset.tab).style.display = 'block';
+      };
     });
-    const data = await res.json();
 
-    if (data.success) {
-      document.getElementById('addResult').textContent = '✅ Mot ajouté !';
-      addForm.reset();
-    } else {
-      document.getElementById('addResult').textContent = `❌ ${data.message}`;
-    }
+    // -----------------------------
+    // Add Word Form
+    // -----------------------------
+    const addForm = document.getElementById('addForm');
+    addForm.onsubmit = async (e) => {
+      e.preventDefault();
 
-  } catch(err) {
-    document.getElementById('addResult').textContent = '❌ Erreur serveur';
-  }
-};
+      const payload = {
+        chinese: document.getElementById('chinese').value,
+        pinyin: document.getElementById('pinyin').value,
+        english: document.getElementById('english').value,
+        description: document.getElementById('description').value
+      };
 
-chineseInput.addEventListener("blur", async () => {
-  const chinese = chineseInput.value.trim();
-  if (!chinese) return;
+      try {
+        const res = await fetch('/ajouter', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
 
-  try {
-    const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`);
-    const data = await res.json();
+        if (data.success) {
+          document.getElementById('addResult').textContent = '✅ Mot ajouté !';
+          addForm.reset();
+        } else {
+          document.getElementById('addResult').textContent = `❌ ${data.message}`;
+        }
 
-    if (data.exists) {
-      // Remplir les champs automatiquement
-      pinyinInput.value = data.mot.pinyin || "";
-      englishInput.value = data.mot.english || "";
-      messageDiv.textContent = "Mot existant, champs remplis automatiquement";
-      messageDiv.style.color = "green";
-    } else {
-      pinyinInput.value = "";
-      englishInput.value = "";
-      messageDiv.textContent = "Nouveau mot à intégrer dans la base";
-      messageDiv.style.color = "orange";
-    }
-  } catch (err) {
-    messageDiv.textContent = "Erreur lors de la vérification";
-    messageDiv.style.color = "red";
-  }
-});
-// -----------------------------
-// Quiz Setup Form
-// -----------------------------
-const quizForm = document.getElementById('quizForm');
-quizForm.onsubmit = (e) => {
-  e.preventDefault();
+      } catch(err) {
+        document.getElementById('addResult').textContent = '❌ Erreur serveur';
+      }
+    };
 
-  const type = document.getElementById('quizType').value;  // englishToPinyin / englishToChinese
-  const count = document.getElementById('quizCount').value; // nombre de mots
+    chineseInput.addEventListener("blur", async () => {
+      const chinese = chineseInput.value.trim();
+      if (!chinese) return;
 
-  // Redirection vers la page quiz correspondante
-  if (type === 'englishToPinyin') {
-    window.location.href = `quiz-pinyin.html?count=${count}`;
-  } else {
-    window.location.href = `quiz-character.html?count=${count}`;
-  }
-};
+      try {
+        const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`);
+        const data = await res.json();
 
-// -----------------------------
-// Collection Button
-// -----------------------------
-document.getElementById('collectionBtn').onclick = () => {
-  window.location.href = 'collection.html';
-};
-</script>
+        if (data.exists) {
+          // Remplir les champs automatiquement
+          pinyinInput.value = data.mot.pinyin || "";
+          englishInput.value = data.mot.english || "";
+          messageDiv.textContent = "Mot existant, champs remplis automatiquement";
+          messageDiv.style.color = "green";
+        } else {
+          pinyinInput.value = "";
+          englishInput.value = "";
+          messageDiv.textContent = "Nouveau mot à intégrer dans la base";
+          messageDiv.style.color = "orange";
+        }
+      } catch (err) {
+        messageDiv.textContent = "Erreur lors de la vérification";
+        messageDiv.style.color = "red";
+      }
+    });
 
+    // -----------------------------
+    // Quiz Setup Form
+    // -----------------------------
+    const quizForm = document.getElementById('quizForm');
+    quizForm.onsubmit = (e) => {
+      e.preventDefault();
+
+      const type = document.getElementById('quizType').value;  // englishToPinyin / englishToChinese
+      const count = document.getElementById('quizCount').value; // nombre de mots
+
+      // Redirection vers la page quiz correspondante
+      if (type === 'englishToPinyin') {
+        window.location.href = `quiz-pinyin.html?count=${count}`;
+      } else {
+        window.location.href = `quiz-character.html?count=${count}`;
+      }
+    };
+
+    // -----------------------------
+    // Collection Button
+    // -----------------------------
+    document.getElementById('collectionBtn').onclick = () => {
+      window.location.href = 'collection.html';
+    };
+  </script>
 
 </body>
 </html>
