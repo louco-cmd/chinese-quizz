@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>加油! Quiz Pinyin</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0d6efd"/>
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js');
+  }
+</script>
+</head>
+<body>
+
+ <div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
+  <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
+    加油！
+  </span>
+</div>
+
+<%- include('partials/navbar', {currentPage: 'collection'}) %>
+
+<div class="quiz-container container my-4 p-4 bg-light rounded shadow-sm col-12 col-md-10 col-lg-6">
+
+  <!-- Question -->
+  <div id="quizQuestion" class="mb-3 fw-bold fs-5 text-center"></div>
+
+  <!-- Résultat AU DESSUS des champs -->
+  <div id="quizResult" class="mb-3 text-center fs-4 fw-bold"></div>
+
+  <!-- Formulaire du quiz -->
+  <form id="quizForm" class="p-4 bg-light rounded gap-4 d-flex flex-column">
+    <div id="quizFields" class="d-flex flex-row gap-2 justify-content-center"></div>
+
+    <!-- Boutons - seulement "Soumettre" -->
+    <div class="d-flex flex-column gap-2">
+      <button type="submit" id="checkBtn" class="btn btn-primary w-100">Soumettre</button>
+      <!-- ❌ Bouton Annuler supprimé -->
+    </div>
+  </form>
+
+  <!-- Score -->
+  <div id="quizScore" class="mb-3 fw-bold text-center">✅ 0 | ❌ 0</div>
+  
+</div>
+
+<script src="/js/global.js"></script>
+<script>
+let quizWords = []; 
+let quizIdx = 0;
+let quizInputs = [];
+let correctCount = 0;
+let wrongCount = 0;
+let currentWord = null;
+let hasSecondChance = false;
+
+const quizQuestion = document.getElementById('quizQuestion');
+const quizFields = document.getElementById('quizFields');
+const checkBtn = document.getElementById('checkBtn');
+const quizResult = document.getElementById('quizResult');
+const quizForm = document.getElementById('quizForm');
+const quizScore = document.getElementById('quizScore');
+
+const urlParams = new URLSearchParams(window.location.search);
+let quizCount = urlParams.get('count');
+
+if (quizCount !== "all") {
+  quizCount = parseInt(quizCount);
+}
+
+function shuffleArray(arr) {
+  for(let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+async function loadQuizWords(count = 10) {
+  const res = await fetch('/quiz-mots');
+  const mots = await res.json();
+
+  if (!mots.length) {
+    quizQuestion.textContent = '⚠️ Aucun mot disponible. Ajoutez des mots pour lancer le quiz.';
+    checkBtn.style.display = 'none';
+    return;
+  }
+
+  shuffleArray(mots);
+  quizWords = (count === 'all' || count >= mots.length) ? mots : mots.slice(0, count);
+
+  quizIdx = 0;
+  correctCount = 0;
+  wrongCount = 0;
+  hasSecondChance = false;
+  updateScore();
+  checkBtn.style.display = 'inline-block';
+  showQuizWord();
+}
+
+function showQuizWord() {
+  quizFields.innerHTML = '';
+  quizInputs = [];
+  quizResult.textContent = '';
+  hasSecondChance = false;
+
+  if (quizIdx >= quizWords.length) {
+    quizQuestion.textContent = '🎉 Quiz terminé !';
+    checkBtn.style.display = 'none';
+    setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
+    return;
+  }
+
+  currentWord = quizWords[quizIdx];
+  quizQuestion.textContent = `Comment dire "${currentWord.english}" en pinyin ?`;
+
+  const answer = currentWord.pinyin; 
+  const answerParts = answer.split(' ');
+
+  // Champs d'input côte à côte
+  answerParts.forEach((part, i) => {
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.maxLength = part.length;
+    inp.placeholder = part.length + ' caractères';
+    inp.className = 'form-control text-center flex-fill';
+    inp.addEventListener('input', (e) => {
+      if (e.target.value.length >= e.target.maxLength && quizInputs[i+1]){
+        quizInputs[i+1].focus();
+      }
+    });
+    quizFields.appendChild(inp);
+    quizInputs.push(inp);
+  });
+
+  quizInputs[0].focus();
+}
+
+function normalizePinyin(str) {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function updateScore() {
+  quizScore.textContent = `✅ ${correctCount} | ❌ ${wrongCount}`;
+}
+
+// NOUVELLE LOGIQUE : Deuxième chance éducative
+quizForm.onsubmit = (e) => {
+  e.preventDefault();
+
+  const userAnswer = normalizePinyin(
+    quizInputs.map(inp => inp.value).join("")
+  );
+
+  const correctAnswer = normalizePinyin(currentWord.pinyin);
+
+  if (userAnswer === correctAnswer) {
+    quizResult.textContent = "✅ Correct !";
+    quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
+    
+    if (!hasSecondChance) {
+      correctCount++; // Seulement compter si première tentative
+    }
+    
+    updateScore();
+    quizIdx++;
+    setTimeout(showQuizWord, 1500);
+    
+  } else {
+    if (!hasSecondChance) {
+      // ✅ PREMIÈRE ERREUR - ON COMPTE DIRECTEMENT
+      wrongCount++; // Compté comme mauvaise réponse dès la 1ère erreur
+      updateScore();
+      
+      quizResult.textContent = `❌ Faux ! Correct : ${currentWord.pinyin}`;
+      quizResult.className = "mb-3 text-center text-danger fw-bold fs-4";
+      hasSecondChance = true;
+      
+      // Vider les champs pour permettre la correction d'apprentissage
+      quizInputs.forEach(input => {
+        input.value = '';
+        input.style.border = '2px solid #dc3545';
+        input.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
+      });
+      quizInputs[0].focus();
+      
+    } else {
+      // Deuxième tentative - juste pour l'apprentissage, déjà compté
+      quizResult.textContent = `✅ Bien ! Correct : ${currentWord.pinyin}`;
+      quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
+      
+      quizIdx++;
+      setTimeout(showQuizWord, 1500);
+    }
+  }
+};
+
+// Lancer le quiz
+document.addEventListener('DOMContentLoaded', () => {
+  loadQuizWords(quizCount || 10);
+});
+// Navigation System Simple
+class SimpleNavigation {
+    constructor() {
+        this.currentPage = 'dashboard';
+        this.init();
+    }
+    
+    init() {
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetPage = link.getAttribute('data-page');
+                
+                if (targetPage === this.currentPage || link.classList.contains('disabled')) {
+                    return;
+                }
+                
+                this.navigateTo(targetPage);
+            });
+        });
+        
+        this.showPage('dashboard');
+    }
+    
+    navigateTo(page) {
+        this.updateActiveNavItem(page);
+        this.showPage(page);
+        history.pushState({ page }, '', `#${page}`);
+        this.currentPage = page;
+    }
+    
+    updateActiveNavItem(page) {
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        const activeLink = document.querySelector(`[data-page="${page}"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+    }
+    
+    showPage(page) {
+        document.querySelectorAll('.page-content').forEach(content => {
+            content.classList.add('d-none');
+        });
+        
+        const activePage = document.getElementById(page);
+        if (activePage) {
+            activePage.classList.remove('d-none');
+        }
+    }
+    
+    handlePopState(event) {
+        if (event.state && event.state.page) {
+            this.navigateTo(event.state.page);
+        }
+    }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -47,8 +47,8 @@
     margin: 0;
     padding: 0;
     overflow-x: hidden;
+    margin-bottom: 45px; /* Pour éviter que le contenu soit caché derrière la nav */
   }
-
   /* La couleur de fond de la carte */
   .card-custom-bg {
     background-color: #f7fcf7; /* Très clair */
@@ -90,84 +90,7 @@
    min-height: 170px;
    align-content: center;
   }
-  /* Bottom Navigation Simple */
-    .bottom-nav {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background: white;
-        border-top: 1px solid #dee2e6;
-        z-index: 1000;
-        padding: 8px 0;
-    }
-
-    /* Desktop - Icônes centrées */
-    @media (min-width: 768px) {
-        .nav-container {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-        }
-        
-        .nav-item {
-            flex: 0 0 auto; /* Pas de flex grow, taille automatique */
-        }
-    }
-
-    /* Mobile - Layout étendu */
-    @media (max-width: 767.98px) {
-        .nav-container {
-            display: flex;
-            justify-content: space-around;
-        }
-        
-        .nav-item {
-            flex: 1;
-        }
-    }
-
-    /* Style des items de navigation */
-    .nav-link {
-        color: #6c757d;
-        text-decoration: none;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        padding: 8px 12px;
-        border-radius: 8px;
-        transition: all 0.2s ease;
-    }
-
-    .nav-link:hover {
-        background-color: #f8f9fa;
-        color: #495057;
-    }
-
-    .nav-link.active {
-        color: #0d6efd;
-        background-color: #e3f2fd;
-    }
-
-    .nav-icon {
-        font-size: 1.25rem;
-    }
-
-    .nav-text {
-        font-size: 0.75rem;
-    }
-
-    /* Désactivé */
-    .nav-link.disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-
-    .nav-link.disabled:hover {
-        background-color: transparent;
-        color: #6c757d;
-    }
+   
 </style>
   <!-- Ajoute ces lignes -->
   <link rel="manifest" href="/manifest.json">
@@ -198,7 +121,7 @@
 <section class="section d-flex flex-column align-items-center mt-4">
   <div id="card-container" class="d-flex justify-content-center visible mb-2 position-relative"></div>
 
-  <div id="list-container" class="container mt-4 hidden">
+  <div id="list-container" class="container mt-4hidden">
     <div class="mb-3" style="max-width: 400px;">
       <input type="text" id="searchInput" class="form-control" placeholder="Looking for a word...">
     </div>
@@ -244,6 +167,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/global.js"></script>
 <script>
 
   let words=[], idx=0;

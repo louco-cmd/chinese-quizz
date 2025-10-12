@@ -1,26 +1,111 @@
+<style>
+  /* Bottom Navigation Simple */
+    .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        border-top: 1px solid #dee2e6;
+        z-index: 1000;
+        padding: 8px 0;
+    }
+    
+    /* Desktop - Icônes centrées */
+    @media (min-width: 768px) {
+        .nav-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        .nav-item {
+            flex: 0 0 auto; /* Pas de flex grow, taille automatique */
+        }
+    }
+
+    /* Mobile - Layout étendu */
+    @media (max-width: 767.98px) {
+        .nav-container {
+            display: flex;
+            justify-content: space-around;
+        }
+        
+        .nav-item {
+            flex: 1;
+        }
+        .nav-link {
+            min-width: 50px;
+        }
+    }
+
+    /* Style des items de navigation */
+    .nav-link {
+        color: #6c757d;
+        text-decoration: none;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 12px;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        min-width: 100px;
+    }
+
+    .nav-link:hover {
+        background-color: #f8f9fa;
+        color: #495057;
+    }
+
+    .nav-link.active {
+        color: #0d6efd;
+        background-color: #e3f2fd;
+    }
+
+    .nav-icon {
+        font-size: 1.25rem;
+    }
+
+    .nav-text {
+        font-size: 0.75rem;
+    }
+
+    /* Désactivé */
+    .nav-link.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .nav-link.disabled:hover {
+        background-color: transparent;
+        color: #6c757d;
+    }
+</style>
+
 <nav class="bottom-nav">
   <div class="container-fluid">
     <div class="nav-container">
       <div class="nav-item">
-        <a href="/dashboard" class="nav-link <%= typeof currentPage !== 'undefined' && currentPage === 'dashboard' ? 'active' : '' %>" title="Dashboard">
+        <a href="/dashboard" class="nav-link <%= currentPage === 'dashboard' ? 'active' : '' %>" data-page="dashboard">
           <i class="bi bi-house-door-fill"></i>
           <span>Home</span>
         </a>
       </div>
       <div class="nav-item">
-        <a href="/collection" class="nav-link <%= typeof currentPage !== 'undefined' && currentPage === 'collection' ? 'active' : '' %>" title="Collection">
+        <a href="/collection" class="nav-link <%= currentPage === 'collection' ? 'active' : '' %>" data-page="collection">
           <i class="bi bi-journal-bookmark-fill"></i>
           <span>Collection</span>
         </a>
       </div>
       <div class="nav-item">
-        <a href="/account.html" class="nav-link <%= typeof currentPage !== 'undefined' && currentPage === 'account' ? 'active' : '' %>" title="Account">
+        <a href="/account" class="nav-link <%= currentPage === 'account' ? 'active' : '' %>" data-page="account">
           <i class="bi bi-person-fill"></i>
           <span>Account</span>
         </a>
       </div>
       <div class="nav-item">
-        <a href="#" class="nav-link disabled" title="Duel (Soon)">
+        <a href="#" class="nav-link disabled" data-page="duel">
           <i class="bi bi-joystick"></i>
           <span>Duel</span>
         </a>
@@ -29,27 +114,15 @@
   </div>
 </nav>
 
-<style>
-.bottom-nav {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: white; border-top: 1px solid #dee2e6;
-  z-index: 1000; padding: 8px 0;
-}
-@media (min-width: 768px) {
-  .nav-container { display: flex; justify-content: center; gap: 20px; }
-  .nav-item { flex: 0 0 auto; }
-}
-@media (max-width: 767.98px) {
-  .nav-container { display: flex; justify-content: space-around; }
-  .nav-item { flex: 1; }
-}
-.nav-link {
-  color: #6c757d; text-decoration: none;
-  display: flex; flex-direction: column; align-items: center;
-  gap: 4px; padding: 8px 12px; border-radius: 8px;
-  transition: all 0.2s ease;
-}
-.nav-link:hover { background-color: #f8f9fa; color: #495057; }
-.nav-link.active { color: #0d6efd; background-color: #e3f2fd; }
-.nav-link.disabled { opacity: 0.4; cursor: not-allowed; }
-</style>
+<script>
+// Fallback au cas où EJS ne marche pas
+document.addEventListener('DOMContentLoaded', function() {
+    const path = window.location.pathname;
+    document.querySelectorAll('.nav-link[data-page]').forEach(link => {
+        const page = link.getAttribute('data-page');
+        if (path.includes(page)) {
+            link.classList.add('active');
+        }
+    });
+});
+</script>

@@ -42,7 +42,7 @@
 </div>
 
  <!-- Navigation -->
-  <%- include('partials/navbar', {currentPage: 'collection'}) %>
+  <%- include('partials/navbar', {currentPage: currentPage}) %>
 
   <section class="container mt-4 col-12 col-md-10 col-lg-6">
 
@@ -150,7 +150,7 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
+  <script src="/js/global.js"></script>
   <script>
     const chineseInput = document.getElementById('chinese');
     const pinyinInput = document.getElementById('pinyin');
@@ -245,9 +245,9 @@
 
       // Redirection vers la page quiz correspondante
       if (type === 'englishToPinyin') {
-        window.location.href = `quiz-pinyin.html?count=${count}`;
+        window.location.href = `/quiz-pinyin?count=${count}`;
       } else {
-        window.location.href = `quiz-character.html?count=${count}`;
+        window.location.href = `/quiz-character?count=${count}`;
       }
     };
 
@@ -258,74 +258,19 @@
       window.location.href = 'collection.html';
     };
 
-    // Navigation System Simple
-class SimpleNavigation {
-    constructor() {
-        this.currentPage = 'dashboard';
-        this.init();
-    }
-    
-    init() {
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const targetPage = link.getAttribute('data-page');
-                
-                if (targetPage === this.currentPage || link.classList.contains('disabled')) {
-                    return;
-                }
-                
-                this.navigateTo(targetPage);
-            });
-        });
-        
-        this.showPage('dashboard');
-    }
-    
-    navigateTo(page) {
-        this.updateActiveNavItem(page);
-        this.showPage(page);
-        history.pushState({ page }, '', `#${page}`);
-        this.currentPage = page;
-    }
-    
-    updateActiveNavItem(page) {
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('active');
-        });
-        
-        const activeLink = document.querySelector(`[data-page="${page}"]`);
-        if (activeLink) {
-            activeLink.classList.add('active');
-        }
-    }
-    
-    showPage(page) {
-        document.querySelectorAll('.page-content').forEach(content => {
-            content.classList.add('d-none');
-        });
-        
-        const activePage = document.getElementById(page);
-        if (activePage) {
-            activePage.classList.remove('d-none');
-        }
-    }
-    
-    handlePopState(event) {
-        if (event.state && event.state.page) {
-            this.navigateTo(event.state.page);
-        }
-    }
-}
-
-// Détection automatique de la page active
+// Navigation System - MULTI-PAGE APPROACH
 function setActiveNavItem() {
     const path = window.location.pathname;
     
     document.querySelectorAll('.nav-link').forEach(link => {
         link.classList.remove('active');
-        // Active si le data-page correspond à l'URL
-        if (path.includes(link.getAttribute('data-page'))) {
+        
+        const dataPage = link.getAttribute('data-page');
+        const href = link.getAttribute('href');
+        
+        // Vérifie si l'URL correspond à la page
+        if ((dataPage && path.includes(dataPage)) || 
+            (href && path === href)) {
             link.classList.add('active');
         }
     });

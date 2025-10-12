@@ -1,3 +1,4 @@
+
 const { Pool } = require("pg");
 const path = require("path");
 const express = require("express");
@@ -5,6 +6,8 @@ const passport = require("passport");
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const app = express();
 
@@ -78,70 +81,106 @@ passport.use(new GoogleStrategy({
       const { id, displayName, emails } = profile;
       const email = emails[0].value;
 
-      const userRes = await pool.query("SELECT * FROM users WHERE provider_id=$1", [id]);
+      let userRes = await pool.query("SELECT * FROM users WHERE provider_id=$1", [id]);
+      
       if (userRes.rows.length === 0) {
-        await pool.query(
-          "INSERT INTO users (email, name, provider, provider_id) VALUES ($1,$2,'google',$3)",
+        // 🎯 INSERT et RÉCUPÈRE l'ID généré
+        const newUser = await pool.query(
+          "INSERT INTO users (email, name, provider, provider_id) VALUES ($1,$2,'google',$3) RETURNING id",
           [email, displayName, id]
         );
+        userRes = newUser;
       }
 
-      done(null, { id, email, displayName });
+      // 🎯 Utilise l'ID de la base, pas l'ID Google
+      const user = userRes.rows[0];
+      done(null, { 
+        id: user.id,  // 🎯 ID de ta table users
+        email: user.email, 
+        name: user.name 
+      });
     } catch (err) {
+      console.error('❌ Passport error:', err);
       done(err, null);
     }
   }
 ));
+app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));
+
+app.get("/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: "/" }),
+  (req, res) => res.redirect("/dashboard")
+);
+
+app.post("/auth/google/one-tap", async (req, res) => {
+  try {
+    const { credential } = req.body;
+    console.log('🔐 Google One Tap token received');
+    
+    // Vérifier le token Google
+    const ticket = await client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    
+    const payload = ticket.getPayload();
+    const { sub: googleId, name, email, picture } = payload;
+    console.log('👤 Google user:', { googleId, name, email });
+
+    // Même logique que ton OAuth existant
+    let userRes = await pool.query("SELECT * FROM users WHERE provider_id = $1", [googleId]);
+    
+    if (userRes.rows.length === 0) {
+      console.log('📝 Creating new user');
+      userRes = await pool.query(
+        `INSERT INTO users (email, name, provider, provider_id) 
+         VALUES ($1, $2, 'google', $3) 
+         RETURNING id, email, name`,
+        [email, name, googleId]
+      );
+    }
+
+    const user = userRes.rows[0];
+    console.log('✅ User found/created:', user);
+    
+    // Connecte l'utilisateur avec Passport
+    req.login(user, (err) => {
+      if (err) {
+        console.error('❌ Login error:', err);
+        return res.status(500).json({ error: 'Login failed' });
+      }
+      console.log('🎯 User logged in successfully');
+      res.json({ 
+        success: true, 
+        redirect: '/dashboard',
+        user: { name: user.name } 
+      });
+    });
+
+  } catch (err) {
+    console.error('❌ Google One Tap error:', err);
+    res.status(500).json({ error: 'Authentication failed' });
+  }
+});
 
 // -------------------- Serialize / Deserialize --------------------
-passport.serializeUser((user, done) => done(null, user));
+passport.serializeUser((user, done) => {
+  // 🎯 Stocke l'ID de ta table users, pas le provider_id
+  done(null, user.id); // Supposant que user.id est l'ID de ta table
+});
 
-passport.deserializeUser(async (user, done) => {
+passport.deserializeUser(async (id, done) => {
   try {
-    const res = await pool.query("SELECT * FROM users WHERE provider_id=$1", [user.id]);
-    if (res.rows.length === 0) return done(null, false); // utilisateur supprimé
+    const res = await pool.query("SELECT id, email, name FROM users WHERE id = $1", [id]);
+    if (res.rows.length === 0) return done(null, false);
     done(null, res.rows[0]);
   } catch (err) {
     done(err, null);
   }
 });
 
-// -------------------- Routes --------------------
-app.get("/", (req, res) => {
-  if (req.user) {
-    // Redirige vers dashboard qui a déjà toute la logique
-    res.redirect("/dashboard");
-  } else {
-    res.render("index", { user: req.user });
-  }
-});
 
-app.get('/dashboard', ensureAuth, async (req, res) => {
-  const userId = req.user.id; 
-
-  try {
-    const userRes = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
-    const user = userRes.rows[0] || {};
-
-    // 🎯 CORRECTION : Bien définir userData
-    const userData = {
-      name: user.name || 'Friend'
-    };
-
-    console.log('📊 Rendering dashboard with:', { userData, currentPage: 'dashboard' });
-
-    res.render('dashboard', {
-      userData: userData,  // 🎯 Maintenant userData est défini
-      currentPage: 'dashboard'
-    });
-
-  } catch (err) {
-    console.error("❌ Dashboard error:", err);
-    res.status(500).send("Erreur serveur");
-  }
-});
-
-// 🆕 NOUVELLE ROUTE pour chercher dans TOUS les mots
+// API
 app.get("/api/tous-les-mots", ensureAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(`
@@ -158,14 +197,6 @@ app.get("/api/tous-les-mots", ensureAuth, async (req, res) => {
   }
 });
 
-// Auth Google
-app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));
-app.get("/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "/" }),
-  (req, res) => res.render("dashboard")
-);
-
-// API mots
 app.get("/mes-mots", ensureAuth, async (req, res) => {
   const userId = req.user.id;
 
@@ -241,7 +272,6 @@ app.post("/ajouter", ensureAuth , async (req, res) => {
   }
 });
 
-
 app.get("/liste", async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT * FROM mots ORDER BY id ASC");
@@ -297,7 +327,38 @@ app.get('/quiz-mots', ensureAuth, async (req, res) => {
   }
 });
 
-// Remplacez votre route app.get('/account-info', ...) par ceci :
+// API pages EJS
+app.get("/", (req, res) => {
+  if (req.user) {
+    res.redirect("/dashboard");
+  } else {
+    res.render("index", { user: req.user });
+  }
+});
+
+app.get('/dashboard', ensureAuth, async (req, res) => {
+  const userId = req.user.id; 
+
+  try {
+    const userRes = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+    const user = userRes.rows[0] || {};
+    const userData = {
+      name: user.name || 'Friend'
+    };
+
+    console.log('📊 Rendering dashboard with:', { userData, currentPage: 'dashboard' });
+
+    res.render('dashboard', {
+      userData: userData,
+      currentPage: 'dashboard'
+    });
+
+  } catch (err) {
+    console.error("❌ Dashboard error:", err);
+    res.status(500).send("Erreur serveur");
+  }
+});
+
 app.get('/account-info', ensureAuth, async (req, res) => {
   const userId = req.user.id; 
 
@@ -359,6 +420,27 @@ app.get('/collection', ensureAuth, async (req, res) => {
     console.error('Collection error:', err);
     res.status(500).send('Server error');
   }
+});
+
+app.get('/quiz-pinyin', ensureAuth, (req, res) => {
+  res.render('quiz-pinyin', {
+    currentPage: 'quiz-pinyin',
+    user: req.user
+  });
+});
+
+app.get('/quiz-character', ensureAuth, (req, res) => {
+  res.render('quiz-character', {
+    currentPage: 'quiz-character', 
+    user: req.user
+  });
+});
+
+app.get('/account', ensureAuth, (req, res) => {
+  res.render('account', {
+    currentPage: 'account',
+    user: req.user
+  });
 });
 
 // -------------------- Lancer serveur --------------------
