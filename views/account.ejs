@@ -1,4 +1,3 @@
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -10,6 +9,75 @@
     body {
         padding-bottom: 80px;
     }
+    .progress {
+      height: 8px;
+    }
+    .quiz-card {
+      transition: transform 0.2s;
+    }
+    .quiz-card:hover {
+      transform: translateY(-2px);
+    }
+
+    /* 📍 Styles optimisés pour le damier FULL WIDTH */
+    .contributions-fullwidth {
+      background: var(--bs-light-bg-subtle);
+      border-bottom: 1px solid var(--bs-border-color);
+      padding: 1.5rem 0;
+      margin-bottom: 2rem;
+    }
+    .contributions-container {
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    .contributions-grid {
+      display: grid;
+      grid-template-columns: repeat(53, 14px);
+      gap: 3px;
+      margin: 1rem auto;
+      justify-content: center;
+    }
+    .contribution-day {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      background-color: var(--bs-light);
+      cursor: pointer;
+      position: relative;
+    }
+    .contribution-day:hover::after {
+      content: attr(data-count) " quiz le " attr(data-date);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bs-dark);
+      color: var(--bs-white);
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      z-index: 1000;
+      box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.15);
+    }
+    /* Niveaux de couleur avec variables Bootstrap */
+    .level-0 { background-color: #ebedf0; }
+    .level-1 { background-color: #9be9a8; }
+    .level-2 { background-color: #40c463; }
+    .level-3 { background-color: #30a14e; }
+    .level-4 { background-color: #216e39; }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+      .contributions-grid {
+        grid-template-columns: repeat(53, 12px);
+        gap: 2px;
+      }
+      .contribution-day {
+        width: 12px;
+        height: 12px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -20,51 +88,439 @@
     </span>
   </div>
 
- <%- include('partials/navbar', {currentPage: 'collection'}) %>
-<%- include('partials/installation') %>
+  <%- include('partials/navbar', {currentPage: 'account'}) %>
+  <%- include('partials/installation') %>
 
-  <!-- Contenu de la page Account -->
-  <section class="container my-4">
-    <div class="row g-4">
-      <!-- Carte info utilisateur -->
-      <div class="col-12 col-md-4">
-        <div class="card shadow-sm p-3 text-center">
-          <div id="userPhotoContainer" class="rounded-circle mb-3 mx-auto bg-light text-primary d-flex justify-content-center align-items-center" style="width:120px;height:120px;border: 1px solid #ccc;"></div>
-          <h3 id="userName"></h3>
-          <p id="wordCount" class="mb-0"></p>
+  <!-- 📍 DAMIER FULL WIDTH EN HAUT -->
+  <section class="contributions-fullwidth">
+    <div class="container">
+      <div class="row align-items-center">
+        <div class="col-md-8">
+          <div class="d-flex align-items-center mb-3">
+            <h4 class="mb-0 d-flex align-items-center">
+              <i class="bi bi-calendar3 me-2 text-primary"></i>Vos Contributions
+            </h4>
+            <span class="badge bg-primary ms-3" id="contributions-total">0 quiz</span>
+          </div>
+          
+          <div class="contributions-container">
+            <div class="contributions-grid" id="contributionsGrid">
+              <div class="text-center text-muted py-3">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <span class="ms-2">Chargement du calendrier...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Légende -->
+          <div class="d-flex align-items-center justify-content-center mt-3">
+            <small class="text-muted me-2">Moins</small>
+            <div class="d-flex gap-1 mx-2">
+              <div class="contribution-day level-0" title="0 quiz"></div>
+              <div class="contribution-day level-1" title="1 quiz"></div>
+              <div class="contribution-day level-2" title="2-3 quiz"></div>
+              <div class="contribution-day level-3" title="4-5 quiz"></div>
+              <div class="contribution-day level-4" title="6+ quiz"></div>
+            </div>
+            <small class="text-muted ms-2">Plus</small>
+          </div>
         </div>
-      </div>
-
-      <!-- Statistiques -->
-      <div class="col-12 col-md-8">
-        <div class="card shadow-sm p-3">
-          <h4>Statistiques des mots</h4>
-          <ul id="hskStats" class="list-group list-group-flush mt-3"></ul>
+        
+        <div class="col-md-4">
+          <div class="card border-0 bg-transparent">
+            <div class="card-body text-center">
+              <h5 class="card-title">📊 Résumé</h5>
+              <div id="quiz-stats-summary">
+                <div class="text-center">
+                  <div class="spinner-border spinner-border-sm" role="status"></div>
+                  <span class="ms-2">Chargement...</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-// Navigation simple - juste le highlight actif
-function setActiveNavItem() {
-    const path = window.location.pathname;
-    console.log('Current path:', path); // Debug
-    
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-        const page = link.getAttribute('data-page');
+  <!-- Contenu principal de la page Account -->
+  <section class="container my-4">
+    <div class="row g-4">
+      <!-- Colonne gauche -->
+      <div class="col-12 col-lg-4">
+        <!-- Carte info utilisateur -->
+        <div class="card shadow-sm">
+          <div class="card-body text-center">
+            <div id="userPhotoContainer" class="rounded-circle mb-3 mx-auto bg-light text-primary d-flex justify-content-center align-items-center" style="width:120px;height:120px;border: 1px solid #ccc;"></div>
+            <h3 id="userName" class="card-title h5"></h3>
+            <p id="wordCount" class="card-text text-muted mb-0"></p>
+          </div>
+        </div>
+
+        <!-- Stats Quiz Détaillées -->
+        <div class="card shadow-sm mt-3">
+          <div class="card-body">
+            <h5 class="card-title d-flex align-items-center">
+              <i class="bi bi-graph-up me-2"></i>Stats Détaillées
+            </h5>
+            <div id="quiz-stats">
+              <div class="text-center py-2">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <span class="ms-2">Chargement...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Colonne droite -->
+      <div class="col-12 col-lg-8">
+        <!-- Statistiques des mots -->
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h4 class="card-title">Statistiques des mots</h4>
+            <ul id="hskStats" class="list-group list-group-flush mt-3"></ul>
+          </div>
+        </div>
+
+        <!-- Derniers Quiz -->
+        <div class="card shadow-sm mt-4">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h4 class="card-title mb-0 d-flex align-items-center">
+                <i class="bi bi-clock-history me-2"></i>Derniers Quiz
+              </h4>
+              <a href="/quiz-history" class="btn btn-outline-primary btn-sm">
+                Voir tout
+              </a>
+            </div>
+            <div id="recent-quizzes">
+              <div class="text-center text-muted py-3">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <span class="ms-2">Chargement des quiz...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Navigation
+    function setActiveNavItem() {
+        const path = window.location.pathname;
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
+            const page = link.getAttribute('data-page');
+            if (path.includes(page)) {
+                link.classList.add('active');
+            }
+        });
+    }
+    // Chargement des données utilisateur
+    async function loadUserData() {
+      try {
+        const res = await fetch('/account-info'); 
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         
-        // Highlight basé sur l'URL actuelle
-        if (path.includes(page)) {
-            link.classList.add('active');
-            console.log('Active page:', page); // Debug
+        const data = await res.json(); 
+        
+        // Affichage des infos
+        document.getElementById('userName').textContent = data.name;
+        document.getElementById('userPhotoContainer').innerHTML = '<i class="bi bi-person-fill" style="font-size: 60px;"></i>';
+        document.getElementById('wordCount').textContent = `Nombre de mots : ${data.wordCount}`;
+
+        // Stats HSK
+        const hskStatsElement = document.getElementById('hskStats');
+        hskStatsElement.innerHTML = '';
+        
+        for(const level in data.stats) {
+          const li = document.createElement('li');
+          li.className = 'list-group-item d-flex justify-content-between align-items-center';
+          li.textContent = level;
+          
+          const badge = document.createElement('span');
+          const badgeClass = level === 'Street' ? 'bg-success' : 'bg-primary'; 
+          badge.className = `badge ${badgeClass} rounded-pill`;
+          badge.textContent = data.stats[level];
+          
+          li.appendChild(badge);
+          hskStatsElement.appendChild(li);
         }
-    });
+
+      } catch (err) {
+        console.error('Erreur chargement données:', err);
+        document.getElementById('wordCount').textContent = 'Erreur de chargement des données.';
+      }
+    }
+
+
+
+        
+async function loadQuizStats() {
+  try {
+    console.log('🔄 Chargement des stats quiz...');
+    const response = await fetch('/api/quiz/history?limit=5');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Expected JSON but got: ${contentType}`);
+    }
+    
+    const data = await response.json();
+    console.log('✅ Stats quiz chargées:', data);
+    
+    // Vérifier si des données existent
+    if (data.stats.total_quizzes === 0) {
+      displayNoQuizData();
+    } else {
+      displayQuizStats(data);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erreur chargement stats quiz:', error);
+    displayQuizStatsError();
+  }
 }
 
-// Chargement des données utilisateur
+async function loadContributionsGrid() {
+  try {
+    console.log('🔄 Chargement des contributions...');
+    const response = await fetch('/api/contributions');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error(`Expected JSON but got: ${contentType}`);
+    }
+    
+    const data = await response.json();
+    console.log('✅ Contributions chargées:', data);
+    
+    // Vérifier si des données existent
+    if (data.length === 0) {
+      displayNoContributions();
+    } else {
+      // Mettre à jour le total
+      const totalQuizzes = data.reduce((sum, item) => sum + parseInt(item.count), 0);
+      document.getElementById('contributions-total').textContent = `${totalQuizzes} quiz`;
+      
+      // Générer le damier
+      generateContributionsGrid(data);
+    }
+    
+  } catch (error) {
+    console.error('❌ Erreur chargement contributions:', error);
+    displayContributionsError();
+  }
+}
+
+function displayNoQuizData() {
+  const statsContainer = document.getElementById('quiz-stats');
+  statsContainer.innerHTML = `
+    <div class="text-center text-muted py-3">
+      <i class="bi bi-graph-up display-6 text-muted"></i>
+      <div class="small mt-2">Aucun quiz réalisé</div>
+      <a href="/quiz-pinyin" class="btn btn-outline-primary btn-sm mt-2">Commencer</a>
+    </div>
+  `;
+  
+  const recentQuizzes = document.getElementById('recent-quizzes');
+  recentQuizzes.innerHTML = `
+    <div class="text-center text-muted py-3">
+      <i class="bi bi-clock-history"></i>
+      <div class="small mt-1">Aucun quiz récent</div>
+      <a href="/quiz-pinyin" class="btn btn-outline-primary btn-sm mt-2">Premier quiz</a>
+    </div>
+  `;
+}
+
+function displayQuizStats(data) {
+  const statsContainer = document.getElementById('quiz-stats');
+  statsContainer.innerHTML = `
+    <div class="text-center">
+      <div class="h4 text-primary mb-1">${Math.round(data.stats.average_ratio || 0)}%</div>
+      <div class="text-muted small">Moyenne générale</div>
+    </div>
+    <div class="row text-center mt-3">
+      <div class="col-6">
+        <div class="h6 mb-1">${data.stats.total_quizzes}</div>
+        <div class="text-muted small">Total quiz</div>
+      </div>
+      <div class="col-6">
+        <div class="h6 mb-1">${data.stats.best_score ? Math.round(data.stats.best_score) : 0}%</div>
+        <div class="text-muted small">Meilleur score</div>
+      </div>
+    </div>
+  `;
+  
+  // Afficher les derniers quiz
+  const recentQuizzes = document.getElementById('recent-quizzes');
+  if (data.quizzes && data.quizzes.length > 0) {
+    recentQuizzes.innerHTML = data.quizzes.map(quiz => `
+      <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+        <div>
+          <span class="badge bg-${getQuizTypeColor(quiz.quiz_type)} me-2">
+            ${quiz.quiz_type}
+          </span>
+          <strong>${quiz.score}/${quiz.total_questions}</strong>
+          <span class="text-${getScoreColor(quiz.ratio)} small ms-1">
+            (${Math.round(quiz.ratio)}%)
+          </span>
+        </div>
+        <small class="text-muted">
+          ${new Date(quiz.date_completed).toLocaleDateString('fr-FR')}
+        </small>
+      </div>
+    `).join('');
+  }
+}
+
+function displayQuizStatsError() {
+  const statsContainer = document.getElementById('quiz-stats');
+  statsContainer.innerHTML = `
+    <div class="alert alert-warning py-2 mb-0">
+      <small><i class="bi bi-exclamation-triangle me-1"></i>Stats temporairement indisponibles</small>
+    </div>
+  `;
+  
+  const recentQuizzes = document.getElementById('recent-quizzes');
+  recentQuizzes.innerHTML = `
+    <div class="alert alert-warning py-2">
+      <small><i class="bi bi-exclamation-triangle me-1"></i>Historique temporairement indisponible</small>
+    </div>
+  `;
+}
+
+function displayNoContributions() {
+  document.getElementById('contributions-total').textContent = '0 quiz';
+  document.getElementById('contributionsGrid').innerHTML = `
+    <div class="text-center text-muted py-4">
+      <i class="bi bi-calendar3 display-6"></i>
+      <div class="small mt-2">Aucune contribution</div>
+      <div class="small">Complétez votre premier quiz !</div>
+    </div>
+  `;
+}
+
+function displayContributionsError() {
+  document.getElementById('contributionsGrid').innerHTML = `
+    <div class="text-center text-warning py-3">
+      <i class="bi bi-exclamation-triangle"></i>
+      <div class="small mt-1">Données temporairement indisponibles</div>
+    </div>
+  `;
+}
+
+// ========== FONCTIONS UTILITAIRES ==========
+
+function generateContributionsGrid(contributionsData) {
+  const grid = document.getElementById('contributionsGrid');
+  const contributionsMap = {};
+  
+  // Créer un map pour un accès rapide
+  contributionsData.forEach(item => {
+    contributionsMap[item.date] = parseInt(item.count);
+  });
+
+  const dates = generateLastYearDates();
+  const weeks = Array(53).fill().map(() => Array(7).fill(null));
+
+  // Remplir la grille
+  dates.forEach(date => {
+    const dateString = date.toISOString().split('T')[0];
+    const count = contributionsMap[dateString] || 0;
+    const level = getContributionLevel(count);
+    
+    const startDate = new Date(dates[0]);
+    const diffDays = Math.floor((date - startDate) / (1000 * 60 * 60 * 24));
+    const week = Math.floor(diffDays / 7);
+    const dayOfWeek = date.getDay();
+
+    if (week < 53) {
+      weeks[week][dayOfWeek] = { date: dateString, count, level };
+    }
+  });
+
+  // Générer le HTML
+  let html = '';
+  for (let day = 0; day < 7; day++) {
+    for (let week = 0; week < 53; week++) {
+      const contribution = weeks[week] && weeks[week][day];
+      if (contribution) {
+        html += `<div class="contribution-day level-${contribution.level}" 
+                     data-count="${contribution.count}" 
+                     data-date="${formatDate(contribution.date)}">
+                </div>`;
+      } else {
+        html += '<div class="contribution-day level-0"></div>';
+      }
+    }
+  }
+
+  grid.innerHTML = html;
+}
+
+function generateLastYearDates() {
+  const dates = [];
+  const today = new Date();
+  const oneYearAgo = new Date(today);
+  oneYearAgo.setFullYear(today.getFullYear() - 1);
+  
+  // Commencer du lundi le plus proche il y a un an
+  const startDate = new Date(oneYearAgo);
+  const dayOfWeek = startDate.getDay();
+  const diff = startDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+  startDate.setDate(diff);
+
+  const currentDate = new Date(startDate);
+  const endDate = new Date(today);
+
+  while (currentDate <= endDate) {
+    dates.push(new Date(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function getContributionLevel(count) {
+  if (count === 0) return 0;
+  if (count === 1) return 1;
+  if (count <= 3) return 2;
+  if (count <= 5) return 3;
+  return 4;
+}
+
+function formatDate(dateString) {
+  return new Date(dateString).toLocaleDateString('fr-FR');
+}
+
+function getScoreColor(ratio) {
+  if (ratio >= 80) return 'success';
+  if (ratio >= 60) return 'warning';
+  return 'danger';
+}
+
+function getQuizTypeColor(type) {
+  const colors = {
+    'pinyin': 'info',
+    'character': 'warning',
+    'mixed': 'success'
+  };
+  return colors[type] || 'secondary';
+}
+
+// Chargement des données utilisateur (votre fonction existante)
 async function loadUserData() {
   try {
     const res = await fetch('/account-info'); 
@@ -101,15 +557,18 @@ async function loadUserData() {
   }
 }
 
-// Initialisation
-document.addEventListener('DOMContentLoaded', function() {
-    setActiveNavItem(); // Active la navigation
-    loadUserData();     // Charge les données
-});
 
-// Gérer les changements d'URL (quand on utilise les boutons précédent/suivant)
-window.addEventListener('popstate', setActiveNavItem);
-</script>
-<script src="/js/global.js"></script>
+
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+        setActiveNavItem();
+        loadUserData();
+        loadQuizStats();
+        loadContributionsGrid();
+    });
+
+    window.addEventListener('popstate', setActiveNavItem);
+  </script>
+  <script src="/js/global.js"></script>
 </body>
 </html>

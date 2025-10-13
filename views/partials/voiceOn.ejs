@@ -1,0 +1,153 @@
+<style>
+/* Caractère chinois cliquable */
+.chinese-clickable, .chinese-character {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.chinese-clickable:hover, .chinese-character:hover {
+  color: #0d6efd !important;
+  transform: scale(1.05);
+}
+
+/* Bouton audio - Picto uniquement */
+.btn-audio {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  padding: 0;
+  border: 1px solid #dee2e6;
+}
+
+.btn-audio:hover:not(.playing) {
+  transform: scale(1.1);
+  background-color: #0d6efd;
+  color: white;
+  box-shadow: 0 2px 8px rgba(25, 135, 84, 0.3);
+}
+
+.btn-audio:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Animation pendant la lecture */
+.chinese-clickable.playing,
+.chinese-character.playing,
+.btn-audio.playing {
+  animation: pulse 1s infinite;
+  color: #198754 !important;
+}
+
+.btn-audio.playing {
+  background-color: #198754 !important;
+  color: white !important;
+  border-color: #198754 !important;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+</style>
+
+<script>
+// Fonction de lecture optimisée
+function speakChineseOptimized(text, element) {
+  if (!('speechSynthesis' in window)) {
+    console.warn('❌ TTS non supporté');
+    return;
+  }
+  
+  // Arrêter toute lecture en cours
+  speechSynthesis.cancel();
+  
+  const utterance = new SpeechSynthesisUtterance(text);
+  
+  // Paramètres optimisés pour le chinois
+  utterance.lang = 'zh-CN';
+  utterance.rate = 0.6;    // Très lent
+  utterance.pitch = 0.9;   // Légèrement plus grave
+  utterance.volume = 0.8;  // Un peu moins fort
+  
+  // Animation
+  if (element) {
+    element.classList.add('playing');
+  }
+  
+  utterance.onend = () => {
+    if (element) element.classList.remove('playing');
+  };
+  
+  utterance.onerror = () => {
+    if (element) element.classList.remove('playing');
+    console.error('❌ Erreur TTS');
+  };
+  
+  // Petit délai pour la stabilité
+  setTimeout(() => {
+    speechSynthesis.speak(utterance);
+  }, 50);
+}
+
+// Gestionnaire audio unifié
+function initChineseAudio() {
+  // Vérifier la compatibilité
+  if (!('speechSynthesis' in window)) {
+    console.warn('⚠️ TTS non supporté sur ce navigateur');
+    document.querySelectorAll('.btn-audio').forEach(btn => {
+      btn.style.display = 'none';
+    });
+    return;
+  }
+  
+  // Gestion des clics unifiée
+  document.addEventListener('click', function(e) {
+    // Boutons audio
+    if (e.target.closest('.btn-audio')) {
+      const button = e.target.closest('.btn-audio');
+      const text = button.getAttribute('data-text');
+      
+      button.disabled = true;
+      button.innerHTML = '<i class="bi bi-volume-up-fill"></i>';
+      
+      speakChineseOptimized(text, button);
+      
+      // Réactiver le bouton après un délai (sécurité)
+      setTimeout(() => {
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-volume-up"></i>';
+      }, 2000);
+      return;
+    }
+    
+    // Caractères chinois cliquables
+    const chineseElement = e.target.closest('.chinese-clickable');
+    if (chineseElement) {
+      const chineseText = chineseElement.getAttribute('data-chinese-text') || chineseElement.textContent;
+      speakChineseOptimized(chineseText, chineseElement);
+      return;
+    }
+    
+    // Anciens caractères chinois (compatibilité)
+    if (e.target.classList.contains('chinese-character') && 
+        e.target.closest('.character-card')) {
+      const character = e.target.textContent;
+      speakChineseOptimized(character, e.target);
+    }
+  });
+}
+
+// Initialisation
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initChineseAudio);
+} else {
+  initChineseAudio();
+}
+</script>

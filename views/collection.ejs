@@ -119,9 +119,10 @@
   <%- include('partials/navbar', {currentPage: 'collection'}) %>
 
 <section class="section d-flex flex-column align-items-center mt-4">
+  <%- include('partials/voiceOn') %> 
   <div id="card-container" class="d-flex justify-content-center visible mb-2 position-relative"></div>
 
-  <div id="list-container" class="container mt-4hidden">
+  <div id="list-container" class="container mt-4 hidden">
     <div class="mb-3" style="max-width: 400px;">
       <input type="text" id="searchInput" class="form-control" placeholder="Looking for a word...">
     </div>
@@ -217,8 +218,8 @@
     }
   });
 
-  //create card element
-  function createCardElement(word) {
+//create card element
+function createCardElement(word) {
     const card = document.createElement('div');
     card.classList.add('col', 'mb-4'); 
     
@@ -232,8 +233,12 @@
               <span class="hsk-tag-custom py-1 px-2 border border-light">HSK : ${hskLevelDisplay}</span>
           </div>
 
+          <!-- CARACTÈRE CHINOIS CLIQUABLE -->
           <div class="bg-white border rounded-3 p-4 py-2 mt-3 flex-grow-0">
-              <div class="text-dark text-center text-box ${chineseFontSizeClass} chinese-container" data-word-id="${word.id}">
+              <div class="text-dark text-center text-box ${chineseFontSizeClass} chinese-clickable" 
+                   data-word-id="${word.id}"
+                   data-chinese-text="${word.chinese}"
+                   title="Cliquer pour écouter">
                   ${word.chinese}
               </div>
           </div>
@@ -246,20 +251,31 @@
                       <div class="text-context">${word.description || 'No description provided.'}</div>
                   </div>
               </div>
-              <a href="#" class="btn btn-link text-success edit-btn mt-auto">✏️ Edit</a>
+              
+              <!-- BOUTON AUDIO ADDITIONNEL -->
+              <div class="d-flex justify-content-between align-items-center mt-auto">
+                  <button class="btn btn-sm btn-outline-success btn-audio" 
+                    data-text="${word.chinese}"
+                    title="Écouter la prononciation">
+                    <i class="bi bi-volume-up"></i>  <!-- ← Picto uniquement -->
+                  </button>
+                  <a href="#" class="btn btn-link text-success edit-btn">✏️ Edit</a>
+              </div>
           </div>
       </div>
     `;
 
-    // Transforme les caractères chinois
-    const chineseContainer = card.querySelector('.chinese-container');
+    // Transforme les caractères chinois (ton code existant)
+    const chineseContainer = card.querySelector('.chinese-clickable');
     if (chineseContainer && word.chinese) {
       transformChineseCharacters(word.chinese, chineseContainer);
     }
 
+    // Gestion des événements
     card.querySelector('.edit-btn').onclick = () => openEdit(word);
+    
     return card;
-  }
+}
 
   // 🎯 SYSTÈME DE HOVER POUR CARACTÈRES
   function transformChineseCharacters(chineseWord, container) {
