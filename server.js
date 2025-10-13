@@ -327,7 +327,7 @@ app.get('/quiz-mots', ensureAuth, async (req, res) => {
   }
 });
 
-// API pages EJS
+// Pages EJS
 app.get("/", (req, res) => {
   if (req.user) {
     res.redirect("/dashboard");
