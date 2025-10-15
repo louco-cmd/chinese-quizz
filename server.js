@@ -194,6 +194,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// Route de test pour vérifier la connexion BD
+app.get("/api/debug/db", ensureAuth, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW() as current_time, version() as postgres_version');
+    res.json({ 
+      success: true, 
+      db: result.rows[0],
+      message: "Connexion BD OK" 
+    });
+  } catch (err) {
+    console.error('❌ Erreur connexion BD:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/contributions", ensureAuth, async (req, res) => {
   try {
     const userId = req.user.id;
@@ -253,40 +268,41 @@ app.get("/api/quiz/history", ensureAuth, async (req, res) => {
   }
 });
 
-app.get("/api/quiz/history", ensureAuth, async (req, res) => {
+// Vérifiez que cette route existe bien
+app.post("/api/quiz/save", ensureAuth, async (req, res) => {
   try {
-    console.log('📊 Route /api/quiz/history appelée pour user:', req.user.id);
+    console.log('💾 Sauvegarde quiz - Données reçues:', req.body);
+    const { score, total_questions, quiz_type, words_used } = req.body;
     const userId = req.user.id;
-    const limit = parseInt(req.query.limit) || 10;
     
-    // Récupérer les derniers quiz
-    const quizzesResult = await pool.query(
-      `SELECT * FROM quiz_history 
-       WHERE user_id = $1 
-       ORDER BY date_completed DESC 
-       LIMIT $2`,
-      [userId, limit]
+    // Validation des données
+    if (!score || !total_questions || !quiz_type) {
+      return res.status(400).json({ error: 'Données manquantes' });
+    }
+    
+    // Calculer le ratio
+    const ratio = ((score / total_questions) * 100).toFixed(2);
+    
+    console.log(`💾 Insertion quiz - User: ${userId}, Score: ${score}/${total_questions}, Type: ${quiz_type}`);
+    
+    const result = await pool.query(
+      `INSERT INTO quiz_history 
+       (user_id, score, total_questions, ratio, quiz_type, words_used) 
+       VALUES ($1, $2, $3, $4, $5, $6) 
+       RETURNING *`,
+      [userId, score, total_questions, ratio, quiz_type, JSON.stringify(words_used || [])]
     );
     
-    // Récupérer les stats globales
-    const statsResult = await pool.query(`
-      SELECT 
-        COUNT(*) as total_quizzes,
-        COALESCE(AVG(ratio), 0) as average_ratio,
-        COALESCE(MAX(ratio), 0) as best_score
-      FROM quiz_history 
-      WHERE user_id = $1
-    `, [userId]);
+    console.log('✅ Quiz sauvegardé avec ID:', result.rows[0].id);
     
-    console.log(`📊 Résultats: ${quizzesResult.rows.length} quiz, ${statsResult.rows[0].total_quizzes} total`);
-    
-    res.json({
-      quizzes: quizzesResult.rows,
-      stats: statsResult.rows[0]
+    res.json({ 
+      success: true, 
+      quiz: result.rows[0],
+      message: `Quiz sauvegardé : ${score}/${total_questions} (${ratio}%)`
     });
     
   } catch (err) {
-    console.error('❌ Erreur récupération historique quiz:', err);
+    console.error('❌ Erreur sauvegarde quiz:', err);
     res.status(500).json({ error: err.message });
   }
 });
