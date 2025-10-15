@@ -268,42 +268,59 @@ app.get("/api/quiz/history", ensureAuth, async (req, res) => {
   }
 });
 
-// Vérifiez que cette route existe bien
+// Route CORRIGÉE pour sauvegarder les quiz
 app.post("/api/quiz/save", ensureAuth, async (req, res) => {
   try {
-    console.log('💾 Sauvegarde quiz - Données reçues:', req.body);
+    console.log('💾 Sauvegarde quiz - Headers:', req.headers);
+    console.log('💾 Sauvegarde quiz - Body:', req.body);
+    
     const { score, total_questions, quiz_type, words_used } = req.body;
     const userId = req.user.id;
-    
-    // Validation des données
-    if (!score || !total_questions || !quiz_type) {
-      return res.status(400).json({ error: 'Données manquantes' });
+
+    // Validation améliorée
+    if (score === undefined || total_questions === undefined || !quiz_type) {
+      console.log('❌ Données manquantes:', { score, total_questions, quiz_type });
+      return res.status(400).json({ 
+        error: 'Données manquantes',
+        received: { score, total_questions, quiz_type }
+      });
     }
+
+    // Conversion en nombres
+    const scoreNum = parseInt(score);
+    const totalNum = parseInt(total_questions);
     
-    // Calculer le ratio
-    const ratio = ((score / total_questions) * 100).toFixed(2);
+    if (isNaN(scoreNum) || isNaN(totalNum)) {
+      return res.status(400).json({ error: 'Score ou total_questions invalide' });
+    }
+
+    // Calcul du ratio
+    const ratio = ((scoreNum / totalNum) * 100).toFixed(2);
     
-    console.log(`💾 Insertion quiz - User: ${userId}, Score: ${score}/${total_questions}, Type: ${quiz_type}`);
-    
+    console.log(`💾 Insertion quiz - User:${userId}, Score:${scoreNum}/${totalNum}, Type:${quiz_type}`);
+
     const result = await pool.query(
       `INSERT INTO quiz_history 
        (user_id, score, total_questions, ratio, quiz_type, words_used) 
        VALUES ($1, $2, $3, $4, $5, $6) 
        RETURNING *`,
-      [userId, score, total_questions, ratio, quiz_type, JSON.stringify(words_used || [])]
+      [userId, scoreNum, totalNum, ratio, quiz_type, JSON.stringify(words_used || [])]
     );
-    
+
     console.log('✅ Quiz sauvegardé avec ID:', result.rows[0].id);
     
     res.json({ 
       success: true, 
       quiz: result.rows[0],
-      message: `Quiz sauvegardé : ${score}/${total_questions} (${ratio}%)`
+      message: `Quiz sauvegardé : ${scoreNum}/${totalNum} (${ratio}%)`
     });
     
   } catch (err) {
     console.error('❌ Erreur sauvegarde quiz:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ 
+      error: err.message,
+      details: 'Erreur base de données'
+    });
   }
 });
 
