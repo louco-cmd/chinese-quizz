@@ -44,6 +44,28 @@ window.fetch = async function(...args) {
   throw new Error('Échec après 3 tentatives');
 };
 
+// Intercepteur global pour les erreurs d'authentification
+async function fetchWithAuth(url, options = {}) {
+    try {
+        const response = await fetch(url, options);
+        
+        if (response.status === 401) {
+            const data = await response.json();
+            // Rediriger vers la page de login
+            window.location.href = data.redirectUrl || '/login';
+            return null;
+        }
+        
+        return response;
+    } catch (error) {
+        console.error('Fetch error:', error);
+        throw error;
+    }
+}
+
+// Export pour utilisation dans d'autres fichiers
+window.fetchWithAuth = fetchWithAuth;
+
 // Service Worker pour PWA
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');

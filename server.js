@@ -87,8 +87,21 @@ app.use(passport.session());
 
 // -------------------- Protection --------------------
 function ensureAuth(req, res, next) {
-  if (req.isAuthenticated()) return next();
-  res.status(401).json({ error: "Non authentifié" });
+    if (req.isAuthenticated()) {
+        return next();
+    }
+
+    // Pour les requêtes API, renvoyer un statut 401
+    if (req.path.startsWith('/api/')) {
+        return res.status(401).json({ 
+            error: 'Not authenticated',
+            redirectUrl: '/'  // Redirection vers l'index au lieu de /login
+        });
+    }
+
+    // Pour les requêtes normales, rediriger vers l'index
+    req.session.returnTo = req.originalUrl;
+    res.redirect('/');
 }
 
 // -------------------- Passport Google --------------------
@@ -129,8 +142,12 @@ passport.use(new GoogleStrategy({
 app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));
 
 app.get("/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "/" }),
-  (req, res) => res.redirect("/dashboard")
+    passport.authenticate("google", { failureRedirect: "/" }),
+    (req, res) => {
+        const returnTo = req.session.returnTo || '/dashboard';
+        delete req.session.returnTo;
+        res.redirect(returnTo);
+    }
 );
 
 app.post("/auth/google/one-tap", async (req, res) => {
@@ -625,7 +642,12 @@ app.get('/account', ensureAuth, (req, res) => {
     user: req.user
   });
 });
-
+app.get('/connexion', (req, res) => {
+  res.render('connexion', {
+    currentPage: 'connexion',
+    user: req.user
+  });
+});
 // -------------------- Lancer serveur --------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
