@@ -1,9 +1,3 @@
-console.log('🔐 Variables configurées:');
-console.log('GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? '✅' : '❌');
-console.log('GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? '✅' : '❌');
-console.log('DATABASE_URL:', process.env.DATABASE_URL ? '✅' : '❌');
-console.log('SESSION_SECRET:', process.env.SESSION_SECRET ? '✅' : '❌');
-
 
 const { Pool } = require("pg");
 const path = require("path");
@@ -86,22 +80,50 @@ app.use(passport.session());
 })();
 
 // -------------------- Protection --------------------
+// Middleware ensureAuth corrigé
 function ensureAuth(req, res, next) {
-    if (req.isAuthenticated()) {
-        return next();
-    }
-
-    // Pour les requêtes API, renvoyer un statut 401
-    if (req.path.startsWith('/api/')) {
-        return res.status(401).json({ 
-            error: 'Not authenticated',
-            redirectUrl: '/'  // Redirection vers l'index au lieu de /login
-        });
-    }
-
-    // Pour les requêtes normales, rediriger vers l'index
-    req.session.returnTo = req.originalUrl;
-    res.redirect('/');
+  console.log('🔐 ensureAuth appelé pour:', req.method, req.url);
+  console.log('🔐 Session ID:', req.sessionID);
+  console.log('🔐 User:', req.user);
+  console.log('🔐 isAuthenticated:', req.isAuthenticated ? req.isAuthenticated() : 'method_not_available');
+  
+  // Méthode 1: Passport standard
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    console.log('✅ Auth réussie (Passport)');
+    return next();
+  }
+  
+  // Méthode 2: User direct
+  if (req.user) {
+    console.log('✅ Auth réussie (req.user)');
+    return next();
+  }
+  
+  // Méthode 3: Session avec user
+  if (req.session && req.session.user) {
+    console.log('✅ Auth réussie (session.user)');
+    req.user = req.session.user;
+    return next();
+  }
+  
+  // Méthode 4: Session avec passport
+  if (req.session && req.session.passport && req.session.passport.user) {
+    console.log('✅ Auth réussie (session.passport)');
+    return next();
+  }
+  
+  console.log('❌ Auth échouée - Redirection vers /login');
+  
+  // Si c'est une API, retourner JSON
+  if (req.url.startsWith('/api/')) {
+    return res.status(401).json({ 
+      error: 'Non authentifié',
+      redirect: '/login'
+    });
+  }
+  
+  // Sinon redirection HTML
+  res.redirect('/login');
 }
 
 // -------------------- Passport Google --------------------
@@ -140,7 +162,6 @@ passport.use(new GoogleStrategy({
   }
 ));
 app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));
-
 app.get("/auth/google/callback",
     passport.authenticate("google", { failureRedirect: "/" }),
     (req, res) => {
@@ -149,7 +170,6 @@ app.get("/auth/google/callback",
         res.redirect(returnTo);
     }
 );
-
 app.post("/auth/google/one-tap", async (req, res) => {
   try {
     const { credential } = req.body;
@@ -200,50 +220,65 @@ app.post("/auth/google/one-tap", async (req, res) => {
     res.status(500).json({ error: 'Authentication failed' });
   }
 });
-
 // -------------------- Serialize / Deserialize --------------------
 passport.serializeUser((user, done) => {
-  // 🎯 Stocke l'ID de ta table users, pas le provider_id
-  done(null, user.id); // Supposant que user.id est l'ID de ta table
+  console.log('🔒 Sérialisation utilisateur :', user);
+  done(null, user.id); // Assurez-vous que `user.id` est défini
 });
-
 passport.deserializeUser(async (id, done) => {
   try {
+    console.log('🔓 Désérialisation utilisateur avec ID :', id);
     const res = await pool.query("SELECT id, email, name FROM users WHERE id = $1", [id]);
     if (res.rows.length === 0) return done(null, false);
     done(null, res.rows[0]);
   } catch (err) {
+    console.error('❌ Erreur désérialisation utilisateur :', err);
     done(err, null);
   }
 });
 
 
-// API
-// Middleware de debug pour les routes API
-app.use((req, res, next) => {
-  console.log(`📨 ${req.method} ${req.url}`);
-  next();
-});
+// Middleware pour parser le JSON
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Route de test pour vérifier la connexion BD
-app.get("/api/debug/db", ensureAuth, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT NOW() as current_time, version() as postgres_version');
-    res.json({ 
-      success: true, 
-      db: result.rows[0],
-      message: "Connexion BD OK" 
-    });
-  } catch (err) {
-    console.error('❌ Erreur connexion BD:', err);
-    res.status(500).json({ error: err.message });
-  }
+
+// ---------------------API
+app.get("/api/debug/auth-detailed", ensureAuth, (req, res) => {
+  const authInfo = {
+    // Session info
+    session_id: req.sessionID,
+    session_exists: !!req.session,
+    session_keys: req.session ? Object.keys(req.session) : [],
+    
+    // User info
+    user: req.user,
+    is_authenticated: !!req.user,
+    
+    // Passport info
+    is_authenticated_method: req.isAuthenticated ? req.isAuthenticated() : 'method_not_available',
+    
+    // Headers
+    cookies: req.headers.cookie,
+    user_agent: req.headers['user-agent']
+  };
+  
+  console.log('🔐 Debug Auth Détaillé:', authInfo);
+  res.json(authInfo);
 });
 
 app.get("/api/contributions", ensureAuth, async (req, res) => {
   try {
-    const userId = req.user.id;
-    
+    console.log('🔍 Requête reçue pour /api/contributions');
+    console.log('🔍 Utilisateur connecté (req.user) :', req.user);
+
+    const userId = req.user ? req.user.id : null;
+
+    if (!userId) {
+      console.warn('⚠️ Aucun utilisateur connecté');
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
     const result = await pool.query(`
       SELECT 
         DATE(date_completed) as date,
@@ -253,20 +288,20 @@ app.get("/api/contributions", ensureAuth, async (req, res) => {
       GROUP BY DATE(date_completed)
       ORDER BY date ASC
     `, [userId]);
-    
-    // Normaliser le format côté serveur pour éviter les surprises côté client
+
     const rows = result.rows.map(r => ({
       date: r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date),
       count: parseInt(r.count, 10) || 0
     }));
-    console.log('📦 /api/contributions ->', rows.length, 'jours:', rows.slice(0,6));
+
+    console.log('📦 Résultat des contributions :', rows);
     res.json(rows);
   } catch (error) {
-    console.error('❌ Erreur récupération contributions:', error);
+    console.error('❌ Erreur dans /api/contributions :', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
-// Route pour l'historique des quiz (version corrigée)
+
 app.get("/api/quiz/history", ensureAuth, async (req, res) => {
   try {
     console.log('📊 Route /api/quiz/history appelée');
@@ -305,63 +340,44 @@ app.get("/api/quiz/history", ensureAuth, async (req, res) => {
   }
 });
 
-// Route CORRIGÉE pour sauvegarder les quiz
-app.post("/api/quiz/save", ensureAuth, async (req, res) => {
+app.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
   try {
-    console.log('💾 /api/quiz/save appelée, req.user =', req.user && { id: req.user.id, email: req.user.email });
-    console.log('💾 Sauvegarde quiz - Headers:', req.headers);
-    console.log('💾 Sauvegarde quiz - Body:', req.body);
+    console.log('💾 /api/quiz/save - User authentifié:', req.user);
     
-    // Tolérance sur les noms de champs côté client
     const {
       score,
       total_questions,
-      totalQuestions,
       quiz_type,
-      quizType,
-      words_used,
-      wordsUsed,
-      correct_count
+      words_used
     } = req.body;
-    const scoreVal = score ?? correct_count ?? null;
-    const totalVal = total_questions ?? totalQuestions ?? null;
-    const quizTypeVal = quiz_type ?? quizType ?? null;
-    const wordsVal = words_used ?? wordsUsed ?? [];
-    const userId = req.user && req.user.id;
-    
-    if (!userId) {
-      console.warn('⚠️ /api/quiz/save sans userId (non authentifié)');
-      return res.status(401).json({ error: 'Non authentifié' });
-    }
 
-    // Validation améliorée
-    if (scoreVal === null || totalVal === null || !quizTypeVal) {
-      console.log('❌ Données manquantes:', { scoreVal, totalVal, quizTypeVal });
+    // Validation
+    if (score === undefined || total_questions === undefined || !quiz_type) {
       return res.status(400).json({ 
         error: 'Données manquantes',
-        received: { score: scoreVal, total_questions: totalVal, quiz_type: quizTypeVal }
+        received: req.body
       });
     }
 
-    // Conversion en nombres
-    const scoreNum = parseInt(scoreVal, 10);
-    const totalNum = parseInt(totalVal, 10);
+    const scoreNum = parseInt(score);
+    const totalNum = parseInt(total_questions);
     
     if (isNaN(scoreNum) || isNaN(totalNum)) {
-      return res.status(400).json({ error: 'Score ou total_questions invalide' });
+      return res.status(400).json({ 
+        error: 'Score ou total_questions invalide'
+      });
     }
 
-    // Calcul du ratio
     const ratio = ((scoreNum / totalNum) * 100).toFixed(2);
     
-    console.log(`💾 Insertion quiz - User:${userId}, Score:${scoreNum}/${totalNum}, Type:${quizTypeVal}`);
+    console.log(`💾 Insertion - User:${req.user.id}, Score:${scoreNum}/${totalNum}`);
 
     const result = await pool.query(
       `INSERT INTO quiz_history 
        (user_id, score, total_questions, ratio, quiz_type, words_used) 
        VALUES ($1, $2, $3, $4, $5, $6) 
        RETURNING *`,
-      [userId, scoreNum, totalNum, ratio, quizTypeVal, JSON.stringify(wordsVal || [])]
+      [req.user.id, scoreNum, totalNum, ratio, quiz_type, JSON.stringify(words_used || [])]
     );
 
     console.log('✅ Quiz sauvegardé avec ID:', result.rows[0].id);
@@ -416,7 +432,7 @@ app.get("/mes-mots", ensureAuth, async (req, res) => {
   }
 });
 
-app.post("/verifier", async (req, res) => {
+app.post("/verifier", ensureAuth, async (req, res) => {
   const { chinese, answer } = req.body;
   try {
     const { rows } = await pool.query("SELECT * FROM mots WHERE chinese=$1", [chinese]);
@@ -472,7 +488,7 @@ app.post("/ajouter", ensureAuth , async (req, res) => {
   }
 });
 
-app.get("/liste", async (req, res) => {
+app.get("/liste", ensureAuth, async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT * FROM mots ORDER BY id ASC");
     res.json(rows);
@@ -481,7 +497,7 @@ app.get("/liste", async (req, res) => {
   }
 });
 
-app.put("/update/:id", async (req, res) => {
+app.put("/update/:id", ensureAuth, async (req, res) => {
   const { id } = req.params;
   const { chinese, pinyin, english, description, hsk } = req.body;
   try {
@@ -495,7 +511,7 @@ app.put("/update/:id", async (req, res) => {
   }
 });
 
-app.get("/check-mot/:chinese", async (req, res) => {
+app.get("/check-mot/:chinese", ensureAuth, async (req, res) => {
   const { chinese } = req.params;
   try {
     const { rows } = await pool.query("SELECT * FROM mots WHERE chinese=$1", [chinese]);
@@ -641,6 +657,19 @@ app.get('/account', ensureAuth, (req, res) => {
     currentPage: 'account',
     user: req.user
   });
+});
+
+app.get('/quiz', ensureAuth, (req, res) => {
+  res.render('quiz', {
+    currentPage: 'quiz',
+    user: req.user
+  });
+});
+
+// Middleware de simulation d'utilisateur pour les tests
+app.use((req, res, next) => {
+  req.user = { id: 1, name: "Test User", email: "test@example.com" }; // Simulez un utilisateur
+  next();
 });
 
 // -------------------- Lancer serveur --------------------

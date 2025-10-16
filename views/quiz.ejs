@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Quiz - 加油！</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0d6efd"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
+  
+  <style>
+    .quiz-card {
+      transition: all 0.3s ease;
+      border: none;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      height: 100%;
+    }
+    
+    .quiz-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+    }
+    
+    .quiz-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    
+    .pinyin-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .character-card {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+    
+    .quiz-btn {
+      border: 2px solid rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.1);
+      color: white;
+      transition: all 0.3s ease;
+    }
+    
+    .quiz-btn:hover {
+      background: rgba(255,255,255,0.2);
+      border-color: rgba(255,255,255,0.5);
+      transform: scale(1.05);
+    }
+    
+    .count-option {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid #e9ecef;
+    }
+    
+    .count-option:hover {
+      border-color: #0d6efd;
+      background-color: #f8f9fa;
+    }
+    
+    .count-option.selected {
+      border-color: #0d6efd;
+      background-color: #e3f2fd;
+    }
+  </style>
+</head>
+<body>
+  
+<div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
+  <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
+    加油！
+  </span>
+  
+  <div class="position-relative">
+    <i class="bi bi-bell fs-4" style="cursor: pointer;"></i>
+    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+      3
+      <span class="visually-hidden">notifications</span>
+    </span>
+  </div>
+</div>
+
+<%- include('partials/navbar', {currentPage: currentPage}) %>
+
+<section class="container my-4">
+  <div class="row justify-content-center">
+    <div class="col-12">
+      <h1 class="text-center mb-5">It's good to collect them, but better to learn them !</h1>
+    </div>
+  </div>
+
+  <!-- 🔥 DEUX QUIZ CÔTE À CÔTE -->
+  <div class="row g-4">
+    <!-- Quiz Pinyin -->
+    <div class="col-12 col-lg-6">
+      <div class="quiz-card card p-4 pinyin-card">
+        <div class="card-body text-center">
+          <!-- 🔥 NOUVEL ICÔNE : Langue internationale -->
+           <i class="quiz-icon bi bi-type"></i>
+          <h3 class="card-title">Quiz Pinyin</h3>
+          <p class="card-text mb-4">Traduisez l'anglais vers le pinyin et maîtrisez la prononciation</p>
+          <button class="btn quiz-btn btn-lg w-100" onclick="openCountModal('pinyin')">
+            <i class="bi bi-play-circle me-2"></i>Commencer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quiz Caractères -->
+    <div class="col-12 col-lg-6">
+      <div class="quiz-card card p-4 character-card">
+        <div class="card-body text-center">
+          <!-- 🔥 NOUVEL ICÔNE : Langue chinoise -->
+           <i class="quiz-icon bi bi-translate"></i>
+          <h3 class="card-title">Quiz Caractères</h3>
+          <p class="card-text mb-4">Traduisez l'anglais vers les caractères chinois et apprenez l'écriture</p>
+          <button class="btn quiz-btn btn-lg w-100" onclick="openCountModal('character')">
+            <i class="bi bi-play-circle me-2"></i>Commencer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 🔥 MODAL POUR CHOISIR LE NOMBRE DE MOTS -->
+<div class="modal fade" id="countModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalTitle">Nombre de mots</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-grid gap-2">
+          <div class="count-option p-3 rounded text-center" data-count="10" onclick="selectCount(10)">
+            <i class="bi bi-1-circle me-2"></i><strong>10 mots</strong>
+            <small class="d-block text-muted">Rapide</small>
+          </div>
+          <div class="count-option p-3 rounded text-center" data-count="20" onclick="selectCount(20)">
+            <i class="bi bi-2-circle me-2"></i><strong>20 mots</strong>
+            <small class="d-block text-muted">Standard</small>
+          </div>
+          <div class="count-option p-3 rounded text-center" data-count="30" onclick="selectCount(30)">
+            <i class="bi bi-3-circle me-2"></i><strong>30 mots</strong>
+            <small class="d-block text-muted">Intensif</small>
+          </div>
+          <div class="count-option p-3 rounded text-center" data-count="all" onclick="selectCount('all')">
+            <i class="bi bi-infinity me-2"></i><strong>Tous les mots</strong>
+            <small class="d-block text-muted">Défi complet</small>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button type="button" class="btn btn-primary" id="startQuizBtn" onclick="startQuiz()" disabled>
+          <i class="bi bi-rocket-takeoff me-2"></i>Lancer le quiz
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/JS/global.js"></script>
+<script>
+let selectedQuizType = null;
+let selectedCount = null;
+
+// 🔥 OUVRE LA MODAL POUR CHOISIR LE NOMBRE
+function openCountModal(quizType) {
+  selectedQuizType = quizType;
+  selectedCount = null;
+  
+  // Mettre à jour le titre de la modal
+  const modalTitle = document.getElementById('modalTitle');
+  modalTitle.textContent = `Quiz ${quizType === 'pinyin' ? 'Pinyin' : 'Caractères'} - Nombre de mots`;
+  
+  // Réinitialiser la sélection
+  document.querySelectorAll('.count-option').forEach(option => {
+    option.classList.remove('selected');
+  });
+  
+  // Désactiver le bouton de démarrage
+  document.getElementById('startQuizBtn').disabled = true;
+  
+  // Afficher la modal
+  const modal = new bootstrap.Modal(document.getElementById('countModal'));
+  modal.show();
+}
+
+// 🔥 SÉLECTIONNE UN NOMBRE
+function selectCount(count) {
+  selectedCount = count;
+  
+  // Mettre à jour l'UI
+  document.querySelectorAll('.count-option').forEach(option => {
+    option.classList.remove('selected');
+    if (option.getAttribute('data-count') == count) {
+      option.classList.add('selected');
+    }
+  });
+  
+  // Activer le bouton de démarrage
+  document.getElementById('startQuizBtn').disabled = false;
+}
+
+// 🔥 LANCE LE QUIZ
+function startQuiz() {
+  if (!selectedQuizType || !selectedCount) return;
+  
+  let url;
+  if (selectedQuizType === 'pinyin') {
+    url = `/quiz-pinyin?count=${selectedCount}`;
+  } else {
+    url = `/quiz-character?count=${selectedCount}`;
+  }
+  
+  // Fermer la modal et rediriger
+  const modal = bootstrap.Modal.getInstance(document.getElementById('countModal'));
+  modal.hide();
+  
+  window.location.href = url;
+}
+
+// Navigation
+function setActiveNavItem() {
+  const path = window.location.pathname;
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.classList.remove('active');
+    const dataPage = link.getAttribute('data-page');
+    const href = link.getAttribute('href');
+    if ((dataPage && path.includes(dataPage)) || (href && path === href)) {
+      link.classList.add('active');
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', setActiveNavItem);
+
+// 🔥 ANIMATION AU SURVOL DES OPTIONS
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.count-option').forEach(option => {
+    option.addEventListener('mouseenter', function() {
+      this.style.transform = 'scale(1.02)';
+    });
+    
+    option.addEventListener('mouseleave', function() {
+      this.style.transform = 'scale(1)';
+    });
+  });
+});
+</script>
+
+</body>
+</html>

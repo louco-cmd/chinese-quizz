@@ -51,6 +51,7 @@
   </div>
 
   <script src="/JS/global.js"></script>
+  <script src="/JS/saveQuiz.js"></script>
   <script>
     let quizWords = []; 
     let quizIdx = 0;
@@ -110,9 +111,7 @@
       hasSecondChance = false;
 
       if (quizIdx >= quizWords.length) {
-        quizQuestion.textContent = '🎉 Quiz terminé !';
-        checkBtn.style.display = 'none';
-        setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
+        endQuiz(); // 🔥 APPEL DE LA FONCTION DE FIN DE QUIZ
         return;
       }
 
@@ -146,6 +145,23 @@
 
     function updateScore() {
       quizScore.textContent = `✅ ${correctCount} | ❌ ${wrongCount}`;
+    }
+
+    // 🔥 NOUVELLE FONCTION : Fin du quiz
+    function endQuiz() {
+      quizQuestion.textContent = '🎉 Quiz terminé !';
+      quizResult.textContent = `Score final: ${correctCount}/${quizWords.length}`;
+      quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
+      checkBtn.style.display = 'none';
+      quizFields.innerHTML = '';
+      
+      // 🔥 SAUVEGARDE DU QUIZ
+      const wordsArray = quizWords.map(word => word.chinese);
+      saveQuizResults(correctCount, quizWords.length, 'character', wordsArray);
+      
+      setTimeout(() => { 
+        window.location.href = '/dashboard'; 
+      }, 3000);
     }
 
     // NOUVELLE LOGIQUE : Deuxième chance
@@ -261,7 +277,6 @@ class SimpleNavigation {
     }
 }
   </script>
-  <script src="/JS/saveQuiz.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

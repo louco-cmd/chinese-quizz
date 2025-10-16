@@ -3,37 +3,197 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title> 加油！</title>
+  <title>加油！</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  <!-- Ajoute ces lignes -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#0d6efd"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <!-- Icônes pour iOS -->
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
 
-  <!-- Détection PWA -->
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');
     }
   </script>
   
+  <style>
+
+    topbarColor {
+      background-color: #0d6dfd00 !important;
+    }
+
+    body {
+      background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);
+      min-height: 100vh;
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+    }
+    
+    .screen-container {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .content-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow: hidden;
+    }
+    
+    .floating-card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+      border: none;
+      width: 100%;
+      max-height: 80vh;
+      overflow: hidden;
+    }
+    
+    /* 🔥 VERSION MOBILE */
+    @media (max-width: 767.98px) {
+      .floating-card {
+        max-width: 400px;
+      }
+    }
+    
+    /* 🔥 VERSION DESKTOP - BOÎTE PLUS LARGE */
+    @media (min-width: 768px) {
+      .floating-card {
+        max-width: 500px; /* Plus large sur desktop */
+      }
+      
+      .card-content {
+        padding: 40px 35px; /* Plus d'espace intérieur */
+      }
+      
+      .chinese-preview {
+        font-size: 3rem; /* Caractères plus grands */
+        margin: 20px 0;
+      }
+      
+      .form-control {
+        padding: 14px 18px;
+        font-size: 1.1rem;
+      }
+      
+      .btn {
+        padding: 14px 24px;
+        font-size: 1.1rem;
+      }
+    }
+    
+    .card-content {
+      padding: 30px 25px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .chinese-preview {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #0d6efd;
+      text-align: center;
+      margin: 15px 0;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .form-control {
+      border-radius: 12px;
+      border: 2px solid #e9ecef;
+      padding: 12px 15px;
+      font-size: 1rem;
+    }
+    
+    .form-control:focus {
+      border-color: #0d6efd;
+      box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .btn {
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-weight: 600;
+    }
+    
+    .word-field {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    
+    .word-field label {
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 5px;
+      font-size: 0.9rem;
+    }
+    
+    .screen {
+      width: 100%;
+      height: 100%;
+      display: none;
+    }
+    
+    .screen.active {
+      display: block;
+      justify-items: anchor-center;
+    }
+    
+    .compact-text {
+      font-size: 0.85rem;
+      line-height: 1.3;
+    }
+    
+    .status-message {
+      min-height: 24px;
+      font-size: 0.9rem;
+      margin: 10px 0;
+    }
+    
+    /* 🔥 DESKTOP - AMÉLIORATIONS SUPPLEMENTAIRES */
+    @media (min-width: 768px) {
+      .word-field {
+        padding: 15px;
+        margin-bottom: 15px;
+      }
+      
+      .word-field label {
+        font-size: 1rem;
+      }
+      
+      .compact-text {
+        font-size: 0.95rem;
+      }
+      
+      .status-message {
+        font-size: 1rem;
+        margin: 15px 0;
+      }
+    }
+  </style>
 </head>
-<body>
-  
-<div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
+<body class="bg-primary">
+
+<!-- TOP BAR -->
+<div class="d-flex justify-content-between align-items-center topbarColor text-white p-3">
   <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
     加油！
   </span>
-  
-  <!-- Icône notifications -->
   <div class="position-relative">
     <i class="bi bi-bell fs-4" style="cursor: pointer;"></i>
-    <!-- Badge de notification -->
     <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
       3
       <span class="visually-hidden">notifications</span>
@@ -41,245 +201,346 @@
   </div>
 </div>
 
- <!-- Navigation -->
-  <%- include('partials/navbar', {currentPage: currentPage}) %>
-
-  <section class="container mt-4 col-12 col-md-10 col-lg-6">
-
-        <!-- Greeting Message - DIRECTEMENT depuis les données EJS -->
-  
-    <h3 class="mb-3">Welcome back, <%= userData.name %>!</h3>
-
-    <ul class="nav nav-tabs tabs">
-      <li class="nav-item">
-        <a class="nav-link active tab" data-tab="add" href="#">Add a word</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link tab" data-tab="quiz" href="#">Quizz</a>
-      </li>
-    </ul>
-
-    <div id="add" class="tab-content">
-      <form id="addForm" class="p-4 bg-light rounded shadow-sm">
-
-        <!-- Caractère chinois -->
-        <div class="mb-3">
-          <label for="chinese" class="form-label">Chinese Characters</label>
-          <input
-            type="text"
-            id="chinese"
-            class="form-control"
-            required
-          >
-        </div>
-
-        <!-- Pinyin -->
-        <div class="mb-3">
-          <label for="pinyin" class="form-label">Pinyin</label>
-          <input
-            type="text"
-            id="pinyin"
-            class="form-control"
-          >
-        </div>
-
-        <!-- Anglais -->
-        <div class="mb-3">
-          <label for="english" class="form-label">English</label>
-          <input
-            type="text"
-            id="english"
-            class="form-control"
-            required
-          >
-        </div>
-
-        <!-- Description -->
-        <div class="mb-3">
-          <label for="description" class="form-label">Description</label>
-          <textarea
-            id="description"
-            class="form-control"
-            rows="3"
-          ></textarea>
-        </div>
-
-        <!-- Bouton -->
-        <div class="d-grid">
-          <button type="submit" class="btn btn-primary">
-            Add Word
-          </button>
-        </div>
-      </form>
-
-      <div id="addResult" class="mt-3"></div>
-    </div>
-
-    <div id="quiz" class="tab-content" style="display:none;">
-      <!--<h2 class="my-4">Quiz Setup</h2>-->
-      <form id="quizForm" class="p-4 bg-light rounded shadow-sm">
-
-        <!-- Type de quiz -->
-        <div class="mb-3">
-          <label for="quizType" class="form-label">Quiz type</label>
-          <select id="quizType" class="form-select">
-            <option value="englishToPinyin">English → Pinyin</option>
-            <option value="englishToChinese">English → Characters</option>
-          </select>
-        </div>
-
-        <!-- Nombre de mots -->
-        <div class="mb-3">
-          <label for="quizCount" class="form-label">Amount of words</label>
-          <select id="quizCount" class="form-select">
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="30">30</option>
-            <option value="40">40</option>
-            <option value="all">Tous</option>
-          </select>
-        </div>
-
-        <!-- Bouton -->
-        <div class="d-grid">
-          <button type="submit" class="btn btn-primary">Launch the quiz</button>
-        </div>
-
-      </form>
-    </div>
-  </section>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/JS/global.js"></script>
-  <script>
-    const chineseInput = document.getElementById('chinese');
-    const pinyinInput = document.getElementById('pinyin');
-    const englishInput = document.getElementById('english');
-    const messageDiv = document.getElementById('addResult'); // déjà dans ton HTML
-
-    // -----------------------------
-    // Tabs
-    // -----------------------------
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(tab => {
-      tab.onclick = () => {
-        // Active la tab
-        tabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-
-        // Affiche le contenu correspondant
-        document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = 'none');
-        document.getElementById(tab.dataset.tab).style.display = 'block';
-      };
-    });
-
-    // -----------------------------
-    // Add Word Form
-    // -----------------------------
-    const addForm = document.getElementById('addForm');
-    addForm.onsubmit = async (e) => {
-      e.preventDefault();
-
-      const payload = {
-        chinese: document.getElementById('chinese').value,
-        pinyin: document.getElementById('pinyin').value,
-        english: document.getElementById('english').value,
-        description: document.getElementById('description').value
-      };
-
-      try {
-        const res = await fetch('/ajouter', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          document.getElementById('addResult').textContent = '✅ Mot ajouté !';
-          addForm.reset();
-        } else {
-          document.getElementById('addResult').textContent = `❌ ${data.message}`;
-        }
-
-      } catch(err) {
-        document.getElementById('addResult').textContent = '❌ Erreur serveur';
-      }
-    };
-
-    chineseInput.addEventListener("blur", async () => {
-      const chinese = chineseInput.value.trim();
-      if (!chinese) return;
-
-      try {
-        const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`);
-        const data = await res.json();
-
-        if (data.exists) {
-          // Remplir les champs automatiquement
-          pinyinInput.value = data.mot.pinyin || "";
-          englishInput.value = data.mot.english || "";
-          messageDiv.textContent = "Mot existant, champs remplis automatiquement";
-          messageDiv.style.color = "green";
-        } else {
-          pinyinInput.value = "";
-          englishInput.value = "";
-          messageDiv.textContent = "Nouveau mot à intégrer dans la base";
-          messageDiv.style.color = "orange";
-        }
-      } catch (err) {
-        messageDiv.textContent = "Erreur lors de la vérification";
-        messageDiv.style.color = "red";
-      }
-    });
-
-    // -----------------------------
-    // Quiz Setup Form
-    // -----------------------------
-    const quizForm = document.getElementById('quizForm');
-    quizForm.onsubmit = (e) => {
-      e.preventDefault();
-
-      const type = document.getElementById('quizType').value;  // englishToPinyin / englishToChinese
-      const count = document.getElementById('quizCount').value; // nombre de mots
-
-      // Redirection vers la page quiz correspondante
-      if (type === 'englishToPinyin') {
-        window.location.href = `/quiz-pinyin?count=${count}`;
-      } else {
-        window.location.href = `/quiz-character?count=${count}`;
-      }
-    };
-
-    // -----------------------------
-    // Collection Button
-    // -----------------------------
-    document.getElementById('collectionBtn').onclick = () => {
-      window.location.href = 'collection.html';
-    };
-
-// Navigation System - MULTI-PAGE APPROACH
-function setActiveNavItem() {
-    const path = window.location.pathname;
+<!-- CONTENT AREA - SANS SCROLL -->
+<div class="screen-container">
+  <div class="content-area">
     
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-        
-        const dataPage = link.getAttribute('data-page');
-        const href = link.getAttribute('href');
-        
-        // Vérifie si l'URL correspond à la page
-        if ((dataPage && path.includes(dataPage)) || 
-            (href && path === href)) {
-            link.classList.add('active');
-        }
-    });
+    <!-- 🔥 ÉCRAN 1 : SAISIE DU CARACTÈRE -->
+    <div id="inputScreen" class="screen active">
+      <div class="floating-card">
+        <div class="card-content">
+          <div class="text-center mb-3">
+            <h2 class="text-primary mb-2">
+              <i class="bi bi-plus-circle-fill me-2"></i>Add Word
+            </h2>
+            <p class="text-muted compact-text">Write the Chinese character to start</p>
+          </div>
+          
+          <!-- Champ unique -->
+          <div class="mb-3">
+            <label for="chinese" class="form-label fw-bold">Write your character here</label>
+            <input
+              type="text"
+              id="chinese"
+              class="form-control"
+              placeholder="请输入汉字..."
+              required
+              autofocus
+            >
+          </div>
+          
+          <!-- CTA unique -->
+          <div class="d-grid mt-2">
+            <button type="button" class="btn btn-primary" onclick="searchAndAddWord()">
+              <i class="bi bi-search me-2"></i>Add the Word
+            </button>
+          </div>
+          
+          <!-- Message de statut -->
+          <div id="statusMessage" class="status-message text-center"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 🔥 ÉCRAN 2 : MOT EXISTANT -->
+    <div id="existingWordScreen" class="screen">
+      <div class="floating-card">
+        <div class="card-content">
+          <div class="text-center mb-3">
+            <h3 class="text-success mb-1">
+              <i class="bi bi-check-circle-fill me-2"></i>Word Found
+            </h3>
+            <p class="text-muted compact-text">This word exists in our database</p>
+          </div>
+          
+          <!-- Aperçu -->
+          <div class="chinese-preview" id="previewChinese"></div>
+          
+          <!-- 🔥 DESKTOP - DISPOSITION PLUS LARGE -->
+          <div class="row">
+            <div class="col-12">
+              <div class="word-field">
+                <label>Pinyin</label>
+                <div class="compact-text" id="displayPinyin">-</div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="word-field">
+                <label>English</label>
+                <div class="compact-text" id="displayEnglish">-</div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="word-field">
+                <label>Description</label>
+                <div class="compact-text" id="displayDescription">-</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Actions -->
+          <div class="d-grid gap-2 mt-2">
+            <button type="button" class="btn btn-success" onclick="confirmAddExistingWord()">
+              <i class="bi bi-check-lg me-2"></i>Confirm & Add
+            </button>
+            <button type="button" class="btn btn-outline-warning" onclick="showNewWordScreen()">
+              <i class="bi bi-pencil me-2"></i>Edit Before Adding
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="showInputScreen()">
+              <i class="bi bi-arrow-left me-2"></i>Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 🔥 ÉCRAN 3 : NOUVEAU MOT -->
+    <div id="newWordScreen" class="screen">
+      <div class="floating-card">
+        <div class="card-content">
+          <div class="text-center mb-3">
+            <h3 class="text-warning mb-1">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i>New Word
+            </h3>
+            <p class="text-muted compact-text">Please complete the information</p>
+          </div>
+          
+          <!-- Aperçu -->
+          <div class="chinese-preview" id="newPreviewChinese"></div>
+          
+          <!-- Champs éditables -->
+            <label for="newPinyin" class="form-label"></label>
+            <input
+              type="text"
+              id="newPinyin"
+              class="form-control"
+              placeholder="Enter pinyin..."
+            >
+          
+            <label for="newEnglish" class="form-label"></label>
+            <input
+              type="text"
+              id="newEnglish"
+              class="form-control"
+              placeholder="English translation..."
+              required
+            >
+          
+            <label for="newDescription" class="form-label"></label>
+            <textarea
+              id="newDescription"
+              class="form-control"
+              rows="2"
+              placeholder="Description or notes..."
+              style="resize: none;"
+            ></textarea>
+
+          
+          <!-- Actions -->
+          <div class="d-grid gap-2 mt-2">
+            <button type="button" class="btn btn-success" onclick="confirmAddNewWord()">
+              <i class="bi bi-check-lg me-2"></i>Add to Collection
+            </button>
+            <button type="button" class="btn btn-outline-secondary" onclick="showInputScreen()">
+              <i class="bi bi-arrow-left me-2"></i>Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+<!-- NAVIGATION BAR -->
+<%- include('partials/navbar', {currentPage: currentPage}) %>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/JS/global.js"></script>
+<script>
+let currentChinese = '';
+let existingWordData = null;
+
+// 🔥 GESTION DES ÉCRANS
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(screen => {
+    screen.classList.remove('active');
+  });
+  document.getElementById(screenId).classList.add('active');
 }
 
-// Appeler au chargement
+function showInputScreen() {
+  showScreen('inputScreen');
+  clearStatus();
+}
+
+function showExistingWordScreen() {
+  showScreen('existingWordScreen');
+}
+
+function showNewWordScreen() {
+  showScreen('newWordScreen');
+}
+
+// 🔥 FONCTION PRINCIPALE
+async function searchAndAddWord() {
+  const chinese = document.getElementById('chinese').value.trim();
+  if (!chinese) {
+    showStatus('Please enter a Chinese character', 'warning');
+    return;
+  }
+
+  currentChinese = chinese;
+  showStatus('Searching...', 'info');
+
+  try {
+    const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`);
+    const data = await res.json();
+
+    if (data.exists) {
+      existingWordData = data.mot;
+      displayExistingWord(data.mot);
+      showExistingWordScreen();
+    } else {
+      existingWordData = null;
+      displayNewWordForm();
+      showNewWordScreen();
+    }
+  } catch (err) {
+    showStatus('Error searching database', 'error');
+  }
+}
+
+// 🔥 AFFICHE LE MOT EXISTANT
+function displayExistingWord(word) {
+  document.getElementById('previewChinese').textContent = word.chinese;
+  document.getElementById('displayPinyin').textContent = word.pinyin || '-';
+  document.getElementById('displayEnglish').textContent = word.english || '-';
+  document.getElementById('displayDescription').textContent = word.description || '-';
+}
+
+// 🔥 AFFICHE LE FORMULAIRE NOUVEAU MOT
+function displayNewWordForm() {
+  document.getElementById('newPreviewChinese').textContent = currentChinese;
+  document.getElementById('newPinyin').value = '';
+  document.getElementById('newEnglish').value = '';
+  document.getElementById('newDescription').value = '';
+}
+
+// 🔥 CONFIRME L'AJOUT D'UN MOT EXISTANT
+async function confirmAddExistingWord() {
+  if (!existingWordData) return;
+
+  try {
+    const res = await fetch('/ajouter', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(existingWordData)
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showStatus('✅ Word added!', 'success');
+      setTimeout(resetForm, 1000);
+    } else {
+      showStatus(`❌ ${data.message}`, 'error');
+    }
+  } catch(err) {
+    showStatus('❌ Server error', 'error');
+  }
+}
+
+// 🔥 CONFIRME L'AJOUT D'UN NOUVEAU MOT
+async function confirmAddNewWord() {
+  const pinyin = document.getElementById('newPinyin').value.trim();
+  const english = document.getElementById('newEnglish').value.trim();
+  const description = document.getElementById('newDescription').value.trim();
+
+  if (!english) {
+    showStatus('English translation required', 'warning');
+    return;
+  }
+
+  const payload = {
+    chinese: currentChinese,
+    pinyin: pinyin,
+    english: english,
+    description: description
+  };
+
+  try {
+    const res = await fetch('/ajouter', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showStatus('✅ Word added!', 'success');
+      setTimeout(resetForm, 1000);
+    } else {
+      showStatus(`❌ ${data.message}`, 'error');
+    }
+  } catch(err) {
+    showStatus('❌ Server error', 'error');
+  }
+}
+
+// 🔥 RÉINITIALISE LE FORMULAIRE
+function resetForm() {
+  document.getElementById('chinese').value = '';
+  showInputScreen();
+  currentChinese = '';
+  existingWordData = null;
+  clearStatus();
+}
+
+// 🔥 GESTION DES MESSAGES
+function showStatus(message, type) {
+  const messageDiv = document.getElementById('statusMessage');
+  messageDiv.textContent = message;
+  messageDiv.className = 'status-message text-center fw-bold';
+  
+  switch(type) {
+    case 'success': messageDiv.classList.add('text-success'); break;
+    case 'error': messageDiv.classList.add('text-danger'); break;
+    case 'warning': messageDiv.classList.add('text-warning'); break;
+    case 'info': messageDiv.classList.add('text-info'); break;
+  }
+}
+
+function clearStatus() {
+  document.getElementById('statusMessage').textContent = '';
+  document.getElementById('statusMessage').className = 'status-message';
+}
+
+// 🔥 RECHERCHE AVEC ENTREE
+document.getElementById('chinese').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    searchAndAddWord();
+  }
+});
+
+// Navigation
+function setActiveNavItem() {
+  const path = window.location.pathname;
+  document.querySelectorAll('.nav-link').forEach(link => {
+    link.classList.remove('active');
+    const dataPage = link.getAttribute('data-page');
+    const href = link.getAttribute('href');
+    if ((dataPage && path.includes(dataPage)) || (href && path === href)) {
+      link.classList.add('active');
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', setActiveNavItem);
 
-  </script>
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.umd.min.js"></script>
 
 </body>
 </html>
