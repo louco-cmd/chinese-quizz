@@ -44,6 +44,8 @@
       background-color: var(--bs-light);
       cursor: pointer;
       position: relative;
+     box-sizing: border-box; /* ✅ assurer la taille correcte */
+     border: 1px solid rgba(0,0,0,0.04); /* rendre les cases visibles même niveau 0 */
     }
     .contribution-day:hover::after {
       content: attr(data-count) " quiz le " attr(data-date);
@@ -104,6 +106,10 @@
                 <span class="ms-2">Chargement du calendrier...</span>
               </div>
             </div>
+            <!-- total des contributions (ajouté) -->
+            <div class="text-center mt-2">
+              <small id="contributions-total" class="text-muted">—</small>
+            </div>
           </div>
 
           <!-- Légende -->
@@ -117,20 +123,6 @@
               <div class="contribution-day level-4" title="6+ quiz"></div>
             </div>
             <small class="text-muted ms-2">Plus</small>
-          </div>
-        </div>
-        
-        <div class="col-md-4">
-          <div class="card border-0 bg-transparent">
-            <div class="card-body text-center">
-              <h5 class="card-title">📊 Résumé</h5>
-              <div id="quiz-stats-summary">
-                <div class="text-center">
-                  <div class="spinner-border spinner-border-sm" role="status"></div>
-                  <span class="ms-2">Chargement...</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -302,8 +294,9 @@ async function loadContributionsGrid() {
       displayNoContributions();
     } else {
       // Mettre à jour le total
-      const totalQuizzes = data.reduce((sum, item) => sum + parseInt(item.count), 0);
-      document.getElementById('contributions-total').textContent = `${totalQuizzes} quiz`;
+      const totalQuizzes = data.reduce((sum, item) => sum + parseInt(item.count || 0), 0);
+      const totalEl = document.getElementById('contributions-total');
+      if (totalEl) totalEl.textContent = `${totalQuizzes} quiz`;
       
       // Générer le damier
       generateContributionsGrid(data);
@@ -416,6 +409,12 @@ function displayContributionsError() {
 
 function generateContributionsGrid(contributionsData) {
   const grid = document.getElementById('contributionsGrid');
+  if (!grid) {
+    console.error('❌ generateContributionsGrid: element #contributionsGrid introuvable');
+    return;
+  }
+  console.log('🔄 generateContributionsGrid called, items:', contributionsData && contributionsData.length);
+
   const contributionsMap = {};
   
   // Créer un map pour un accès rapide
@@ -424,6 +423,7 @@ function generateContributionsGrid(contributionsData) {
   });
 
   const dates = generateLastYearDates();
+  console.log('🔎 generateLastYearDates returned', dates.length, 'dates');
   const weeks = Array(53).fill().map(() => Array(7).fill(null));
 
   // Remplir la grille
@@ -458,7 +458,12 @@ function generateContributionsGrid(contributionsData) {
     }
   }
 
-  grid.innerHTML = html;
+  if (html.trim().length === 0) {
+    grid.innerHTML = `<div class="text-center text-muted py-4">Aucun jour généré</div>`;
+    console.warn('⚠️ generateContributionsGrid: html vide');
+  } else {
+    grid.innerHTML = html;
+  }
 }
 
 function generateLastYearDates() {
