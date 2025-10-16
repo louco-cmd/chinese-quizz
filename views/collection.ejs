@@ -385,6 +385,7 @@ function showCharacterModal(character, originalWord, targetElement) {
     hoverModal.style.left = `${centerX}px`;
     hoverModal.style.top = `${rect.bottom + window.scrollY + 8}px`;
     hoverModal.style.display = 'block';
+    requestAnimationFrame(() => hoverModal.classList.add('visible'));
 
     // Template Bootstrap avec loading state
     hoverModal.innerHTML = `
@@ -406,47 +407,36 @@ function showCharacterModal(character, originalWord, targetElement) {
 // Mise à jour de fetchCharacterData pour le nouveau design
 async function fetchCharacterData(character) {
     try {
-        const maintenant = Date.now();
-    if (!cacheMots || (maintenant - dernierFetch) > CACHE_DURATION) {
-      console.log('🔄 Chargement de TOUS les mots depuis /api/tous-les-mots...');
-      
-      // 🎯 CHANGE ICI : utilise la nouvelle route
-      const response = await fetch('/api/tous-les-mots');
-      console.log('📡 Response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
-      }
-      
-      cacheMots = await response.json();
-      dernierFetch = maintenant;
-      
-      console.log('📊 Nombre total de mots chargés:', cacheMots.length);
-      console.log('🔍 Exemple de mots:', cacheMots.slice(0, 3).map(m => m.chinese));
-    }
-    
-    console.log('🔎 Recherche du caractère:', character);
-    
-    // 🎯 Recherche dans TOUS les mots
-    const caractereExact = cacheMots.find(mot => {
-      const found = mot.chinese && mot.chinese === character;
-      if (found) {
-        console.log('✅ CARACTÈRE TROUVÉ dans tous les mots:', mot);
-      }
-      return found;
-    });
-    
-    if (!caractereExact) {
-      throw new Error('Caractère seul non trouvé dans la base complète');
-    }
-    
-    // Met à jour le modal
-    if (hoverModal) {
-      hoverModal.innerHTML = `
+        // D'abord chercher dans les mots déjà chargés (words)
+        let caractereExact = words.find(mot => 
+            mot && mot.chinese && mot.chinese.includes(character)
+        );
+
+        // Si pas trouvé dans les mots de l'utilisateur, chercher dans tous les mots
+        if (!caractereExact && (!cacheMots || Date.now() - dernierFetch > CACHE_DURATION)) {
+            console.log('🔄 Caractère non trouvé localement, chargement de tous les mots...');
+            const response = await fetch('/api/tous-les-mots');
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            cacheMots = await response.json();
+            dernierFetch = Date.now();
+            
+            // Chercher dans le cache complet
+            caractereExact = cacheMots.find(mot => 
+                mot && mot.chinese && mot.chinese.includes(character)
+            );
+        }
+
+        if (!caractereExact) {
+            throw new Error('Caractère non trouvé');
+        }
+
+        // Mise à jour du modal avec les données trouvées
+        if (hoverModal) {
+            hoverModal.innerHTML = `
                 <div class="card-body p-3">
                     <div class="text-center">
                         <div class="mb-2">
-                            <span class="fs-3 fw-bold text-dark">${caractereExact.chinese}</span>
+                            <span class="fs-3 fw-bold text-dark">${character}</span>
                         </div>
                         <div class="mb-1">
                             <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
@@ -466,26 +456,24 @@ async function fetchCharacterData(character) {
                     </div>
                 </div>
             `;
-    }
-    
-  } catch (error) {
-    console.error('❌ Erreur fetchCharacterData:', error);
-    
-    if (hoverModal) {
-      hoverModal.innerHTML = `
+        }
+    } catch (error) {
+        console.error('❌ Erreur fetchCharacterData:', error);
+        if (hoverModal) {
+            hoverModal.innerHTML = `
                 <div class="card-body p-3">
                     <div class="text-center">
                         <div class="mb-2">
                             <span class="fs-3 fw-bold text-dark">${character}</span>
                         </div>
                         <div class="text-muted small">
-                            Character not found in database
+                            Caractère non trouvé
                         </div>
                     </div>
                 </div>
             `;
+        }
     }
-  }
 }
 
   function showCard() {
@@ -678,5 +666,18 @@ function setActiveNavItem() {
 document.addEventListener('DOMContentLoaded', setActiveNavItem);
 
 </script>
+
+<style>
+    /* ... existing styles ... */
+    
+    .character-modal {
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+    }
+    
+    .character-modal.visible {
+        opacity: 1;
+    }
+</style>
 </body>
 </html>
