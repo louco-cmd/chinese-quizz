@@ -1,4 +1,3 @@
-
 console.log('🔐 Variables configurées:');
 console.log('GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? '✅' : '❌');
 console.log('GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? '✅' : '❌');
@@ -65,6 +64,21 @@ app.use(passport.session());
       )
     `);
 
+    // Table quiz_history nécessaire pour les contributions / historique quiz
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS quiz_history (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        score INTEGER,
+        total_questions INTEGER,
+        ratio NUMERIC,
+        quiz_type TEXT,
+        words_used JSONB,
+        date_completed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    
     console.log("✅ Tables 'mots' et 'users' vérifiées ou créées.");
   } catch (err) {
     console.error("❌ Erreur lors de l'initialisation :", err);
@@ -223,7 +237,13 @@ app.get("/api/contributions", ensureAuth, async (req, res) => {
       ORDER BY date ASC
     `, [userId]);
     
-    res.json(result.rows);
+    // Normaliser le format côté serveur pour éviter les surprises côté client
+    const rows = result.rows.map(r => ({
+      date: r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date),
+      count: parseInt(r.count, 10) || 0
+    }));
+    console.log('📦 /api/contributions ->', rows.length, 'jours:', rows.slice(0,6));
+    res.json(rows);
   } catch (error) {
     console.error('❌ Erreur récupération contributions:', error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -271,24 +291,44 @@ app.get("/api/quiz/history", ensureAuth, async (req, res) => {
 // Route CORRIGÉE pour sauvegarder les quiz
 app.post("/api/quiz/save", ensureAuth, async (req, res) => {
   try {
+    console.log('💾 /api/quiz/save appelée, req.user =', req.user && { id: req.user.id, email: req.user.email });
     console.log('💾 Sauvegarde quiz - Headers:', req.headers);
     console.log('💾 Sauvegarde quiz - Body:', req.body);
     
-    const { score, total_questions, quiz_type, words_used } = req.body;
-    const userId = req.user.id;
+    // Tolérance sur les noms de champs côté client
+    const {
+      score,
+      total_questions,
+      totalQuestions,
+      quiz_type,
+      quizType,
+      words_used,
+      wordsUsed,
+      correct_count
+    } = req.body;
+    const scoreVal = score ?? correct_count ?? null;
+    const totalVal = total_questions ?? totalQuestions ?? null;
+    const quizTypeVal = quiz_type ?? quizType ?? null;
+    const wordsVal = words_used ?? wordsUsed ?? [];
+    const userId = req.user && req.user.id;
+    
+    if (!userId) {
+      console.warn('⚠️ /api/quiz/save sans userId (non authentifié)');
+      return res.status(401).json({ error: 'Non authentifié' });
+    }
 
     // Validation améliorée
-    if (score === undefined || total_questions === undefined || !quiz_type) {
-      console.log('❌ Données manquantes:', { score, total_questions, quiz_type });
+    if (scoreVal === null || totalVal === null || !quizTypeVal) {
+      console.log('❌ Données manquantes:', { scoreVal, totalVal, quizTypeVal });
       return res.status(400).json({ 
         error: 'Données manquantes',
-        received: { score, total_questions, quiz_type }
+        received: { score: scoreVal, total_questions: totalVal, quiz_type: quizTypeVal }
       });
     }
 
     // Conversion en nombres
-    const scoreNum = parseInt(score);
-    const totalNum = parseInt(total_questions);
+    const scoreNum = parseInt(scoreVal, 10);
+    const totalNum = parseInt(totalVal, 10);
     
     if (isNaN(scoreNum) || isNaN(totalNum)) {
       return res.status(400).json({ error: 'Score ou total_questions invalide' });
@@ -297,14 +337,14 @@ app.post("/api/quiz/save", ensureAuth, async (req, res) => {
     // Calcul du ratio
     const ratio = ((scoreNum / totalNum) * 100).toFixed(2);
     
-    console.log(`💾 Insertion quiz - User:${userId}, Score:${scoreNum}/${totalNum}, Type:${quiz_type}`);
+    console.log(`💾 Insertion quiz - User:${userId}, Score:${scoreNum}/${totalNum}, Type:${quizTypeVal}`);
 
     const result = await pool.query(
       `INSERT INTO quiz_history 
        (user_id, score, total_questions, ratio, quiz_type, words_used) 
        VALUES ($1, $2, $3, $4, $5, $6) 
        RETURNING *`,
-      [userId, scoreNum, totalNum, ratio, quiz_type, JSON.stringify(words_used || [])]
+      [userId, scoreNum, totalNum, ratio, quizTypeVal, JSON.stringify(wordsVal || [])]
     );
 
     console.log('✅ Quiz sauvegardé avec ID:', result.rows[0].id);
@@ -336,34 +376,6 @@ app.get("/api/tous-les-mots", ensureAuth, async (req, res) => {
 
   } catch (err) {
     console.error('❌ Erreur /api/tous-les-mots:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/quiz/save", ensureAuth, async (req, res) => {
-  try {
-    const { score, total_questions, quiz_type, words_used } = req.body;
-    const userId = req.user.id;
-    
-    // Calculer le ratio
-    const ratio = ((score / total_questions) * 100).toFixed(2);
-    
-    const result = await pool.query(
-      `INSERT INTO quiz_history 
-       (user_id, score, total_questions, ratio, quiz_type, words_used) 
-       VALUES ($1, $2, $3, $4, $5, $6) 
-       RETURNING *`,
-      [userId, score, total_questions, ratio, quiz_type, JSON.stringify(words_used)]
-    );
-    
-    res.json({ 
-      success: true, 
-      quiz: result.rows[0],
-      message: `Quiz sauvegardé : ${score}/${total_questions} (${ratio}%)`
-    });
-    
-  } catch (err) {
-    console.error('❌ Erreur sauvegarde quiz:', err);
     res.status(500).json({ error: err.message });
   }
 });
