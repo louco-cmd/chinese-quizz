@@ -277,72 +277,70 @@ function createCardElement(word) {
     return card;
 }
 
-  // 🎯 SYSTÈME DE HOVER POUR CARACTÈRES
+// 🎯 SYSTÈME DE HOVER POUR CARACTÈRES
   function transformChineseCharacters(chineseWord, container) {
-    if (!container || !chineseWord) return;
+    if (!container || !chineseWord) {
+        console.log('⚠️ Container ou mot chinois manquant:', { container: !!container, word: chineseWord });
+        return;
+    }
 
-    const characters = Array.from(chineseWord);
+    // Ajout de la classe pour la sélection plus tard
+    container.classList.add('chinese-container'); // Important !
     
-    // Stocke le mot original dans le container
+    const characters = Array.from(chineseWord);
     container.setAttribute('data-original-word', chineseWord);
     
-    // Désactivation pour 1 caractère
+    console.log('🈺 Transformation des caractères:', chineseWord);
+    
     if (characters.length <= 1) {
-      container.textContent = chineseWord;
-      container.style.cursor = 'default';
-      return;
+        container.textContent = chineseWord;
+        container.style.cursor = 'default';
+        return;
     }
     
     container.innerHTML = '';
     
     characters.forEach((character) => {
-      const span = document.createElement('span');
-      span.className = 'chinese-character';
-      span.setAttribute('data-char', character);
-      span.textContent = character;
-      
-      span.style.cssText = `
-        display: inline-block;
-        margin: 0 1px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        padding: 1px 3px;
-        border-radius: 2px;
-      `;
-      
-      // Effet hover visuel
-      span.addEventListener('mouseenter', function() {
-        this.style.backgroundColor = '#e3f2fd';
-        this.style.transform = 'scale(1.05)';
-      });
-      
-      span.addEventListener('mouseleave', function() {
-        this.style.backgroundColor = '';
-        this.style.transform = '';
-      });
-      
-      span.addEventListener('mouseenter', handleCharacterHover);
-      span.addEventListener('mouseleave', handleCharacterLeave);
-      
-      container.appendChild(span);
+        const span = document.createElement('span');
+        span.className = 'chinese-character';
+        span.setAttribute('data-char', character);
+        span.textContent = character;
+        
+        // Ajout de logs pour debug
+        span.addEventListener('mouseenter', (e) => {
+            console.log('🔍 Hover sur le caractère:', character);
+            handleCharacterHover(e);
+        });
+        
+        span.addEventListener('mouseleave', handleCharacterLeave);
+        
+        container.appendChild(span);
     });
-  }
+}
+
 let hoverTimeout = null;
 let isHoveringModal = false;
 
 function handleCharacterHover(event) {
-  const character = event.target.getAttribute('data-char');
-  
-  // Annule tout timeout en cours
-  if (hoverTimeout) {
-    clearTimeout(hoverTimeout);
-    hoverTimeout = null;
-  }
-  
-  const container = event.target.closest('.chinese-container');
-  const originalWord = container.getAttribute('data-original-word');
-  
-  showCharacterModal(character, originalWord, event.target);
+    const character = event.target.getAttribute('data-char');
+    console.log('👆 handleCharacterHover:', character);
+    
+    if (hoverTimeout) {
+        clearTimeout(hoverTimeout);
+        hoverTimeout = null;
+    }
+    
+    // Correction importante ici
+    const container = event.target.closest('.chinese-container');
+    if (!container) {
+        console.warn('⚠️ Container parent non trouvé');
+        return;
+    }
+    
+    const originalWord = container.getAttribute('data-original-word');
+    console.log('📝 Mot original:', originalWord);
+    
+    showCharacterModal(character, originalWord, event.target);
 }
 
 function handleCharacterLeave(event) {
@@ -357,61 +355,51 @@ function handleCharacterLeave(event) {
 }
 
 function showCharacterModal(character, originalWord, targetElement) {
-  if (hoverTimeout) {
-    clearTimeout(hoverTimeout);
-    hoverTimeout = null;
-  }
-  
-  if (!hoverModal) {
-    hoverModal = document.createElement('div');
-    hoverModal.className = 'character-modal';
-    hoverModal.style.cssText = `
-      position: fixed;
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 10000;
-      max-width: 200px;
-      font-size: 14px;
-      display: none;
+    console.log('🔍 showCharacterModal:', { character, originalWord });
+    
+    if (!targetElement) {
+        console.error('❌ Élément cible manquant');
+        return;
+    }
+
+    // Création du modal si nécessaire
+    if (!hoverModal) {
+        hoverModal = document.createElement('div');
+        hoverModal.className = 'character-modal';
+        hoverModal.style.cssText = `
+            position: fixed;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 10000;
+            max-width: 200px;
+            font-size: 14px;
+            display: none;
+        `;
+        document.body.appendChild(hoverModal);
+    }
+
+    // Positionnement
+    const rect = targetElement.getBoundingClientRect();
+    console.log('📏 Position modal:', { left: rect.left, bottom: rect.bottom });
+    
+    hoverModal.style.left = `${rect.left + window.scrollX}px`;
+    hoverModal.style.top = `${rect.bottom + window.scrollY + 5}px`;
+    hoverModal.style.display = 'block';
+    
+    // Affichage initial pendant le chargement
+    hoverModal.innerHTML = `
+        <div class="text-center">
+            <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
+            <div style="color: #e74c3c; font-weight: bold;">Recherche...</div>
+        </div>
     `;
     
-    // 🆕 Événements pour le modal lui-même
-    hoverModal.addEventListener('mouseenter', () => {
-      isHoveringModal = true;
-      if (hoverTimeout) {
-        clearTimeout(hoverTimeout);
-        hoverTimeout = null;
-      }
-    });
-    
-    hoverModal.addEventListener('mouseleave', () => {
-      isHoveringModal = false;
-      hoverTimeout = setTimeout(() => {
-        if (hoverModal) {
-          hoverModal.style.display = 'none';
-        }
-      }, 100);
-    });
-    
-    document.body.appendChild(hoverModal);
-  }
-
-  const rect = targetElement.getBoundingClientRect();
-  hoverModal.style.left = `${rect.left + window.scrollX}px`;
-  hoverModal.style.top = `${rect.bottom + window.scrollY + 5}px`;
-  hoverModal.style.display = 'block';
-  
-  hoverModal.innerHTML = `
-    <div class="text-center">
-      <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
-      <div style="color: #e74c3c; font-weight: bold;">Recherche...</div>
-    </div>
-  `;
-  
-  fetchCharacterData(character);
+    // Appel API avec logs
+    console.log('🔄 Appel fetchCharacterData pour:', character);
+    fetchCharacterData(character);
 }
 
   function showCharacterModal(character, originalWord, targetElement) {
@@ -532,6 +520,7 @@ function showCharacterModal(character, originalWord, targetElement) {
   // Navigation
   prevBtn.onclick = ()=>{ idx=(idx-1+words.length)%words.length; showCard(); toggleView('card'); };
   nextBtn.onclick = ()=>{ idx=(idx+1)%words.length; showCard(); toggleView('card'); };
+
   window.addEventListener('keydown',e=>{
     if(e.key==='ArrowLeft') prevBtn.click();
     else if(e.key==='ArrowRight') nextBtn.click();
@@ -697,7 +686,7 @@ class SimpleNavigation {
 function setActiveNavItem() {
     const path = window.location.pathname;
     
-    document.querySelectorAll('.nav-link').forEach(link => {
+  document.querySelectorAll('.nav-link').forEach(link => {
         link.classList.remove('active');
         // Active si le data-page correspond à l'URL
         if (path.includes(link.getAttribute('data-page'))) {
@@ -705,7 +694,6 @@ function setActiveNavItem() {
         }
     });
 }
-
 // Appeler au chargement
 document.addEventListener('DOMContentLoaded', setActiveNavItem);
 
