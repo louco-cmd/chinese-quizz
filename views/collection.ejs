@@ -362,84 +362,51 @@ function showCharacterModal(character, originalWord, targetElement) {
         return;
     }
 
-    // Création du modal si nécessaire
+    // Création du modal avec dimensions fixes et style Bootstrap
     if (!hoverModal) {
         hoverModal = document.createElement('div');
-        hoverModal.className = 'character-modal';
+        hoverModal.className = 'character-modal card border-0';
         hoverModal.style.cssText = `
             position: fixed;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            width: 180px;          /* Largeur fixe */
+            height: auto;          /* Hauteur adaptative */
             z-index: 10000;
-            max-width: 200px;
-            font-size: 14px;
             display: none;
+            transform: translateX(-50%); /* Pour le centrage horizontal */
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
         `;
         document.body.appendChild(hoverModal);
     }
 
-    // Positionnement
+    // Positionnement centré sous le caractère
     const rect = targetElement.getBoundingClientRect();
-    console.log('📏 Position modal:', { left: rect.left, bottom: rect.bottom });
+    const centerX = rect.left + (rect.width / 2);
     
-    hoverModal.style.left = `${rect.left + window.scrollX}px`;
-    hoverModal.style.top = `${rect.bottom + window.scrollY + 5}px`;
+    hoverModal.style.left = `${centerX}px`;
+    hoverModal.style.top = `${rect.bottom + window.scrollY + 8}px`;
     hoverModal.style.display = 'block';
-    
-    // Affichage initial pendant le chargement
+
+    // Template Bootstrap avec loading state
     hoverModal.innerHTML = `
-        <div class="text-center">
-            <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
-            <div style="color: #e74c3c; font-weight: bold;">Recherche...</div>
+        <div class="card-body p-3">
+            <div class="text-center">
+                <div class="mb-2">
+                    <span class="fs-3 fw-bold text-dark">${character}</span>
+                </div>
+                <div class="d-flex justify-content-center">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
-    
-    // Appel API avec logs
-    console.log('🔄 Appel fetchCharacterData pour:', character);
-    fetchCharacterData(character);
 }
 
-  function showCharacterModal(character, originalWord, targetElement) {
-    if (!hoverModal) {
-      hoverModal = document.createElement('div');
-      hoverModal.className = 'character-modal';
-      hoverModal.style.cssText = `
-        position: fixed;
-        background: white;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        z-index: 10000;
-        max-width: 200px;
-        font-size: 14px;
-        display: none;
-      `;
-      document.body.appendChild(hoverModal);
-    }
-
-    const rect = targetElement.getBoundingClientRect();
-    hoverModal.style.left = `${rect.left + window.scrollX}px`;
-    hoverModal.style.top = `${rect.bottom + window.scrollY + 5}px`;
-    hoverModal.style.display = 'block';
-    
-    hoverModal.innerHTML = `
-      <div class="text-center">
-        <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
-        <div style="color: #e74c3c; font-weight: bold;">Recherche...</div>
-      </div>
-    `;
-    
-    // Appel API
-    fetchCharacterData(character);
-  }
-
-  async function fetchCharacterData(character) {
-  try {
-    const maintenant = Date.now();
+// Mise à jour de fetchCharacterData pour le nouveau design
+async function fetchCharacterData(character) {
+    try {
+        const maintenant = Date.now();
     if (!cacheMots || (maintenant - dernierFetch) > CACHE_DURATION) {
       console.log('🔄 Chargement de TOUS les mots depuis /api/tous-les-mots...');
       
@@ -476,19 +443,29 @@ function showCharacterModal(character, originalWord, targetElement) {
     // Met à jour le modal
     if (hoverModal) {
       hoverModal.innerHTML = `
-        <div class="text-center">
-          <div style="font-size: 24px; margin-bottom: 8px;">${caractereExact.chinese}</div>
-          <div style="color: #e74c3c; font-weight: bold; margin-bottom: 4px;">${caractereExact.pinyin || 'N/A'}</div>
-          <div style="color: #2c3e50; font-size: 13px; margin-bottom: 3px;">
-            ${caractereExact.english || 'Aucune traduction'}
-          </div>
-          ${caractereExact.hsk ? `
-            <div style="font-size: 11px; color: #7f8c8d; border-top: 1px solid #ecf0f1; padding-top: 4px; margin-top: 4px;">
-              HSK ${caractereExact.hsk}
-            </div>
-          ` : ''}
-        </div>
-      `;
+                <div class="card-body p-3">
+                    <div class="text-center">
+                        <div class="mb-2">
+                            <span class="fs-3 fw-bold text-dark">${caractereExact.chinese}</span>
+                        </div>
+                        <div class="mb-1">
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                ${caractereExact.pinyin || 'N/A'}
+                            </span>
+                        </div>
+                        <div class="small text-secondary mb-2">
+                            ${caractereExact.english || 'No translation'}
+                        </div>
+                        ${caractereExact.hsk ? `
+                            <div class="mt-2 pt-2 border-top">
+                                <span class="badge bg-success-subtle text-success">
+                                    HSK ${caractereExact.hsk}
+                                </span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
     }
     
   } catch (error) {
@@ -496,14 +473,17 @@ function showCharacterModal(character, originalWord, targetElement) {
     
     if (hoverModal) {
       hoverModal.innerHTML = `
-        <div class="text-center">
-          <div style="font-size: 24px; margin-bottom: 8px;">${character}</div>
-          <div style="color: #95a5a6; font-size: 13px;">Caractère seul non trouvé</div>
-          <div style="font-size: 11px; color: #bdc3c7; margin-top: 4px;">
-            (Pas dans la base de données)
-          </div>
-        </div>
-      `;
+                <div class="card-body p-3">
+                    <div class="text-center">
+                        <div class="mb-2">
+                            <span class="fs-3 fw-bold text-dark">${character}</span>
+                        </div>
+                        <div class="text-muted small">
+                            Character not found in database
+                        </div>
+                    </div>
+                </div>
+            `;
     }
   }
 }
