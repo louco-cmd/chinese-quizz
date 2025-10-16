@@ -642,12 +642,7 @@ app.get('/account', ensureAuth, (req, res) => {
     user: req.user
   });
 });
-app.get('/connexion', (req, res) => {
-  res.render('connexion', {
-    currentPage: 'connexion',
-    user: req.user
-  });
-});
+
 // -------------------- Lancer serveur --------------------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
