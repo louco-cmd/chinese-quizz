@@ -407,56 +407,80 @@ function showCharacterModal(character, originalWord, targetElement) {
 // Mise à jour de fetchCharacterData pour le nouveau design
 async function fetchCharacterData(character) {
     try {
-        // D'abord chercher dans les mots déjà chargés (words)
+        console.log('🔍 Recherche pour le caractère:', character);
+        
+        // 1. Chercher dans les mots actuels (collection utilisateur)
         let caractereExact = words.find(mot => 
             mot && mot.chinese && mot.chinese.includes(character)
         );
+        
+        // 2. Si non trouvé, chercher dans le cache global
+        if (!caractereExact) {
+            console.log('⚠️ Caractère non trouvé dans words, verification cache...');
+            caractereExact = cacheMots?.find(mot => 
+                mot && mot.chinese && mot.chinese.includes(character)
+            );
+        }
 
-        // Si pas trouvé dans les mots de l'utilisateur, chercher dans tous les mots
+        // 3. Si toujours pas trouvé, recharger le cache
         if (!caractereExact && (!cacheMots || Date.now() - dernierFetch > CACHE_DURATION)) {
-            console.log('🔄 Caractère non trouvé localement, chargement de tous les mots...');
+            console.log('🔄 Rechargement du cache...');
             const response = await fetch('/api/tous-les-mots');
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
             cacheMots = await response.json();
             dernierFetch = Date.now();
             
-            // Chercher dans le cache complet
             caractereExact = cacheMots.find(mot => 
                 mot && mot.chinese && mot.chinese.includes(character)
             );
         }
 
-        if (!caractereExact) {
-            throw new Error('Caractère non trouvé');
-        }
-
-        // Mise à jour du modal avec les données trouvées
+        // 4. Mise à jour du modal (que le caractère soit trouvé ou non)
         if (hoverModal) {
-            hoverModal.innerHTML = `
-                <div class="card-body p-3">
-                    <div class="text-center">
-                        <div class="mb-2">
-                            <span class="fs-3 fw-bold text-dark">${character}</span>
-                        </div>
-                        <div class="mb-1">
-                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
-                                ${caractereExact.pinyin || 'N/A'}
-                            </span>
-                        </div>
-                        <div class="small text-secondary mb-2">
-                            ${caractereExact.english || 'No translation'}
-                        </div>
-                        ${caractereExact.hsk ? `
-                            <div class="mt-2 pt-2 border-top">
-                                <span class="badge bg-success-subtle text-success">
-                                    HSK ${caractereExact.hsk}
+            if (caractereExact) {
+                console.log('✅ Caractère trouvé:', caractereExact);
+                hoverModal.innerHTML = `
+                    <div class="card-body p-3">
+                        <div class="text-center">
+                            <div class="mb-2">
+                                <span class="fs-3 fw-bold text-dark">${character}</span>
+                            </div>
+                            <div class="mb-1">
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                    ${caractereExact.pinyin || 'N/A'}
                                 </span>
                             </div>
-                        ` : ''}
+                            <div class="small text-secondary mb-2">
+                                ${caractereExact.english || 'No translation'}
+                            </div>
+                            ${caractereExact.hsk ? `
+                                <div class="mt-2 pt-2 border-top">
+                                    <span class="badge bg-success-subtle text-success">
+                                        HSK ${caractereExact.hsk}
+                                    </span>
+                                </div>
+                            ` : ''}
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            } else {
+                console.log('❌ Caractère non trouvé après toutes les tentatives');
+                hoverModal.innerHTML = `
+                    <div class="card-body p-3">
+                        <div class="text-center">
+                            <div class="mb-2">
+                                <span class="fs-3 fw-bold text-dark">${character}</span>
+                            </div>
+                            <div class="text-muted small">
+                                Caractère non trouvé
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
         }
+
     } catch (error) {
         console.error('❌ Erreur fetchCharacterData:', error);
         if (hoverModal) {
@@ -467,14 +491,14 @@ async function fetchCharacterData(character) {
                             <span class="fs-3 fw-bold text-dark">${character}</span>
                         </div>
                         <div class="text-muted small">
-                            Caractère non trouvé
+                            Erreur de chargement
                         </div>
                     </div>
                 </div>
             `;
         }
     }
-}
+  }
 
   function showCard() {
     if (!words.length) return;
