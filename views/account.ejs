@@ -41,12 +41,15 @@
       width: 14px;
       height: 14px;
       border-radius: 3px;
-      background-color: var(--bs-light);
+      background-color: #e9ecef; /* couleur par défaut gris clair */
       cursor: pointer;
       position: relative;
-     box-sizing: border-box; /* ✅ assurer la taille correcte */
-     border: 1px solid rgba(0,0,0,0.04); /* rendre les cases visibles même niveau 0 */
+      box-sizing: border-box; /* assurer la taille correcte */
+      border: 1px solid rgba(0,0,0,0.04); /* rendre les cases visibles même niveau 0 */
+      transition: background-color 200ms ease, transform 120ms ease;
     }
+    .contribution-day:hover { transform: translateY(-2px); }
+
     .contribution-day:hover::after {
       content: attr(data-count) " quiz le " attr(data-date);
       position: absolute;
@@ -62,12 +65,13 @@
       z-index: 1000;
       box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.15);
     }
-    /* Niveaux de couleur avec variables Bootstrap */
-    .level-0 { background-color: #ebedf0; }
-    .level-1 { background-color: #9be9a8; }
-    .level-2 { background-color: #40c463; }
-    .level-3 { background-color: #30a14e; }
-    .level-4 { background-color: #216e39; }
+
+    /* Niveaux de couleur — palette bleue */
+    .level-0 { background-color: #e9ecef; }
+    .level-1 { background-color: #cfe8ff; }
+    .level-2 { background-color: #9ed6ff; }
+    .level-3 { background-color: #61b8ff; }
+    .level-4 { background-color: #2188ff; }
     
     /* Responsive */
     @media (max-width: 768px) {
