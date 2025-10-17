@@ -385,15 +385,15 @@
       
       <!-- Champs compacts -->
       <div class="mb-3">
-        <div class="d-flex justify-content-between align-items-center text-white mb-2 py-1">
+        <div class="d-flex justify-content-between align-items-center mb-2 py-1">
           <small class="fw-semibold opacity-75">Pinyin</small>
           <div class="compact-text" id="displayPinyin">-</div>
         </div>
-        <div class="d-flex justify-content-between align-items-center text-white mb-2 py-1">
+        <div class="d-flex justify-content-between align-items-center mb-2 py-1">
           <small class="fw-semibold opacity-75">English</small>
           <div class="compact-text text-end" id="displayEnglish">-</div>
         </div>
-        <div class="d-flex justify-content-between align-items-start text-white py-1">
+        <div class="d-flex justify-content-between align-items-start py-1">
           <small class="fw-semibold opacity-75">Description</small>
           <div class="compact-text text-end small opacity-90" id="displayDescription" style="max-width: 70%;">-</div>
         </div>
@@ -557,29 +557,50 @@ function displayExistingWord(word) {
 // 🔥 NOUVELLE FONCTION : Vérifier si le mot est déjà capturé
 async function checkIfWordAlreadyCaptured(chineseWord) {
   try {
+    console.log('🔍 Vérification du mot:', chineseWord);
+    
+    // Version simple sans retry
     const response = await fetch(`/check-user-word/${encodeURIComponent(chineseWord)}`);
-    const data = await response.json();
     
-    const confirmBtn = document.getElementById('confirmAddBtn');
-    
-    if (data.alreadyExists) {
-      // Mot déjà dans la collection
-      confirmBtn.disabled = true;
-      confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>You already captured this word';
-      confirmBtn.classList.remove('btn-success');
-      confirmBtn.classList.add('btn-secondary');
-    } else {
-      // Mot pas encore capturé
-      confirmBtn.disabled = false;
-      confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Confirm & Add';
-      confirmBtn.classList.remove('btn-secondary');
-      confirmBtn.classList.add('btn-success');
+    if (!response.ok) {
+      // Si erreur, on considère que le mot n'est pas capturé
+      console.warn('⚠️ Erreur API, bouton activé');
+      setConfirmButtonState(false);
+      return;
     }
+    
+    const data = await response.json();
+    console.log('✅ Réponse serveur:', data);
+    setConfirmButtonState(data.alreadyExists);
+    
   } catch (error) {
-    console.error('Error checking user word:', error);
-    // En cas d'erreur, on laisse le bouton actif
+    console.warn('⚠️ Erreur fetch, bouton activé:', error.message);
+    setConfirmButtonState(false);
   }
 }
+
+function setConfirmButtonState(alreadyCaptured) {
+  const confirmBtn = document.getElementById('confirmAddBtn');
+  if (!confirmBtn) {
+    console.error('❌ Bouton confirmAddBtn non trouvé');
+    return;
+  }
+  
+  console.log('🎯 Changement état bouton:', alreadyCaptured);
+  
+  if (alreadyCaptured) {
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>You already captured this word';
+    confirmBtn.classList.remove('btn-success');
+    confirmBtn.classList.add('btn-secondary');
+  } else {
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Confirm & Add';
+    confirmBtn.classList.remove('btn-secondary');
+    confirmBtn.classList.add('btn-success');
+  }
+}
+
 
 // 🔥 AFFICHE LE FORMULAIRE NOUVEAU MOT
 function displayNewWordForm() {
