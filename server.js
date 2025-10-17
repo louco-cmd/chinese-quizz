@@ -244,46 +244,32 @@ app.use(express.urlencoded({ extended: true }));
 
 
 // ---------------------API
-app.get("/api/debug/auth-detailed", ensureAuth, (req, res) => {
-  const authInfo = {
-    // Session info
-    session_id: req.sessionID,
-    session_exists: !!req.session,
-    session_keys: req.session ? Object.keys(req.session) : [],
-    
-    // User info
-    user: req.user,
-    is_authenticated: !!req.user,
-    
-    // Passport info
-    is_authenticated_method: req.isAuthenticated ? req.isAuthenticated() : 'method_not_available',
-    
-    // Headers
-    cookies: req.headers.cookie,
-    user_agent: req.headers['user-agent']
-  };
-  
-  console.log('🔐 Debug Auth Détaillé:', authInfo);
-  res.json(authInfo);
-});
 
 // Route pour vérifier si le mot est dans la collection utilisateur
 app.get('/check-user-word/:chinese', async (req, res) => {
   try {
-    const userId = req.session.userId; // ou ton système d'auth
-    const chinese = req.params.chinese;
-    
-    // Vérifier en base si l'utilisateur a déjà ce mot
-    const existingWord = await UserWord.findOne({ 
-      where: { 
-        userId: userId,
+    // Vérifie que l'utilisateur est connecté
+    if (!req.session.userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const chinese = decodeURIComponent(req.params.chinese);
+    console.log('🔍 Vérification mot utilisateur:', chinese, 'pour user:', req.session.userId);
+
+    // Remplace par ta logique de base de données
+    const existingWord = await UserWord.findOne({
+      where: {
+        userId: req.session.userId,
         chinese: chinese
       }
     });
-    
+
+    console.log('✅ Résultat vérification:', !!existingWord);
     res.json({ alreadyExists: !!existingWord });
+
   } catch (error) {
-    res.status(500).json({ error: 'Server error' });
+    console.error('❌ Erreur vérification mot:', error);
+    res.status(500).json({ error: 'Server error checking word' });
   }
 });
 
