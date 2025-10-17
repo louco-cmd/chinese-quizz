@@ -114,6 +114,23 @@
   }
 }
 
+/* Styles pour les messages d'erreur */
+#chineseError {
+  transition: all 0.3s ease;
+}
+
+/* Animation pour les messages temporaires */
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateY(-10px); }
+  20% { opacity: 1; transform: translateY(0); }
+  80% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-10px); }
+}
+
+.fade-message {
+  animation: fadeInOut 3s ease-in-out;
+}
+
 
 
     topbarColor {
@@ -342,7 +359,8 @@
       </div>
       
       <!-- Champ de saisie -->
-   <div class="mb-4">
+ <!-- Champ de saisie -->
+<div class="mb-4">
   <label for="chinese" class="form-label fw-bold text-white"></label>
   <input
     type="text"
@@ -351,10 +369,18 @@
     placeholder="Write your character here..."
     required
     autofocus
+    maxlength="6"
     style="--bs-border-opacity: 1;"
     onfocus="this.style.boxShadow='0 0 0 0.3rem rgba(255,255,255,0.25)'"
     onblur="this.style.boxShadow='none'"
+    oninput="validateChineseInput(this)"
   >
+  <!-- Disclaimer -->
+  <div class="text-white-50 small mt-2 text-center">
+    <i class="bi bi-info-circle me-1"></i>Only Chinese characters accepted (max 6)
+  </div>
+  <!-- Message d'erreur -->
+  <div id="chineseError" class="text-warning small mt-1 text-center" style="display: none;"></div>
 </div>
       <!-- CTA blanc -->
       <div class="d-grid mt-2">
@@ -412,6 +438,10 @@
         </button>
       </div>
     </div>
+    <!-- 🔥 PHRASES DE MOTIVATION -->
+<div id="motivationQuote" class="text-center text-white-50 mt-3 small fst-italic">
+  <!-- Les phrases seront injectées par JavaScript -->
+</div>
   </div>
 </div>
     
@@ -804,6 +834,105 @@ function createBubble(event) {
     }, i * 150); // Décalage entre les bulles
   }
 }
+
+// 🔥 VALIDATION DES CARACTÈRES CHINOIS
+function validateChineseInput(input) {
+  const errorDiv = document.getElementById('chineseError');
+  const value = input.value;
+  
+  // Expression régulière pour les caractères chinois (Unicode ranges)
+  const chineseRegex = /[\u4e00-\u9fff]/g;
+  
+  // Trouver tous les caractères non-chinois
+  const nonChineseChars = value.split('').filter(char => !chineseRegex.test(char));
+  
+  if (nonChineseChars.length > 0) {
+    // Afficher l'erreur
+    errorDiv.textContent = `Non-Chinese characters detected: ${nonChineseChars.join(', ')}`;
+    errorDiv.style.display = 'block';
+    input.style.borderColor = '#dc3545';
+  } else {
+    // Tout est bon
+    errorDiv.style.display = 'none';
+    input.style.borderColor = 'white';
+  }
+}
+
+// 🔥 PHRASES DE MOTIVATION DÉCALÉES ET MARRANTES
+const motivationQuotes = [
+  "Your pinyin is showing! 小心! 🩲",
+  "Adding words like a Mandarin boss! 🥷",
+  "This character won't learn itself! 快点! ⚡",
+  "Your brain: 'More Chinese, less Netflix!' 📺❌",
+  "Becoming a 汉字 ninja, one character at a time! 🥷",
+  "Your future self ordering dumplings like a pro! 🥟",
+  "This is how you avoid pointing at menus! 🍜👉",
+  "Your accent is getting less 'foreign tourist'! 🗺️",
+  "Soon you'll understand Chinese memes! 哈哈哈! 😂",
+  "Building your vocabulary, one 很好吃 at a time! 🍚",
+  "Your tones are less flat than your humor! 🎵",
+  "This character is easier than using chopsticks! 🥢",
+  "Your brain cells having a Chinese party! 🎉",
+  "Soon you'll impress your grandma! 奶奶会骄傲! 👵",
+  "Less 我不知道, more 我明白! 💪",
+  "Your pinyin is almost as good as your ex's! 💔",
+  "Learning Chinese: cheaper than therapy! 🛋️",
+  "Your future dating profile: 'Bilingual' 💘",
+  "This character is your new BFF! 朋友! 👯",
+  "Making Google Translate jealous! 🤖💚",
+  "Your brain after Chinese: 🧠 -> 🧠💥",
+  "Soon you'll understand wuxia dramas! 🥋",
+  "Less confused tourist, more local expert! 🧐",
+  "Your pinyin is smoother than your pickup lines! 😏",
+  "This word is your ticket to street food heaven! 🍢"
+];
+
+function displayRandomQuote() {
+  const quoteElement = document.getElementById('motivationQuote');
+  const randomIndex = Math.floor(Math.random() * motivationQuotes.length);
+  quoteElement.textContent = motivationQuotes[randomIndex];
+}
+
+// 🔥 EMPÊCHER LES CARACTÈRES NON-CHINOIS
+function setupChineseInputValidation() {
+  const chineseInput = document.getElementById('chinese');
+  
+  chineseInput.addEventListener('beforeinput', (e) => {
+    // Bloquer la saisie si ce n'est pas un caractère chinois
+    if (e.data && !/[\u4e00-\u9fff]/.test(e.data)) {
+      e.preventDefault();
+      showTemporaryError("Only Chinese characters please!");
+    }
+  });
+  
+  chineseInput.addEventListener('paste', (e) => {
+    // Vérifier le contenu collé
+    const pastedText = e.clipboardData.getData('text');
+    const nonChineseChars = pastedText.split('').filter(char => !/[\u4e00-\u9fff]/.test(char));
+    
+    if (nonChineseChars.length > 0) {
+      e.preventDefault();
+      showTemporaryError("Please paste only Chinese characters!");
+    }
+  });
+}
+
+function showTemporaryError(message) {
+  const errorDiv = document.getElementById('chineseError');
+  errorDiv.textContent = message;
+  errorDiv.style.display = 'block';
+  
+  setTimeout(() => {
+    errorDiv.style.display = 'none';
+  }, 3000);
+}
+
+// 🔥 INITIALISATION AU CHARGEMENT
+document.addEventListener('DOMContentLoaded', function() {
+  setActiveNavItem();
+  displayRandomQuote(); // Afficher une phrase aléatoire
+  setupChineseInputValidation(); // Activer la validation
+});
 
 document.addEventListener('DOMContentLoaded', setActiveNavItem);
 
