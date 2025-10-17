@@ -250,22 +250,18 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/check-user-word/:chinese', async (req, res) => {
   console.log('✅ /check-user-word appelé pour:', req.params.chinese);
   
-  // 🚨 TEMPORAIRE : Pas de vérification d'authentification
-  // 🚨 RETIRE COMPLÈTEMENT la vérification de session
-  
   try {
     const chinese = decodeURIComponent(req.params.chinese);
-    console.log('🔍 Vérification mot (mode dev):', chinese);
+    console.log('🔍 Vérification mot:', chinese);
 
-    // 🎯 POUR TESTER - Change cette valeur pour voir les deux états :
-    const alreadyExists = false; // false = bouton vert, true = bouton gris
+    // 🎯 TEST : Change à true pour voir le bouton grisé
+    const alreadyExists = true; // ⬅️ CHANGE À true
     
     console.log('📝 Résultat simulé:', alreadyExists);
     res.json({ alreadyExists });
 
   } catch (error) {
     console.error('❌ Erreur:', error);
-    // 🚨 Même en cas d'erreur, on retourne une réponse valide
     res.json({ alreadyExists: false });
   }
 });
