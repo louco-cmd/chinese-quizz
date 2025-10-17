@@ -512,6 +512,35 @@
 let currentChinese = '';
 let existingWordData = null;
 
+// 🔥 PHRASES DE MOTIVATION DÉCALÉES ET MARRANTES
+const motivationQuotes = [
+  "Your pinyin is showing! 小心! 🩲",
+  "Adding words like a Mandarin boss! 🥷",
+  "This character won't learn itself! 快点! ⚡",
+  "Your brain: 'More Chinese, less Netflix!' 📺❌",
+  "Becoming a 汉字 ninja, one character at a time! 🥷",
+  "Your future self ordering dumplings like a pro! 🥟",
+  "This is how you avoid pointing at menus! 🍜👉",
+  "Your accent is getting less 'foreign tourist'! 🗺️",
+  "Soon you'll understand Chinese memes! 哈哈哈! 😂",
+  "Building your vocabulary, one 很好吃 at a time! 🍚",
+  "Your tones are less flat than your humor! 🎵",
+  "This character is easier than using chopsticks! 🥢",
+  "Your brain cells having a Chinese party! 🎉",
+  "Soon you'll impress your grandma! 奶奶会骄傲! 👵",
+  "Less 我不知道, more 我明白! 💪",
+  "Your pinyin is almost as good as your ex's! 💔",
+  "Learning Chinese: cheaper than therapy! 🛋️",
+  "Your future dating profile: 'Bilingual' 💘",
+  "This character is your new BFF! 朋友! 👯",
+  "Making Google Translate jealous! 🤖💚",
+  "Your brain after Chinese: 🧠 -> 🧠💥",
+  "Soon you'll understand wuxia dramas! 🥋",
+  "Less confused tourist, more local expert! 🧐",
+  "Your pinyin is smoother than your pickup lines! 😏",
+  "This word is your ticket to street food heaven! 🍢"
+];
+
 // 🔥 GESTION DES ÉCRANS
 function showScreen(screenId) {
   document.querySelectorAll('.screen').forEach(screen => {
@@ -631,7 +660,6 @@ function setConfirmButtonState(alreadyCaptured) {
   }
 }
 
-
 // 🔥 AFFICHE LE FORMULAIRE NOUVEAU MOT
 function displayNewWordForm() {
   document.getElementById('newPreviewChinese').textContent = currentChinese;
@@ -700,7 +728,6 @@ async function confirmAddNewWord() {
   }
 }
 
-// 🔥 RÉINITIALISE LE FORMULAIRE
 // 🔥 RÉINITIALISE LE FORMULAIRE
 function resetForm() {
   document.getElementById('chinese').value = '';
@@ -774,7 +801,6 @@ function enableAddButton() {
   addButton.classList.remove('disabled');
 }
 
-// 🔥 FONCTION BULLES RAPIDES ET HAUTES
 // 🔥 FONCTION BULLES - PART DE LA BORDURE
 function createBubble(event) {
   const button = event.currentTarget;
@@ -835,62 +861,34 @@ function createBubble(event) {
   }
 }
 
-// 🔥 VALIDATION DES CARACTÈRES CHINOIS
+// 🔥 VALIDATION CORRIGÉE DES CARACTÈRES CHINOIS
 function validateChineseInput(input) {
   const errorDiv = document.getElementById('chineseError');
   const value = input.value;
   
-  // Expression régulière pour les caractères chinois (Unicode ranges)
-  const chineseRegex = /[\u4e00-\u9fff]/g;
+  if (!value) {
+    errorDiv.style.display = 'none';
+    input.style.borderColor = 'white';
+    return;
+  }
   
-  // Trouver tous les caractères non-chinois
-  const nonChineseChars = value.split('').filter(char => !chineseRegex.test(char));
+  // Expression régulière pour les caractères NON chinois
+  const nonChineseRegex = /[^\u4e00-\u9fff]/g;
   
-  if (nonChineseChars.length > 0) {
-    // Afficher l'erreur
-    errorDiv.textContent = `Non-Chinese characters detected: ${nonChineseChars.join(', ')}`;
+  // Trouver tous les caractères NON chinois
+  const nonChineseChars = value.match(nonChineseRegex);
+  
+  if (nonChineseChars && nonChineseChars.length > 0) {
+    // Afficher l'erreur avec les mauvais caractères
+    const uniqueBadChars = [...new Set(nonChineseChars)]; // Éviter les doublons
+    errorDiv.textContent = `Only Chinese characters please! Invalid: ${uniqueBadChars.join(', ')}`;
     errorDiv.style.display = 'block';
     input.style.borderColor = '#dc3545';
   } else {
-    // Tout est bon
+    // Tout est bon - que des caractères chinois
     errorDiv.style.display = 'none';
-    input.style.borderColor = 'white';
+    input.style.borderColor = '#198754'; // Vert pour "tout bon"
   }
-}
-
-// 🔥 PHRASES DE MOTIVATION DÉCALÉES ET MARRANTES
-const motivationQuotes = [
-  "Your pinyin is showing! 小心! 🩲",
-  "Adding words like a Mandarin boss! 🥷",
-  "This character won't learn itself! 快点! ⚡",
-  "Your brain: 'More Chinese, less Netflix!' 📺❌",
-  "Becoming a 汉字 ninja, one character at a time! 🥷",
-  "Your future self ordering dumplings like a pro! 🥟",
-  "This is how you avoid pointing at menus! 🍜👉",
-  "Your accent is getting less 'foreign tourist'! 🗺️",
-  "Soon you'll understand Chinese memes! 哈哈哈! 😂",
-  "Building your vocabulary, one 很好吃 at a time! 🍚",
-  "Your tones are less flat than your humor! 🎵",
-  "This character is easier than using chopsticks! 🥢",
-  "Your brain cells having a Chinese party! 🎉",
-  "Soon you'll impress your grandma! 奶奶会骄傲! 👵",
-  "Less 我不知道, more 我明白! 💪",
-  "Your pinyin is almost as good as your ex's! 💔",
-  "Learning Chinese: cheaper than therapy! 🛋️",
-  "Your future dating profile: 'Bilingual' 💘",
-  "This character is your new BFF! 朋友! 👯",
-  "Making Google Translate jealous! 🤖💚",
-  "Your brain after Chinese: 🧠 -> 🧠💥",
-  "Soon you'll understand wuxia dramas! 🥋",
-  "Less confused tourist, more local expert! 🧐",
-  "Your pinyin is smoother than your pickup lines! 😏",
-  "This word is your ticket to street food heaven! 🍢"
-];
-
-function displayRandomQuote() {
-  const quoteElement = document.getElementById('motivationQuote');
-  const randomIndex = Math.floor(Math.random() * motivationQuotes.length);
-  quoteElement.textContent = motivationQuotes[randomIndex];
 }
 
 // 🔥 EMPÊCHER LES CARACTÈRES NON-CHINOIS
@@ -927,14 +925,31 @@ function showTemporaryError(message) {
   }, 3000);
 }
 
-// 🔥 INITIALISATION AU CHARGEMENT
+// 🔥 INITIALISATION CORRECTE
 document.addEventListener('DOMContentLoaded', function() {
   setActiveNavItem();
   displayRandomQuote(); // Afficher une phrase aléatoire
   setupChineseInputValidation(); // Activer la validation
+  
+  // 🔥 FORCER L'AFFICHAGE DE LA PREMIÈRE PHRASE
+  console.log('🔄 Initialisation phrases de motivation');
 });
 
-document.addEventListener('DOMContentLoaded', setActiveNavItem);
+// 🔥 FONCTION PHRASES DE MOTIVATION (version corrigée)
+function displayRandomQuote() {
+  const quoteElement = document.getElementById('motivationQuote');
+  if (!quoteElement) {
+    console.error('❌ Element motivationQuote non trouvé');
+    return;
+  }
+  
+  const randomIndex = Math.floor(Math.random() * motivationQuotes.length);
+  const selectedQuote = motivationQuotes[randomIndex];
+  
+  console.log('💬 Phrase sélectionnée:', selectedQuote);
+  quoteElement.textContent = selectedQuote;
+  quoteElement.style.display = 'block';
+}
 
 
 </script>
