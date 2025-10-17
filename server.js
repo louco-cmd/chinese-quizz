@@ -245,24 +245,30 @@ app.use(express.urlencoded({ extended: true }));
 
 // ---------------------API
 
-// Route pour vérifier si le mot est dans la collection utilisateur
-// 🚨 ROUTE TEMPORAIRE - SANS AUTH POUR DÉBLOQUER
-app.get('/check-user-word/:chinese', async (req, res) => {
-  console.log('✅ /check-user-word appelé pour:', req.params.chinese);
-  
+
+// 🎯 ROUTE AVEC LA BONNE TABLE user_mots
+app.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
+  const userId = req.user.id;
+
   try {
     const chinese = decodeURIComponent(req.params.chinese);
-    console.log('🔍 Vérification mot:', chinese);
+    console.log('🔍 DEBUG - Vérification:', { userId, chinese });
 
-    // 🎯 TEST : Change à true pour voir le bouton grisé
-    const alreadyExists = true; // ⬅️ CHANGE À true
+    const { rows } = await pool.query(`
+      SELECT mots.*
+      FROM mots
+      JOIN user_mots ON mots.id = user_mots.mot_id
+      WHERE user_mots.user_id = $1 AND mots.chinese = $2
+    `, [userId, chinese]);
+
+    console.log('✅ DEBUG - Résultats:', rows);
+    const alreadyExists = rows.length > 0;
     
-    console.log('📝 Résultat simulé:', alreadyExists);
     res.json({ alreadyExists });
 
-  } catch (error) {
-    console.error('❌ Erreur:', error);
-    res.json({ alreadyExists: false });
+  } catch (err) {
+    console.error('❌ DEBUG - Erreur:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
