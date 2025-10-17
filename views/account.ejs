@@ -80,11 +80,11 @@
 }
 
 /* Niveaux de couleur */
-.level-0 { background-color: #ebedf0; }
-.level-1 { background-color: #9be9a8; }
-.level-2 { background-color: #40c463; }
-.level-3 { background-color: #30a14e; }
-.level-4 { background-color: #216e39; }
+.level-0 { background-color: #f8f9fa; } /* bg-light */
+.level-1 { background-color: #cfe2ff; } /* bleu très clair */
+.level-2 { background-color: #6ea8fe; } /* bleu medium */
+.level-3 { background-color: #3d8bfd; } /* bleu bootstrap */
+.level-4 { background-color: #0d6efd; } /* bleu primary */
 
 /* Légende compacte */
 .contributions-legend {
@@ -106,6 +106,28 @@
   width: 10px;
   height: 10px;
   border-radius: 1px;
+}
+
+/* Style pour les jours futurs */
+.contribution-day.future-day {
+  background-color: #f8f9fa !important;
+  border: 1px dashed #dee2e6 !important;
+  opacity: 0.6;
+}
+
+.contribution-day.future-day:hover::after {
+  content: "Jour futur";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #6c757d;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  z-index: 1000;
 }
 
 /* 🔥 VERSION MOBILE OPTIMISÉE */
@@ -475,48 +497,53 @@ function displayContributionsError() {
   `;
 }
 
+
 // ========== FONCTIONS UTILITAIRES ==========
 
 function generateContributionsGrid(contributionsData) {
   const grid = document.getElementById('contributionsGrid');
-  if (!grid) {
-    console.error('❌ generateContributionsGrid: element #contributionsGrid introuvable');
-    return;
-  }
-  console.log('🔄 generateContributionsGrid called, items:', contributionsData && contributionsData.length);
+  if (!grid) return;
 
   const contributionsMap = {};
-  
-  // Créer un map pour un accès rapide
   contributionsData.forEach(item => {
     contributionsMap[item.date] = parseInt(item.count);
   });
 
-  // 🔥 UTILISER L'ANNÉE EN COURS
   const dates = generateCurrentYearDates();
-  console.log('🔎 generateCurrentYearDates returned', dates.length, 'dates');
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normaliser pour la comparaison
 
-  // Vider la grille
   grid.innerHTML = '';
 
-  // Générer les jours directement
   dates.forEach(date => {
     const dateString = date.toISOString().split('T')[0];
-    const count = contributionsMap[dateString] || 0;
-    const level = getContributionLevel(count);
+    const isFuture = date > today;
     
+    let count = 0;
+    let level = 0;
+    let cssClass = 'contribution-day';
+
+    if (isFuture) {
+      // 🔥 JOURS FUTURS - style différent
+      cssClass += ' future-day';
+    } else {
+      // Jours passés et présents - logique normale
+      count = contributionsMap[dateString] || 0;
+      level = getContributionLevel(count);
+      cssClass += ` level-${level}`;
+    }
+
     const dayElement = document.createElement('div');
-    dayElement.className = `contribution-day level-${level}`;
+    dayElement.className = cssClass;
     dayElement.setAttribute('data-count', count);
     dayElement.setAttribute('data-date', formatDate(dateString));
     
+    if (isFuture) {
+      dayElement.setAttribute('title', 'Jour futur');
+    }
+
     grid.appendChild(dayElement);
   });
-
-  // Message si aucune donnée
-  if (dates.length === 0) {
-    grid.innerHTML = `<div class="text-center text-muted py-4">Aucune date générée pour cette année</div>`;
-  }
 }
 
 function generateCurrentYearDates() {
