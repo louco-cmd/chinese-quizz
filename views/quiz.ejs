@@ -95,12 +95,6 @@
 <%- include('partials/navbar', {currentPage: currentPage}) %>
 
 <section class="container my-4">
-  <div class="row justify-content-center">
-    <div class="col-12">
-      <h1 class="text-center mb-5">It's good to collect them, but better to learn them !</h1>
-    </div>
-  </div>
-
   <!-- 🔥 DEUX QUIZ CÔTE À CÔTE -->
   <div class="row g-4">
     <!-- Quiz Pinyin -->
@@ -110,9 +104,9 @@
           <!-- 🔥 NOUVEL ICÔNE : Langue internationale -->
            <i class="quiz-icon bi bi-type"></i>
           <h3 class="card-title">Quiz Pinyin</h3>
-          <p class="card-text mb-4">Traduisez l'anglais vers le pinyin et maîtrisez la prononciation</p>
+          <p class="card-text mb-4">From english to pinyin</p>
           <button class="btn quiz-btn btn-lg w-100" onclick="openCountModal('pinyin')">
-            <i class="bi bi-play-circle me-2"></i>Commencer
+            <i class="bi bi-play-circle me-2"></i>Start now !
           </button>
         </div>
       </div>
@@ -124,10 +118,10 @@
         <div class="card-body text-center">
           <!-- 🔥 NOUVEL ICÔNE : Langue chinoise -->
            <i class="quiz-icon bi bi-translate"></i>
-          <h3 class="card-title">Quiz Caractères</h3>
-          <p class="card-text mb-4">Traduisez l'anglais vers les caractères chinois et apprenez l'écriture</p>
+          <h3 class="card-title">Quiz characters</h3>
+          <p class="card-text mb-4">From English to chinese characters</p>
           <button class="btn quiz-btn btn-lg w-100" onclick="openCountModal('character')">
-            <i class="bi bi-play-circle me-2"></i>Commencer
+            <i class="bi bi-play-circle me-2"></i>Start now !
           </button>
         </div>
       </div>
@@ -140,14 +134,14 @@
   <div class="modal-dialog modal-sm">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="modalTitle">Nombre de mots</h5>
+        <h5 class="modal-title" id="modalTitle">Amount of words</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div class="d-grid gap-2">
           <div class="count-option p-3 rounded text-center" data-count="10" onclick="selectCount(10)">
             <i class="bi bi-1-circle me-2"></i><strong>10 mots</strong>
-            <small class="d-block text-muted">Rapide</small>
+            <small class="d-block text-muted">Fast</small>
           </div>
           <div class="count-option p-3 rounded text-center" data-count="20" onclick="selectCount(20)">
             <i class="bi bi-2-circle me-2"></i><strong>20 mots</strong>
@@ -155,18 +149,18 @@
           </div>
           <div class="count-option p-3 rounded text-center" data-count="30" onclick="selectCount(30)">
             <i class="bi bi-3-circle me-2"></i><strong>30 mots</strong>
-            <small class="d-block text-muted">Intensif</small>
+            <small class="d-block text-muted">Serious</small>
           </div>
           <div class="count-option p-3 rounded text-center" data-count="all" onclick="selectCount('all')">
             <i class="bi bi-infinity me-2"></i><strong>Tous les mots</strong>
-            <small class="d-block text-muted">Défi complet</small>
+            <small class="d-block text-muted">Are you crazy ma ?</small>
           </div>
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
         <button type="button" class="btn btn-primary" id="startQuizBtn" onclick="startQuiz()" disabled>
-          <i class="bi bi-rocket-takeoff me-2"></i>Lancer le quiz
+          <i class="bi bi-rocket-takeoff me-2"></i>Start the quiz
         </button>
       </div>
     </div>

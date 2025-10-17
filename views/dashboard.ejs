@@ -19,6 +19,102 @@
   </script>
   
   <style>
+/* 🔥 ANIMATION BULLE - PART DE LA BORDURE ET S'ÉLOIGNE */
+.bubble {
+  position: fixed;
+  width: 30px;
+  height: 30px;
+  pointer-events: none;
+  z-index: 10000;
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(255,255,255,0.7);
+  filter: brightness(1.1) saturate(1.3);
+  opacity: 0;
+}
+
+/* Animations qui partent de la bordure et s'éloignent */
+.bubble-1 { animation: bubbleFloat1 1.8s ease-out forwards; }
+.bubble-2 { animation: bubbleFloat2 2s ease-out forwards; }
+.bubble-3 { animation: bubbleFloat3 1.6s ease-out forwards; }
+.bubble-4 { animation: bubbleFloat4 1.9s ease-out forwards; }
+.bubble-5 { animation: bubbleFloat5 2.1s ease-out forwards; }
+
+@keyframes bubbleFloat1 {
+  0% {
+    transform: scale(0.6) translate(0, 0) rotate(0deg);
+    opacity: 0.9;
+  }
+  20% {
+    transform: scale(0.8) translate(-15px, -25px) rotate(45deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.4) translate(-60px, -180px) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+@keyframes bubbleFloat2 {
+  0% {
+    transform: scale(0.6) translate(0, 0) rotate(0deg);
+    opacity: 0.9;
+  }
+  20% {
+    transform: scale(0.8) translate(20px, -30px) rotate(-30deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.4) translate(80px, -220px) rotate(-220deg);
+    opacity: 0;
+  }
+}
+
+@keyframes bubbleFloat3 {
+  0% {
+    transform: scale(0.6) translate(0, 0) rotate(0deg);
+    opacity: 0.9;
+  }
+  20% {
+    transform: scale(0.8) translate(-25px, -20px) rotate(60deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.4) translate(-45px, -200px) rotate(250deg);
+    opacity: 0;
+  }
+}
+
+@keyframes bubbleFloat4 {
+  0% {
+    transform: scale(0.6) translate(0, 0) rotate(0deg);
+    opacity: 0.9;
+  }
+  20% {
+    transform: scale(0.8) translate(10px, -35px) rotate(-45deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.4) translate(35px, -240px) rotate(-280deg);
+    opacity: 0;
+  }
+}
+
+@keyframes bubbleFloat5 {
+  0% {
+    transform: scale(0.6) translate(0, 0) rotate(0deg);
+    opacity: 0.9;
+  }
+  20% {
+    transform: scale(0.8) translate(-5px, -40px) rotate(75deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.4) translate(-70px, -260px) rotate(300deg);
+    opacity: 0;
+  }
+}
+
+
 
     topbarColor {
       background-color: #0d6dfd00 !important;
@@ -50,7 +146,6 @@
     .floating-card {
       background: white;
       border-radius: 20px;
-      box-shadow: 0 15px 35px rgba(0,0,0,0.1);
       border: none;
       width: 100%;
       max-height: 80vh;
@@ -205,42 +300,44 @@
 <div class="screen-container">
   <div class="content-area">
     
-    <!-- 🔥 ÉCRAN 1 : SAISIE DU CARACTÈRE -->
     <div id="inputScreen" class="screen active">
-      <div class="floating-card">
-        <div class="card-content">
-          <div class="text-center mb-3">
-            <h2 class="text-primary mb-2">
-              <i class="bi bi-plus-circle-fill me-2"></i>Add Word
-            </h2>
-            <p class="text-muted compact-text">Write the Chinese character to start</p>
-          </div>
-          
-          <!-- Champ unique -->
-          <div class="mb-3">
-            <label for="chinese" class="form-label fw-bold">Write your character here</label>
-            <input
-              type="text"
-              id="chinese"
-              class="form-control"
-              placeholder="请输入汉字..."
-              required
-              autofocus
-            >
-          </div>
-          
-          <!-- CTA unique -->
-          <div class="d-grid mt-2">
-            <button type="button" class="btn btn-primary" onclick="searchAndAddWord()">
-              <i class="bi bi-search me-2"></i>Add the Word
-            </button>
-          </div>
-          
-          <!-- Message de statut -->
-          <div id="statusMessage" class="status-message text-center"></div>
+  <div class="floating-card bg-transparent border-0">
+    <div class="card-content">
+      <div class="text-center mb-4">
+        <!-- Icone et texte côte à côte -->
+        <div class="d-flex align-items-center justify-content-center mb-2">
+          <i class="bi bi-plus-circle-fill text-white me-2 fs-1"></i>
+          <h2 class="text-white mb-0">Add Word</h2>
         </div>
       </div>
+      
+      <!-- Champ de saisie -->
+   <div class="mb-4">
+  <label for="chinese" class="form-label fw-bold text-white"></label>
+  <input
+    type="text"
+    id="chinese"
+    class="form-control bg-transparent text-white border-white border-2"
+    placeholder="Write your character here..."
+    required
+    autofocus
+    style="--bs-border-opacity: 1;"
+    onfocus="this.style.boxShadow='0 0 0 0.3rem rgba(255,255,255,0.25)'"
+    onblur="this.style.boxShadow='none'"
+  >
+</div>
+      <!-- CTA blanc -->
+      <div class="d-grid mt-2">
+        <button type="button" class="btn btn-light" onclick="searchAndAddWord()">
+          <i class="bi bi-search me-2"></i>Add the Word
+        </button>
+      </div>
+      
+      <!-- Message de statut -->
+      <div id="statusMessage" class="status-message text-center text-white mt-3"></div>
     </div>
+  </div>
+</div>
     
     <!-- 🔥 ÉCRAN 2 : MOT EXISTANT -->
     <div id="existingWordScreen" class="screen">
@@ -356,7 +453,7 @@
 <%- include('partials/navbar', {currentPage: currentPage}) %>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/JS/global.js"></script>
+<script src="/js/global.js"></script>
 <script>
 let currentChinese = '';
 let existingWordData = null;
@@ -382,7 +479,7 @@ function showNewWordScreen() {
   showScreen('newWordScreen');
 }
 
-// 🔥 FONCTION PRINCIPALE
+// 🔥 FONCTION PRINCIPALE AVEC BOUTON DÉSACTIVÉ
 async function searchAndAddWord() {
   const chinese = document.getElementById('chinese').value.trim();
   if (!chinese) {
@@ -392,6 +489,7 @@ async function searchAndAddWord() {
 
   currentChinese = chinese;
   showStatus('Searching...', 'info');
+  disableAddButton(); // 🔥 DÉSACTIVER LE BOUTON
 
   try {
     const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`);
@@ -408,6 +506,8 @@ async function searchAndAddWord() {
     }
   } catch (err) {
     showStatus('Error searching database', 'error');
+  } finally {
+    enableAddButton(); // 🔥 RÉACTIVER LE BOUTON (même en cas d'erreur)
   }
 }
 
@@ -488,12 +588,14 @@ async function confirmAddNewWord() {
 }
 
 // 🔥 RÉINITIALISE LE FORMULAIRE
+// 🔥 RÉINITIALISE LE FORMULAIRE
 function resetForm() {
   document.getElementById('chinese').value = '';
   showInputScreen();
   currentChinese = '';
   existingWordData = null;
   clearStatus();
+  enableAddButton(); // 🔥 S'ASSURER QUE LE BOUTON EST RÉACTIVÉ
 }
 
 // 🔥 GESTION DES MESSAGES
@@ -536,11 +638,85 @@ function setActiveNavItem() {
   });
 }
 
+// 🔥 FONCTIONS POUR GÉRER LE BOUTON
+function disableAddButton() {
+  const addButton = document.querySelector('#inputScreen .btn-primary');
+  addButton.disabled = true;
+  addButton.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Searching...';
+  addButton.classList.add('disabled');
+}
+
+function enableAddButton() {
+  const addButton = document.querySelector('#inputScreen .btn-primary');
+  addButton.disabled = false;
+  addButton.innerHTML = '<i class="bi bi-search me-2"></i>Add the Word';
+  addButton.classList.remove('disabled');
+}
+
+// 🔥 FONCTION BULLES RAPIDES ET HAUTES
+// 🔥 FONCTION BULLES - PART DE LA BORDURE
+function createBubble(event) {
+  const button = event.currentTarget;
+  const buttonRect = button.getBoundingClientRect();
+  const bubbleCount = 4;
+  
+  for (let i = 0; i < bubbleCount; i++) {
+    setTimeout(() => {
+      const bubble = document.createElement('img');
+      bubble.src = '/icons/icon-192.png';
+      bubble.className = 'bubble';
+      
+      // Position de départ SUR LA BORDURE du bouton
+      const edge = Math.floor(Math.random() * 4); // 0=haut, 1=droite, 2=bas, 3=gauche
+      let startX, startY;
+      
+      switch(edge) {
+        case 0: // Haut
+          startX = buttonRect.left + Math.random() * buttonRect.width;
+          startY = buttonRect.top - 5;
+          break;
+        case 1: // Droite
+          startX = buttonRect.right + 5;
+          startY = buttonRect.top + Math.random() * buttonRect.height;
+          break;
+        case 2: // Bas
+          startX = buttonRect.left + Math.random() * buttonRect.width;
+          startY = buttonRect.bottom + 5;
+          break;
+        case 3: // Gauche
+          startX = buttonRect.left - 5;
+          startY = buttonRect.top + Math.random() * buttonRect.height;
+          break;
+      }
+      
+      bubble.style.left = (startX - 15) + 'px'; // -15 pour centrer (30px/2)
+      bubble.style.top = (startY - 15) + 'px';
+      
+      // Animation aléatoire
+      const randomAnim = Math.floor(Math.random() * 5) + 1;
+      bubble.classList.add(`bubble-${randomAnim}`);
+      
+      // Taille légèrement aléatoire
+      const randomSize = 0.8 + Math.random() * 0.4;
+      bubble.style.width = (30 * randomSize) + 'px';
+      bubble.style.height = (30 * randomSize) + 'px';
+      
+      document.body.appendChild(bubble);
+      
+      // Supprimer après animation
+      setTimeout(() => {
+        if (bubble.parentNode) {
+          bubble.parentNode.removeChild(bubble);
+        }
+      }, 2200);
+      
+    }, i * 150); // Décalage entre les bulles
+  }
+}
+
 document.addEventListener('DOMContentLoaded', setActiveNavItem);
 
 
 </script>
-<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3/dist/index.umd.min.js"></script>
-
 </body>
 </html>

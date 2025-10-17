@@ -75,14 +75,14 @@
       quizCount = parseInt(quizCount);
     }
 
-    function shuffleArray(arr) {
+function shuffleArray(arr) {
       for(let i = arr.length - 1; i > 0; i--){
         const j = Math.floor(Math.random() * (i + 1));
         [arr[i], arr[j]] = [arr[j], arr[i]];
       }
     }
 
-    async function loadQuizWords(count = 10) {
+async function loadQuizWords(count = 10) {
       const res = await fetch('/quiz-mots');
       const mots = await res.json();
 
@@ -104,51 +104,12 @@
       showQuizWord();
     }
 
-    function showQuizWord() {
-      quizFields.innerHTML = '';
-      quizInputs = [];
-      quizResult.textContent = '';
-      hasSecondChance = false;
-
-      if (quizIdx >= quizWords.length) {
-        endQuiz(); // 🔥 APPEL DE LA FONCTION DE FIN DE QUIZ
-        return;
-      }
-
-      currentWord = quizWords[quizIdx];
-      quizQuestion.textContent = `Comment écrire "${currentWord.english}" en chinois ?`;
-
-      // Créer un input pour chaque caractère chinois
-      for (let i = 0; i < currentWord.chinese.length; i++) {
-        const inp = document.createElement('input');
-        inp.type = 'text';
-        inp.maxLength = 1;
-        inp.placeholder = '?';
-        inp.className = 'form-control text-center';
-        inp.style.width = '60px';
-        inp.style.fontSize = '24px';
-        
-        inp.addEventListener('input', (e) => {
-          if (e.target.value.length >= e.target.maxLength && quizInputs[i+1]){
-            quizInputs[i+1].focus();
-          }
-        });
-        
-        quizFields.appendChild(inp);
-        quizInputs.push(inp);
-      }
-
-      if (quizInputs[0]) {
-        quizInputs[0].focus();
-      }
-    }
-
-    function updateScore() {
+function updateScore() {
       quizScore.textContent = `✅ ${correctCount} | ❌ ${wrongCount}`;
     }
 
-    // 🔥 NOUVELLE FONCTION : Fin du quiz
-    function endQuiz() {
+// 🔥 NOUVELLE FONCTION : Fin du quiz
+function endQuiz() {
       quizQuestion.textContent = '🎉 Quiz terminé !';
       quizResult.textContent = `Score final: ${correctCount}/${quizWords.length}`;
       quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
@@ -164,9 +125,67 @@
       }, 3000);
     }
 
-    // NOUVELLE LOGIQUE : Deuxième chance
-   quizForm.onsubmit = (e) => {
+// 🔥 FONCTIONS POUR GÉRER LE BOUTON
+function disableSubmitButton() {
+  const submitBtn = document.getElementById('checkBtn');
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Chargement...';
+  submitBtn.classList.add('disabled');
+}
+
+function enableSubmitButton() {
+  const submitBtn = document.getElementById('checkBtn');
+  submitBtn.disabled = false;
+  submitBtn.innerHTML = 'Soumettre';
+  submitBtn.classList.remove('disabled');
+}
+
+// 🔥 MODIFIE LA FONCTION showQuizWord
+function showQuizWord() {
+  quizFields.innerHTML = '';
+  quizInputs = [];
+  quizResult.textContent = '';
+  hasSecondChance = false;
+
+  if (quizIdx >= quizWords.length) {
+    endQuiz();
+    return;
+  }
+
+  enableSubmitButton(); // 🔥 RÉACTIVER LE BOUTON POUR LA NOUVELLE QUESTION
+
+  currentWord = quizWords[quizIdx];
+  quizQuestion.textContent = `Comment écrire "${currentWord.english}" en chinois ?`;
+
+  // Créer un input pour chaque caractère chinois
+  for (let i = 0; i < currentWord.chinese.length; i++) {
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.maxLength = 1;
+    inp.placeholder = '?';
+    inp.className = 'form-control text-center';
+    inp.style.width = '60px';
+    inp.style.fontSize = '24px';
+    
+    inp.addEventListener('input', (e) => {
+      if (e.target.value.length >= e.target.maxLength && quizInputs[i+1]){
+        quizInputs[i+1].focus();
+      }
+    });
+    
+    quizFields.appendChild(inp);
+    quizInputs.push(inp);
+  }
+
+  if (quizInputs[0]) {
+    quizInputs[0].focus();
+  }
+}
+
+// 🔥 REMPLACE LA FONCTION quizForm.onsubmit
+quizForm.onsubmit = (e) => {
   e.preventDefault();
+  disableSubmitButton(); // 🔥 DÉSACTIVER IMMÉDIATEMENT
 
   const userAnswer = quizInputs.map(inp => inp.value.trim()).join('');
   const correctAnswer = currentWord.chinese;
@@ -176,25 +195,26 @@
     quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
     
     if (!hasSecondChance) {
-      correctCount++; // Bonne réponse du premier coup
+      correctCount++;
     }
-    // Si hasSecondChance = true, on ne compte pas (déjà compté comme erreur)
     
     updateScore();
     quizIdx++;
-    setTimeout(showQuizWord, 1500);
+    
+    setTimeout(() => {
+      enableSubmitButton(); // 🔥 RÉACTIVER
+      showQuizWord();
+    }, 1500);
     
   } else {
     if (!hasSecondChance) {
-      // ✅ PREMIÈRE ERREUR - ON COMPTE DIRECTEMENT
-      wrongCount++; // 👈 Compté comme mauvaise réponse dès la 1ère erreur
+      wrongCount++;
       updateScore();
       
       quizResult.textContent = `❌ Faux ! Réponse : ${correctAnswer}`;
       quizResult.className = "mb-3 text-center text-danger fw-bold fs-4";
       hasSecondChance = true;
       
-      // Vider les champs pour permettre la correction d'apprentissage
       quizInputs.forEach(input => {
         input.value = '';
         input.style.border = '2px solid #dc3545';
@@ -202,81 +222,29 @@
       });
       quizInputs[0].focus();
       
+      enableSubmitButton(); // 🔥 RÉACTIVER POUR LA 2E CHANCE
+      
     } else {
-      // Deuxième tentative - juste pour l'apprentissage, déjà compté
       quizResult.textContent = `✅ Bien ! Réponse : ${correctAnswer}`;
       quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
       
       quizIdx++;
-      setTimeout(showQuizWord, 1500);
+      
+      setTimeout(() => {
+        enableSubmitButton(); // 🔥 RÉACTIVER
+        showQuizWord();
+      }, 1500);
     }
   }
 };
 
-    // Lancer le quiz
-    document.addEventListener('DOMContentLoaded', () => {
+// Lancer le quiz
+document.addEventListener('DOMContentLoaded', () => {
       loadQuizWords(quizCount || 10);
     });
-// Navigation System Simple
-class SimpleNavigation {
-    constructor() {
-        this.currentPage = 'dashboard';
-        this.init();
-    }
     
-    init() {
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const targetPage = link.getAttribute('data-page');
-                
-                if (targetPage === this.currentPage || link.classList.contains('disabled')) {
-                    return;
-                }
-                
-                this.navigateTo(targetPage);
-            });
-        });
-        
-        this.showPage('dashboard');
-    }
-    
-    navigateTo(page) {
-        this.updateActiveNavItem(page);
-        this.showPage(page);
-        history.pushState({ page }, '', `#${page}`);
-        this.currentPage = page;
-    }
-    
-    updateActiveNavItem(page) {
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('active');
-        });
-        
-        const activeLink = document.querySelector(`[data-page="${page}"]`);
-        if (activeLink) {
-            activeLink.classList.add('active');
-        }
-    }
-    
-    showPage(page) {
-        document.querySelectorAll('.page-content').forEach(content => {
-            content.classList.add('d-none');
-        });
-        
-        const activePage = document.getElementById(page);
-        if (activePage) {
-            activePage.classList.remove('d-none');
-        }
-    }
-    
-    handlePopState(event) {
-        if (event.state && event.state.page) {
-            this.navigateTo(event.state.page);
-        }
-    }
-}
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

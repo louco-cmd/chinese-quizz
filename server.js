@@ -151,7 +151,7 @@ passport.use(new GoogleStrategy({
       // 🎯 Utilise l'ID de la base, pas l'ID Google
       const user = userRes.rows[0];
       done(null, { 
-        id: user.id,  // 🎯 ID de ta table users
+        id: user.id,
         email: user.email, 
         name: user.name 
       });
