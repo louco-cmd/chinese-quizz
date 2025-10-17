@@ -248,15 +248,25 @@ app.use(express.urlencoded({ extended: true }));
 // Route pour vérifier si le mot est dans la collection utilisateur
 app.get('/check-user-word/:chinese', async (req, res) => {
   try {
+    console.log('🔍 Session complète:', req.session);
+    console.log('🔍 UserId dans session:', req.session.userId);
+    console.log('🔍 Cookies:', req.headers.cookie);
+    
     // Vérifie que l'utilisateur est connecté
     if (!req.session.userId) {
+      console.log('❌ Aucun userId trouvé dans la session');
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
     const chinese = decodeURIComponent(req.params.chinese);
     console.log('🔍 Vérification mot utilisateur:', chinese, 'pour user:', req.session.userId);
 
-    // Remplace par ta logique de base de données
+    // TEMPORAIRE : Simule une réponse pour tester
+    console.log('✅ Simulation - mot non capturé');
+    return res.json({ alreadyExists: false });
+
+    /* 
+    // À décommenter plus tard :
     const existingWord = await UserWord.findOne({
       where: {
         userId: req.session.userId,
@@ -266,7 +276,8 @@ app.get('/check-user-word/:chinese', async (req, res) => {
 
     console.log('✅ Résultat vérification:', !!existingWord);
     res.json({ alreadyExists: !!existingWord });
-
+    */
+    
   } catch (error) {
     console.error('❌ Erreur vérification mot:', error);
     res.status(500).json({ error: 'Server error checking word' });
