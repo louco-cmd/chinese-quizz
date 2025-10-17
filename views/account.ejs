@@ -511,7 +511,7 @@ function generateContributionsGrid(contributionsData) {
 
   const dates = generateCurrentYearDates();
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Normaliser pour la comparaison
+  today.setHours(0, 0, 0, 0);
 
   grid.innerHTML = '';
 
@@ -519,29 +519,22 @@ function generateContributionsGrid(contributionsData) {
     const dateString = date.toISOString().split('T')[0];
     const isFuture = date > today;
     
-    let count = 0;
-    let level = 0;
-    let cssClass = 'contribution-day';
-
-    if (isFuture) {
-      // 🔥 JOURS FUTURS - style différent
-      cssClass += ' future-day';
-    } else {
-      // Jours passés et présents - logique normale
-      count = contributionsMap[dateString] || 0;
-      level = getContributionLevel(count);
-      cssClass += ` level-${level}`;
-    }
-
     const dayElement = document.createElement('div');
-    dayElement.className = cssClass;
-    dayElement.setAttribute('data-count', count);
-    dayElement.setAttribute('data-date', formatDate(dateString));
     
     if (isFuture) {
-      dayElement.setAttribute('title', 'Jour futur');
+      // Jours futurs - style spécial
+      dayElement.className = 'contribution-day future-day';
+      dayElement.setAttribute('data-count', 0);
+      dayElement.setAttribute('data-date', 'Jour futur');
+    } else {
+      // Jours passés/présents - logique normale
+      const count = contributionsMap[dateString] || 0;
+      const level = getContributionLevel(count);
+      dayElement.className = `contribution-day level-${level}`;
+      dayElement.setAttribute('data-count', count);
+      dayElement.setAttribute('data-date', formatDate(dateString));
     }
-
+    
     grid.appendChild(dayElement);
   });
 }
@@ -552,11 +545,10 @@ function generateCurrentYearDates() {
   const currentYear = today.getFullYear();
   
   // Début de l'année en cours (1er janvier)
-  const startDate = new Date(currentYear, 0, 1); // 1er janvier de cette année
+  const startDate = new Date(currentYear, 0, 1);
   
-  // Fin = aujourd'hui ou 31 décembre si on est dans l'année en cours
-  const endDate = today.getFullYear() === currentYear ? 
-    today : new Date(currentYear, 11, 31); // 31 décembre
+  // 🔥 CORRECTION : Fin = TOUJOURS 31 décembre
+  const endDate = new Date(currentYear, 11, 31);
 
   // Trouver le premier lundi de l'année (ou avant si nécessaire)
   const firstMonday = new Date(startDate);
@@ -564,7 +556,7 @@ function generateCurrentYearDates() {
   const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   firstMonday.setDate(firstMonday.getDate() + diffToMonday);
 
-  // Générer toutes les dates du premier lundi jusqu'à aujourd'hui/fin d'année
+  // 🔥 CORRECTION : Générer jusqu'au 31 décembre sans condition
   const currentDate = new Date(firstMonday);
   while (currentDate <= endDate) {
     dates.push(new Date(currentDate));
