@@ -489,7 +489,15 @@ async function searchAndAddWord() {
 
   currentChinese = chinese;
   showStatus('Searching...', 'info');
-  disableAddButton(); // 🔥 DÉSACTIVER LE BOUTON
+  
+  // Vérifier que le bouton existe avant de le désactiver
+  const addButton = document.querySelector('#inputScreen .btn-light');
+  if (!addButton) {
+    console.error('❌ Bouton non trouvé');
+    return;
+  }
+  
+  disableAddButton();
 
   try {
     const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`);
@@ -507,7 +515,7 @@ async function searchAndAddWord() {
   } catch (err) {
     showStatus('Error searching database', 'error');
   } finally {
-    enableAddButton(); // 🔥 RÉACTIVER LE BOUTON (même en cas d'erreur)
+    enableAddButton();
   }
 }
 
@@ -638,16 +646,24 @@ function setActiveNavItem() {
   });
 }
 
-// 🔥 FONCTIONS POUR GÉRER LE BOUTON
+// 🔥 FONCTIONS ROBUSTES POUR LE BOUTON
 function disableAddButton() {
-  const addButton = document.querySelector('#inputScreen .btn-primary');
+  const addButton = document.querySelector('#inputScreen .btn-light');
+  if (!addButton) {
+    console.warn('⚠️ Bouton non trouvé pour désactivation');
+    return;
+  }
   addButton.disabled = true;
   addButton.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Searching...';
   addButton.classList.add('disabled');
 }
 
 function enableAddButton() {
-  const addButton = document.querySelector('#inputScreen .btn-primary');
+  const addButton = document.querySelector('#inputScreen .btn-light');
+  if (!addButton) {
+    console.warn('⚠️ Bouton non trouvé pour activation');
+    return;
+  }
   addButton.disabled = false;
   addButton.innerHTML = '<i class="bi bi-search me-2"></i>Add the Word';
   addButton.classList.remove('disabled');
