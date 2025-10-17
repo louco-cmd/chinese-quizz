@@ -511,13 +511,18 @@ function generateContributionsGrid(contributionsData) {
 
   const dates = generateCurrentYearDates();
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  
+  // 🔥 CORRECTION : Normaliser aujourd'hui à minuit
+  const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
   grid.innerHTML = '';
 
   dates.forEach(date => {
     const dateString = date.toISOString().split('T')[0];
-    const isFuture = date > today;
+    
+    // 🔥 CORRECTION : Normaliser la date de comparaison aussi
+    const dateNormalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const isFuture = dateNormalized > todayNormalized;
     
     const dayElement = document.createElement('div');
     
@@ -527,7 +532,7 @@ function generateContributionsGrid(contributionsData) {
       dayElement.setAttribute('data-count', 0);
       dayElement.setAttribute('data-date', 'Jour futur');
     } else {
-      // Jours passés/présents - logique normale
+      // Jours passés et aujourd'hui - logique normale
       const count = contributionsMap[dateString] || 0;
       const level = getContributionLevel(count);
       dayElement.className = `contribution-day level-${level}`;
