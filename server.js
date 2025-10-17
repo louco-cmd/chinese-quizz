@@ -118,12 +118,12 @@ function ensureAuth(req, res, next) {
   if (req.url.startsWith('/api/')) {
     return res.status(401).json({ 
       error: 'Non authentifié',
-      redirect: '/login'
+      redirect: '/'
     });
   }
   
   // Sinon redirection HTML
-  res.redirect('/login');
+  res.redirect('/');
 }
 
 // -------------------- Passport Google --------------------
