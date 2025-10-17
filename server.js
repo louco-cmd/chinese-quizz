@@ -80,7 +80,6 @@ app.use(passport.session());
 })();
 
 // -------------------- Protection --------------------
-// Middleware ensureAuth corrigé
 function ensureAuth(req, res, next) {
   console.log('🔐 ensureAuth appelé pour:', req.method, req.url);
   console.log('🔐 Session ID:', req.sessionID);
@@ -138,6 +137,7 @@ passport.use(new GoogleStrategy({
       const email = emails[0].value;
 
       let userRes = await pool.query("SELECT * FROM users WHERE provider_id=$1", [id]);
+      let isNewUser = false;
       
       if (userRes.rows.length === 0) {
         // 🎯 INSERT et RÉCUPÈRE l'ID généré
@@ -146,6 +146,37 @@ passport.use(new GoogleStrategy({
           [email, displayName, id]
         );
         userRes = newUser;
+        isNewUser = true;
+      }
+
+      // 🎯 AJOUT DU CADEAU POUR LES NOUVEAUX UTILISATEURS
+      if (isNewUser) {
+        console.log('🎁 Ajout du mot cadeau "加油" pour le nouvel utilisateur');
+        
+        try {
+          // 1. Cherche le mot "加油" dans la table mots
+          const motRes = await pool.query(
+            "SELECT id FROM mots WHERE chinese = '加油'"
+          );
+          
+          if (motRes.rows.length > 0) {
+            const motId = motRes.rows[0].id;
+            const userId = userRes.rows[0].id;
+            
+            // 2. Ajoute la relation dans user_mots
+            await pool.query(
+              "INSERT INTO user_mots (user_id, mot_id) VALUES ($1, $2)",
+              [userId, motId]
+            );
+            
+            console.log('✅ Mot "加油" ajouté à la collection du nouvel utilisateur');
+          } else {
+            console.log('⚠️ Mot "加油" non trouvé dans la table mots');
+          }
+        } catch (giftError) {
+          console.error('❌ Erreur ajout mot cadeau:', giftError);
+          // On continue même si l'ajout du cadeau échoue
+        }
       }
 
       // 🎯 Utilise l'ID de la base, pas l'ID Google
@@ -161,7 +192,9 @@ passport.use(new GoogleStrategy({
     }
   }
 ));
+
 app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));
+
 app.get("/auth/google/callback",
     passport.authenticate("google", { failureRedirect: "/" }),
     (req, res) => {
@@ -170,6 +203,7 @@ app.get("/auth/google/callback",
         res.redirect(returnTo);
     }
 );
+
 app.post("/auth/google/one-tap", async (req, res) => {
   try {
     const { credential } = req.body;
@@ -187,6 +221,7 @@ app.post("/auth/google/one-tap", async (req, res) => {
 
     // Même logique que ton OAuth existant
     let userRes = await pool.query("SELECT * FROM users WHERE provider_id = $1", [googleId]);
+    let isNewUser = false;
     
     if (userRes.rows.length === 0) {
       console.log('📝 Creating new user');
@@ -196,10 +231,33 @@ app.post("/auth/google/one-tap", async (req, res) => {
          RETURNING id, email, name`,
         [email, name, googleId]
       );
+      isNewUser = true;
     }
 
     const user = userRes.rows[0];
     console.log('✅ User found/created:', user);
+    
+    // 🎯 AJOUT DU CADEAU POUR LES NOUVEAUX UTILISATEURS (one-tap aussi)
+    if (isNewUser) {
+      console.log('🎁 Ajout du mot cadeau "加油" (one-tap)');
+      
+      try {
+        const motRes = await pool.query(
+          "SELECT id FROM mots WHERE chinese = '加油'"
+        );
+        
+        if (motRes.rows.length > 0) {
+          const motId = motRes.rows[0].id;
+          await pool.query(
+            "INSERT INTO user_mots (user_id, mot_id) VALUES ($1, $2)",
+            [user.id, motId]
+          );
+          console.log('✅ Mot "加油" ajouté via one-tap');
+        }
+      } catch (giftError) {
+        console.error('❌ Erreur ajout mot cadeau one-tap:', giftError);
+      }
+    }
     
     // Connecte l'utilisateur avec Passport
     req.login(user, (err) => {
@@ -220,6 +278,7 @@ app.post("/auth/google/one-tap", async (req, res) => {
     res.status(500).json({ error: 'Authentication failed' });
   }
 });
+
 // -------------------- Serialize / Deserialize --------------------
 passport.serializeUser((user, done) => {
   console.log('🔒 Sérialisation utilisateur :', user);
