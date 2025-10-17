@@ -267,6 +267,26 @@ app.get("/api/debug/auth-detailed", ensureAuth, (req, res) => {
   res.json(authInfo);
 });
 
+// Route pour vérifier si le mot est dans la collection utilisateur
+app.get('/check-user-word/:chinese', async (req, res) => {
+  try {
+    const userId = req.session.userId; // ou ton système d'auth
+    const chinese = req.params.chinese;
+    
+    // Vérifier en base si l'utilisateur a déjà ce mot
+    const existingWord = await UserWord.findOne({ 
+      where: { 
+        userId: userId,
+        chinese: chinese
+      }
+    });
+    
+    res.json({ alreadyExists: !!existingWord });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 app.get("/api/contributions", ensureAuth, async (req, res) => {
   try {
     console.log('🔍 Requête reçue pour /api/contributions');

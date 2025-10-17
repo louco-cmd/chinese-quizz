@@ -152,6 +152,36 @@
       overflow: hidden;
     }
     
+    /* Ajustements pour la carte compacte */
+.floating-card .card-content.py-3 {
+  padding-top: 1rem !important;
+  padding-bottom: 1rem !important;
+}
+
+/* Boutons plus compacts */
+.btn.py-2 {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+  font-size: 0.9rem;
+}
+
+/* Aperçu chinois plus petit */
+.chinese-preview.fs-2 {
+  font-size: 2rem !important;
+  min-height: 50px;
+}
+
+/* Champs en ligne plus serrés */
+.d-flex.justify-content-between.py-1 {
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.d-flex.justify-content-between.py-1:last-child {
+  border-bottom: none;
+}
+    
     /* 🔥 VERSION MOBILE */
     @media (max-width: 767.98px) {
       .floating-card {
@@ -339,57 +369,51 @@
   </div>
 </div>
     
-    <!-- 🔥 ÉCRAN 2 : MOT EXISTANT -->
-    <div id="existingWordScreen" class="screen">
-      <div class="floating-card">
-        <div class="card-content">
-          <div class="text-center mb-3">
-            <h3 class="text-success mb-1">
-              <i class="bi bi-check-circle-fill me-2"></i>Word Found
-            </h3>
-            <p class="text-muted compact-text">This word exists in our database</p>
-          </div>
-          
-          <!-- Aperçu -->
-          <div class="chinese-preview" id="previewChinese"></div>
-          
-          <!-- 🔥 DESKTOP - DISPOSITION PLUS LARGE -->
-          <div class="row">
-            <div class="col-12">
-              <div class="word-field">
-                <label>Pinyin</label>
-                <div class="compact-text" id="displayPinyin">-</div>
-              </div>
-            </div>
-            <div class="col-12">
-              <div class="word-field">
-                <label>English</label>
-                <div class="compact-text" id="displayEnglish">-</div>
-              </div>
-            </div>
-            <div class="col-12">
-              <div class="word-field">
-                <label>Description</label>
-                <div class="compact-text" id="displayDescription">-</div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Actions -->
-          <div class="d-grid gap-2 mt-2">
-            <button type="button" class="btn btn-success" onclick="confirmAddExistingWord()">
-              <i class="bi bi-check-lg me-2"></i>Confirm & Add
-            </button>
-            <button type="button" class="btn btn-outline-warning" onclick="showNewWordScreen()">
-              <i class="bi bi-pencil me-2"></i>Edit Before Adding
-            </button>
-            <button type="button" class="btn btn-outline-secondary" onclick="showInputScreen()">
-              <i class="bi bi-arrow-left me-2"></i>Cancel
-            </button>
-          </div>
+<!-- 🔥 ÉCRAN 2 : MOT EXISTANT - VERSION COMPACTE -->
+<div id="existingWordScreen" class="screen">
+  <div class="floating-card bg-transparent border-0 shadow-none">
+    <div class="card-content py-3">
+      <div class="text-center mb-3">
+        <h3 class="text-success mb-1">
+          <i class="bi bi-check-circle-fill me-2"></i>Word Found
+        </h3>
+        <p class="text-white-50 compact-text">This word exists in our database</p>
+      </div>
+      
+      <!-- Aperçu -->
+      <div class="chinese-preview fs-2 mb-3" id="previewChinese"></div>
+      
+      <!-- Champs compacts -->
+      <div class="mb-3">
+        <div class="d-flex justify-content-between align-items-center text-white mb-2 py-1">
+          <small class="fw-semibold opacity-75">Pinyin</small>
+          <div class="compact-text" id="displayPinyin">-</div>
+        </div>
+        <div class="d-flex justify-content-between align-items-center text-white mb-2 py-1">
+          <small class="fw-semibold opacity-75">English</small>
+          <div class="compact-text text-end" id="displayEnglish">-</div>
+        </div>
+        <div class="d-flex justify-content-between align-items-start text-white py-1">
+          <small class="fw-semibold opacity-75">Description</small>
+          <div class="compact-text text-end small opacity-90" id="displayDescription" style="max-width: 70%;">-</div>
         </div>
       </div>
+      
+      <!-- Actions compactes -->
+      <div class="d-grid gap-2 mt-3">
+        <button type="button" class="btn btn-success py-2" id="confirmAddBtn" onclick="confirmAddExistingWord()">
+          <i class="bi bi-check-lg me-2"></i>Confirm & Add
+        </button>
+        <button type="button" class="btn btn-outline-light py-2" onclick="showNewWordScreen()">
+          <i class="bi bi-pencil me-2"></i>Edit Before Adding
+        </button>
+        <button type="button" class="btn btn-outline-secondary py-2" onclick="showInputScreen()">
+          <i class="bi bi-arrow-left me-2"></i>Cancel
+        </button>
+      </div>
     </div>
+  </div>
+</div>
     
     <!-- 🔥 ÉCRAN 3 : NOUVEAU MOT -->
     <div id="newWordScreen" class="screen">
@@ -519,12 +543,42 @@ async function searchAndAddWord() {
   }
 }
 
-// 🔥 AFFICHE LE MOT EXISTANT
+// 🔥 MODIFIE la fonction displayExistingWord
 function displayExistingWord(word) {
   document.getElementById('previewChinese').textContent = word.chinese;
   document.getElementById('displayPinyin').textContent = word.pinyin || '-';
   document.getElementById('displayEnglish').textContent = word.english || '-';
   document.getElementById('displayDescription').textContent = word.description || '-';
+  
+  // Vérifier si le mot est déjà dans la collection utilisateur
+  checkIfWordAlreadyCaptured(word.chinese);
+}
+
+// 🔥 NOUVELLE FONCTION : Vérifier si le mot est déjà capturé
+async function checkIfWordAlreadyCaptured(chineseWord) {
+  try {
+    const response = await fetch(`/check-user-word/${encodeURIComponent(chineseWord)}`);
+    const data = await response.json();
+    
+    const confirmBtn = document.getElementById('confirmAddBtn');
+    
+    if (data.alreadyExists) {
+      // Mot déjà dans la collection
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>You already captured this word';
+      confirmBtn.classList.remove('btn-success');
+      confirmBtn.classList.add('btn-secondary');
+    } else {
+      // Mot pas encore capturé
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Confirm & Add';
+      confirmBtn.classList.remove('btn-secondary');
+      confirmBtn.classList.add('btn-success');
+    }
+  } catch (error) {
+    console.error('Error checking user word:', error);
+    // En cas d'erreur, on laisse le bouton actif
+  }
 }
 
 // 🔥 AFFICHE LE FORMULAIRE NOUVEAU MOT
