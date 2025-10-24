@@ -297,21 +297,21 @@ app.get("/auth/google",
 );
 
 app.get("/auth/google/callback",
-  (req, res, next) => {
-    console.log('🔄 Callback Google reçu');
-    next();
-  },
   passport.authenticate("google", { 
-    failureRedirect: "/index?error=auth_failed",
-    failureMessage: true // ← Passe le message d'erreur
+    failureRedirect: "/index?error=auth_failed"
   }),
   (req, res) => {
     console.log('✅ Connexion réussie via callback');
+    console.log('🔍 DEBUG SESSION APRÈS AUTH:');
+    console.log('- req.user:', req.user);
+    console.log('- req.isAuthenticated():', req.isAuthenticated());
+    console.log('- req.session.passport:', req.session.passport);
     
     const returnTo = req.session.returnTo || '/dashboard';
     delete req.session.returnTo;
     
-    // 🆕 REDIRECTION SPÉCIALE POUR LES NOUVEAUX UTILISATEURS
+    console.log('🔍 Redirection vers:', returnTo);
+    
     if (req.user.isNewUser) {
       console.log('🎉 Nouvel utilisateur, redirection vers welcome');
       return res.redirect('/welcome');
@@ -561,39 +561,6 @@ function ensureAuth(req, res, next) {
 }
 
 // ---------------------API
-
-// Route temporaire pour reset
-app.get('/reset-sessions', async (req, res) => {
-  await pool.query('DELETE FROM session');
-  res.send('Sessions resetées');
-});
-
-// Route de test manuel
-app.get('/test-login/:userId', async (req, res) => {
-  try {
-    const user = await pool.query('SELECT id, email, name FROM users WHERE id = $1', [req.params.userId]);
-    
-    if (user.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    req.login(user.rows[0], (err) => {
-      if (err) {
-        return res.status(500).json({ error: 'Login failed', details: err });
-      }
-      
-      res.json({ 
-        success: true, 
-        message: 'Manual login successful',
-        user: user.rows[0],
-        session: req.session
-      });
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 
 // 🎯 ROUTE AVEC LA BONNE TABLE user_mots
 app.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
