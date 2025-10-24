@@ -85,8 +85,8 @@ app.use(passport.session());
         name TEXT,
         provider TEXT NOT NULL,
         provider_id TEXT UNIQUE NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        last_login TIMESTAMP  -- 🆕 COLONNE MANQUANTE
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_login TIMESTAMP
 
       )
     `);
@@ -732,30 +732,34 @@ app.get("/api/contributions", ensureAuth, async (req, res) => {
   try {
     console.log('🔍 Requête reçue pour /api/contributions');
     console.log('🔍 Utilisateur connecté (req.user) :', req.user);
+    console.log('🔍 Paramètres query:', req.query);
 
     const userId = req.user ? req.user.id : null;
+    const year = parseInt(req.query.year) || new Date().getFullYear();
 
     if (!userId) {
       console.warn('⚠️ Aucun utilisateur connecté');
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
+    // 🎯 CORRECTION : Filtrer par année
     const result = await pool.query(`
       SELECT 
         DATE(date_completed) as date,
         COUNT(*) as count
       FROM quiz_history 
       WHERE user_id = $1 
+        AND EXTRACT(YEAR FROM date_completed) = $2
       GROUP BY DATE(date_completed)
       ORDER BY date ASC
-    `, [userId]);
+    `, [userId, year]);
 
     const rows = result.rows.map(r => ({
       date: r.date instanceof Date ? r.date.toISOString().split('T')[0] : String(r.date),
       count: parseInt(r.count, 10) || 0
     }));
 
-    console.log('📦 Résultat des contributions :', rows);
+    console.log(`📦 Résultat des contributions pour ${year}:`, rows);
     res.json(rows);
   } catch (error) {
     console.error('❌ Erreur dans /api/contributions :', error);
