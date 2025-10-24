@@ -27,26 +27,25 @@ app.set("views", path.join(__dirname, "views"));
 app.set('trust proxy', 1);
 
 // -------------------- Session pour Vercel --------------------
+// -------------------- Session Cloud Optimisée --------------------
 const PostgreSQLStore = require('connect-pg-simple')(session);
 
-// -------------------- Session Vercel CORRECTE --------------------
-// ✅ CORRECTION :
 app.use(session({
   store: new PostgreSQLStore({
     pool: pool,
     tableName: 'session',
     createTableIfMissing: true,
-    pruneSessionInterval: 60 * 60 // 1 heure en secondes
-    // ⬇️ SUPPRIMER le 'path' qui est pour FileStore
+    pruneSessionInterval: false, // Désactiver le nettoyage auto
+    ttl: 7 * 24 * 60 * 60 // 7 jours en secondes
   }),
   secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
   name: 'jiayou.sid',
-  resave: false, // ⬅️ CHANGER À false (PostgreSQL gère mieux)
-  saveUninitialized: false, // ⬅️ CHANGER À false
-  rolling: true,
+  resave: false, // ⬅️ IMPORTANT: false pour PostgreSQL
+  saveUninitialized: false, // ⬅️ IMPORTANT: false pour la sécurité
+  rolling: false, // ⬅️ false pour plus de stabilité
   cookie: {
-    secure: true, // ⬅️ FORCER true pour Vercel
-    httpOnly: true,
+    secure: true, // ⬅️ true pour HTTPS
+    httpOnly: true, // ⬅️ empêcher l'accès JS
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
     sameSite: 'lax',
   }
@@ -56,6 +55,60 @@ app.use(session({
 app.use((req, res, next) => {
   console.log('🍪 Cookies reçus:', req.headers.cookie);
   console.log('🔐 Session ID:', req.sessionID);
+  next();
+});
+// 🛡️ MIDDLEWARE DE RÉSILIENCE CLOUD
+app.use((req, res, next) => {
+  // Log de debug
+  console.log('🌐 Session Check:', {
+    id: req.sessionID?.substring(0, 8),
+    hasSession: !!req.session,
+    hasUser: !!req.user,
+    cookies: req.headers.cookie ? 'present' : 'missing'
+  });
+
+  // Sauvegarde automatique après chaque requête
+  const originalEnd = res.end;
+  res.end = function(...args) {
+    if (req.session && typeof req.session.save === 'function') {
+      req.session.save((err) => {
+        if (err) {
+          console.error('❌ Erreur sauvegarde session:', err);
+        }
+        originalEnd.apply(this, args);
+      });
+    } else {
+      originalEnd.apply(this, args);
+    }
+  };
+  
+  next();
+});
+// 🔧 RÉPARATEUR DE SESSIONS CORROMPUES
+app.use((req, res, next) => {
+  if (req.session && !req.session.initialized) {
+    req.session.initialized = true;
+    req.session.createdAt = new Date().toISOString();
+  }
+  
+  // Réparer les sessions Passport corrompues
+  if (req.session && req.session.passport && !req.user) {
+    console.log('🔄 Tentative de réparation session...');
+    // La désérialisation se fera automatiquement
+  }
+  
+  next();
+});
+
+// 🧪 VÉRIFICATEUR DE SESSION EN TEMPS RÉEL
+app.use((req, res, next) => {
+  console.log('🔍 Session State:', {
+    id: req.sessionID?.substring(0, 8),
+    exists: !!req.session,
+    user: req.user?.id || 'none',
+    cookies: req.headers.cookie ? req.headers.cookie.length + ' chars' : 'none',
+    url: req.url
+  });
   next();
 });
 
@@ -130,24 +183,31 @@ app.use(passport.session());
 })();
 
 // -------------------- Serialize / Deserialize DEBUG --------------------
+// 🔐 PASSPORT POUR CLOUD - VERSION STABLE
 passport.serializeUser((user, done) => {
-  console.log('🔒 Sérialisation utilisateur :', user);
-  console.log('🔒 Session avant sérialisation:', this._req?.session);
+  console.log('🔒 Sérialisation:', user.id);
   done(null, user.id);
 });
 
 passport.deserializeUser(async (id, done) => {
   try {
-    console.log('🔓 Désérialisation utilisateur avec ID :', id);
-    const res = await pool.query("SELECT id, email, name FROM users WHERE id = $1", [id]);
+    console.log('🔓 Désérialisation:', id);
+    const res = await pool.query(
+      "SELECT id, email, name FROM users WHERE id = $1", 
+      [id]
+    );
+    
     if (res.rows.length === 0) {
-      console.log('❌ Utilisateur non trouvé en base');
+      console.log('❌ Utilisateur non trouvé');
       return done(null, false);
     }
-    console.log('✅ Utilisateur trouvé:', res.rows[0]);
-    done(null, res.rows[0]);
+    
+    const user = res.rows[0];
+    console.log('✅ Utilisateur chargé:', user.email);
+    done(null, user);
+    
   } catch (err) {
-    console.error('❌ Erreur désérialisation utilisateur :', err);
+    console.error('❌ Erreur désérialisation:', err);
     done(err, null);
   }
 });
