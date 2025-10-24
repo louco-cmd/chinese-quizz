@@ -27,26 +27,31 @@ const PostgreSQLStore = require('connect-pg-simple')(session);
 app.use(session({
   store: new PostgreSQLStore({
     pool: pool,
-    tableName: 'user_sessions', // Table dédiée pour les sessions
-    createTableIfMissing: true, // Crée la table si elle n'existe pas
-    pruneSessionInterval: 60 * 60, // Nettoyage toutes les heures (3600 secondes)
-    errorLog: console.error // Log des erreurs de session
+    tableName: 'session',
+    createTableIfMissing: true,
+    pruneSessionInterval: 60 * 60,
+    errorLog: (err) => {
+      // 🔥 IGNORER SEULEMENT l'erreur "already exists" qui est normale
+      if (!err.message.includes('already exists')) {
+        console.error('❌ Erreur session store:', err);
+      }
+      // Sinon, on ne fait rien - l'erreur est normale
+    }
   }),
   secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
-  name: 'jiayou.sid', // Nom personnalisé du cookie
+  name: 'jiayou.sid',
   resave: false,
   saveUninitialized: false,
-  rolling: true, // ← IMPORTANT: Renouvelle le cookie à chaque requête
+  rolling: true,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // HTTPS en production
-    httpOnly: true, // Empêche l'accès via JavaScript
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours (en millisecondes)
-    sameSite: 'lax', // Protection CSRF
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    sameSite: 'lax',
     domain: process.env.NODE_ENV === 'production' ? '.chinese-quizz.onrender.com' : undefined
   },
-  // 🆕 Configuration supplémentaire pour la stabilité
   genid: (req) => {
-    return require('crypto').randomBytes(32).toString('hex'); // ID de session sécurisé
+    return require('crypto').randomBytes(32).toString('hex');
   }
 }));
 
