@@ -123,12 +123,9 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-
 // Middleware pour parser le JSON
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-
 
 
 // -------------------- Passport Google --------------------
@@ -149,7 +146,7 @@ passport.use(new GoogleStrategy({
       console.log('🔐 Début authentification Google');
       const { id, displayName, emails, photos } = profile;
       const email = emails[0].value;
-      const picture = photos && photos[0] ? photos[0].value : null;
+
 
       await transaction.query('BEGIN');
 
@@ -169,10 +166,10 @@ passport.use(new GoogleStrategy({
         // 🆕 NOUVEL UTILISATEUR
         console.log('👤 Création nouveau utilisateur:', email);
         const newUser = await transaction.query(
-          `INSERT INTO users (email, name, provider, provider_id, picture, last_login) 
-           VALUES ($1, $2, 'google', $3, $4, NOW()) 
-           RETURNING id, email, name, picture`,
-          [email, displayName, id, picture]
+          `INSERT INTO users (email, name, provider, provider_id, last_login) 
+          VALUES ($1, $2, 'google', $3, NOW())  // ⬅️ SUPPRIMER $4
+          RETURNING id, email, name`,
+          [email, displayName, id] // ⬅️ 3 paramètres
         );
         user = newUser.rows[0];
         isNewUser = true;
@@ -188,14 +185,14 @@ passport.use(new GoogleStrategy({
         if (user.provider_id !== id) {
           console.log('🔗 Liaison compte existant avec Google');
           await transaction.query(
-            'UPDATE users SET provider_id = $1, provider = $2, picture = $3, last_login = NOW() WHERE id = $4',
-            [id, 'google', picture, user.id]
+            'UPDATE users SET provider_id = $1, provider = $2, last_login = NOW() WHERE id = $3', // ⬅️ $3 au lieu de $4
+            [id, 'google', user.id]
           );
         } else {
           // Mise à jour dernière connexion
           await transaction.query(
-            'UPDATE users SET last_login = NOW(), picture = $1 WHERE id = $2',
-            [picture, user.id]
+            'UPDATE users SET last_login = NOW() WHERE id = $1',
+            [user.id]
           );
         }
       }
@@ -207,7 +204,6 @@ passport.use(new GoogleStrategy({
         id: user.id,
         email: user.email, 
         name: user.name,
-        picture: user.picture,
         isNewUser: isNewUser
       });
 
@@ -355,7 +351,7 @@ app.post("/auth/google/one-tap", async (req, res) => {
     const ticket = await Promise.race([verificationPromise, timeoutPromise]);
     const payload = ticket.getPayload();
     
-    const { sub: googleId, name, email, picture } = payload;
+    const { sub: googleId, name, email } = payload;
     console.log('👤 Utilisateur Google:', { googleId, name, email });
 
     await transaction.query('BEGIN');
@@ -375,10 +371,10 @@ app.post("/auth/google/one-tap", async (req, res) => {
     if (userRes.rows.length === 0) {
       // Nouvel utilisateur
       userRes = await transaction.query(
-        `INSERT INTO users (email, name, provider, provider_id, picture, last_login) 
-         VALUES ($1, $2, 'google', $3, $4, NOW()) 
-         RETURNING id, email, name, picture`,
-        [email, name, googleId, picture]
+        `INSERT INTO users (email, name, provider, provider_id, last_login) 
+         VALUES ($1, $2, 'google', $3, NOW()) 
+         RETURNING id, email, name`,
+        [email, name, googleId]
       );
       user = userRes.rows[0];
       isNewUser = true;
@@ -388,8 +384,8 @@ app.post("/auth/google/one-tap", async (req, res) => {
       // Utilisateur existant
       user = userRes.rows[0];
       await transaction.query(
-        'UPDATE users SET last_login = NOW(), picture = $1 WHERE id = $2',
-        [picture, user.id]
+        'UPDATE users SET last_login = NOW() WHERE id = $1',
+        [user.id]
       );
     }
 
@@ -501,7 +497,7 @@ app.use(async (req, res, next) => {
     try {
       // Tentative de récupération de l'utilisateur depuis la base
       const userRes = await pool.query(
-        'SELECT id, email, name, picture FROM users WHERE id = $1',
+        'SELECT id, email, name FROM users WHERE id = $1',
         [req.session.passport.user]
       );
       
