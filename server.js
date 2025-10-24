@@ -302,22 +302,24 @@ app.get("/auth/google/callback",
   }),
   (req, res) => {
     console.log('✅ Connexion réussie via callback');
-    console.log('🔍 DEBUG SESSION APRÈS AUTH:');
-    console.log('- req.user:', req.user);
-    console.log('- req.isAuthenticated():', req.isAuthenticated());
-    console.log('- req.session.passport:', req.session.passport);
     
-    const returnTo = req.session.returnTo || '/dashboard';
-    delete req.session.returnTo;
-    
-    console.log('🔍 Redirection vers:', returnTo);
-    
-    if (req.user.isNewUser) {
-      console.log('🎉 Nouvel utilisateur, redirection vers welcome');
-      return res.redirect('/welcome');
-    }
-    
-    res.redirect(returnTo);
+    // Forcer la sauvegarde de la session AVANT redirection
+    req.session.save((err) => {
+      if (err) {
+        console.error('❌ Erreur sauvegarde session:', err);
+        return res.redirect('/index?error=session_error');
+      }
+      
+      console.log('💾 Session sauvegardée, redirection...');
+      const returnTo = req.session.returnTo || '/dashboard';
+      delete req.session.returnTo;
+      
+      if (req.user.isNewUser) {
+        return res.redirect('/welcome');
+      }
+      
+      res.redirect(returnTo);
+    });
   }
 );
 
