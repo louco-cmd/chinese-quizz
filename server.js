@@ -564,23 +564,10 @@ function ensureAuth(req, res, next) {
 
 // ---------------------API
 
-// Ajoutez cette route temporaire pour debug
-app.get('/debug-sessions', async (req, res) => {
-  try {
-    const sessions = await pool.query('SELECT * FROM session ORDER BY expire DESC LIMIT 10');
-    const users = await pool.query('SELECT id, email, name FROM users ORDER BY id DESC LIMIT 10');
-    
-    res.json({
-      currentSession: req.session,
-      sessionID: req.sessionID,
-      isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : 'method_not_available',
-      user: req.user,
-      sessionsInDB: sessions.rows,
-      recentUsers: users.rows
-    });
-  } catch (err) {
-    res.json({ error: err.message });
-  }
+// Route temporaire pour reset
+app.get('/reset-sessions', async (req, res) => {
+  await pool.query('DELETE FROM session');
+  res.send('Sessions resetées');
 });
 
 
