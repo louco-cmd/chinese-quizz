@@ -304,7 +304,7 @@ app.get("/auth/google/callback",
     next();
   },
   passport.authenticate("google", { 
-    failureRedirect: "/login?error=auth_failed",
+    failureRedirect: "/index?error=auth_failed",
     failureMessage: true // ← Passe le message d'erreur
   }),
   (req, res) => {
@@ -479,7 +479,7 @@ app.use((req, res, next) => {
       console.log('🔐 Session expirée par inactivité');
       return req.logout((err) => {
         if (err) console.error('Erreur déconnexion:', err);
-        res.redirect('/login?error=session_expired');
+        res.redirect('/index?error=session_expired');
       });
     }
     
@@ -508,7 +508,7 @@ app.use(async (req, res, next) => {
         // Utilisateur supprimé de la base
         console.log('❌ Utilisateur non trouvé en base, déconnexion');
         req.logout();
-        return res.redirect('/login?error=user_not_found');
+        return res.redirect('/index?error=user_not_found');
       }
     } catch (error) {
       console.error('Erreur récupération utilisateur:', error);
@@ -549,7 +549,7 @@ function ensureAuth(req, res, next) {
     return next();
   }
   
-  console.log('❌ Auth échouée - Redirection vers /login');
+  console.log('❌ Auth échouée - Redirection vers /index');
   
   // Si c'est une API, retourner JSON
   if (req.url.startsWith('/api/')) {
