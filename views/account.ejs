@@ -363,18 +363,32 @@ async function loadQuizStats() {
 
 async function loadContributionsGrid() {
   try {
-    console.log('🔄 Loading...');
+    console.log('🔄 Chargement des contributions...');
     
-    // AJOUTER L'ANNÉE EN COURS DANS LA REQUÊTE
     const currentYear = new Date().getFullYear();
-    const response = await fetch(`/api/contributions?year=${currentYear}`);
+    const response = await fetch(`/api/contributions?year=${currentYear}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include' // 🔥 IMPORTANT pour les cookies de session
+    });
+    
+    console.log('📡 Statut réponse:', response.status);
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      if (response.status === 401) {
+        console.warn('⚠️ Non authentifié, redirection...');
+        window.location.href = '/';
+        return;
+      }
+      throw new Error(`Erreur HTTP: ${response.status} - ${response.statusText}`);
     }
     
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('❌ Réponse non-JSON:', text.substring(0, 200));
       throw new Error(`Expected JSON but got: ${contentType}`);
     }
     
@@ -382,7 +396,7 @@ async function loadContributionsGrid() {
     console.log('✅ Contributions chargées:', data);
     
     // Vérifier si des données existent
-    if (data.length === 0) {
+    if (!data || data.length === 0) {
       displayNoContributions();
     } else {
       // Mettre à jour le total
@@ -396,9 +410,25 @@ async function loadContributionsGrid() {
     
   } catch (error) {
     console.error('❌ Erreur chargement contributions:', error);
-    displayContributionsError();
+    displayContributionsError(error.message);
   }
 }
+
+function displayContributionsError(message = 'Données indisponibles pour le moment') {
+  const grid = document.getElementById('contributionsGrid');
+  if (!grid) return;
+  
+  grid.innerHTML = `
+    <div class="text-center text-warning py-3">
+      <i class="bi bi-exclamation-triangle"></i>
+      <div class="small mt-1">${message}</div>
+      <button onclick="loadContributionsGrid()" class="btn btn-outline-primary btn-sm mt-2">
+        <i class="bi bi-arrow-clockwise"></i> Réessayer
+      </button>
+    </div>
+  `;
+}
+
 
 function displayNoQuizData() {
   const statsContainer = document.getElementById('quiz-stats');
@@ -552,7 +582,7 @@ function generateCurrentYearDates() {
   // Début de l'année en cours (1er janvier)
   const startDate = new Date(currentYear, 0, 1);
   
-  // 🔥 CORRECTION : Fin = TOUJOURS 31 décembre
+  // Fin = 31 décembre de l'année en cours
   const endDate = new Date(currentYear, 11, 31);
 
   // Trouver le premier lundi de l'année (ou avant si nécessaire)
@@ -561,16 +591,17 @@ function generateCurrentYearDates() {
   const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
   firstMonday.setDate(firstMonday.getDate() + diffToMonday);
 
-  // 🔥 CORRECTION : Générer jusqu'au 31 décembre sans condition
+  // Générer toutes les dates jusqu'au 31 décembre
   const currentDate = new Date(firstMonday);
   while (currentDate <= endDate) {
     dates.push(new Date(currentDate));
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  console.log(`📅 Génération ${dates.length} jours pour ${currentYear}, du ${firstMonday.toLocaleDateString()} au ${endDate.toLocaleDateString()}`);
+  console.log(`📅 Génération ${dates.length} jours pour ${currentYear}`);
   return dates;
 }
+
 
 function getContributionLevel(count) {
   if (count === 0) return 0;
