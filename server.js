@@ -54,60 +54,6 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 
-// 🆕 MIDDLEWARE DE SÉCURITÉ DES SESSIONS
-app.use((req, res, next) => {
-  if (req.session) {
-    // Initialiser le compteur d'activité
-    if (!req.session.lastActivity) {
-      req.session.lastActivity = Date.now();
-    }
-    
-    // Vérifier l'inactivité (24h max)
-    const inactiveTime = Date.now() - req.session.lastActivity;
-    const maxInactiveTime = 24 * 60 * 60 * 1000; // 24 heures
-    
-    if (inactiveTime > maxInactiveTime && req.isAuthenticated()) {
-      console.log('🔐 Session expirée par inactivité');
-      return req.logout((err) => {
-        if (err) console.error('Erreur déconnexion:', err);
-        res.redirect('/login?error=session_expired');
-      });
-    }
-    
-    // Mettre à jour l'activité à chaque requête authentifiée
-    if (req.isAuthenticated()) {
-      req.session.lastActivity = Date.now();
-    }
-  }
-  next();
-});
-
-// 🆕 MIDDLEWARE POUR LA RÉAUTHENTIFICATION AUTOMATIQUE
-app.use(async (req, res, next) => {
-  if (req.isAuthenticated() && !req.user) {
-    try {
-      // Tentative de récupération de l'utilisateur depuis la base
-      const userRes = await pool.query(
-        'SELECT id, email, name, picture FROM users WHERE id = $1',
-        [req.session.passport.user]
-      );
-      
-      if (userRes.rows.length > 0) {
-        req.user = userRes.rows[0];
-        console.log('🔄 Utilisateur récupéré depuis la base');
-      } else {
-        // Utilisateur supprimé de la base
-        console.log('❌ Utilisateur non trouvé en base, déconnexion');
-        req.logout();
-        return res.redirect('/login?error=user_not_found');
-      }
-    } catch (error) {
-      console.error('Erreur récupération utilisateur:', error);
-    }
-  }
-  next();
-});
-
 // -------------------- Initialisation des tables --------------------
 (async () => {
   try {
@@ -154,51 +100,31 @@ app.use(async (req, res, next) => {
   }
 })();
 
-// -------------------- Protection --------------------
-function ensureAuth(req, res, next) {
-  console.log('🔐 ensureAuth appelé pour:', req.method, req.url);
-  console.log('🔐 Session ID:', req.sessionID);
-  console.log('🔐 User:', req.user);
-  console.log('🔐 isAuthenticated:', req.isAuthenticated ? req.isAuthenticated() : 'method_not_available');
-  
-  // Méthode 1: Passport standard
-  if (req.isAuthenticated && req.isAuthenticated()) {
-    console.log('✅ Auth réussie (Passport)');
-    return next();
+
+// -------------------- Serialize / Deserialize --------------------
+passport.serializeUser((user, done) => {
+  console.log('🔒 Sérialisation utilisateur :', user);
+  done(null, user.id); // Assurez-vous que `user.id` est défini
+});
+passport.deserializeUser(async (id, done) => {
+  try {
+    console.log('🔓 Désérialisation utilisateur avec ID :', id);
+    const res = await pool.query("SELECT id, email, name FROM users WHERE id = $1", [id]);
+    if (res.rows.length === 0) return done(null, false);
+    done(null, res.rows[0]);
+  } catch (err) {
+    console.error('❌ Erreur désérialisation utilisateur :', err);
+    done(err, null);
   }
-  
-  // Méthode 2: User direct
-  if (req.user) {
-    console.log('✅ Auth réussie (req.user)');
-    return next();
-  }
-  
-  // Méthode 3: Session avec user
-  if (req.session && req.session.user) {
-    console.log('✅ Auth réussie (session.user)');
-    req.user = req.session.user;
-    return next();
-  }
-  
-  // Méthode 4: Session avec passport
-  if (req.session && req.session.passport && req.session.passport.user) {
-    console.log('✅ Auth réussie (session.passport)');
-    return next();
-  }
-  
-  console.log('❌ Auth échouée - Redirection vers /login');
-  
-  // Si c'est une API, retourner JSON
-  if (req.url.startsWith('/api/')) {
-    return res.status(401).json({ 
-      error: 'Non authentifié',
-      redirect: '/'
-    });
-  }
-  
-  // Sinon redirection HTML
-  res.redirect('/');
-}
+});
+
+
+// Middleware pour parser le JSON
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+
+
 
 // -------------------- Passport Google --------------------
 const Client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -535,31 +461,108 @@ app.use((req, res, next) => {
   next();
 });
 
-// -------------------- Serialize / Deserialize --------------------
-passport.serializeUser((user, done) => {
-  console.log('🔒 Sérialisation utilisateur :', user);
-  done(null, user.id); // Assurez-vous que `user.id` est défini
-});
-passport.deserializeUser(async (id, done) => {
-  try {
-    console.log('🔓 Désérialisation utilisateur avec ID :', id);
-    const res = await pool.query("SELECT id, email, name FROM users WHERE id = $1", [id]);
-    if (res.rows.length === 0) return done(null, false);
-    done(null, res.rows[0]);
-  } catch (err) {
-    console.error('❌ Erreur désérialisation utilisateur :', err);
-    done(err, null);
+
+// 🆕 MIDDLEWARE DE SÉCURITÉ DES SESSIONS
+app.use((req, res, next) => {
+  if (req.session) {
+    // Initialiser le compteur d'activité
+    if (!req.session.lastActivity) {
+      req.session.lastActivity = Date.now();
+    }
+    
+    // Vérifier l'inactivité (24h max)
+    const inactiveTime = Date.now() - req.session.lastActivity;
+    const maxInactiveTime = 24 * 60 * 60 * 1000; // 24 heures
+    
+    if (inactiveTime > maxInactiveTime && req.isAuthenticated()) {
+      console.log('🔐 Session expirée par inactivité');
+      return req.logout((err) => {
+        if (err) console.error('Erreur déconnexion:', err);
+        res.redirect('/login?error=session_expired');
+      });
+    }
+    
+    // Mettre à jour l'activité à chaque requête authentifiée
+    if (req.isAuthenticated()) {
+      req.session.lastActivity = Date.now();
+    }
   }
+  next();
 });
 
+// 🆕 MIDDLEWARE POUR LA RÉAUTHENTIFICATION AUTOMATIQUE
+app.use(async (req, res, next) => {
+  if (req.isAuthenticated() && !req.user) {
+    try {
+      // Tentative de récupération de l'utilisateur depuis la base
+      const userRes = await pool.query(
+        'SELECT id, email, name, picture FROM users WHERE id = $1',
+        [req.session.passport.user]
+      );
+      
+      if (userRes.rows.length > 0) {
+        req.user = userRes.rows[0];
+        console.log('🔄 Utilisateur récupéré depuis la base');
+      } else {
+        // Utilisateur supprimé de la base
+        console.log('❌ Utilisateur non trouvé en base, déconnexion');
+        req.logout();
+        return res.redirect('/login?error=user_not_found');
+      }
+    } catch (error) {
+      console.error('Erreur récupération utilisateur:', error);
+    }
+  }
+  next();
+});
 
-// Middleware pour parser le JSON
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
+// -------------------- Protection --------------------
+function ensureAuth(req, res, next) {
+  console.log('🔐 ensureAuth appelé pour:', req.method, req.url);
+  console.log('🔐 Session ID:', req.sessionID);
+  console.log('🔐 User:', req.user);
+  console.log('🔐 isAuthenticated:', req.isAuthenticated ? req.isAuthenticated() : 'method_not_available');
+  
+  // Méthode 1: Passport standard
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    console.log('✅ Auth réussie (Passport)');
+    return next();
+  }
+  
+  // Méthode 2: User direct
+  if (req.user) {
+    console.log('✅ Auth réussie (req.user)');
+    return next();
+  }
+  
+  // Méthode 3: Session avec user
+  if (req.session && req.session.user) {
+    console.log('✅ Auth réussie (session.user)');
+    req.user = req.session.user;
+    return next();
+  }
+  
+  // Méthode 4: Session avec passport
+  if (req.session && req.session.passport && req.session.passport.user) {
+    console.log('✅ Auth réussie (session.passport)');
+    return next();
+  }
+  
+  console.log('❌ Auth échouée - Redirection vers /login');
+  
+  // Si c'est une API, retourner JSON
+  if (req.url.startsWith('/api/')) {
+    return res.status(401).json({ 
+      error: 'Non authentifié',
+      redirect: '/'
+    });
+  }
+  
+  // Sinon redirection HTML
+  res.redirect('/');
+}
 
 // ---------------------API
-
 
 // 🎯 ROUTE AVEC LA BONNE TABLE user_mots
 app.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
