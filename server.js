@@ -325,40 +325,93 @@ app.get("/auth/google/callback",
 
 // 🔥 ONE-TAP AMÉLIORÉ AVEC GESTION D'ERREUR ROBUSTE
 app.post("/auth/google/one-tap", async (req, res) => {
-  console.log('🔐 One-Tap - Headers:', req.headers);
-  console.log('🔐 One-Tap - Body:', req.body);
+  const transaction = await pool.connect();
   
   try {
     const { credential } = req.body;
+    console.log('🔐 Google One Tap token reçu');
     
     if (!credential) {
-      console.error('❌ One-Tap: Token manquant');
-      return res.status(400).json({ success: false, error: 'Token manquant' });
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Token manquant' 
+      });
     }
 
-    // ... reste du code One-Tap
+    const ticket = await Client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
     
-    // APRÈS req.login() - debug de session
-    req.login(user, (err) => {
+    const payload = ticket.getPayload();
+    const { sub: googleId, name, email } = payload;
+
+    await transaction.query('BEGIN');
+
+    let userRes = await transaction.query(
+      `SELECT id, email, name, provider_id FROM users 
+       WHERE provider_id = $1 OR email = $2 
+       ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END 
+       LIMIT 1`,
+      [googleId, email]
+    );
+
+    let isNewUser = false;
+    let user;
+
+    if (userRes.rows.length === 0) {
+      userRes = await transaction.query(
+        `INSERT INTO users (email, name, provider, provider_id, last_login) 
+         VALUES ($1, $2, 'google', $3, NOW()) 
+         RETURNING id, email, name`,
+        [email, name, googleId]
+      );
+      user = userRes.rows[0];
+      isNewUser = true;
+    } else {
+      user = userRes.rows[0];
+      await transaction.query(
+        'UPDATE users SET last_login = NOW() WHERE id = $1',
+        [user.id]
+      );
+    }
+
+    await transaction.query('COMMIT');
+
+    // Modification ici : Utiliser login() de Passport
+    req.login(user, async (err) => {
       if (err) {
-        console.error('❌ One-Tap - Erreur login:', err);
-        return res.status(500).json({ success: false, error: 'Erreur session' });
+        console.error('❌ Erreur login Passport:', err);
+        return res.status(500).json({ success: false, error: 'Erreur authentification' });
       }
-      
-      console.log('✅ One-Tap - Login réussi');
-      console.log('✅ One-Tap - req.user après login:', req.user);
-      console.log('✅ One-Tap - req.isAuthenticated:', req.isAuthenticated());
-      console.log('✅ One-Tap - Session ID:', req.sessionID);
-      
-      res.json({ 
-        success: true, 
-        redirect: isNewUser ? '/welcome' : '/dashboard'
+
+      // Puis sauvegarder la session
+      req.session.save((err) => {
+        if (err) {
+          console.error('❌ Erreur sauvegarde session:', err);
+          return res.status(500).json({ success: false, error: 'Erreur session' });
+        }
+
+        console.log('✅ Session créée avec succès:', req.session);
+        res.json({ 
+          success: true, 
+          redirect: isNewUser ? '/welcome' : '/dashboard',
+          user: { 
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            isNewUser: isNewUser
+          }
+        });
       });
     });
 
   } catch (err) {
-    console.error('❌ One-Tap - Erreur globale:', err);
+    await transaction.query('ROLLBACK');
+    console.error('❌ Erreur Google One Tap:', err);
     res.status(500).json({ success: false, error: err.message });
+  } finally {
+    transaction.release();
   }
 });
 

@@ -101,7 +101,9 @@
       const authPromise = fetch('/auth/google/one-tap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential: response.credential })
+        body: JSON.stringify({ credential: response.credential }),
+        // Ajout important : inclure les credentials
+        credentials: 'same-origin'
       });
 
       // Timeout de sécurité
@@ -116,11 +118,10 @@
         })
         .then(data => {
           if (data.success) {
-            console.log('✅ Connexion réussie');
-            showStatus('Connexion réussie! Redirection...', 'success');
-            setTimeout(() => {
-              window.location.href = data.redirect || '/dashboard';
-            }, 1000);
+            console.log('✅ Connexion réussie, redirection vers:', data.redirect);
+            
+            // Forcer le rechargement complet
+            window.location.replace(data.redirect || '/dashboard');
           } else {
             throw new Error(data.error || 'Erreur inconnue');
           }
