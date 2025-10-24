@@ -39,8 +39,8 @@ app.use(session({
   }),
   secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
   name: 'jiayou.sid',
-  resave: true, // ⬅️ CHANGER À true
-  saveUninitialized: true, // ⬅️ CHANGER À true
+  resave: false, // ⬅️ CHANGER À true
+  saveUninitialized: false, // ⬅️ CHANGER À true
   rolling: true,
   cookie: {
     secure: true,
@@ -629,6 +629,37 @@ app.get('/cookie-debug', (req, res) => {
 });
 
 
+app.get('/session-persistence-test', (req, res) => {
+  console.log('=== 🧪 SESSION PERSISTENCE TEST ===');
+  console.log('URL:', req.url);
+  console.log('Session ID:', req.sessionID);
+  console.log('req.user:', req.user);
+  console.log('req.isAuthenticated():', req.isAuthenticated());
+  console.log('Cookies reçus:', req.headers.cookie);
+  
+  // Compter les visites
+  if (!req.session.visitCount) {
+    req.session.visitCount = 1;
+  } else {
+    req.session.visitCount++;
+  }
+  
+  req.session.lastVisit = new Date().toISOString();
+  
+  req.session.save((err) => {
+    if (err) {
+      console.error('❌ Erreur sauvegarde session:', err);
+    }
+    
+    res.json({
+      sessionID: req.sessionID,
+      visitCount: req.session.visitCount,
+      user: req.user,
+      isAuthenticated: req.isAuthenticated(),
+      cookies: req.headers.cookie
+    });
+  });
+});
 
 // ---------------------API
 
