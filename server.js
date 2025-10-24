@@ -462,7 +462,6 @@ app.use((req, res, next) => {
   next();
 });
 
-
 // 🆕 MIDDLEWARE DE SÉCURITÉ DES SESSIONS
 app.use((req, res, next) => {
   if (req.session) {
@@ -564,6 +563,26 @@ function ensureAuth(req, res, next) {
 }
 
 // ---------------------API
+
+// Ajoutez cette route temporaire pour debug
+app.get('/debug-sessions', async (req, res) => {
+  try {
+    const sessions = await pool.query('SELECT * FROM session ORDER BY expire DESC LIMIT 10');
+    const users = await pool.query('SELECT id, email, name FROM users ORDER BY id DESC LIMIT 10');
+    
+    res.json({
+      currentSession: req.session,
+      sessionID: req.sessionID,
+      isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : 'method_not_available',
+      user: req.user,
+      sessionsInDB: sessions.rows,
+      recentUsers: users.rows
+    });
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
 
 // 🎯 ROUTE AVEC LA BONNE TABLE user_mots
 app.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
