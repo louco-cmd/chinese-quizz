@@ -7,6 +7,7 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+
 const app = express();
 
 // -------------------- Connexion PostgreSQL --------------------
@@ -535,6 +536,44 @@ function ensureAuth(req, res, next) {
   // Sinon redirection HTML
   res.redirect('/');
 }
+
+
+
+// Test session de base
+app.get('/session-basic-test', (req, res) => {
+  console.log('=== 🧪 SESSION BASIC TEST ===');
+  console.log('Session ID:', req.sessionID);
+  console.log('Session:', req.session);
+  console.log('Cookies reçus:', req.headers.cookie);
+  console.log('Host:', req.headers.host);
+  
+  // Compter les visites
+  if (!req.session.visitCount) {
+    req.session.visitCount = 1;
+  } else {
+    req.session.visitCount++;
+  }
+  
+  req.session.lastVisit = new Date().toISOString();
+  
+  req.session.save((err) => {
+    if (err) {
+      console.error('❌ Erreur sauvegarde session:', err);
+      return res.json({ error: 'Session save failed', details: err });
+    }
+    
+    console.log('✅ Session sauvegardée');
+    
+    res.json({
+      sessionID: req.sessionID,
+      visitCount: req.session.visitCount,
+      lastVisit: req.session.lastVisit,
+      sessionData: req.session,
+      cookies: req.headers.cookie
+    });
+  });
+});
+
 
 
 // ---------------------API
