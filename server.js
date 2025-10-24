@@ -557,7 +557,7 @@ function ensureAuth(req, res, next) {
 }
 
 
-// FUUUUUUUUCK
+// Cookies
 app.get('/force-session-cookie', (req, res) => {
   console.log('=== 🚀 FORCE SESSION COOKIE ===');
   
@@ -624,68 +624,6 @@ app.get('/cookie-debug', (req, res) => {
       cookiesReceived: req.headers.cookie,
       setCookieHeaders: res.getHeaders()['set-cookie'],
       message: 'Check browser cookies and network tab'
-    });
-  });
-});
-
-// Test spécifique du cookie de session
-app.get('/cookie-test', (req, res) => {
-  console.log('=== 🍪 COOKIE TEST ===');
-  console.log('Session ID:', req.sessionID);
-  console.log('Tous les cookies:', req.headers.cookie);
-  
-  // Vérifier si notre cookie est présent
-  const hasSessionCookie = req.headers.cookie && req.headers.cookie.includes('jiayou.sid');
-  console.log('Cookie jiayou.sid présent:', hasSessionCookie);
-  
-  // SET le cookie explicitement
-  res.cookie('test_cookie', 'test_value', {
-    secure: true,
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000,
-    sameSite: 'lax',
-    domain: '.vercel.app'
-  });
-  
-  res.json({
-    sessionID: req.sessionID,
-    cookiesReceived: req.headers.cookie,
-    hasSessionCookie: hasSessionCookie,
-    message: 'Test cookie set'
-  });
-});
-
-// Test session de base
-app.get('/session-basic-test', (req, res) => {
-  console.log('=== 🧪 SESSION BASIC TEST ===');
-  console.log('Session ID:', req.sessionID);
-  console.log('Session:', req.session);
-  console.log('Cookies reçus:', req.headers.cookie);
-  console.log('Host:', req.headers.host);
-  
-  // Compter les visites
-  if (!req.session.visitCount) {
-    req.session.visitCount = 1;
-  } else {
-    req.session.visitCount++;
-  }
-  
-  req.session.lastVisit = new Date().toISOString();
-  
-  req.session.save((err) => {
-    if (err) {
-      console.error('❌ Erreur sauvegarde session:', err);
-      return res.json({ error: 'Session save failed', details: err });
-    }
-    
-    console.log('✅ Session sauvegardée');
-    
-    res.json({
-      sessionID: req.sessionID,
-      visitCount: req.session.visitCount,
-      lastVisit: req.session.lastVisit,
-      sessionData: req.session,
-      cookies: req.headers.cookie
     });
   });
 });
