@@ -3,7 +3,6 @@ const path = require("path");
 const express = require("express");
 const passport = require("passport");
 const session = require('express-session');
-const pgSession = require('connect-pg-simple')(session);
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -51,6 +50,10 @@ app.use(session({
   }
 }));
 
+app.use(passport.initialize());
+app.use(passport.session());
+
+
 // 🆕 MIDDLEWARE DE SÉCURITÉ DES SESSIONS
 app.use((req, res, next) => {
   if (req.session) {
@@ -79,9 +82,6 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(passport.initialize());
-app.use(passport.session());
-
 // 🆕 MIDDLEWARE POUR LA RÉAUTHENTIFICATION AUTOMATIQUE
 app.use(async (req, res, next) => {
   if (req.isAuthenticated() && !req.user) {
@@ -107,9 +107,6 @@ app.use(async (req, res, next) => {
   }
   next();
 });
-
-app.use(passport.initialize());
-app.use(passport.session());
 
 // -------------------- Initialisation des tables --------------------
 (async () => {
