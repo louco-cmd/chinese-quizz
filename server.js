@@ -29,6 +29,7 @@ app.set('trust proxy', 1);
 // -------------------- Session pour Vercel --------------------
 const PostgreSQLStore = require('connect-pg-simple')(session);
 
+// -------------------- Session Vercel CORRECTE --------------------
 app.use(session({
   store: new PostgreSQLStore({
     pool: pool,
@@ -38,19 +39,38 @@ app.use(session({
   }),
   secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
   name: 'jiayou.sid',
-  resave: false, // ⬅️ IMPORTANT pour Vercel
-  saveUninitialized: false,
+  resave: true, // ⬅️ CHANGER À true
+  saveUninitialized: true, // ⬅️ CHANGER À true
   rolling: true,
   cookie: {
     secure: true,
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    sameSite: 'lax',
-  },
-  genid: (req) => {
-    return require('crypto').randomBytes(32).toString('hex');
+    sameSite: 'lax'
   }
 }));
+
+// Middleware pour s'assurer que les cookies sont set
+app.use((req, res, next) => {
+  const originalEnd = res.end;
+  
+  res.end = function(chunk, encoding) {
+    // Si une session existe mais pas de cookie set, le set manuellement
+    if (req.sessionID && !res.getHeader('set-cookie')?.some(cookie => cookie.includes('jiayou.sid'))) {
+      console.log('🔄 Forcing session cookie for:', req.sessionID);
+      res.cookie('jiayou.sid', req.sessionID, {
+        secure: true,
+        httpOnly: true,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        sameSite: 'lax'
+      });
+    }
+    
+    originalEnd.call(this, chunk, encoding);
+  };
+  
+  next();
+});
 
 // -------------------- Initialisation Passport --------------------
 app.use(passport.initialize());
@@ -538,6 +558,43 @@ function ensureAuth(req, res, next) {
 
 
 // FUUUUUUUUCK
+app.get('/force-session-cookie', (req, res) => {
+  console.log('=== 🚀 FORCE SESSION COOKIE ===');
+  
+  // Forcer la régénération du cookie de session
+  req.session.regenerate((err) => {
+    if (err) {
+      console.error('❌ Regenerate error:', err);
+      return res.json({ error: 'Regenerate failed' });
+    }
+    
+    console.log('✅ Session régénérée:', req.sessionID);
+    
+    // SET le cookie manuellement
+    res.cookie('jiayou.sid', req.sessionID, {
+      secure: true,
+      httpOnly: true,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: 'lax'
+    });
+    
+    req.session.testValue = 'forced_session';
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        console.error('❌ Session save error:', saveErr);
+      }
+      
+      console.log('Headers Set-Cookie:', res.getHeaders()['set-cookie']);
+      
+      res.json({
+        message: 'Session cookie forcé',
+        sessionID: req.sessionID,
+        setCookies: res.getHeaders()['set-cookie']
+      });
+    });
+  });
+});
+
 app.get('/cookie-debug', (req, res) => {
   console.log('=== 🍪 COOKIE DEBUG ULTIME ===');
   console.log('Session ID:', req.sessionID);
