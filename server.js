@@ -31,11 +31,7 @@ app.use(session({
     createTableIfMissing: true,
     pruneSessionInterval: 60 * 60,
     errorLog: (err) => {
-      // 🔥 IGNORER SEULEMENT l'erreur "already exists" qui est normale
-      if (!err.message.includes('already exists')) {
-        console.error('❌ Erreur session store:', err);
-      }
-      // Sinon, on ne fait rien - l'erreur est normale
+      if (!err.message.includes('already exists')) console.error(err);
     }
   }),
   secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
@@ -48,13 +44,15 @@ app.use(session({
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
     sameSite: 'lax',
-    domain: process.env.NODE_ENV === 'production' ? '.chinese-quizz.onrender.com' : undefined
+    // ⚠️ SUPPRIMER la ligne domain ou utiliser sans le point
+    domain: process.env.NODE_ENV === 'production' ? 'chinese-quizz.onrender.com' : undefined
   },
   genid: (req) => {
     return require('crypto').randomBytes(32).toString('hex');
   }
 }));
 
+// -------------------- Initialisation Passport --------------------
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -568,6 +566,32 @@ function ensureAuth(req, res, next) {
 app.get('/reset-sessions', async (req, res) => {
   await pool.query('DELETE FROM session');
   res.send('Sessions resetées');
+});
+
+// Route de test manuel
+app.get('/test-login/:userId', async (req, res) => {
+  try {
+    const user = await pool.query('SELECT id, email, name FROM users WHERE id = $1', [req.params.userId]);
+    
+    if (user.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    req.login(user.rows[0], (err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Login failed', details: err });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Manual login successful',
+        user: user.rows[0],
+        session: req.session
+      });
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 
