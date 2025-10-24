@@ -22,6 +22,7 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
 // -------------------- Session PostgreSQL --------------------
+// -------------------- Session PostgreSQL --------------------
 const PostgreSQLStore = require('connect-pg-simple')(session);
 
 app.use(session({
@@ -36,14 +37,15 @@ app.use(session({
   }),
   secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
   name: 'jiayou.sid',
-  resave: false,
+  resave: true,  // ⬅️ CHANGER À true
   saveUninitialized: false,
   rolling: true,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    sameSite: 'lax',
+    sameSite: 'lax'
+    // ⚠️ PAS de domain
   },
   genid: (req) => {
     return require('crypto').randomBytes(32).toString('hex');
@@ -101,28 +103,28 @@ app.use(passport.session());
   }
 })();
 
-
-// -------------------- Serialize / Deserialize --------------------
+// -------------------- Serialize / Deserialize DEBUG --------------------
 passport.serializeUser((user, done) => {
   console.log('🔒 Sérialisation utilisateur :', user);
-  done(null, user.id); // Assurez-vous que `user.id` est défini
+  console.log('🔒 Session avant sérialisation:', this._req?.session);
+  done(null, user.id);
 });
+
 passport.deserializeUser(async (id, done) => {
   try {
     console.log('🔓 Désérialisation utilisateur avec ID :', id);
     const res = await pool.query("SELECT id, email, name FROM users WHERE id = $1", [id]);
-    if (res.rows.length === 0) return done(null, false);
+    if (res.rows.length === 0) {
+      console.log('❌ Utilisateur non trouvé en base');
+      return done(null, false);
+    }
+    console.log('✅ Utilisateur trouvé:', res.rows[0]);
     done(null, res.rows[0]);
   } catch (err) {
     console.error('❌ Erreur désérialisation utilisateur :', err);
     done(err, null);
   }
 });
-
-// Middleware pour parser le JSON
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
 
 // -------------------- Passport Google --------------------
 const Client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -535,6 +537,57 @@ function ensureAuth(req, res, next) {
 }
 
 // -------------------- FUCK
+
+// Test manuel ULTIME
+app.get('/test-passport-session', async (req, res) => {
+  try {
+    const userRes = await pool.query('SELECT * FROM users ORDER BY id LIMIT 1');
+    
+    if (userRes.rows.length === 0) {
+      return res.json({ error: 'Aucun utilisateur' });
+    }
+
+    const user = userRes.rows[0];
+    
+    console.log('🔍 AVANT req.login:');
+    console.log('- req.session:', req.session);
+    console.log('- req.session.passport:', req.session.passport);
+    
+    req.login(user, (err) => {
+      if (err) {
+        return res.json({ error: 'Login failed', details: err });
+      }
+      
+      console.log('🔍 APRÈS req.login:');
+      console.log('- req.session:', req.session);
+      console.log('- req.session.passport:', req.session.passport);
+      console.log('- req.user:', req.user);
+      console.log('- req.isAuthenticated():', req.isAuthenticated());
+      
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          return res.json({ error: 'Session save failed', details: saveErr });
+        }
+        
+        // Vérifier ce qui est vraiment sauvegardé
+        pool.query('SELECT * FROM session WHERE sid = $1', [req.sessionID])
+          .then(sessionResult => {
+            res.json({ 
+              success: true,
+              sessionInDB: sessionResult.rows[0]?.sess,
+              sessionID: req.sessionID,
+              user: req.user,
+              isAuthenticated: req.isAuthenticated()
+            });
+          });
+      });
+    });
+    
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
 // Debug complet des sessions
 app.use((req, res, next) => {
   console.log('=== SESSION DEBUG ===');
