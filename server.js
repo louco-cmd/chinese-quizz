@@ -46,7 +46,6 @@ app.use(session({
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
     sameSite: 'lax',
-    domain: '.vercel.app' // ⬅️ DOMAINE VERCEL
   },
   genid: (req) => {
     return require('crypto').randomBytes(32).toString('hex');
@@ -538,6 +537,35 @@ function ensureAuth(req, res, next) {
 }
 
 
+// FUUUUUUUUCK
+
+
+// Test spécifique du cookie de session
+app.get('/cookie-test', (req, res) => {
+  console.log('=== 🍪 COOKIE TEST ===');
+  console.log('Session ID:', req.sessionID);
+  console.log('Tous les cookies:', req.headers.cookie);
+  
+  // Vérifier si notre cookie est présent
+  const hasSessionCookie = req.headers.cookie && req.headers.cookie.includes('jiayou.sid');
+  console.log('Cookie jiayou.sid présent:', hasSessionCookie);
+  
+  // SET le cookie explicitement
+  res.cookie('test_cookie', 'test_value', {
+    secure: true,
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: 'lax',
+    domain: '.vercel.app'
+  });
+  
+  res.json({
+    sessionID: req.sessionID,
+    cookiesReceived: req.headers.cookie,
+    hasSessionCookie: hasSessionCookie,
+    message: 'Test cookie set'
+  });
+});
 
 // Test session de base
 app.get('/session-basic-test', (req, res) => {
