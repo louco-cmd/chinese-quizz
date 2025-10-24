@@ -30,45 +30,32 @@ app.set('trust proxy', 1);
 const PostgreSQLStore = require('connect-pg-simple')(session);
 
 // -------------------- Session Vercel CORRECTE --------------------
+// ✅ CORRECTION :
 app.use(session({
   store: new PostgreSQLStore({
     pool: pool,
     tableName: 'session',
     createTableIfMissing: true,
-    pruneSessionInterval: 60 * 60,
+    pruneSessionInterval: 60 * 60 // 1 heure en secondes
+    // ⬇️ SUPPRIMER le 'path' qui est pour FileStore
   }),
   secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
   name: 'jiayou.sid',
-  resave: true, // ⬅️ CHANGER À true
-  saveUninitialized: true, // ⬅️ CHANGER À true
+  resave: false, // ⬅️ CHANGER À false (PostgreSQL gère mieux)
+  saveUninitialized: false, // ⬅️ CHANGER À false
   rolling: true,
   cookie: {
-    secure: true,
+    secure: true, // ⬅️ FORCER true pour Vercel
     httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    sameSite: 'lax'
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
+    sameSite: 'lax',
   }
 }));
 
 // Middleware pour s'assurer que les cookies sont set
 app.use((req, res, next) => {
-  const originalEnd = res.end;
-  
-  res.end = function(chunk, encoding) {
-    // Si une session existe mais pas de cookie set, le set manuellement
-    if (req.sessionID && !res.getHeader('set-cookie')?.some(cookie => cookie.includes('jiayou.sid'))) {
-      console.log('🔄 Forcing session cookie for:', req.sessionID);
-      res.cookie('jiayou.sid', req.sessionID, {
-        secure: true,
-        httpOnly: true,
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-        sameSite: 'lax'
-      });
-    }
-    
-    originalEnd.call(this, chunk, encoding);
-  };
-  
+  console.log('🍪 Cookies reçus:', req.headers.cookie);
+  console.log('🔐 Session ID:', req.sessionID);
   next();
 });
 
@@ -99,6 +86,8 @@ app.use(passport.session());
         provider TEXT NOT NULL,
         provider_id TEXT UNIQUE NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        last_login TIMESTAMP  -- 🆕 COLONNE MANQUANTE
+
       )
     `);
 
@@ -116,6 +105,23 @@ app.use(passport.session());
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
+
+       // 🆕 TABLE SESSION OBLIGATOIRE POUR connect-pg-simple
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS session (
+        sid VARCHAR NOT NULL COLLATE "default",
+        sess JSON NOT NULL,
+        expire TIMESTAMP(6) NOT NULL
+      )
+    `);
+
+      await pool.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_session_expire" 
+      ON session ("expire")
+    `);
+    
+    console.log("✅ Table 'session' vérifiée ou créée.");
+
     
     console.log("✅ Tables 'mots' et 'users' vérifiées ou créées.");
   } catch (err) {
@@ -159,16 +165,15 @@ passport.use(new GoogleStrategy({
     state: true // Sécurité contre les attaques CSRF
   },
   async function(req, accessToken, refreshToken, profile, done) {
-    const transaction = await pool.connect(); // Pour les transactions
+    const transaction = await pool.connect();
     try {
       console.log('🔐 Début authentification Google');
       const { id, displayName, emails, photos } = profile;
       const email = emails[0].value;
 
-
       await transaction.query('BEGIN');
 
-      // 🎯 RECHERCHE UTILISATEUR AVEC FALLBACKS
+      // ✅ CORRIGER : Déclarer userRes avec 'let'
       let userRes = await transaction.query(
         `SELECT id, email, name, provider_id FROM users 
          WHERE provider_id = $1 OR email = $2 
@@ -185,29 +190,26 @@ passport.use(new GoogleStrategy({
         console.log('👤 Création nouveau utilisateur:', email);
         const newUser = await transaction.query(
           `INSERT INTO users (email, name, provider, provider_id, last_login) 
-          VALUES ($1, $2, 'google', $3, NOW())  // ⬅️ SUPPRIMER $4
-          RETURNING id, email, name`,
-          [email, displayName, id] // ⬅️ 3 paramètres
+           VALUES ($1, $2, 'google', $3, NOW())  -- ✅ Commentaire correct
+           RETURNING id, email, name`,
+          [email, displayName, id]
         );
         user = newUser.rows[0];
         isNewUser = true;
         
-        // 🎁 AJOUT DU MOT CADEAU DANS UNE TRANSACTION
         await addWelcomeGift(transaction, user.id);
         
       } else {
-        // 🔄 UTILISATEUR EXISTANT - MISE À JOUR
+        // 🔄 UTILISATEUR EXISTANT
         user = userRes.rows[0];
         
-        // Si l'utilisateur existait par email mais pas par provider_id, on lie les comptes
         if (user.provider_id !== id) {
           console.log('🔗 Liaison compte existant avec Google');
           await transaction.query(
-            'UPDATE users SET provider_id = $1, provider = $2, last_login = NOW() WHERE id = $3', // ⬅️ $3 au lieu de $4
+            'UPDATE users SET provider_id = $1, provider = $2, last_login = NOW() WHERE id = $3',
             [id, 'google', user.id]
           );
         } else {
-          // Mise à jour dernière connexion
           await transaction.query(
             'UPDATE users SET last_login = NOW() WHERE id = $1',
             [user.id]
