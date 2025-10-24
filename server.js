@@ -538,7 +538,38 @@ function ensureAuth(req, res, next) {
 
 
 // FUUUUUUUUCK
-
+app.get('/cookie-debug', (req, res) => {
+  console.log('=== 🍪 COOKIE DEBUG ULTIME ===');
+  console.log('Session ID:', req.sessionID);
+  console.log('Cookies REÇUS:', req.headers.cookie);
+  
+  // Test 1: Cookie de session normal
+  req.session.testValue = 'session_works';
+  req.session.save((err) => {
+    if (err) {
+      console.error('❌ Session save error:', err);
+    }
+    
+    // Test 2: Cookie manuel
+    res.cookie('manual_cookie', 'manual_value', {
+      secure: true,
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000,
+      sameSite: 'lax'
+      // Pas de domain
+    });
+    
+    // Vérifier les headers qui seront envoyés
+    console.log('Headers à envoyer:', res.getHeaders()['set-cookie']);
+    
+    res.json({
+      sessionID: req.sessionID,
+      cookiesReceived: req.headers.cookie,
+      setCookieHeaders: res.getHeaders()['set-cookie'],
+      message: 'Check browser cookies and network tab'
+    });
+  });
+});
 
 // Test spécifique du cookie de session
 app.get('/cookie-test', (req, res) => {
