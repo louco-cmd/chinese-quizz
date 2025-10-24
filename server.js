@@ -44,8 +44,6 @@ app.use(session({
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
     sameSite: 'lax',
-    // ⚠️ SUPPRIMER la ligne domain ou utiliser sans le point
-    domain: process.env.NODE_ENV === 'production' ? 'chinese-quizz.onrender.com' : undefined
   },
   genid: (req) => {
     return require('crypto').randomBytes(32).toString('hex');
@@ -535,6 +533,103 @@ function ensureAuth(req, res, next) {
   // Sinon redirection HTML
   res.redirect('/');
 }
+
+// -------------------- FUCK
+// Debug complet des sessions
+app.use((req, res, next) => {
+  console.log('=== SESSION DEBUG ===');
+  console.log('URL:', req.url);
+  console.log('Session ID:', req.sessionID);
+  console.log('req.user:', req.user);
+  console.log('req.isAuthenticated():', req.isAuthenticated ? req.isAuthenticated() : 'N/A');
+  console.log('req.session.passport:', req.session?.passport);
+  console.log('Cookies:', req.headers.cookie);
+  console.log('=====================');
+  next();
+});
+
+// Route de test manuel ULTIME
+app.get('/debug-auth', async (req, res) => {
+  try {
+    const sessions = await pool.query('SELECT * FROM session ORDER BY expire DESC LIMIT 5');
+    
+    res.json({
+      session: req.session,
+      sessionID: req.sessionID,
+      user: req.user,
+      isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
+      passport: req.session.passport,
+      cookies: req.headers.cookie,
+      sessionsInDB: sessions.rows.map(s => ({
+        sid: s.sid,
+        passport: s.sess.passport,
+        user: s.sess.user
+      }))
+    });
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
+// Test manuel de connexion
+app.get('/test-auto-login', async (req, res) => {
+  try {
+    // Prendre le premier utilisateur de la base
+    const userRes = await pool.query('SELECT * FROM users ORDER BY id LIMIT 1');
+    
+    if (userRes.rows.length === 0) {
+      return res.json({ error: 'Aucun utilisateur en base' });
+    }
+
+    const user = userRes.rows[0];
+    
+    req.login(user, (err) => {
+      if (err) {
+        return res.json({ error: 'Login failed', details: err });
+      }
+      
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          return res.json({ error: 'Session save failed', details: saveErr });
+        }
+        
+        res.json({ 
+          success: true, 
+          message: 'Auto-login réussi',
+          user: user,
+          sessionID: req.sessionID
+        });
+      });
+    });
+    
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
+// Route nuclear - À utiliser en dernier recours
+app.get('/nuclear-reset', async (req, res) => {
+  try {
+    await pool.query('DROP TABLE IF EXISTS session CASCADE');
+    await pool.query('DELETE FROM user_sessions WHERE 1=1');
+    
+    // Recréer la table session
+    const store = new PostgreSQLStore({
+      pool: pool,
+      tableName: 'session',
+      createTableIfMissing: true
+    });
+    
+    res.send(`
+      <h1>🚀 RESET COMPLET</h1>
+      <p>Tables sessions resetées</p>
+      <a href="/test-auto-login">Test auto-login</a> | 
+      <a href="/debug-auth">Debug auth</a>
+    `);
+  } catch (err) {
+    res.send(`Error: ${err.message}`);
+  }
+});
 
 // ---------------------API
 
