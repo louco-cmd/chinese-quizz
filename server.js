@@ -39,8 +39,8 @@ app.use(session({
   }),
   secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
   name: 'jiayou.sid',
-  resave: false, // ⬅️ CHANGER À true
-  saveUninitialized: false, // ⬅️ CHANGER À true
+  resave: true, // ⬅️ CHANGER À true
+  saveUninitialized: true, // ⬅️ CHANGER À true
   rolling: true,
   cookie: {
     secure: true,
@@ -558,6 +558,43 @@ function ensureAuth(req, res, next) {
 
 
 // Cookies
+// Test de durée réelle de session
+app.get('/session-timeout-test', (req, res) => {
+  console.log('=== ⏰ SESSION TIMEOUT TEST ===');
+  console.log('Session ID:', req.sessionID);
+  console.log('Session data:', req.session);
+  
+  if (!req.session.testStart) {
+    req.session.testStart = new Date().toISOString();
+    req.session.accessCount = 0;
+    console.log('🆕 Nouvelle session créée');
+  }
+  
+  req.session.accessCount++;
+  req.session.lastAccess = new Date().toISOString();
+  
+  const sessionAge = Math.floor((new Date() - new Date(req.session.testStart)) / 1000);
+  
+  req.session.save((err) => {
+    if (err) {
+      console.error('❌ Session save error:', err);
+      return res.json({ error: 'Session save failed' });
+    }
+    
+    console.log(`✅ Session sauvegardée (âge: ${sessionAge}s, accès: ${req.session.accessCount})`);
+    
+    res.json({
+      sessionID: req.sessionID,
+      sessionAge: sessionAge + ' seconds',
+      accessCount: req.session.accessCount,
+      testStart: req.session.testStart,
+      lastAccess: req.session.lastAccess,
+      user: req.user,
+      isAuthenticated: req.isAuthenticated()
+    });
+  });
+});
+
 app.get('/force-session-cookie', (req, res) => {
   console.log('=== 🚀 FORCE SESSION COOKIE ===');
   
