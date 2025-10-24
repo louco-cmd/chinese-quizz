@@ -108,6 +108,9 @@ app.use(async (req, res, next) => {
   next();
 });
 
+app.use(passport.initialize());
+app.use(passport.session());
+
 // -------------------- Initialisation des tables --------------------
 (async () => {
   try {
