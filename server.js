@@ -1,4 +1,3 @@
-
 const { Pool } = require("pg");
 const path = require("path");
 const express = require("express");
@@ -24,14 +23,90 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
 // -------------------- Session PostgreSQL --------------------
+const PostgreSQLStore = require('connect-pg-simple')(session);
+
 app.use(session({
-  store: new pgSession({ pool }),
-  secret: "keyboard cat",
+  store: new PostgreSQLStore({
+    pool: pool,
+    tableName: 'user_sessions', // Table dédiée pour les sessions
+    createTableIfMissing: true, // Crée la table si elle n'existe pas
+    pruneSessionInterval: 60 * 60, // Nettoyage toutes les heures (3600 secondes)
+    errorLog: console.error // Log des erreurs de session
+  }),
+  secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
+  name: 'jiayou.sid', // Nom personnalisé du cookie
   resave: false,
   saveUninitialized: false,
+  rolling: true, // ← IMPORTANT: Renouvelle le cookie à chaque requête
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // HTTPS en production
+    httpOnly: true, // Empêche l'accès via JavaScript
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours (en millisecondes)
+    sameSite: 'lax', // Protection CSRF
+    domain: process.env.NODE_ENV === 'production' ? '.chinese-quizz.onrender.com' : undefined
+  },
+  // 🆕 Configuration supplémentaire pour la stabilité
+  genid: (req) => {
+    return require('crypto').randomBytes(32).toString('hex'); // ID de session sécurisé
+  }
 }));
+
+// 🆕 MIDDLEWARE DE SÉCURITÉ DES SESSIONS
+app.use((req, res, next) => {
+  if (req.session) {
+    // Initialiser le compteur d'activité
+    if (!req.session.lastActivity) {
+      req.session.lastActivity = Date.now();
+    }
+    
+    // Vérifier l'inactivité (24h max)
+    const inactiveTime = Date.now() - req.session.lastActivity;
+    const maxInactiveTime = 24 * 60 * 60 * 1000; // 24 heures
+    
+    if (inactiveTime > maxInactiveTime && req.isAuthenticated()) {
+      console.log('🔐 Session expirée par inactivité');
+      return req.logout((err) => {
+        if (err) console.error('Erreur déconnexion:', err);
+        res.redirect('/login?error=session_expired');
+      });
+    }
+    
+    // Mettre à jour l'activité à chaque requête authentifiée
+    if (req.isAuthenticated()) {
+      req.session.lastActivity = Date.now();
+    }
+  }
+  next();
+});
+
 app.use(passport.initialize());
 app.use(passport.session());
+
+// 🆕 MIDDLEWARE POUR LA RÉAUTHENTIFICATION AUTOMATIQUE
+app.use(async (req, res, next) => {
+  if (req.isAuthenticated() && !req.user) {
+    try {
+      // Tentative de récupération de l'utilisateur depuis la base
+      const userRes = await pool.query(
+        'SELECT id, email, name, picture FROM users WHERE id = $1',
+        [req.session.passport.user]
+      );
+      
+      if (userRes.rows.length > 0) {
+        req.user = userRes.rows[0];
+        console.log('🔄 Utilisateur récupéré depuis la base');
+      } else {
+        // Utilisateur supprimé de la base
+        console.log('❌ Utilisateur non trouvé en base, déconnexion');
+        req.logout();
+        return res.redirect('/login?error=user_not_found');
+      }
+    } catch (error) {
+      console.error('Erreur récupération utilisateur:', error);
+    }
+  }
+  next();
+});
 
 // -------------------- Initialisation des tables --------------------
 (async () => {
@@ -126,157 +201,338 @@ function ensureAuth(req, res, next) {
 }
 
 // -------------------- Passport Google --------------------
+const Client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// 🔥 CONFIGURATION AMÉLIORÉE DE PASSPORT
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "https://chinese-quizz.onrender.com/auth/google/callback"
+    callbackURL: "https://chinese-quizz.onrender.com/auth/google/callback",
+    passReqToCallback: true, // ← IMPORTANT pour accéder à req
+    scope: ['profile', 'email'],
+    state: true // Sécurité contre les attaques CSRF
   },
-  async function(accessToken, refreshToken, profile, done) {
+  async function(req, accessToken, refreshToken, profile, done) {
+    const transaction = await pool.connect(); // Pour les transactions
     try {
-      const { id, displayName, emails } = profile;
+      console.log('🔐 Début authentification Google');
+      const { id, displayName, emails, photos } = profile;
       const email = emails[0].value;
+      const picture = photos && photos[0] ? photos[0].value : null;
 
-      let userRes = await pool.query("SELECT * FROM users WHERE provider_id=$1", [id]);
+      await transaction.query('BEGIN');
+
+      // 🎯 RECHERCHE UTILISATEUR AVEC FALLBACKS
+      let userRes = await transaction.query(
+        `SELECT id, email, name, provider_id FROM users 
+         WHERE provider_id = $1 OR email = $2 
+         ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END 
+         LIMIT 1`,
+        [id, email]
+      );
+
       let isNewUser = false;
-      
-      if (userRes.rows.length === 0) {
-        // 🎯 INSERT et RÉCUPÈRE l'ID généré
-        const newUser = await pool.query(
-          "INSERT INTO users (email, name, provider, provider_id) VALUES ($1,$2,'google',$3) RETURNING id",
-          [email, displayName, id]
-        );
-        userRes = newUser;
-        isNewUser = true;
-      }
+      let user;
 
-      // 🎯 AJOUT DU CADEAU POUR LES NOUVEAUX UTILISATEURS
-      if (isNewUser) {
-        console.log('🎁 Ajout du mot cadeau "加油" pour le nouvel utilisateur');
+      if (userRes.rows.length === 0) {
+        // 🆕 NOUVEL UTILISATEUR
+        console.log('👤 Création nouveau utilisateur:', email);
+        const newUser = await transaction.query(
+          `INSERT INTO users (email, name, provider, provider_id, picture, last_login) 
+           VALUES ($1, $2, 'google', $3, $4, NOW()) 
+           RETURNING id, email, name, picture`,
+          [email, displayName, id, picture]
+        );
+        user = newUser.rows[0];
+        isNewUser = true;
         
-        try {
-          // 1. Cherche le mot "加油" dans la table mots
-          const motRes = await pool.query(
-            "SELECT id FROM mots WHERE chinese = '加油'"
+        // 🎁 AJOUT DU MOT CADEAU DANS UNE TRANSACTION
+        await addWelcomeGift(transaction, user.id);
+        
+      } else {
+        // 🔄 UTILISATEUR EXISTANT - MISE À JOUR
+        user = userRes.rows[0];
+        
+        // Si l'utilisateur existait par email mais pas par provider_id, on lie les comptes
+        if (user.provider_id !== id) {
+          console.log('🔗 Liaison compte existant avec Google');
+          await transaction.query(
+            'UPDATE users SET provider_id = $1, provider = $2, picture = $3, last_login = NOW() WHERE id = $4',
+            [id, 'google', picture, user.id]
           );
-          
-          if (motRes.rows.length > 0) {
-            const motId = motRes.rows[0].id;
-            const userId = userRes.rows[0].id;
-            
-            // 2. Ajoute la relation dans user_mots
-            await pool.query(
-              "INSERT INTO user_mots (user_id, mot_id) VALUES ($1, $2)",
-              [userId, motId]
-            );
-            
-            console.log('✅ Mot "加油" ajouté à la collection du nouvel utilisateur');
-          } else {
-            console.log('⚠️ Mot "加油" non trouvé dans la table mots');
-          }
-        } catch (giftError) {
-          console.error('❌ Erreur ajout mot cadeau:', giftError);
-          // On continue même si l'ajout du cadeau échoue
+        } else {
+          // Mise à jour dernière connexion
+          await transaction.query(
+            'UPDATE users SET last_login = NOW(), picture = $1 WHERE id = $2',
+            [picture, user.id]
+          );
         }
       }
 
-      // 🎯 Utilise l'ID de la base, pas l'ID Google
-      const user = userRes.rows[0];
+      await transaction.query('COMMIT');
+      
+      console.log('✅ Authentification réussie pour:', user.email);
       done(null, { 
         id: user.id,
         email: user.email, 
-        name: user.name 
+        name: user.name,
+        picture: user.picture,
+        isNewUser: isNewUser
       });
+
     } catch (err) {
-      console.error('❌ Passport error:', err);
-      done(err, null);
+      await transaction.query('ROLLBACK');
+      console.error('❌ Erreur Passport Google:', err);
+      
+      // Erreur plus spécifique
+      const errorMessage = err.code === '23505' ? 
+        'Un compte avec cet email existe déjà' : 
+        'Erreur de base de données';
+      
+      done(new Error(errorMessage), null);
+    } finally {
+      transaction.release();
     }
   }
 ));
 
-app.get("/auth/google", passport.authenticate("google", { scope: ["profile","email"] }));
-
-app.get("/auth/google/callback",
-    passport.authenticate("google", { failureRedirect: "/" }),
-    (req, res) => {
-        const returnTo = req.session.returnTo || '/dashboard';
-        delete req.session.returnTo;
-        res.redirect(returnTo);
+// 🎁 FONCTION POUR LE MOT CADEAU
+async function addWelcomeGift(transaction, userId) {
+  try {
+    console.log('🎁 Recherche du mot cadeau "加油"');
+    
+    const motRes = await transaction.query(
+      "SELECT id, chinese, pinyin, english FROM mots WHERE chinese = '加油'"
+    );
+    
+    if (motRes.rows.length > 0) {
+      const mot = motRes.rows[0];
+      console.log('✅ Mot cadeau trouvé:', mot);
+      
+      await transaction.query(
+        `INSERT INTO user_mots (user_id, mot_id, mastered, review_count, next_review) 
+         VALUES ($1, $2, false, 0, NOW() + INTERVAL '1 day')`,
+        [userId, mot.id]
+      );
+      
+      console.log('🎁 Mot "加油" ajouté à la collection du nouvel utilisateur');
+      
+      // 🆕 AJOUT DE QUELQUES MOTS SUPPLÉMENTAIRES POUR COMMENCER
+      await addStarterWords(transaction, userId);
+      
+    } else {
+      console.warn('⚠️ Mot "加油" non trouvé dans la base');
     }
+  } catch (giftError) {
+    console.error('❌ Erreur ajout mot cadeau:', giftError);
+    throw giftError; // Propager l'erreur pour rollback
+  }
+}
+
+// 🆕 MOTS DE DÉMARAGE SUPPLÉMENTAIRES
+async function addStarterWords(transaction, userId) {
+  try {
+    const starterWords = ['你好', '谢谢', '我', '你', '是'];
+    
+    for (const word of starterWords) {
+      const wordRes = await transaction.query(
+        "SELECT id FROM mots WHERE chinese = $1",
+        [word]
+      );
+      
+      if (wordRes.rows.length > 0) {
+        await transaction.query(
+          `INSERT INTO user_mots (user_id, mot_id, mastered, review_count, next_review) 
+           VALUES ($1, $2, false, 0, NOW() + INTERVAL '1 day')`,
+          [userId, wordRes.rows[0].id]
+        );
+      }
+    }
+    
+    console.log(`🎁 ${starterWords.length} mots de démarrage ajoutés`);
+  } catch (error) {
+    console.error('❌ Erreur mots démarrage:', error);
+    // Ne pas propager pour ne pas bloquer l'inscription
+  }
+}
+
+// 🔥 ROUTES AMÉLIORÉES
+app.get("/auth/google", 
+  (req, res, next) => {
+    // Sauvegarde l'URL de retour
+    if (req.query.returnTo) {
+      req.session.returnTo = req.query.returnTo;
+    }
+    next();
+  },
+  passport.authenticate("google", { 
+    scope: ["profile", "email"],
+    prompt: "select_account" // ← Laisse l'utilisateur choisir son compte
+  })
 );
 
+app.get("/auth/google/callback",
+  (req, res, next) => {
+    console.log('🔄 Callback Google reçu');
+    next();
+  },
+  passport.authenticate("google", { 
+    failureRedirect: "/login?error=auth_failed",
+    failureMessage: true // ← Passe le message d'erreur
+  }),
+  (req, res) => {
+    console.log('✅ Connexion réussie via callback');
+    
+    const returnTo = req.session.returnTo || '/dashboard';
+    delete req.session.returnTo;
+    
+    // 🆕 REDIRECTION SPÉCIALE POUR LES NOUVEAUX UTILISATEURS
+    if (req.user.isNewUser) {
+      console.log('🎉 Nouvel utilisateur, redirection vers welcome');
+      return res.redirect('/welcome');
+    }
+    
+    res.redirect(returnTo);
+  }
+);
+
+// 🔥 ONE-TAP AMÉLIORÉ AVEC GESTION D'ERREUR ROBUSTE
 app.post("/auth/google/one-tap", async (req, res) => {
+  const transaction = await pool.connect();
+  
   try {
     const { credential } = req.body;
-    console.log('🔐 Google One Tap token received');
+    console.log('🔐 Google One Tap token reçu');
     
-    // Vérifier le token Google
-    const ticket = await client.verifyIdToken({
+    if (!credential) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Token manquant' 
+      });
+    }
+
+    // 🎯 VÉRIFICATION AVEC TIMEOUT
+    const verificationPromise = Client.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID
     });
-    
+
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout vérification token')), 5000)
+    );
+
+    const ticket = await Promise.race([verificationPromise, timeoutPromise]);
     const payload = ticket.getPayload();
+    
     const { sub: googleId, name, email, picture } = payload;
-    console.log('👤 Google user:', { googleId, name, email });
+    console.log('👤 Utilisateur Google:', { googleId, name, email });
 
-    // Même logique que ton OAuth existant
-    let userRes = await pool.query("SELECT * FROM users WHERE provider_id = $1", [googleId]);
+    await transaction.query('BEGIN');
+
+    // 🎯 MÊME LOGIQUE QUE PASSPORT (réutilisable)
+    let userRes = await transaction.query(
+      `SELECT id, email, name, provider_id FROM users 
+       WHERE provider_id = $1 OR email = $2 
+       ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END 
+       LIMIT 1`,
+      [googleId, email]
+    );
+
     let isNewUser = false;
-    
+    let user;
+
     if (userRes.rows.length === 0) {
-      console.log('📝 Creating new user');
-      userRes = await pool.query(
-        `INSERT INTO users (email, name, provider, provider_id) 
-         VALUES ($1, $2, 'google', $3) 
-         RETURNING id, email, name`,
-        [email, name, googleId]
+      // Nouvel utilisateur
+      userRes = await transaction.query(
+        `INSERT INTO users (email, name, provider, provider_id, picture, last_login) 
+         VALUES ($1, $2, 'google', $3, $4, NOW()) 
+         RETURNING id, email, name, picture`,
+        [email, name, googleId, picture]
       );
+      user = userRes.rows[0];
       isNewUser = true;
+      
+      await addWelcomeGift(transaction, user.id);
+    } else {
+      // Utilisateur existant
+      user = userRes.rows[0];
+      await transaction.query(
+        'UPDATE users SET last_login = NOW(), picture = $1 WHERE id = $2',
+        [picture, user.id]
+      );
     }
 
-    const user = userRes.rows[0];
-    console.log('✅ User found/created:', user);
-    
-    // 🎯 AJOUT DU CADEAU POUR LES NOUVEAUX UTILISATEURS (one-tap aussi)
-    if (isNewUser) {
-      console.log('🎁 Ajout du mot cadeau "加油" (one-tap)');
-      
-      try {
-        const motRes = await pool.query(
-          "SELECT id FROM mots WHERE chinese = '加油'"
-        );
-        
-        if (motRes.rows.length > 0) {
-          const motId = motRes.rows[0].id;
-          await pool.query(
-            "INSERT INTO user_mots (user_id, mot_id) VALUES ($1, $2)",
-            [user.id, motId]
-          );
-          console.log('✅ Mot "加油" ajouté via one-tap');
-        }
-      } catch (giftError) {
-        console.error('❌ Erreur ajout mot cadeau one-tap:', giftError);
-      }
-    }
-    
-    // Connecte l'utilisateur avec Passport
+    await transaction.query('COMMIT');
+
+    // 🎯 CONNEXION SESSION
     req.login(user, (err) => {
       if (err) {
-        console.error('❌ Login error:', err);
-        return res.status(500).json({ error: 'Login failed' });
+        console.error('❌ Erreur login session:', err);
+        return res.status(500).json({ 
+          success: false, 
+          error: 'Erreur création session' 
+        });
       }
-      console.log('🎯 User logged in successfully');
+      
+      console.log('✅ One Tap réussi pour:', user.email);
       res.json({ 
         success: true, 
-        redirect: '/dashboard',
-        user: { name: user.name } 
+        redirect: isNewUser ? '/welcome' : '/dashboard',
+        user: { 
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          isNewUser: isNewUser
+        }
       });
     });
 
   } catch (err) {
-    console.error('❌ Google One Tap error:', err);
-    res.status(500).json({ error: 'Authentication failed' });
+    await transaction.query('ROLLBACK');
+    
+    console.error('❌ Erreur Google One Tap:', err);
+    
+    let errorMessage = 'Erreur authentification';
+    let statusCode = 500;
+    
+    if (err.message.includes('Timeout')) {
+      errorMessage = 'Temps de vérification dépassé';
+    } else if (err.message.includes('Token used too late')) {
+      errorMessage = 'Token expiré';
+      statusCode = 401;
+    } else if (err.code === '23505') {
+      errorMessage = 'Un compte avec cet email existe déjà';
+      statusCode = 409;
+    }
+    
+    res.status(statusCode).json({ 
+      success: false, 
+      error: errorMessage 
+    });
+  } finally {
+    transaction.release();
   }
+});
+
+// 🆕 ROUTE DE DÉCONNEXION AMÉLIORÉE
+app.post('/auth/logout', (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      console.error('❌ Erreur déconnexion:', err);
+    }
+    req.session.destroy(() => {
+      res.json({ success: true });
+    });
+  });
+});
+
+// 🆕 MIDDLEWARE DE VÉRIFICATION DE SESSION
+app.use((req, res, next) => {
+  if (req.isAuthenticated()) {
+    // Mettre à jour le last_activity
+    req.session.lastActivity = Date.now();
+  }
+  next();
 });
 
 // -------------------- Serialize / Deserialize --------------------
@@ -732,8 +988,19 @@ app.get('/quiz', ensureAuth, (req, res) => {
 
 // Middleware de simulation d'utilisateur pour les tests
 app.use((req, res, next) => {
-  req.user = { id: 1, name: "Test User", email: "test@example.com" }; // Simulez un utilisateur
-  next();
+  if (req.session && req.session.userId && !req.user) {
+    // Tentative de récupération de l'utilisateur
+    User.findById(req.session.userId)
+      .then(user => {
+        if (user) {
+          req.user = user;
+        }
+        next();
+      })
+      .catch(() => next());
+  } else {
+    next();
+  }
 });
 
 // -------------------- Lancer serveur --------------------

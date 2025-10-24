@@ -23,7 +23,7 @@
   </span>
 </div>
 
-<%- include('partials/navbar', {currentPage: 'collection'}) %>
+<%- include('partials/navbar', {currentPage: 'quiz-pinyin'}) %>
 
 <div class="quiz-container container my-4 p-4 bg-light rounded shadow-sm col-12 col-md-10 col-lg-6">
 
@@ -117,7 +117,7 @@ function showQuizWord() {
   enableSubmitButton(); // 🔥 RÉACTIVER LE BOUTON POUR LA NOUVELLE QUESTION
   
   currentWord = quizWords[quizIdx];
-  quizQuestion.textContent = `Comment dire "${currentWord.english}" en pinyin ?`;
+  quizQuestion.textContent = `How to say "${currentWord.english}" in pinyin ?`;
 
   const answer = currentWord.pinyin; 
   const answerParts = answer.split(' ');

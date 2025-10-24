@@ -21,13 +21,15 @@
       <h1 class="mb-3">加油！</h1>
       <p class="text-muted mb-4">Apprends et révise ton vocabulaire chinois facilement.</p>
 
-      <!-- Google One Tap CORRIGÉ -->
+      <!-- Google One Tap AMÉLIORÉ -->
       <div id="g_id_onload"
            data-client_id="<%= process.env.GOOGLE_CLIENT_ID %>"
            data-context="signin"
            data-ux_mode="popup"
-           data-callback="handleGoogleSignIn"  <!-- ← AJOUTÉ -->
-           data-auto_prompt="true">  <!-- ← true pour meilleure UX -->
+           data-callback="handleGoogleSignIn"
+           data-auto_prompt="true"
+           data-cancel_on_tap_outside="false" <!-- Évite les fermetures accidentelles -->
+           data-itp_support="true"> <!-- Support amélioré pour Safari -->
       </div>
 
       <div class="g_id_signin" 
@@ -40,14 +42,22 @@
            data-width="350">
       </div>
 
-      <!-- Fallback pour navigateurs sans One Tap -->
+      <!-- Fallback amélioré -->
       <div id="fallback-auth" class="mt-3" style="display: none;">
-        <a href="/auth/google" class="btn btn-outline-primary">
-          Se connecter avec Google (méthode alternative)
-        </a>
+        <button onclick="initiateManualAuth()" class="btn btn-outline-primary w-100">
+          <i class="bi bi-google me-2"></i>Se connecter avec Google
+        </button>
         <p class="text-muted small mt-2">
-          Si le bouton ci-dessus ne fonctionne pas
+          Méthode alternative plus stable
         </p>
+      </div>
+
+      <!-- État de connexion -->
+      <div id="connection-status" class="mt-3" style="display: none;">
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          <span id="status-message">Connexion en cours...</span>
+        </div>
       </div>
 
       <div class="mt-3">
@@ -59,52 +69,167 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/js/global.js"></script>
   <script>
+    // Variables globales pour la gestion de connexion
+    let authRetryCount = 0;
+    const MAX_RETRIES = 3;
+    let isAuthenticating = false;
+
     // Service Worker pour PWA
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js');
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('✅ Service Worker enregistré');
+        })
+        .catch(err => {
+          console.warn('⚠️ Service Worker non disponible');
+        });
     }
 
-    // Fallback si Google One Tap ne charge pas
+    // 🔥 GESTION AMÉLIORÉE DU ONE TAP
+    function handleGoogleSignIn(response) {
+      if (isAuthenticating) {
+        console.log('🔁 Authentification déjà en cours...');
+        return;
+      }
+
+      isAuthenticating = true;
+      showStatus('Connexion en cours...', 'info');
+      
+      console.log('🔐 Tentative de connexion Google One Tap');
+
+      // Tentative avec timeout
+      const authPromise = fetch('/auth/google/one-tap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential })
+      });
+
+      // Timeout de sécurité
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 10000)
+      );
+
+      Promise.race([authPromise, timeoutPromise])
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then(data => {
+          if (data.success) {
+            console.log('✅ Connexion réussie');
+            showStatus('Connexion réussie! Redirection...', 'success');
+            setTimeout(() => {
+              window.location.href = data.redirect || '/dashboard';
+            }, 1000);
+          } else {
+            throw new Error(data.error || 'Erreur inconnue');
+          }
+        })
+        .catch(err => {
+          console.error('❌ Erreur connexion:', err);
+          handleAuthError(err);
+        })
+        .finally(() => {
+          isAuthenticating = false;
+        });
+    }
+
+    // 🔥 GESTION ROBUSTE DES ERREURS
+    function handleAuthError(error) {
+      authRetryCount++;
+      
+      let message = 'Erreur de connexion';
+      
+      if (error.message.includes('Timeout')) {
+        message = 'Temps de connexion dépassé';
+      } else if (error.message.includes('network') || !navigator.onLine) {
+        message = 'Problème de réseau';
+      } else {
+        message = 'Service temporairement indisponible';
+      }
+
+      showStatus(`${message} (${authRetryCount}/${MAX_RETRIES})`, 'warning');
+
+      if (authRetryCount < MAX_RETRIES) {
+        setTimeout(() => {
+          showStatus('Nouvelle tentative...', 'info');
+          // Réinitialiser One Tap
+          if (window.google && window.google.accounts) {
+            window.google.accounts.id.prompt();
+          }
+        }, 2000);
+      } else {
+        showFallbackAuth();
+      }
+    }
+
+    // 🔥 AUTHENTIFICATION MANUELLE ALTERNATIVE
+    function initiateManualAuth() {
+      showStatus('Redirection vers Google...', 'info');
+      
+      // Utiliser l'URL classique OAuth2 (plus stable)
+      window.location.href = '/auth/google?fallback=true';
+    }
+
+    // 🔥 FALLBACK AUTOMATIQUE
+    function showFallbackAuth() {
+      document.getElementById('fallback-auth').style.display = 'block';
+      showStatus('Utilisez la méthode alternative', 'warning');
+    }
+
+    function showStatus(message, type) {
+      const statusDiv = document.getElementById('connection-status');
+      const messageSpan = document.getElementById('status-message');
+      
+      if (statusDiv && messageSpan) {
+        statusDiv.style.display = 'block';
+        messageSpan.textContent = message;
+        
+        // Mise à jour des classes Bootstrap
+        statusDiv.className = 'mt-3 alert alert-' + 
+          (type === 'success' ? 'success' : 
+           type === 'warning' ? 'warning' : 
+           type === 'error' ? 'danger' : 'info');
+      }
+    }
+
+    // 🔥 DÉTECTION DE CONNEXION RÉSEAU
+    window.addEventListener('online', () => {
+      console.log('🌐 Connexion rétablie');
+      showStatus('Connexion rétablie', 'success');
+      setTimeout(() => {
+        document.getElementById('connection-status').style.display = 'none';
+      }, 3000);
+    });
+
+    window.addEventListener('offline', () => {
+      console.log('📵 Hors ligne');
+      showStatus('Vous êtes hors ligne', 'warning');
+    });
+
+    // 🔥 FALLBACK SI GOOGLE ONE TAP NE CHARGE PAS
     setTimeout(() => {
       if (!window.google) {
-        document.getElementById('fallback-auth').style.display = 'block';
+        console.warn('⚠️ Google One Tap non chargé');
+        showFallbackAuth();
       }
-    }, 3000);
+    }, 5000);
 
-    // Gestion du callback Google One Tap CORRIGÉE
-    function handleGoogleSignIn(response) {
-      console.log('Google One Tap response received');
-      
-      // 🔥 CORRECTION : Utilise la route ONE-TAP, pas callback
-      fetch('/auth/google/one-tap', {  // ← CHANGÉ ICI
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ credential: response.credential })
-      })
-      .then(res => {
-        if (!res.ok) throw new Error('HTTP error');
-        return res.json();
-      })
-      .then(data => {
-        if (data.success) {
-          console.log('✅ Login successful, redirecting...');
-          window.location.href = data.redirect;
-        } else {
-          console.error('❌ Login failed:', data.error);
-          alert('Erreur de connexion: ' + (data.error || 'Unknown error'));
+    // 🔥 RE-INITIALISATION PERIODIQUE POUR CONNEXIONS INSTABLES
+    setInterval(() => {
+      if (!isAuthenticating && window.google && window.google.accounts) {
+        // Vérifier si l'utilisateur est toujours sur la page de login
+        if (window.location.pathname === '/login' || window.location.pathname === '/') {
+          console.log('🔄 Réinitialisation One Tap');
+          window.google.accounts.id.prompt();
         }
-      })
-      .catch(err => {
-        console.error('Login error:', err);
-        alert('Erreur de connexion au serveur');
-      });
-    }
+      }
+    }, 30000); // Toutes les 30 secondes
 
     // Détection PWA pour optimisation
     if (window.matchMedia('(display-mode: standalone)').matches) {
-      console.log('📱 PWA mode detected');
+      console.log('📱 Mode PWA détecté - optimisation connexion');
+      // En PWA, on peut être plus agressif sur les reconnexions
     }
   </script>
 </body>

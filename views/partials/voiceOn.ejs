@@ -1,14 +1,25 @@
 <style>
-/* Caractère chinois cliquable */
-.chinese-clickable, .chinese-character {
+/* Caractère chinois cliquable - Container principal */
+.chinese-clickable {
   cursor: pointer;
   user-select: none;
   transition: all 0.2s ease;
 }
 
-.chinese-clickable:hover, .chinese-character:hover {
+.chinese-clickable:hover {
   color: #0d6efd !important;
   transform: scale(1.05);
+}
+
+/* Caractères individuels - Hover uniquement (pas de click audio) */
+.chinese-character {
+  cursor: help;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.chinese-character:hover {
+  background-color: rgba(13, 110, 253, 0.1);
 }
 
 /* Bouton audio - Picto uniquement */
@@ -28,7 +39,7 @@
   transform: scale(1.1);
   background-color: #0d6efd;
   color: white;
-  box-shadow: 0 2px 8px rgba(25, 135, 84, 0.3);
+  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
 }
 
 .btn-audio:disabled {
@@ -38,7 +49,6 @@
 
 /* Animation pendant la lecture */
 .chinese-clickable.playing,
-.chinese-character.playing,
 .btn-audio.playing {
   animation: pulse 1s infinite;
   color: #198754 !important;
@@ -109,7 +119,7 @@ function initChineseAudio() {
   
   // Gestion des clics unifiée
   document.addEventListener('click', function(e) {
-    // Boutons audio
+    // Boutons audio dédiés
     if (e.target.closest('.btn-audio')) {
       const button = e.target.closest('.btn-audio');
       const text = button.getAttribute('data-text');
@@ -119,7 +129,7 @@ function initChineseAudio() {
       
       speakChineseOptimized(text, button);
       
-      // Réactiver le bouton après un délai (sécurité)
+      // Réactiver le bouton après un délai
       setTimeout(() => {
         button.disabled = false;
         button.innerHTML = '<i class="bi bi-volume-up"></i>';
@@ -127,19 +137,12 @@ function initChineseAudio() {
       return;
     }
     
-    // Caractères chinois cliquables
+    // Container chinois cliquable (mais PAS les caractères individuels)
     const chineseElement = e.target.closest('.chinese-clickable');
-    if (chineseElement) {
+    if (chineseElement && !e.target.classList.contains('chinese-character')) {
       const chineseText = chineseElement.getAttribute('data-chinese-text') || chineseElement.textContent;
       speakChineseOptimized(chineseText, chineseElement);
       return;
-    }
-    
-    // Anciens caractères chinois (compatibilité)
-    if (e.target.classList.contains('chinese-character') && 
-        e.target.closest('.character-card')) {
-      const character = e.target.textContent;
-      speakChineseOptimized(character, e.target);
     }
   });
 }
