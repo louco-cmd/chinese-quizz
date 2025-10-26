@@ -14,54 +14,145 @@
   
   <!-- Google One Tap -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  
+  <style>
+    .login-container {
+      min-height: 100vh;
+      background-color: #f8f9fa;
+    }
+    .login-card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+    .btn-social {
+      padding: 14px 20px;
+      font-weight: 500;
+      border: 1px solid #dee2e6;
+      transition: all 0.2s ease;
+      height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-social:hover {
+      background-color: #0d6efd;
+      border-color: #adb5bd;
+    }
+    .btn-facebook {
+      background-color: #f8f9fa;
+      color: #6c757d;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    .app-title {
+      font-size: 3rem;
+      font-weight: bold;
+      color: #0d6efd;
+      margin-bottom: 0.5rem;
+    }
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 2rem 0;
+    }
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .divider-text {
+      padding: 0 1rem;
+      color: #6c757d;
+      font-size: 0.875rem;
+      background: white;
+    }
+    .social-icon {
+      width: 20px;
+      margin-right: 12px;
+    }
+    @media (max-width: 576px) {
+      .login-card {
+        margin: 1rem;
+        padding: 2rem 1.5rem !important;
+      }
+      .app-title {
+        font-size: 2.5rem;
+      }
+      .btn-social {
+        padding: 12px 16px;
+        height: 50px;
+      }
+    }
+  </style>
 </head>
-<body class="bg-light d-flex align-items-center justify-content-center vh-100">
-  <div class="container text-center">
-    <div class="card shadow p-4" style="max-width: 400px; margin: auto;">
-      <h1 class="mb-3">加油！</h1>
-      <p class="text-muted mb-4">Apprends et révise ton vocabulaire chinois facilement.</p>
+<body>
+  <div class="login-container d-flex align-items-center justify-content-center py-4">
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+          <div class="card login-card p-4 p-md-5">
+            <!-- En-tête -->
+            <div class="text-center mb-4">
+              <h1 class="app-title">加油!</h1>
+              <p class="text-muted mb-0">Learn chinese in the real world. Collect your words, test yourself, challenge your friends and much more.</p>
+            </div>
 
-      <!-- Google One Tap AMÉLIORÉ -->
-      <div id="g_id_onload"
-           data-client_id="<%= process.env.GOOGLE_CLIENT_ID %>"
-           data-context="signin"
-           data-ux_mode="popup"
-           data-callback="handleGoogleSignIn"
-           data-auto_prompt="true"
-           data-cancel_on_tap_outside="false"
-           data-itp_support="true"> <!-- Support amélioré pour Safari -->
-      </div>
+            <!-- Boutons de connexion -->
+            <div class="d-grid gap-3">
+              <!-- Bouton Google -->
+              <button onclick="initiateManualAuth()" class="btn btn-social btn-outline-primary d-flex align-items-center justify-content-center">
+                <i class="bi bi-google social-icon"></i>
+                <span>Se connecter avec Google</span>
+              </button>
 
-      <div class="g_id_signin" 
-           data-type="standard"
-           data-size="large" 
-           data-theme="outline" 
-           data-text="signin_with" 
-           data-shape="rectangular" 
-           data-logo_alignment="left"
-           data-width="350">
-      </div>
+              <!-- Bouton Facebook (désactivé) -->
+              <button class="btn btn-social btn-facebook d-flex align-items-center justify-content-center" disabled>
+                <i class="bi bi-facebook social-icon"></i>
+                <span>Se connecter avec Facebook</span>
+                <small class="badge bg-secondary ms-2">Bientôt</small>
+              </button>
+            </div>
 
-      <!-- Fallback amélioré -->
-      <div id="fallback-auth" class="mt-3" style="display: none;">
-        <button onclick="initiateManualAuth()" class="btn btn-outline-primary w-100">
-          <i class="bi bi-google me-2"></i>Se connecter avec Google
-        </button>
-        <p class="text-muted small mt-2">
-          Méthode alternative plus stable
-        </p>
-      </div>
+            <!-- Google One Tap (caché - utilisé en arrière-plan) -->
+            <div class="d-none">
+              <div id="g_id_onload"
+                   data-client_id="<%= process.env.GOOGLE_CLIENT_ID %>"
+                   data-context="signin"
+                   data-ux_mode="popup"
+                   data-callback="handleGoogleSignIn"
+                   data-auto_prompt="true"
+                   data-cancel_on_tap_outside="false"
+                   data-itp_support="true">
+              </div>
+            </div>
 
-      <!-- État de connexion -->
-      <div id="connection-status" class="mt-3" style="display: none;">
-        <div class="alert alert-info">
-          <i class="bi bi-info-circle me-2"></i>
-          <span id="status-message">Connexion en cours...</span>
+            <!-- Fallback amélioré (caché par défaut) -->
+            <div id="fallback-auth" class="mt-3" style="display: none;">
+              <div class="alert alert-warning mb-3">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <span>Méthode alternative plus stable</span>
+              </div>
+            </div>
+
+            <!-- État de connexion -->
+            <div id="connection-status" class="mt-3" style="display: none;">
+              <div class="alert alert-info d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                <span id="status-message">Connexion en cours...</span>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="text-center mt-4 pt-3 border-top">
+              <small class="text-muted">
+                En te connectant, tu acceptes nos 
+                <a href="#" class="text-decoration-none">conditions d'utilisation</a>
+              </small>
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div class="mt-3">
-        <small class="text-muted">En te connectant, tu acceptes nos conditions d'utilisation</small>
       </div>
     </div>
   </div>
@@ -102,7 +193,6 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: response.credential }),
-        // Ajout important : inclure les credentials
         credentials: 'same-origin'
       });
 
@@ -119,9 +209,12 @@
         .then(data => {
           if (data.success) {
             console.log('✅ Connexion réussie, redirection vers:', data.redirect);
+            showStatus('Connexion réussie ! Redirection...', 'success');
             
-            // Forcer le rechargement complet
-            window.location.replace(data.redirect || '/dashboard');
+            // Petit délai pour voir le message de succès
+            setTimeout(() => {
+              window.location.replace(data.redirect || '/dashboard');
+            }, 1000);
           } else {
             throw new Error(data.error || 'Erreur inconnue');
           }
@@ -187,10 +280,11 @@
         messageSpan.textContent = message;
         
         // Mise à jour des classes Bootstrap
-        statusDiv.className = 'mt-3 alert alert-' + 
-          (type === 'success' ? 'success' : 
-           type === 'warning' ? 'warning' : 
-           type === 'error' ? 'danger' : 'info');
+        const alertClass = type === 'success' ? 'alert-success' : 
+                          type === 'warning' ? 'alert-warning' : 
+                          type === 'error' ? 'alert-danger' : 'alert-info';
+        
+        statusDiv.querySelector('.alert').className = `alert ${alertClass} d-flex align-items-center`;
       }
     }
 
@@ -212,7 +306,6 @@
     setTimeout(() => {
       if (!window.google) {
         console.warn('⚠️ Google One Tap non chargé');
-        showFallbackAuth();
       }
     }, 5000);
 
@@ -225,13 +318,22 @@
           window.google.accounts.id.prompt();
         }
       }
-    }, 30000); // Toutes les 30 secondes
+    }, 30000);
 
     // Détection PWA pour optimisation
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    if (window.matchMedia('(display-mode: standalone').matches) {
       console.log('📱 Mode PWA détecté - optimisation connexion');
-      // En PWA, on peut être plus agressif sur les reconnexions
     }
+
+    // Ajustement responsive pour les très petits écrans
+    function adjustForSmallScreens() {
+      if (window.innerWidth < 400) {
+        document.querySelector('.login-card').classList.add('p-3');
+      }
+    }
+
+    window.addEventListener('resize', adjustForSmallScreens);
+    adjustForSmallScreens();
   </script>
 </body>
 </html>
