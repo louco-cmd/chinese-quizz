@@ -618,7 +618,6 @@ function ensureAuth(req, res, next) {
   res.redirect('/');
 }
 
-
 // Cookies
 // Test de durée réelle de session
 app.get('/session-timeout-test', (req, res) => {
