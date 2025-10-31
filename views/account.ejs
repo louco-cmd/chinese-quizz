@@ -1,4 +1,5 @@
-<html lang="en">
+<!DOCTYPE html>
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -6,159 +7,199 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
+    :root {
+      --surface: #ffffff;
+      --surface-1: #f8f9fa;
+      --surface-2: #e9ecef;
+      --primary: #0d6efd;
+      --primary-container: #e3f2fd;
+      --on-primary: #ffffff;
+      --text: #202124;
+      --text-secondary: #5f6368;
+      --border: #dadce0;
+    }
+
     body {
-        padding-bottom: 80px;
-    }
-    .progress {
-      height: 8px;
-    }
-    .quiz-card {
-      transition: transform 0.2s;
-    }
-    .quiz-card:hover {
-      transform: translateY(-2px);
+      background-color: var(--surface-1);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      padding-bottom: 80px;
     }
 
-/* 📍 CONTRIBUTIONS - VERSION RESPONSIVE SANS SCROLL */
-.contributions-fullwidth {
-  width: 100%;
-  background: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
-  padding: 1rem 0;
-  margin: 0;
-}
+    .card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.05);
+      transition: box-shadow 0.2s ease;
+    }
 
-.contributions-wrapper {
-  width: 100%;
-  max-width: 100%;
-  padding: 0 1rem;
-}
+    .card:hover {
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.05);
+    }
 
-.contributions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12px, 1fr));
-  grid-auto-rows: 12px;
-  gap: 2px;
-  margin: 0 auto;
-  width: 100%;
-  max-width: 900px; /* Largeur max pour éviter l'étirement excessif */
-}
+    .btn {
+      border-radius: 8px;
+      font-weight: 500;
+    }
 
-.contribution-day {
-  width: 100%;
-  height: 100%;
-  aspect-ratio: 1; /* Garde le carré parfait */
-  border-radius: 2px;
-  background-color: #ebedf0;
-  cursor: pointer;
-  position: relative;
-  border: 1px solid rgba(0,0,0,0.05);
-  transition: all 0.2s ease;
-  min-width: 10px;
-  min-height: 10px;
-}
+    .btn-primary {
+      background: var(--primary);
+      border: none;
+    }
 
-.contribution-day:hover {
-  transform: scale(1.2);
-  z-index: 10;
-}
+    .avatar {
+      width: 32px;
+      height: 32px;
+      background: var(--primary-container);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+    }
 
-.contribution-day:hover::after {
-  content: attr(data-count) " quiz le " attr(data-date);
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #000;
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  white-space: nowrap;
-  z-index: 1000;
-  box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.15);
-}
+    .badge {
+      border-radius: 6px;
+      font-weight: 500;
+    }
 
-/* Niveaux de couleur */
-.level-0 { background-color: #f8f9fa; } /* bg-light */
-.level-1 { background-color: #cfe2ff; } /* bleu très clair */
-.level-2 { background-color: #6ea8fe; } /* bleu medium */
-.level-3 { background-color: #3d8bfd; } /* bleu bootstrap */
-.level-4 { background-color: #0d6efd; } /* bleu primary */
+    .text-muted {
+      color: var(--text-secondary) !important;
+    }
 
-/* Légende compacte */
-.contributions-legend {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 0.5rem;
-  font-size: 11px;
-  color: #666;
-}
+    /* Ordre mobile */
+    .mobile-order-1 {
+      order: 1;
+    }
 
-.color-scale {
-  display: flex;
-  gap: 2px;
-}
+    .mobile-order-2 {
+      order: 2;
+    }
 
-.color-level {
-  width: 10px;
-  height: 10px;
-  border-radius: 1px;
-}
+    @media (min-width: 992px) {
+      .mobile-order-1 {
+        order: 0;
+      }
 
-/* Style pour les jours futurs */
-.contribution-day.future-day {
-  background-color: #f8f9fa !important;
-  border: 1px dashed #dee2e6 !important;
-  opacity: 0.6;
-}
+      .mobile-order-2 {
+        order: 0;
+      }
+    }
 
-.contribution-day.future-day:hover::after {
-  content: "Jour futur";
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #6c757d;
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  white-space: nowrap;
-  z-index: 1000;
-}
+    /* Contributions */
+    .contributions-fullwidth {
+      width: 100%;
+      background: var(--surface-1);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 0;
+      margin: 0;
+    }
 
-/* 🔥 VERSION MOBILE OPTIMISÉE */
-@media (max-width: 768px) {
-  .contributions-wrapper {
-    padding: 0 0.5rem;
-  }
-  
-  .contributions-grid {
-    grid-auto-rows: 10px;
-    gap: 1px;
-    max-width: 100%;
-  }
-  
-  .contribution-day {
-    min-width: 8px;
-    min-height: 8px;
-  }
-  
-  /* Ajustement pour petits écrans */
-  @media (max-width: 480px) {
+    .contributions-wrapper {
+      width: 100%;
+      max-width: 100%;
+      padding: 0 1rem;
+    }
+
     .contributions-grid {
-      grid-auto-rows: 8px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(12px, 1fr));
+      grid-auto-rows: 12px;
+      gap: 2px;
+      margin: 0 auto;
+      width: 100%;
+      max-width: 900px;
     }
-    
+
     .contribution-day {
-      min-width: 6px;
-      min-height: 6px;
+      width: 100%;
+      height: 100%;
+      aspect-ratio: 1;
+      border-radius: 2px;
+      background-color: var(--surface-2);
+      cursor: pointer;
+      position: relative;
+      border: 1px solid rgba(0,0,0,0.05);
+      transition: all 0.2s ease;
+      min-width: 10px;
+      min-height: 10px;
     }
-  }
-}
+
+    .contribution-day:hover {
+      transform: scale(1.2);
+      z-index: 10;
+    }
+
+    .contribution-day:hover::after {
+      content: attr(data-count) " quiz le " attr(data-date);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--surface);
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      z-index: 1000;
+    }
+
+    /* Niveaux de couleur */
+    .level-0 { background-color: var(--surface-1); }
+    .level-1 { background-color: #cfe2ff; }
+    .level-2 { background-color: #6ea8fe; }
+    .level-3 { background-color: #3d8bfd; }
+    .level-4 { background-color: var(--primary); }
+
+    .contributions-legend {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 0.5rem;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .color-scale {
+      display: flex;
+      gap: 2px;
+    }
+
+    .color-level {
+      width: 10px;
+      height: 10px;
+      border-radius: 1px;
+    }
+
+    /* Mobile optimisations */
+    @media (max-width: 768px) {
+      .contributions-wrapper {
+        padding: 0 0.5rem;
+      }
+      
+      .contributions-grid {
+        grid-auto-rows: 10px;
+        gap: 1px;
+      }
+      
+      .contribution-day {
+        min-width: 8px;
+        min-height: 8px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .contributions-grid {
+        grid-auto-rows: 8px;
+      }
+      
+      .contribution-day {
+        min-width: 6px;
+        min-height: 6px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -172,118 +213,150 @@
   <%- include('partials/navbar', {currentPage: 'account'}) %>
   <%- include('partials/installation') %>
 
-  <!-- 📍 DAMIER FULL WIDTH EN HAUT - VERSION COMPACTE -->
+  <!-- Contributions -->
   <section class="contributions-fullwidth">
     <div class="container-fluid px-0">
       <div class="contributions-wrapper">
-        <!-- Titre et total -->
         <div class="d-flex justify-content-between align-items-center mb-2">
           <h6 class="mb-0 d-flex align-items-center">
-            <i class="bi bi-calendar3 me-2 text-primary"></i>Contributions
+            <i class="bi bi-calendar3 me-2"></i>Contributions
           </h6>
           <small class="text-muted" id="contributions-total">0 quiz</small>
         </div>
         
-        <!-- Grille des contributions -->
         <div class="contributions-grid" id="contributionsGrid">
           <div class="text-center text-muted py-3">
             <div class="spinner-border spinner-border-sm" role="status"></div>
-            <span class="ms-2">Loading...</span>
+            <span class="ms-2">Chargement...</span>
           </div>
         </div>
 
-        <!-- Légende compacte -->
         <div class="contributions-legend">
-          <span>less</span>
+          <span>Moins</span>
           <div class="color-scale">
-            <div class="color-level level-0" title="0 quiz"></div>
-            <div class="color-level level-1" title="1 quiz"></div>
-            <div class="color-level level-2" title="2-3 quiz"></div>
-            <div class="color-level level-3" title="4-5 quiz"></div>
-            <div class="color-level level-4" title="6+ quiz"></div>
+            <div class="color-level level-0"></div>
+            <div class="color-level level-1"></div>
+            <div class="color-level level-2"></div>
+            <div class="color-level level-3"></div>
+            <div class="color-level level-4"></div>
           </div>
-          <span>More</span>
+          <span>Plus</span>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Le reste de votre code reste inchangé -->
+  <!-- Main Content -->
   <section class="container my-4">
     <div class="row g-4">
-      <!-- Colonne gauche -->
-      <div class="col-12 col-lg-4">
-        <!-- Carte info utilisateur -->
-          <!-- Carte info utilisateur - VERSION COMPACTE -->
-          <div class="card shadow-sm">
-            <div class="card-body py-3">
-              <div class="row align-items-center">
-                <!-- Photo réduite -->
-                <div class="col-auto">
-                  <div id="userPhotoContainer" class="rounded-circle bg-light text-primary d-flex justify-content-center align-items-center" 
-                      style="width:60px;height:60px;border: 2px solid #0d6efd;">
-                    <i class="bi bi-person-fill" style="font-size: 24px;"></i>
-                  </div>
-                </div>
-                
-                <!-- Infos texte -->
-                <div class="col">
-                  <h5 id="userName" class="card-title mb-1 fw-bold text-truncate"></h5>
-                  <p id="wordCount" class="card-text text-muted mb-0 small">
-                    <i class="bi bi-journal-text me-1"></i>
-                    <span id="wordCountNumber">0</span> mots
-                  </p>
-                </div>
-                
-                <!-- Badge statistique optionnel -->
-                <div class="col-auto">
-                  <span class="badge bg-primary rounded-pill">
-                    <i class="bi bi-star-fill me-1"></i>
-                    Actif
-                  </span>
+      <!-- Colonne Actions (PREMIERE sur mobile) -->
+      <div class="col-12 col-lg-4 mobile-order-1">
+        <!-- Duels en Attente - Section conditionnelle -->
+        <div id="pending-duels-section" style="display: none;">
+          <div class="card">
+            <div class="card-header">
+              <h6 class="mb-0 d-flex align-items-center">
+                <i class="bi bi-sword me-2"></i>
+                Duels en attente
+              </h6>
+            </div>
+            <div class="card-body">
+              <div id="pending-duels-account">
+                <div class="text-center py-3">
+                  <div class="spinner-border spinner-border-sm" role="status"></div>
+                  <p class="mt-2 text-muted small">Chargement...</p>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-        <!-- Stats Quiz Détaillées -->
-        <div class="card shadow-sm mt-3">
+            <!-- Info utilisateur -->
+        <div class="card mt-4">
           <div class="card-body">
-            <h5 class="card-title d-flex align-items-center">
-              <i class="bi bi-graph-up me-2"></i>Performance
-            </h5>
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <div class="avatar" style="width: 48px; height: 48px;">
+                  <i class="bi bi-person-fill"></i>
+                </div>
+              </div>
+              <div class="col">
+                <div class="d-flex align-items-center">
+                  <h6 id="userName" class="card-title mb-1 fw-bold text-truncate me-2"></h6>
+                  <button class="btn btn-sm btn-outline-primary" onclick="enableNameEdit()">
+                    <i class="bi bi-pencil"></i>
+                  </button>
+                </div>
+                <p class="card-text text-muted mb-0 small">
+                  <i class="bi bi-journal-text me-1"></i>
+                  <span id="wordCountNumber">0</span> mots
+                </p>
+              </div>
+            </div>
+            
+            <!-- Formulaire d'édition (caché par défaut) -->
+            <div id="nameEditForm" class="mt-3" style="display: none;">
+              <div class="input-group input-group-sm">
+                <input type="text" id="nameInput" class="form-control" placeholder="Nouveau prénom">
+                <button class="btn btn-success" type="button" onclick="saveName()">
+                  <i class="bi bi-check"></i>
+                </button>
+                <button class="btn btn-secondary" type="button" onclick="cancelNameEdit()">
+                  <i class="bi bi-x"></i>
+                </button>
+              </div>
+              <div class="form-text">Maximum 50 caractères</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Performance -->
+        <div class="card mt-4">
+          <div class="card-header">
+            <h6 class="mb-0 d-flex align-items-center">
+              <i class="bi bi-graph-up me-2"></i>
+              Performance
+            </h6>
+          </div>
+          <div class="card-body">
             <div id="quiz-stats">
               <div class="text-center py-2">
                 <div class="spinner-border spinner-border-sm" role="status"></div>
-                <span class="ms-2">Loading...</span>
+                <span class="ms-2">Chargement...</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Colonne droite -->
-      <div class="col-12 col-lg-8">
+      <!-- Colonne Données (DEUXIEME sur mobile) -->
+      <div class="col-12 col-lg-8 mobile-order-2">
         <!-- Statistiques des mots -->
-        <div class="card shadow-sm">
+        <div class="card">
+          <div class="card-header">
+            <h6 class="mb-0 d-flex align-items-center">
+              <i class="bi bi-bar-chart me-2"></i>
+              Statistiques des mots
+            </h6>
+          </div>
           <div class="card-body">
-            <h4 class="card-title">Your words statistics</h4>
-            <ul id="hskStats" class="list-group list-group-flush mt-3"></ul>
+            <ul id="hskStats" class="list-group list-group-flush"></ul>
           </div>
         </div>
 
         <!-- Derniers Quiz -->
-        <div class="card shadow-sm mt-4">
+        <div class="card mt-4">
+          <div class="card-header">
+            <h6 class="mb-0 d-flex align-items-center">
+              <i class="bi bi-clock me-2"></i>
+              Derniers quiz
+            </h6>
+          </div>
           <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h4 class="card-title mb-0 d-flex align-items-center">
-                <i class="bi bi-clock-history me-2"></i>lasts Quiz
-              </h4>
-            </div>
             <div id="recent-quizzes">
               <div class="text-center text-muted py-3">
                 <div class="spinner-border spinner-border-sm" role="status"></div>
-                <span class="ms-2">loading quizes...</span>
+                <span class="ms-2">Chargement...</span>
               </div>
             </div>
           </div>
@@ -293,364 +366,556 @@
   </section>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+      loadUserData();
+      loadQuizStats();
+      loadContributionsGrid();
+      loadPendingDuels('pending-duels-account');
+    });
 
-<script>
+    // Données utilisateur
+    async function loadUserData() {
+      try {
+        const res = await fetch('/account-info'); 
+        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+        
+        const data = await res.json(); 
+        
+        document.getElementById('userName').textContent = data.name;
+        document.getElementById('wordCountNumber').textContent = data.wordCount;
 
-async function loadUserData() {
-  try {
-    const res = await fetch('/account-info'); 
-    if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-    
-    const data = await res.json(); 
-    
-    // Affichage des infos COMPACT
-    document.getElementById('userName').textContent = data.name;
-    document.getElementById('wordCountNumber').textContent = data.wordCount;
+        const hskStatsElement = document.getElementById('hskStats');
+        hskStatsElement.innerHTML = '';
+        
+        for(const level in data.stats) {
+          const li = document.createElement('li');
+          li.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
+          li.textContent = level;
+          
+          const badge = document.createElement('span');
+          const badgeClass = level === 'Street' ? 'bg-success' : 'bg-primary'; 
+          badge.className = `badge ${badgeClass}`;
+          badge.textContent = data.stats[level];
+          
+          li.appendChild(badge);
+          hskStatsElement.appendChild(li);
+        }
 
-    // Stats HSK
-    const hskStatsElement = document.getElementById('hskStats');
-    hskStatsElement.innerHTML = '';
-    
-    for(const level in data.stats) {
-      const li = document.createElement('li');
-      li.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
-      li.textContent = level;
-      
-      const badge = document.createElement('span');
-      const badgeClass = level === 'Street' ? 'bg-success' : 'bg-primary'; 
-      badge.className = `badge ${badgeClass} rounded-pill`;
-      badge.textContent = data.stats[level];
-      
-      li.appendChild(badge);
-      hskStatsElement.appendChild(li);
+      } catch (err) {
+        console.error('Erreur chargement données:', err);
+        document.getElementById('wordCountNumber').textContent = '0';
+      }
     }
 
-  } catch (err) {
-    console.error('Erreur chargement données:', err);
-    document.getElementById('wordCountNumber').textContent = '0';
-  }
+    // Stats quiz
+    async function loadQuizStats() {
+      try {
+        const response = await fetch('/api/quiz/history?limit=5');
+        
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data.quizzes || data.quizzes.length === 0) {
+          displayNoQuizData();
+        } else {
+          displayQuizStats(data);
+        }
+        
+      } catch (error) {
+        console.error('Erreur stats quiz:', error);
+        displayQuizStatsError();
+      }
+    }
+
+    function displayNoQuizData() {
+      const statsContainer = document.getElementById('quiz-stats');
+      const recentQuizzes = document.getElementById('recent-quizzes');
+      
+      statsContainer.innerHTML = `
+        <div class="text-center text-muted py-3">
+          <i class="bi bi-graph-up fs-2 opacity-50"></i>
+          <div class="small mt-2">Aucune statistique</div>
+          <a href="/quiz-pinyin" class="btn btn-outline-primary btn-sm mt-2">Commencer</a>
+        </div>
+      `;
+      
+      recentQuizzes.innerHTML = `
+        <div class="text-center text-muted py-3">
+          <i class="bi bi-clock fs-2 opacity-50"></i>
+          <div class="small mt-2">Aucun quiz récent</div>
+          <a href="/quiz-pinyin" class="btn btn-outline-primary btn-sm mt-2">Premier quiz</a>
+        </div>
+      `;
+    }
+
+    function displayQuizStats(data) {
+      const statsContainer = document.getElementById('quiz-stats');
+      const recentQuizzes = document.getElementById('recent-quizzes');
+      
+      statsContainer.innerHTML = `
+        <div class="text-center">
+          <div class="h5 text-primary mb-1">${Math.round(data.stats.average_ratio || 0)}%</div>
+          <div class="text-muted small">Moyenne</div>
+        </div>
+        <div class="row text-center mt-3">
+          <div class="col-6">
+            <div class="small fw-medium">${data.stats.total_quizzes}</div>
+            <div class="text-muted small">Total</div>
+          </div>
+          <div class="col-6">
+            <div class="small fw-medium">${data.stats.best_score ? Math.round(data.stats.best_score) : 0}%</div>
+            <div class="text-muted small">Meilleur</div>
+          </div>
+        </div>
+      `;
+      
+      recentQuizzes.innerHTML = data.quizzes.map(quiz => `
+        <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+          <div>
+            <span class="badge bg-${getQuizTypeColor(quiz.quiz_type)} me-2 small">
+              ${quiz.quiz_type}
+            </span>
+            <span class="fw-medium">${quiz.score}/${quiz.total_questions}</span>
+            <span class="text-${getScoreColor(quiz.ratio)} small ms-1">
+              (${Math.round(quiz.ratio)}%)
+            </span>
+          </div>
+          <small class="text-muted">
+            ${new Date(quiz.date_completed).toLocaleDateString('fr-FR')}
+          </small>
+        </div>
+      `).join('');
+    }
+
+    function displayQuizStatsError() {
+      document.getElementById('quiz-stats').innerHTML = `
+        <div class="alert alert-warning small">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          Données indisponibles
+        </div>
+      `;
+    }
+
+    // Contributions
+    async function loadContributionsGrid() {
+      try {
+        const currentYear = new Date().getFullYear();
+        const response = await fetch(`/api/contributions?year=${currentYear}`, {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+        
+        const data = await response.json();
+        
+        if (!data || data.length === 0) {
+          displayNoContributions();
+        } else {
+          const totalQuizzes = data.reduce((sum, item) => sum + parseInt(item.count || 0), 0);
+          document.getElementById('contributions-total').textContent = `${totalQuizzes} quiz`;
+          generateContributionsGrid(data);
+        }
+        
+      } catch (error) {
+        console.error('Erreur contributions:', error);
+        displayContributionsError();
+      }
+    }
+
+    function displayNoContributions() {
+      const grid = document.getElementById('contributionsGrid');
+      document.getElementById('contributions-total').textContent = '0 quiz';
+      
+      const dates = generateCurrentYearDates();
+      const today = new Date();
+      const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      
+      grid.innerHTML = '';
+      
+      dates.forEach(date => {
+        const dateString = date.toISOString().split('T')[0];
+        const dateNormalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const isFuture = dateNormalized > todayNormalized;
+        
+        const dayElement = document.createElement('div');
+        
+        if (isFuture) {
+          dayElement.className = 'contribution-day future-day';
+          dayElement.setAttribute('data-count', 0);
+          dayElement.setAttribute('data-date', 'Jour futur');
+        } else {
+          dayElement.className = 'contribution-day level-0';
+          dayElement.setAttribute('data-count', 0);
+          dayElement.setAttribute('data-date', formatDate(dateString));
+        }
+        
+        grid.appendChild(dayElement);
+      });
+    }
+
+    function generateContributionsGrid(contributionsData) {
+      const grid = document.getElementById('contributionsGrid');
+      const contributionsMap = {};
+      
+      contributionsData.forEach(item => {
+        contributionsMap[item.date] = parseInt(item.count);
+      });
+
+      const dates = generateCurrentYearDates();
+      const today = new Date();
+      const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+      grid.innerHTML = '';
+
+      dates.forEach(date => {
+        const dateString = date.toISOString().split('T')[0];
+        const dateNormalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const isFuture = dateNormalized > todayNormalized;
+        
+        const dayElement = document.createElement('div');
+        
+        if (isFuture) {
+          dayElement.className = 'contribution-day future-day';
+          dayElement.setAttribute('data-count', 0);
+          dayElement.setAttribute('data-date', 'Jour futur');
+        } else {
+          const count = contributionsMap[dateString] || 0;
+          const level = getContributionLevel(count);
+          dayElement.className = `contribution-day level-${level}`;
+          dayElement.setAttribute('data-count', count);
+          dayElement.setAttribute('data-date', formatDate(dateString));
+        }
+        
+        grid.appendChild(dayElement);
+      });
+    }
+
+    // Duels en attente - AFFICHAGE CONDITIONNEL
+    async function loadPendingDuels(containerId) {
+      try {
+        const response = await fetch('/api/duels/pending');
+        const duels = await response.json();
+        
+        const container = document.getElementById(containerId);
+        const section = document.getElementById('pending-duels-section');
+        
+        if (!duels || duels.length === 0) {
+          // Masquer complètement la section si pas de duels
+          section.style.display = 'none';
+          return;
+        }
+
+        // Afficher la section et montrer les duels
+        section.style.display = 'block';
+        
+        container.innerHTML = duels.map(duel => {
+          const isChallenger = duel.user_role === 'challenger';
+          const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name;
+          const shortName = opponentName.split(' ')[0];
+          
+          const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
+          const opponentScore = isChallenger ? duel.opponent_score : duel.challenger_score;
+          
+          const hasUserPlayed = userScore !== null;
+          const hasOpponentPlayed = opponentScore !== null;
+          
+          let status = '', cta = '';
+          
+          if (!hasUserPlayed) {
+            status = '<span class="badge bg-primary small">À jouer</span>';
+            cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">Jouer</button>`;
+          } else if (!hasOpponentPlayed) {
+            status = '<span class="badge bg-secondary small">En attente</span>';
+            cta = '';
+          } else {
+            status = '<span class="badge bg-success small">Terminé</span>';
+            cta = `<button class="btn btn-sm btn-outline-secondary" onclick="viewDuelResult(${duel.id})">Voir</button>`;
+          }
+          
+          return `
+            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+              <div class="d-flex align-items-center">
+                <div class="avatar me-2">
+                  <i class="bi bi-person"></i>
+                </div>
+                <div>
+                  <div class="small fw-medium">${shortName}</div>
+                  <div class="text-muted" style="font-size: 0.75rem;">
+                    ${userScore || '?'} - ${opponentScore || '?'}
+                    ${status}
+                  </div>
+                </div>
+              </div>
+              ${cta}
+            </div>
+          `;
+        }).join('');
+        
+      } catch (error) {
+        console.error('Erreur duels:', error);
+        // En cas d'erreur, masquer aussi la section
+        document.getElementById('pending-duels-section').style.display = 'none';
+      }
+    }
+
+    // Utilitaires
+    function generateCurrentYearDates() {
+      const dates = [];
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const startDate = new Date(currentYear, 0, 1);
+      const endDate = new Date(currentYear, 11, 31);
+
+      const firstMonday = new Date(startDate);
+      const dayOfWeek = firstMonday.getDay();
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      firstMonday.setDate(firstMonday.getDate() + diffToMonday);
+
+      const currentDate = new Date(firstMonday);
+      while (currentDate <= endDate) {
+        dates.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      return dates;
+    }
+
+    function getContributionLevel(count) {
+      if (count === 0) return 0;
+      if (count === 1) return 1;
+      if (count <= 3) return 2;
+      if (count <= 5) return 3;
+      return 4;
+    }
+
+    function formatDate(dateString) {
+      return new Date(dateString).toLocaleDateString('fr-FR');
+    }
+
+    function getScoreColor(ratio) {
+      if (ratio >= 80) return 'success';
+      if (ratio >= 60) return 'warning';
+      return 'danger';
+    }
+
+    function getQuizTypeColor(type) {
+      const colors = {
+        'pinyin': 'info',
+        'character': 'warning', 
+        'mixed': 'success'
+      };
+      return colors[type] || 'secondary';
+    }
+
+    function playDuel(duelId) {
+      window.location.href = `/duel-play/${duelId}`;
+    }
+
+    function viewDuelResult(duelId) {
+      window.location.href = `/duels?view_result=${duelId}`;
+    }
+
+    function displayContributionsError() {
+      document.getElementById('contributionsGrid').innerHTML = `
+        <div class="text-center text-warning py-3">
+          <i class="bi bi-exclamation-triangle"></i>
+          <div class="small mt-1">Données indisponibles</div>
+        </div>
+      `;
+    }
+
+    // Édition du prénom
+function enableNameEdit() {
+  const currentName = document.getElementById('userName').textContent;
+  document.getElementById('nameInput').value = currentName;
+  document.getElementById('nameEditForm').style.display = 'block';
+  document.getElementById('userName').parentElement.style.display = 'none';
 }
 
-async function loadQuizStats() {
-  try {
-    console.log('🔄 Chargement des stats quiz...');
-    const response = await fetch('/api/quiz/history?limit=5');
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error(`Expected JSON but got: ${contentType}`);
-    }
-    
-    const data = await response.json();
-    console.log('✅ Stats quiz chargées:', data);
-    
-    // Vérifier si des données existent
-    if (data.stats.total_quizzes === 0) {
-      displayNoQuizData();
-    } else {
-      displayQuizStats(data);
-    }
-    
-  } catch (error) {
-    console.error('❌ Erreur chargement stats quiz:', error);
-    displayQuizStatsError();
-  }
+function cancelNameEdit() {
+  document.getElementById('nameEditForm').style.display = 'none';
+  document.getElementById('userName').parentElement.style.display = 'flex';
 }
 
-async function loadContributionsGrid() {
+async function saveName() {
+  const newName = document.getElementById('nameInput').value.trim();
+  
+  if (!newName) {
+    showNotification('Le prénom ne peut pas être vide', 'error');
+    return;
+  }
+  
   try {
-    console.log('🔄 Chargement des contributions...');
-    
-    const currentYear = new Date().getFullYear();
-    const response = await fetch(`/api/contributions?year=${currentYear}`, {
-      method: 'GET',
+    const saveButton = document.querySelector('#nameEditForm button.btn-success');
+    saveButton.innerHTML = '<i class="bi bi-arrow-repeat spinner"></i>';
+    saveButton.disabled = true;
+
+    const response = await fetch('/api/user/update-name', {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      credentials: 'include' // 🔥 IMPORTANT pour les cookies de session
+      body: JSON.stringify({ name: newName }),
+      credentials: 'include'
     });
     
-    console.log('📡 Statut réponse:', response.status);
+    const result = await response.json();
     
     if (!response.ok) {
-      if (response.status === 401) {
-        console.warn('⚠️ Non authentifié, redirection...');
-        window.location.href = '/';
-        return;
-      }
-      throw new Error(`Erreur HTTP: ${response.status} - ${response.statusText}`);
+      throw new Error(result.message || `Erreur: ${response.status}`);
     }
     
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      const text = await response.text();
-      console.error('❌ Réponse non-JSON:', text.substring(0, 200));
-      throw new Error(`Expected JSON but got: ${contentType}`);
-    }
-    
-    const data = await response.json();
-    console.log('✅ Contributions chargées:', data);
-    
-    // Vérifier si des données existent
-    if (!data || data.length === 0) {
-      displayNoContributions();
+    if (result.success) {
+      document.getElementById('userName').textContent = result.newName || newName;
+      cancelNameEdit();
+      showNotification('Prénom mis à jour avec succès!', 'success');
     } else {
-      // Mettre à jour le total
-      const totalQuizzes = data.reduce((sum, item) => sum + parseInt(item.count || 0), 0);
-      const totalEl = document.getElementById('contributions-total');
-      if (totalEl) totalEl.textContent = `${totalQuizzes} quiz`;
-      
-      // Générer le damier
-      generateContributionsGrid(data);
+      throw new Error(result.message || 'Erreur inconnue');
     }
     
   } catch (error) {
-    console.error('❌ Erreur chargement contributions:', error);
-    displayContributionsError(error.message);
+    console.error('Erreur:', error);
+    showNotification('Erreur: ' + error.message, 'error');
+  } finally {
+    const saveButton = document.querySelector('#nameEditForm button.btn-success');
+    if (saveButton) {
+      saveButton.innerHTML = '<i class="bi bi-check"></i>';
+      saveButton.disabled = false;
+    }
   }
 }
-
-function displayContributionsError(message = 'Données indisponibles pour le moment') {
-  const grid = document.getElementById('contributionsGrid');
-  if (!grid) return;
-  
-  grid.innerHTML = `
-    <div class="text-center text-warning py-3">
-      <i class="bi bi-exclamation-triangle"></i>
-      <div class="small mt-1">${message}</div>
-      <button onclick="loadContributionsGrid()" class="btn btn-outline-primary btn-sm mt-2">
-        <i class="bi bi-arrow-clockwise"></i> Réessayer
-      </button>
-    </div>
-  `;
-}
-
-
-function displayNoQuizData() {
-  const statsContainer = document.getElementById('quiz-stats');
-  statsContainer.innerHTML = `
-    <div class="text-center text-muted py-3">
-      <i class="bi bi-graph-up display-6 text-muted"></i>
-      <div class="small mt-2">0 quiz to show</div>
-      <a href="/quiz-pinyin" class="btn btn-outline-primary btn-sm mt-2">Commencer</a>
-    </div>
-  `;
-  
-  const recentQuizzes = document.getElementById('recent-quizzes');
-  recentQuizzes.innerHTML = `
-    <div class="text-center text-muted py-3">
-      <i class="bi bi-clock-history"></i>
-      <div class="small mt-1">No recent quiz</div>
-      <a href="/quiz-pinyin" class="btn btn-outline-primary btn-sm mt-2">Premier quiz</a>
-    </div>
-  `;
-}
-
-function displayQuizStats(data) {
-  const statsContainer = document.getElementById('quiz-stats');
-  statsContainer.innerHTML = `
-    <div class="text-center">
-      <div class="h4 text-primary mb-1">${Math.round(data.stats.average_ratio || 0)}%</div>
-      <div class="text-muted small">Average score</div>
-    </div>
-    <div class="row text-center mt-3">
-      <div class="col-6">
-        <div class="h6 mb-1">${data.stats.total_quizzes}</div>
-        <div class="text-muted small">Total quiz</div>
-      </div>
-      <div class="col-6">
-        <div class="h6 mb-1">${data.stats.best_score ? Math.round(data.stats.best_score) : 0}%</div>
-        <div class="text-muted small">Best score</div>
-      </div>
-    </div>
-  `;
-  
-  // Afficher les derniers quiz
-  const recentQuizzes = document.getElementById('recent-quizzes');
-  if (data.quizzes && data.quizzes.length > 0) {
-    recentQuizzes.innerHTML = data.quizzes.map(quiz => `
-      <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
-        <div>
-          <span class="badge bg-${getQuizTypeColor(quiz.quiz_type)} me-2">
-            ${quiz.quiz_type}
-          </span>
-          <strong>${quiz.score}/${quiz.total_questions}</strong>
-          <span class="text-${getScoreColor(quiz.ratio)} small ms-1">
-            (${Math.round(quiz.ratio)}%)
-          </span>
+    
+// Fonction pour afficher les notifications
+    function showNotification(message, type = 'info') {
+      // Créer une notification toast Bootstrap
+      const toast = document.createElement('div');
+      toast.className = `toast align-items-center text-bg-${type === 'success' ? 'success' : 'danger'} border-0`;
+      toast.innerHTML = `
+        <div class="d-flex">
+          <div class="toast-body">
+            ${message}
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
         </div>
-        <small class="text-muted">
-          ${new Date(quiz.date_completed).toLocaleDateString('fr-FR')}
-        </small>
-      </div>
-    `).join('');
+      `;
+      
+      const container = document.createElement('div');
+      container.className = 'toast-container position-fixed top-0 end-0 p-3';
+      container.appendChild(toast);
+      document.body.appendChild(container);
+      
+      const bsToast = new bootstrap.Toast(toast);
+      bsToast.show();
+      
+      // Nettoyer après fermeture
+      toast.addEventListener('hidden.bs.toast', () => {
+        container.remove();
+      });
+    }
+
+    // Édition du prénom
+function enableNameEdit() {
+  const currentName = document.getElementById('userName').textContent;
+  document.getElementById('nameInput').value = currentName;
+  document.getElementById('nameEditForm').style.display = 'block';
+  document.getElementById('userName').parentElement.style.display = 'none';
+}
+
+function cancelNameEdit() {
+  document.getElementById('nameEditForm').style.display = 'none';
+  document.getElementById('userName').parentElement.style.display = 'flex';
+}
+
+async function saveName() {
+  const newName = document.getElementById('nameInput').value.trim();
+  
+  if (!newName) {
+    showNotification('Le prénom ne peut pas être vide', 'error');
+    return;
   }
-}
-
-function displayQuizStatsError() {
-  const statsContainer = document.getElementById('quiz-stats');
-  statsContainer.innerHTML = `
-    <div class="alert alert-warning py-2 mb-0">
-      <small><i class="bi bi-exclamation-triangle me-1"></i>Stats unavailable at the moment</small>
-    </div>
-  `;
   
-  const recentQuizzes = document.getElementById('recent-quizzes');
-  recentQuizzes.innerHTML = `
-    <div class="alert alert-warning py-2">
-      <small><i class="bi bi-exclamation-triangle me-1"></i>Unavailable at the moment</small>
-    </div>
-  `;
-}
+  try {
+    const saveButton = document.querySelector('#nameEditForm button.btn-success');
+    saveButton.innerHTML = '<i class="bi bi-arrow-repeat spinner"></i>';
+    saveButton.disabled = true;
 
-function displayNoContributions() {
-  document.getElementById('contributions-total').textContent = '0 quiz';
-  document.getElementById('contributionsGrid').innerHTML = `
-    <div class="text-center text-muted py-4">
-      <i class="bi bi-calendar3 display-6"></i>
-      <div class="small mt-2">No contribution</div>
-      <div class="small">Do your first quiz !</div>
-    </div>
-  `;
-}
-
-function displayContributionsError() {
-  document.getElementById('contributionsGrid').innerHTML = `
-    <div class="text-center text-warning py-3">
-      <i class="bi bi-exclamation-triangle"></i>
-      <div class="small mt-1">Data unavailable for the moment</div>
-    </div>
-  `;
-}
-
-
-// ========== FONCTIONS UTILITAIRES ==========
-
-function generateContributionsGrid(contributionsData) {
-  const grid = document.getElementById('contributionsGrid');
-  if (!grid) return;
-
-  const contributionsMap = {};
-  contributionsData.forEach(item => {
-    contributionsMap[item.date] = parseInt(item.count);
-  });
-
-  const dates = generateCurrentYearDates();
-  const today = new Date();
-  
-  // 🔥 CORRECTION : Normaliser aujourd'hui à minuit
-  const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-  grid.innerHTML = '';
-
-  dates.forEach(date => {
-    const dateString = date.toISOString().split('T')[0];
+    // TEMPORAIRE: Utilisez la route test
+    const response = await fetch('/api/user/update-name', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: newName }),
+      credentials: 'include'
+    });
     
-    // 🔥 CORRECTION : Normaliser la date de comparaison aussi
-    const dateNormalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const isFuture = dateNormalized > todayNormalized;
+    // Vérifiez le contenu de la réponse
+    const responseText = await response.text();
+    console.log('Réponse brute:', responseText);
     
-    const dayElement = document.createElement('div');
+    // Essayez de parser en JSON
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error(`Le serveur a renvoyé du HTML au lieu de JSON. Vérifiez que la route existe.`);
+    }
     
-    if (isFuture) {
-      // Jours futurs - style spécial
-      dayElement.className = 'contribution-day future-day';
-      dayElement.setAttribute('data-count', 0);
-      dayElement.setAttribute('data-date', 'Jour futur');
+    if (!response.ok) {
+      throw new Error(result.message || `Erreur HTTP: ${response.status}`);
+    }
+    
+    if (result.success) {
+      document.getElementById('userName').textContent = newName;
+      cancelNameEdit();
+      showNotification('Test réussi! ' + result.message, 'success');
     } else {
-      // Jours passés et aujourd'hui - logique normale
-      const count = contributionsMap[dateString] || 0;
-      const level = getContributionLevel(count);
-      dayElement.className = `contribution-day level-${level}`;
-      dayElement.setAttribute('data-count', count);
-      dayElement.setAttribute('data-date', formatDate(dateString));
+      throw new Error(result.message || 'Erreur inconnue');
     }
     
-    grid.appendChild(dayElement);
-  });
-}
-
-function generateCurrentYearDates() {
-  const dates = [];
-  const today = new Date();
-  const currentYear = today.getFullYear();
-  
-  // Début de l'année en cours (1er janvier)
-  const startDate = new Date(currentYear, 0, 1);
-  
-  // Fin = 31 décembre de l'année en cours
-  const endDate = new Date(currentYear, 11, 31);
-
-  // Trouver le premier lundi de l'année (ou avant si nécessaire)
-  const firstMonday = new Date(startDate);
-  const dayOfWeek = firstMonday.getDay();
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  firstMonday.setDate(firstMonday.getDate() + diffToMonday);
-
-  // Générer toutes les dates jusqu'au 31 décembre
-  const currentDate = new Date(firstMonday);
-  while (currentDate <= endDate) {
-    dates.push(new Date(currentDate));
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-
-  console.log(`📅 Génération ${dates.length} jours pour ${currentYear}`);
-  return dates;
-}
-
-
-function getContributionLevel(count) {
-  if (count === 0) return 0;
-  if (count === 1) return 1;
-  if (count <= 3) return 2;
-  if (count <= 5) return 3;
-  return 4;
-}
-
-function formatDate(dateString) {
-  return new Date(dateString).toLocaleDateString('fr-FR');
-}
-
-function getScoreColor(ratio) {
-  if (ratio >= 80) return 'success';
-  if (ratio >= 60) return 'warning';
-  return 'danger';
-}
-
-function getQuizTypeColor(type) {
-  const colors = {
-    'pinyin': 'info',
-    'character': 'warning',
-    'mixed': 'success'
-  };
-  return colors[type] || 'secondary';
-}
-
-function setActiveNavItem() {
-  const path = window.location.pathname;
-  document.querySelectorAll('.nav-link').forEach(link => {
-    link.classList.remove('active');
-    const page = link.getAttribute('data-page');
-    if (path.includes(page)) {
-      link.classList.add('active');
+  } catch (error) {
+    console.error('Erreur:', error);
+    showNotification('Erreur: ' + error.message, 'error');
+  } finally {
+    const saveButton = document.querySelector('#nameEditForm button.btn-success');
+    if (saveButton) {
+      saveButton.innerHTML = '<i class="bi bi-check"></i>';
+      saveButton.disabled = false;
     }
-  });
+  }
 }
 
-// Initialisation
-document.addEventListener('DOMContentLoaded', function() {
-  setActiveNavItem();
-  loadUserData();
-  loadQuizStats();
-  loadContributionsGrid();
-});
 
-window.addEventListener('popstate', setActiveNavItem);
-</script>
-  <script src="/js/global.js"></script>
+// Fonction pour afficher les notifications
+function showNotification(message, type = 'info') {
+  // Créer une notification toast Bootstrap
+  const toast = document.createElement('div');
+  toast.className = `toast align-items-center text-bg-${type === 'success' ? 'success' : 'danger'} border-0`;
+  toast.innerHTML = `
+    <div class="d-flex">
+      <div class="toast-body">
+        ${message}
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  `;
+  
+  const container = document.createElement('div');
+  container.className = 'toast-container position-fixed top-0 end-0 p-3';
+  container.appendChild(toast);
+  document.body.appendChild(container);
+  
+  const bsToast = new bootstrap.Toast(toast);
+  bsToast.show();
+  
+  // Nettoyer après fermeture
+  toast.addEventListener('hidden.bs.toast', () => {
+    container.remove();
+  });
+}
+  </script>
 </body>
 </html>

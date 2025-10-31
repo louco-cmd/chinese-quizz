@@ -5,10 +5,16 @@ const passport = require("passport");
 const session = require('express-session');
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const { OAuth2Client } = require('google-auth-library');
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
 
 const app = express();
+
+
+process.env.GOOGLE_CLIENT_ID = "722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com";
+process.env.GOOGLE_CLIENT_SECRET = "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";
+process.env.DATABASE_URL = "postgresql://neondb_owner:npg_q8LhtX3ybFre@ep-jolly-breeze-a1bb693a-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
+process.env.SESSION_SECRET = "ma_super_secret_key_123";
+process.env.PORT = 3000;
+
 
 // -------------------- Connexion PostgreSQL --------------------
 const pool = new Pool({
@@ -693,40 +699,6 @@ app.get('/force-session-cookie', (req, res) => {
   });
 });
 
-app.get('/cookie-debug', (req, res) => {
-  console.log('=== 🍪 COOKIE DEBUG ULTIME ===');
-  console.log('Session ID:', req.sessionID);
-  console.log('Cookies REÇUS:', req.headers.cookie);
-  
-  // Test 1: Cookie de session normal
-  req.session.testValue = 'session_works';
-  req.session.save((err) => {
-    if (err) {
-      console.error('❌ Session save error:', err);
-    }
-    
-    // Test 2: Cookie manuel
-    res.cookie('manual_cookie', 'manual_value', {
-      secure: true,
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: 'lax'
-      // Pas de domain
-    });
-    
-    // Vérifier les headers qui seront envoyés
-    console.log('Headers à envoyer:', res.getHeaders()['set-cookie']);
-    
-    res.json({
-      sessionID: req.sessionID,
-      cookiesReceived: req.headers.cookie,
-      setCookieHeaders: res.getHeaders()['set-cookie'],
-      message: 'Check browser cookies and network tab'
-    });
-  });
-});
-
-
 app.get('/session-persistence-test', (req, res) => {
   console.log('=== 🧪 SESSION PERSISTENCE TEST ===');
   console.log('URL:', req.url);
@@ -756,6 +728,55 @@ app.get('/session-persistence-test', (req, res) => {
       isAuthenticated: req.isAuthenticated(),
       cookies: req.headers.cookie
     });
+  });
+});
+
+// Route pour inspecter la session
+app.get('/api/debug-session', (req, res) => {
+  console.log('=== SESSION COMPLETE ===');
+  console.log('Session ID:', req.sessionID);
+  console.log('Session data:', req.session);
+  console.log('========================');
+  
+  res.json({
+    sessionId: req.sessionID,
+    sessionData: req.session,
+    userId: req.session.userId,
+    user: req.session.user
+  });
+});
+
+// -------------------- Bypass Auth en Développement --------------------
+const ENABLE_AUTH_BYPASS = true;
+let authBypassEnabled = true;
+
+function developmentAuthBypass(req, res, next) {
+  if (!ENABLE_AUTH_BYPASS) return next();
+  
+  console.log('🔓 Bypass auth ACTIF');
+  
+  const testUser = {
+    id: 7,
+    name: "Test User DEV",
+    email: "dev@example.com"
+  };
+  
+  req.user = testUser;
+  req.session.user = testUser;
+  req.session.passport = { user: 1 };
+  req.isAuthenticated = () => true;
+  
+  next();
+}
+
+app.use(developmentAuthBypass);
+
+app.get('/toggle-auth', (req, res) => {
+  authBypassEnabled = !authBypassEnabled;
+  console.log(`🔄 Bypass auth: ${authBypassEnabled ? 'ACTIVÉ' : 'DÉSACTIVÉ'}`);
+  res.json({ 
+    bypassEnabled: authBypassEnabled,
+    message: `Bypass auth ${authBypassEnabled ? 'activé' : 'désactivé'}`
   });
 });
 
@@ -1067,6 +1088,497 @@ app.get('/quiz-mots', ensureAuth, async (req, res) => {
   }
 });
 
+// Route FINALE pour mettre à jour le prénom
+app.post('/api/user/update-name', async (req, res) => {
+  try {
+    console.log('🔵 Route update-name appelée');
+    console.log('Body reçu:', req.body);
+
+    // METHODE 1: Récupérer l'userId depuis le body (plus simple)
+    const { name, userId } = req.body;
+    
+    // METHODE 2: Si userId n'est pas dans le body, essayez la session
+    const finalUserId = userId || req.session.userId || req.session.user?.id;
+    
+    console.log('UserId utilisé:', finalUserId);
+
+    if (!finalUserId) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'ID utilisateur manquant' 
+      });
+    }
+
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Le prénom est requis' 
+      });
+    }
+
+    // Mise à jour dans la base de données
+    const result = await pool.query(
+      'UPDATE users SET name = $1 WHERE id = $2 RETURNING id, name',
+      [name.trim(), finalUserId]
+    );
+
+    console.log('Résultat DB:', result.rows);
+
+    if (result.rows.length > 0) {
+      res.json({ 
+        success: true,
+        message: 'Prénom mis à jour avec succès !',
+        newName: result.rows[0].name
+      });
+    } else {
+      res.status(404).json({ 
+        success: false, 
+        message: 'Utilisateur non trouvé' 
+      });
+    }
+    
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Erreur serveur: ' + error.message 
+    });
+  }
+});
+
+// Duels API
+    // 📍 CLASSEMENT
+    app.get('/api/duels/leaderboard', ensureAuth, async (req, res) => {
+      try {
+        console.log('🏆 Chargement classement...');
+        
+        const result = await pool.query(`
+          SELECT 
+            u.id,
+            u.name,
+            u.email,
+            COUNT(CASE WHEN d.status = 'completed' AND (
+              (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+              (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+            ) THEN 1 END) as wins,
+            COUNT(CASE WHEN d.status = 'completed' AND (
+              (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
+              (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
+            ) THEN 1 END) as losses,
+            CASE 
+              WHEN COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END) > 0 THEN
+                ROUND(
+                  (COUNT(CASE WHEN d.status = 'completed' AND (
+                    (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+                    (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+                  ) THEN 1 END) * 100.0) / 
+                  COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END)
+                , 1)
+              ELSE 0
+            END as ratio
+          FROM users u
+          LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
+          GROUP BY u.id, u.name, u.email
+          HAVING COUNT(CASE WHEN d.status = 'completed' THEN 1 END) > 0
+          ORDER BY wins DESC, ratio DESC
+          LIMIT 50
+        `);
+
+        console.log(`✅ Classement chargé: ${result.rows.length} joueurs`);
+        res.json(result.rows);
+        
+      } catch (err) {
+        console.error('❌ Erreur classement:', err);
+        res.status(500).json({ error: 'Erreur chargement classement' });
+      }
+    });
+
+    // 📍 RECHERCHE UTILISATEURS
+    app.get('/api/duels/search', ensureAuth, async (req, res) => {
+      try {
+        const searchQuery = `%${req.query.q}%`;
+        console.log('🔍 Recherche utilisateur:', searchQuery);
+
+        const result = await pool.query(`
+          SELECT id, name, email 
+          FROM users 
+          WHERE (email ILIKE $1 OR name ILIKE $1) 
+            AND id != $2
+          LIMIT 10
+        `, [searchQuery, req.user.id]);
+
+        console.log(`✅ Résultats recherche: ${result.rows.length} utilisateurs`);
+        res.json(result.rows);
+        
+      } catch (err) {
+        console.error('❌ Erreur recherche:', err);
+        res.status(500).json({ error: 'Erreur recherche' });
+      }
+    });
+
+    // 📍 STATS PERSO
+    app.get('/api/duels/stats', ensureAuth, async (req, res) => {
+      try {
+        console.log('📊 Chargement stats perso pour:', req.user.id);
+        
+        const result = await pool.query(`
+          SELECT 
+            COUNT(*) as total_duels,
+            COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_duels,
+            COUNT(CASE WHEN status = 'completed' AND (
+              (challenger_id = $1 AND challenger_score > opponent_score) OR
+              (opponent_id = $1 AND opponent_score > challenger_score)
+            ) THEN 1 END) as wins,
+            COUNT(CASE WHEN status = 'completed' AND (
+              (challenger_id = $1 AND challenger_score < opponent_score) OR
+              (opponent_id = $1 AND opponent_score < challenger_score)
+            ) THEN 1 END) as losses,
+            CASE 
+              WHEN COUNT(CASE WHEN status = 'completed' AND (challenger_id = $1 OR opponent_id = $1) THEN 1 END) > 0 THEN
+                ROUND(
+                  (COUNT(CASE WHEN status = 'completed' AND (
+                    (challenger_id = $1 AND challenger_score > opponent_score) OR
+                    (opponent_id = $1 AND opponent_score > challenger_score)
+                  ) THEN 1 END) * 100.0) / 
+                  COUNT(CASE WHEN status = 'completed' AND (challenger_id = $1 OR opponent_id = $1) THEN 1 END)
+                , 1)
+              ELSE 0
+            END as ratio
+          FROM duels 
+          WHERE (challenger_id = $1 OR opponent_id = $1)
+        `, [req.user.id]);
+
+        const stats = result.rows[0] || { wins: 0, losses: 0, ratio: 0, total_duels: 0 };
+        console.log('✅ Stats perso:', stats);
+        res.json(stats);
+        
+      } catch (err) {
+        console.error('❌ Erreur stats perso:', err);
+        res.status(500).json({ error: 'Erreur chargement stats' });
+      }
+    });
+
+    // 📍 CRÉATION D'UN DUEL
+    app.post('/api/duels/create', ensureAuth, async (req, res) => {
+      const transaction = await pool.connect();
+      
+      try {
+        const { opponent_id, duel_type = 'classic', quiz_type = 'pinyin' } = req.body;
+        console.log('🎯 Création duel:', { challenger: req.user.id, opponent_id, duel_type, quiz_type });
+
+        // Vérifier que l'opposant existe
+        const opponentCheck = await transaction.query(
+          'SELECT id, name FROM users WHERE id = $1',
+          [opponent_id]
+        );
+
+        if (opponentCheck.rows.length === 0) {
+          return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+
+        if (opponent_id === req.user.id) {
+          return res.status(400).json({ error: 'Vous ne pouvez pas vous défier vous-même' });
+        }
+
+        await transaction.query('BEGIN');
+
+        // Générer les données du quiz
+        const quizData = await generateDuelQuiz(transaction, req.user.id, opponent_id, duel_type, quiz_type);
+        
+        if (!quizData) {
+          await transaction.query('ROLLBACK');
+          return res.status(400).json({ error: 'Impossible de générer le quiz (pas assez de mots)' });
+        }
+
+        // Créer le duel
+        const duelResult = await transaction.query(`
+          INSERT INTO duels 
+          (challenger_id, opponent_id, duel_type, quiz_type, quiz_data, status)
+          VALUES ($1, $2, $3, $4, $5, 'pending')
+          RETURNING *
+        `, [req.user.id, opponent_id, duel_type, quiz_type, JSON.stringify(quizData)]);
+
+        await transaction.query('COMMIT');
+
+        const duel = duelResult.rows[0];
+        console.log('✅ Duel créé avec ID:', duel.id);
+        
+        res.json({ 
+          success: true, 
+          duel: duel,
+          message: `Défi lancé contre ${opponentCheck.rows[0].name} !`
+        });
+
+      } catch (err) {
+        await transaction.query('ROLLBACK');
+        console.error('❌ Erreur création duel:', err);
+        res.status(500).json({ error: 'Erreur création duel' });
+      } finally {
+        transaction.release();
+      }
+    });
+
+    // 📍 DUELS EN ATTENTE (pour /account et /quiz)
+    app.get('/api/duels/pending', ensureAuth, async (req, res) => {
+      try {
+        console.log('⏳ Chargement duels en attente pour:', req.user.id);
+        
+        const result = await pool.query(`
+          SELECT 
+            d.*,
+            u1.name as challenger_name,
+            u2.name as opponent_name,
+            CASE 
+              WHEN d.challenger_id = $1 THEN 'challenger'
+              ELSE 'opponent'
+            END as user_role
+          FROM duels d
+          JOIN users u1 ON d.challenger_id = u1.id
+          JOIN users u2 ON d.opponent_id = u2.id
+          WHERE (d.challenger_id = $1 OR d.opponent_id = $1)
+            AND d.status = 'pending'
+            AND d.expires_at > NOW()
+          ORDER BY d.created_at DESC
+        `, [req.user.id]);
+
+        console.log(`✅ ${result.rows.length} duels en attente`);
+        res.json(result.rows);
+        
+      } catch (err) {
+        console.error('❌ Erreur duels en attente:', err);
+        res.status(500).json({ error: 'Erreur chargement duels' });
+      }
+    });
+
+    // 📍 HISTORIQUE DES DUELS
+    app.get('/api/duels/history', ensureAuth, async (req, res) => {
+      try {
+        const limit = parseInt(req.query.limit) || 10;
+        console.log('📜 Chargement historique duels, limit:', limit);
+        
+        const result = await pool.query(`
+          SELECT 
+            d.*,
+            u1.name as challenger_name,
+            u2.name as opponent_name,
+            CASE 
+              WHEN d.challenger_score > d.opponent_score THEN d.challenger_id
+              WHEN d.opponent_score > d.challenger_score THEN d.opponent_id
+              ELSE NULL
+            END as winner_id
+          FROM duels d
+          JOIN users u1 ON d.challenger_id = u1.id
+          JOIN users u2 ON d.opponent_id = u2.id
+          WHERE (d.challenger_id = $1 OR d.opponent_id = $1)
+            AND d.status = 'completed'
+          ORDER BY d.completed_at DESC
+          LIMIT $2
+        `, [req.user.id, limit]);
+
+        console.log(`✅ ${result.rows.length} duels dans l'historique`);
+        res.json(result.rows);
+        
+      } catch (err) {
+        console.error('❌ Erreur historique:', err);
+        res.status(500).json({ error: 'Erreur chargement historique' });
+      }
+    });
+
+    // 📍 DÉTAIL D'UN DUEL
+    app.get('/api/duels/:id', ensureAuth, async (req, res) => {
+      try {
+        const duelId = req.params.id;
+        console.log('🔍 Détail duel:', duelId);
+        
+        const result = await pool.query(`
+          SELECT 
+            d.*,
+            u1.name as challenger_name,
+            u2.name as opponent_name
+          FROM duels d
+          JOIN users u1 ON d.challenger_id = u1.id
+          JOIN users u2 ON d.opponent_id = u2.id
+          WHERE d.id = $1 AND (d.challenger_id = $2 OR d.opponent_id = $2)
+        `, [duelId, req.user.id]);
+
+        if (result.rows.length === 0) {
+          return res.status(404).json({ error: 'Duel non trouvé' });
+        }
+
+        res.json(result.rows[0]);
+        
+      } catch (err) {
+        console.error('❌ Erreur détail duel:', err);
+        res.status(500).json({ error: 'Erreur chargement duel' });
+      }
+    });
+
+    // 📍 SOUMETTRE SCORE
+    app.post('/api/duels/:id/submit', ensureAuth, async (req, res) => {
+      const transaction = await pool.connect();
+      
+      try {
+        const duelId = req.params.id;
+        const { score } = req.body;
+        console.log('🎯 Soumission score:', { duelId, userId: req.user.id, score });
+
+        await transaction.query('BEGIN');
+
+        // Vérifier le duel
+        const duelCheck = await transaction.query(`
+          SELECT * FROM duels 
+          WHERE id = $1 AND (challenger_id = $2 OR opponent_id = $2)
+          AND status = 'pending'
+        `, [duelId, req.user.id]);
+
+        if (duelCheck.rows.length === 0) {
+          await transaction.query('ROLLBACK');
+          return res.status(404).json({ error: 'Duel non trouvé ou déjà terminé' });
+        }
+
+        const duel = duelCheck.rows[0];
+        const isChallenger = duel.challenger_id === req.user.id;
+
+        // Mettre à jour le score
+        if (isChallenger) {
+          await transaction.query(`
+            UPDATE duels SET challenger_score = $1 WHERE id = $2
+          `, [score, duelId]);
+        } else {
+          await transaction.query(`
+            UPDATE duels SET opponent_score = $1 WHERE id = $2
+          `, [score, duelId]);
+        }
+
+        // Vérifier si les deux ont joué
+        const updatedDuel = await transaction.query(`
+          SELECT * FROM duels WHERE id = $1
+        `, [duelId]);
+
+        const currentDuel = updatedDuel.rows[0];
+        
+        if (currentDuel.challenger_score !== null && currentDuel.opponent_score !== null) {
+          // Les deux ont joué → marquer comme complété
+          await transaction.query(`
+            UPDATE duels SET 
+              status = 'completed',
+              completed_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+          `, [duelId]);
+        }
+
+        await transaction.query('COMMIT');
+
+        console.log('✅ Score soumis avec succès');
+        res.json({ 
+          success: true, 
+          message: 'Score enregistré !',
+          duel_completed: currentDuel.challenger_score !== null && currentDuel.opponent_score !== null
+        });
+
+      } catch (err) {
+        await transaction.query('ROLLBACK');
+        console.error('❌ Erreur soumission score:', err);
+        res.status(500).json({ error: 'Erreur enregistrement score' });
+      } finally {
+        transaction.release();
+      }
+    });
+
+    // ==================== FONCTIONS UTILITAIRES ====================
+
+    async function generateDuelQuiz(transaction, user1Id, user2Id, duelType, quizType) {
+      try {
+        console.log('🎲 Génération quiz duel:', { duelType, quizType });
+        
+        let wordIds = [];
+        const wordCount = duelType === 'classic' ? 20 : 10;
+
+        if (duelType === 'classic') {
+          // 10 mots user1 + 10 mots user2
+          const user1Words = await getRandomUserWords(transaction, user1Id, 10);
+          const user2Words = await getRandomUserWords(transaction, user2Id, 10);
+          
+          if (user1Words.length < 10 || user2Words.length < 10) {
+            console.warn('⚠️ Pas assez de mots pour un duel classique');
+            return null;
+          }
+          
+          wordIds = [...user1Words, ...user2Words];
+          
+        } else if (duelType === 'match_aa') {
+          // 10 mots en commun
+          wordIds = await getCommonWords(transaction, user1Id, user2Id, 10);
+          
+          if (wordIds.length < 10) {
+            console.warn('⚠️ Pas assez de mots communs pour un match AA');
+            return null;
+          }
+        }
+
+        // Mélanger les mots
+        wordIds = shuffleArray(wordIds);
+
+        // Récupérer les infos complètes des mots
+        const wordsResult = await transaction.query(`
+          SELECT id, chinese, pinyin, english, description, hsk
+          FROM mots 
+          WHERE id = ANY($1)
+        `, [wordIds]);
+
+        const quizData = {
+          words: wordsResult.rows,
+          total_questions: wordCount,
+          duel_type: duelType,
+          quiz_type: quizType,
+          generated_at: new Date().toISOString()
+        };
+
+        console.log(`✅ Quiz généré: ${wordCount} mots`);
+        return quizData;
+
+      } catch (err) {
+        console.error('❌ Erreur génération quiz:', err);
+        return null;
+      }
+    }
+
+    async function getRandomUserWords(transaction, userId, limit) {
+      const result = await transaction.query(`
+        SELECT mots.id 
+        FROM mots 
+        JOIN user_mots ON mots.id = user_mots.mot_id 
+        WHERE user_mots.user_id = $1 
+        ORDER BY RANDOM() 
+        LIMIT $2
+      `, [userId, limit]);
+      
+      return result.rows.map(row => row.id);
+    }
+
+    async function getCommonWords(transaction, user1Id, user2Id, limit) {
+      const result = await transaction.query(`
+        SELECT m1.id 
+        FROM user_mots um1
+        JOIN user_mots um2 ON um1.mot_id = um2.mot_id
+        JOIN mots m1 ON um1.mot_id = m1.id
+        WHERE um1.user_id = $1 AND um2.user_id = $2
+        ORDER BY RANDOM()
+        LIMIT $3
+      `, [user1Id, user2Id, limit]);
+      
+      return result.rows.map(row => row.id);
+    }
+
+    function shuffleArray(array) {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    }
+
 // Pages EJS
 app.get("/", (req, res) => {
   if (req.user) {
@@ -1188,6 +1700,62 @@ app.get('/quiz', ensureAuth, (req, res) => {
     currentPage: 'quiz',
     user: req.user
   });
+});
+
+app.get('/duels', ensureAuth, (req, res) => {
+  res.render('duels', {
+    currentPage: 'duels',
+    user: req.user
+  });
+});
+
+app.get('/duel-play/:id', ensureAuth, async (req, res) => {
+  try {
+    const duelId = req.params.id;
+    
+    // Vérifier que l'utilisateur peut jouer ce duel
+    const duelResult = await pool.query(`
+      SELECT d.*, 
+             u1.name as challenger_name,
+             u2.name as opponent_name
+      FROM duels d
+      JOIN users u1 ON d.challenger_id = u1.id
+      JOIN users u2 ON d.opponent_id = u2.id
+      WHERE d.id = $1 AND (d.challenger_id = $2 OR d.opponent_id = $2)
+      AND d.status = 'pending'
+      AND d.expires_at > NOW()
+    `, [duelId, req.user.id]);
+
+    if (duelResult.rows.length === 0) {
+      return res.redirect('/duels?error=duel_not_found');
+    }
+
+    const duel = duelResult.rows[0];
+    const isChallenger = duel.challenger_id === req.user.id;
+    
+    // Vérifier si l'utilisateur a déjà joué
+    const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
+    
+    if (userScore !== null) {
+      return res.render('duel-waiting', {
+        duel: duel,
+        userScore: userScore,
+        currentPage: 'duels',
+        user: req.user // 🔥 AJOUTÉ ICI
+      });
+    }
+
+    res.render('duel-play', {
+      duel: duel,
+      quizData: duel.quiz_data,
+      currentPage: 'duels',
+      user: req.user // 🔥 AJOUTÉ ICI
+    });
+
+  } catch (err) {
+    console.error('Erreur page duel:', err);
+    res.redirect('/duels?error=server_error');
+  }
 });
 
 // Middleware de simulation d'utilisateur pour les tests

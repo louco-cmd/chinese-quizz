@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duels - 加油！</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --surface: #ffffff;
+            --surface-1: #f8f9fa;
+            --surface-2: #e9ecef;
+            --primary: #0d6efd;
+            --primary-container: #e3f2fd;
+            --on-primary: #ffffff;
+            --text: #202124;
+            --text-secondary: #5f6368;
+            --border: #dadce0;
+        }
+
+        body {
+            background-color: var(--surface-1);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.05);
+            transition: box-shadow 0.2s ease;
+        }
+
+        .card:hover {
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.25rem;
+        }
+
+        .btn {
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            border: none;
+        }
+
+        .btn-outline-primary {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .form-control {
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            transition: border-color 0.2s ease;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.1);
+        }
+
+        .list-item {
+            transition: background-color 0.15s ease;
+            border: none;
+        }
+
+        .list-item:hover {
+            background-color: var(--surface-1);
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            background: var(--primary-container);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-size: 0.875rem;
+        }
+
+        .badge {
+            border-radius: 6px;
+            font-weight: 500;
+        }
+
+        .modal-content {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+
+        .alert {
+            border: none;
+            border-radius: 8px;
+        }
+
+        .text-muted {
+            color: var(--text-secondary) !important;
+        }
+
+        /* Ordre mobile */
+        .mobile-order-1 {
+            order: 1;
+        }
+
+        .mobile-order-2 {
+            order: 2;
+        }
+
+        @media (min-width: 992px) {
+            .mobile-order-1 {
+                order: 0;
+            }
+
+            .mobile-order-2 {
+                order: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
+        <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
+            加油！
+        </span>
+    </div>
+
+    <%- include('partials/navbar', {currentPage: 'duels'}) %>
+
+    <!-- Main Content -->
+    <div class="container-fluid py-4">
+        <div class="row g-4">
+            <!-- Colonne Droite - Actions (PREMIER sur mobile) -->
+            <div class="col-12 col-lg-4 mobile-order-1">
+                <!-- Recherche -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0 d-flex align-items-center">
+                            <i class="bi bi-search me-2"></i>
+                            Rechercher un dueliste
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group">
+                            <input type="text" 
+                                   id="duelist-search" 
+                                   class="form-control" 
+                                   placeholder="Nom ou email..."
+                                   onkeypress="handleSearchKeyPress(event)"
+                                   oninput="handleSearchInput()">
+                            <button class="btn btn-primary" type="button" onclick="searchDuelists()">
+                                <i class="bi bi-search" id="search-icon"></i>
+                                <span class="spinner-border spinner-border-sm d-none" id="search-spinner"></span>
+                            </button>
+                        </div>
+                        
+                        <div id="search-suggestions" class="mt-2" style="display: none;">
+                            <div class="list-group list-group-flush small">
+                                <!-- Suggestions -->
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h6 class="mb-0 d-flex align-items-center">
+                            <i class="bi bi-graph-up me-2"></i>
+                            Mes stats
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="my-duel-stats">
+                            <div class="text-center py-2">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonne Gauche - Classement (DEUXIEME sur mobile) -->
+            <div class="col-12 col-lg-8 mobile-order-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0 d-flex align-items-center">
+                            <i class="bi bi-trophy me-2"></i>
+                            Classement
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="leaderboard-container">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2 text-muted small">Chargement...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section Duels -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h6 class="mb-0 d-flex align-items-center">
+                            <i class="bi bi-clock me-2"></i>
+                            Duels récents
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="recent-duels">
+                            <div class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <p class="mt-2 text-muted small">Chargement...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Défi -->
+    <div class="modal fade" id="duelModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Défier <span id="opponentName"></span></h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="duelForm">
+                        <input type="hidden" id="opponentId">
+                        
+                        <div class="mb-3">
+                            <label class="form-label small fw-medium">Type de duel</label>
+                            <select class="form-select" id="duelType" required>
+                                <option value="classic">Classique (20 mots)</option>
+                                <option value="match_aa">Match AA (10 mots communs)</option>
+                            </select>
+                        </div>
+
+                        <div class="alert alert-info small">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <div>
+                                    <div class="fw-medium">Anglais → Pinyin</div>
+                                    <div class="text-muted">Traduction vers prononciation</div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="createDuel()">
+                        Lancer le défi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentOpponent = null;
+        let searchTimeout = null;
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLeaderboard();
+            loadMyStats();
+            loadRecentDuels();
+        });
+
+        // Classement
+        async function loadLeaderboard() {
+            try {
+                const response = await fetch('/api/duels/leaderboard');
+                const data = await response.json();
+                
+                const container = document.getElementById('leaderboard-container');
+                if (data.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-trophy fs-2 opacity-50"></i>
+                            <p class="mt-2 small">Aucun duel joué</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = data.map((user, index) => `
+                    <div class="list-item d-flex justify-content-between align-items-center border-bottom p-3">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar me-3">
+                                ${index + 1}
+                            </div>
+                            <div>
+                                <div class="fw-medium small">${user.name}</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">${user.email}</div>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 small">
+                            <span class="text-success">${user.wins || 0}V</span>
+                            <span class="text-danger">${user.losses || 0}D</span>
+                            <span class="text-primary">${user.ratio || 0}%</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Erreur classement:', error);
+                document.getElementById('leaderboard-container').innerHTML = `
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <p class="mt-2 small">Erreur de chargement</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Recherche
+        function handleSearchKeyPress(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                searchDuelists();
+            }
+        }
+
+        function handleSearchInput() {
+            const query = document.getElementById('duelist-search').value.trim();
+            const suggestions = document.getElementById('search-suggestions');
+            
+            if (query.length === 0) {
+                suggestions.style.display = 'none';
+                return;
+            }
+            
+            if (searchTimeout) clearTimeout(searchTimeout);
+            
+            if (query.length >= 2) {
+                searchTimeout = setTimeout(() => {
+                    searchDuelists(true);
+                }, 300);
+            } else {
+                suggestions.style.display = 'none';
+            }
+        }
+
+        async function searchDuelists(isSuggestionMode = false) {
+            const query = document.getElementById('duelist-search').value.trim();
+            if (!query) return;
+
+            showSearchLoading(true);
+            
+            try {
+                const response = await fetch(`/api/duels/search?q=${encodeURIComponent(query)}`);
+                const results = await response.json();
+                
+                if (isSuggestionMode) {
+                    displaySearchSuggestions(results);
+                } else {
+                    displaySearchResults(results);
+                }
+            } catch (error) {
+                console.error('Erreur recherche:', error);
+                displaySearchError();
+            } finally {
+                showSearchLoading(false);
+            }
+        }
+
+        function displaySearchSuggestions(results) {
+            const container = document.getElementById('search-suggestions');
+            if (!results || results.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.innerHTML = results.slice(0, 3).map(user => `
+                <div class="list-group-item list-group-item-action p-2" 
+                     onclick="selectSuggestion(${user.id}, '${user.name.replace(/'/g, "\\'")}')">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar me-2">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="small fw-medium">${user.name}</div>
+                            <div class="text-muted" style="font-size: 0.7rem;">${user.email}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            container.style.display = 'block';
+        }
+
+        function displaySearchResults(results) {
+            const container = document.getElementById('search-results');
+            
+            if (!results || results.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-person-x"></i>
+                        <div class="mt-1 small">Aucun utilisateur trouvé</div>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = results.map(user => `
+                <div class="list-item d-flex justify-content-between align-items-center p-2 border-bottom">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar me-2">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <div>
+                            <div class="small fw-medium">${user.name}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">${user.email}</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary" 
+                            onclick="openDuelModal(${user.id}, '${user.name.replace(/'/g, "\\'")}')">
+                        Défier
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function selectSuggestion(userId, userName) {
+            document.getElementById('duelist-search').value = userName;
+            document.getElementById('search-suggestions').style.display = 'none';
+            openDuelModal(userId, userName);
+        }
+
+        function displaySearchError() {
+            document.getElementById('search-results').innerHTML = `
+                <div class="alert alert-warning small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Erreur lors de la recherche
+                </div>
+            `;
+        }
+
+        function showSearchLoading(show) {
+            const icon = document.getElementById('search-icon');
+            const spinner = document.getElementById('search-spinner');
+            const button = document.querySelector('#duelist-search + .btn');
+            
+            if (show) {
+                icon.classList.add('d-none');
+                spinner.classList.remove('d-none');
+                button.disabled = true;
+            } else {
+                icon.classList.remove('d-none');
+                spinner.classList.add('d-none');
+                button.disabled = false;
+            }
+        }
+
+        // Stats
+        async function loadMyStats() {
+            try {
+                const response = await fetch('/api/duels/stats');
+                const stats = await response.json();
+                
+                document.getElementById('my-duel-stats').innerHTML = `
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="h5 text-success">${stats.wins || 0}</div>
+                            <div class="text-muted small">Victoires</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="h5 text-danger">${stats.losses || 0}</div>
+                            <div class="text-muted small">Défaites</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="h5 text-primary">${stats.ratio || 0}%</div>
+                            <div class="text-muted small">Ratio</div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('my-duel-stats').innerHTML = `
+                    <div class="text-center text-muted small">
+                        Données indisponibles
+                    </div>
+                `;
+            }
+        }
+
+        // Duels récents
+        async function loadRecentDuels() {
+            try {
+                const currentUserId = <%= user.id %>;
+                const [recent, pending] = await Promise.all([
+                    fetch('/api/duels/history?limit=6'),
+                    fetch('/api/duels/pending')
+                ]);
+
+                const recentDuels = await recent.json();
+                const pendingDuels = await pending.json();
+                const container = document.getElementById('recent-duels');
+
+                if (recentDuels.length === 0 && pendingDuels.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-sword fs-2 opacity-50"></i>
+                            <p class="mt-2 small">Aucun duel</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                
+                if (pendingDuels.length > 0) {
+                    html += pendingDuels.map(duel => renderDuelItem(duel, currentUserId, true)).join('');
+                }
+                
+                if (recentDuels.length > 0) {
+                    html += recentDuels.map(duel => renderDuelItem(duel, currentUserId, false)).join('');
+                }
+
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Erreur duels récents:', error);
+                document.getElementById('recent-duels').innerHTML = `
+                    <div class="alert alert-warning m-3 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Erreur de chargement
+                    </div>
+                `;
+            }
+        }
+
+        function renderDuelItem(duel, userId, isPending) {
+            const isChallenger = duel.challenger_id === userId;
+            const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name;
+            const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
+            const opponentScore = isChallenger ? duel.opponent_score : duel.challenger_score;
+            const hasUserPlayed = userScore !== null;
+            const hasOpponentPlayed = opponentScore !== null;
+
+            let status = '', cta = '';
+
+            if (isPending) {
+                if (!hasUserPlayed) {
+                    status = '<span class="badge bg-primary">À jouer</span>';
+                    cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">Jouer</button>`;
+                } else {
+                    status = '<span class="badge bg-secondary">En attente</span>';
+                    cta = '';
+                }
+            } else {
+                const userWon = (isChallenger && userScore > opponentScore) || (!isChallenger && opponentScore > userScore);
+                status = userWon ? '<span class="badge bg-success">Victoire</span>' : '<span class="badge bg-danger">Défaite</span>';
+                cta = '';
+            }
+
+            return `
+                <div class="list-item d-flex justify-content-between align-items-center border-bottom p-3">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar me-3">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <div>
+                            <div class="small fw-medium">${opponentName}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">
+                                ${userScore || '?'} - ${opponentScore || '?'}
+                                ${status}
+                            </div>
+                        </div>
+                    </div>
+                    ${cta}
+                </div>
+            `;
+        }
+
+        function playDuel(duelId) {
+            window.location.href = `/duel-play/${duelId}`;
+        }
+
+        function openDuelModal(opponentId, opponentName) {
+            currentOpponent = opponentId;
+            document.getElementById('opponentName').textContent = opponentName;
+            document.getElementById('opponentId').value = opponentId;
+            new bootstrap.Modal(document.getElementById('duelModal')).show();
+        }
+
+        async function createDuel() {
+            const duelType = document.getElementById('duelType').value;
+            
+            try {
+                const response = await fetch('/api/duels/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        opponent_id: currentOpponent,
+                        duel_type: duelType,
+                        quiz_type: 'pinyin'
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('duelModal')).hide();
+                    showAlert('Défi lancé !', 'success');
+                    loadRecentDuels();
+                } else {
+                    showAlert(result.error, 'danger');
+                }
+            } catch (error) {
+                showAlert('Erreur réseau', 'danger');
+            }
+        }
+
+        function showAlert(message, type) {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 250px;';
+            alert.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            document.body.appendChild(alert);
+            setTimeout(() => alert.remove(), 4000);
+        }
+
+        // Fermer les suggestions
+        document.addEventListener('click', function(event) {
+            const suggestions = document.getElementById('search-suggestions');
+            const searchInput = document.getElementById('duelist-search');
+            
+            if (!searchInput.contains(event.target) && !suggestions.contains(event.target)) {
+                suggestions.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
