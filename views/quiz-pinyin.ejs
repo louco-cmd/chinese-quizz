@@ -32,6 +32,10 @@
 
   <!-- Résultat AU DESSUS des champs -->
   <div id="quizResult" class="mb-3 text-center fs-4 fw-bold"></div>
+  <div id="chineseCharacter" class="mb-3 text-center" style="display: none;">
+  <div class="chinese-char fs-1 fw-bold text-dark mb-2"></div>
+  <div class="pinyin-display fs-5 text-muted"></div>
+</div>
 
   <!-- Formulaire du quiz -->
   <form id="quizForm" class="p-4 bg-light rounded gap-4 d-flex flex-column">
@@ -65,6 +69,9 @@ const checkBtn = document.getElementById('checkBtn');
 const quizResult = document.getElementById('quizResult');
 const quizForm = document.getElementById('quizForm');
 const quizScore = document.getElementById('quizScore');
+const chineseCharacter = document.getElementById('chineseCharacter');
+const chineseChar = chineseCharacter.querySelector('.chinese-char');
+const pinyinDisplay = chineseCharacter.querySelector('.pinyin-display');
 
 const urlParams = new URLSearchParams(window.location.search);
 let quizCount = urlParams.get('count');
@@ -244,6 +251,22 @@ quizForm.onsubmit = (e) => {
     }
   }
 };
+
+function showChineseCharacter() {
+  chineseChar.textContent = currentWord.chinese;
+  pinyinDisplay.textContent = currentWord.pinyin;
+  chineseCharacter.style.display = 'block';
+  
+  // Animation d'apparition
+  chineseCharacter.style.opacity = '0';
+  chineseCharacter.style.transform = 'translateY(-10px)';
+  
+  setTimeout(() => {
+    chineseCharacter.style.transition = 'all 0.3s ease';
+    chineseCharacter.style.opacity = '1';
+    chineseCharacter.style.transform = 'translateY(0)';
+  }, 100);
+}
 
 // Lancer le quiz
 document.addEventListener('DOMContentLoaded', () => {
