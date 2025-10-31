@@ -1048,7 +1048,7 @@ app.get('/quiz-mots', ensureAuth, async (req, res) => {
 });
 
 // Route FINALE pour mettre à jour le prénom
-app.post('/api/user/update-name', async (req, res) => {
+app.post('/api/user/update-name', ensureAuth, async (req, res) => {
   try {
     console.log('🔵 Route update-name appelée');
     console.log('Body reçu:', req.body);
