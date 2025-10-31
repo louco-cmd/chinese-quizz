@@ -1,5 +1,3 @@
-require('dotenv').config();
-
 const { Pool } = require("pg");
 const path = require("path");
 const express = require("express");
@@ -7,7 +5,6 @@ const passport = require("passport");
 const session = require('express-session');
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const { OAuth2Client } = require('google-auth-library');
-const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 
@@ -23,6 +20,12 @@ app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
+
+// -------------------- Configuration Vercel --------------------
+app.set('trust proxy', 1);
+
+// -------------------- Session pour Vercel --------------------
+// -------------------- Session Cloud Optimisée --------------------
 const PostgreSQLStore = require('connect-pg-simple')(session);
 
 app.use(session({
@@ -30,74 +33,87 @@ app.use(session({
     pool: pool,
     tableName: 'session',
     createTableIfMissing: true,
+    pruneSessionInterval: false, // Désactiver le nettoyage auto
+    ttl: 7 * 24 * 60 * 60 // 7 jours en secondes
   }),
-  secret: process.env.SESSION_SECRET || 'fallback-secret-change-in-production',
-  resave: false,
-  saveUninitialized: false,
+  secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
+  name: 'jiayou.sid',
+  resave: false, // ⬅️ IMPORTANT: false pour PostgreSQL
+  saveUninitialized: false, // ⬅️ IMPORTANT: false pour la sécurité
+  rolling: false, // ⬅️ false pour plus de stabilité
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 1 semaine
+    secure: true, // ⬅️ true pour HTTPS
+    httpOnly: true, // ⬅️ empêcher l'accès JS
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
+    sameSite: 'lax',
   }
 }));
 
-// --------------------- Initialisation Supabase
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY,
-  {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true
-    }
-  }
-);
-
-app.use(async (req, res, next) => {
-  if (req.session.userId && !req.user) {
-    try {
-      const userRes = await pool.query(
-        'SELECT id, email, name FROM users WHERE id = $1', 
-        [req.session.userId]
-      );
-      if (userRes.rows.length > 0) {
-        req.user = userRes.rows[0];
-      }
-    } catch (err) {
-      console.error('Erreur récupération user:', err);
-    }
-  }
-  next();
-});
-
-app.use(async (req, res, next) => {
-  if (req.session.userId && !req.user) {
-    try {
-      const userRes = await pool.query(
-        'SELECT id, email, name FROM users WHERE id = $1', 
-        [req.session.userId]
-      );
-      if (userRes.rows.length > 0) {
-        req.user = userRes.rows[0];
-      }
-    } catch (err) {
-      console.error('Erreur récupération user:', err);
-    }
-  }
-  next();
-});
-
+// Middleware pour s'assurer que les cookies sont set
 app.use((req, res, next) => {
-  // Log minimal pour production
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔐 Session:', {
-      id: req.sessionID?.substring(0, 8),
-      user: req.user?.id || 'anonymous'
-    });
-  }
+  console.log('🍪 Cookies reçus:', req.headers.cookie);
+  console.log('🔐 Session ID:', req.sessionID);
   next();
 });
+// 🛡️ MIDDLEWARE DE RÉSILIENCE CLOUD
+app.use((req, res, next) => {
+  // Log de debug
+  console.log('🌐 Session Check:', {
+    id: req.sessionID?.substring(0, 8),
+    hasSession: !!req.session,
+    hasUser: !!req.user,
+    cookies: req.headers.cookie ? 'present' : 'missing'
+  });
+
+  // Sauvegarde automatique après chaque requête
+  const originalEnd = res.end;
+  res.end = function(...args) {
+    if (req.session && typeof req.session.save === 'function') {
+      req.session.save((err) => {
+        if (err) {
+          console.error('❌ Erreur sauvegarde session:', err);
+        }
+        originalEnd.apply(this, args);
+      });
+    } else {
+      originalEnd.apply(this, args);
+    }
+  };
+  
+  next();
+});
+// 🔧 RÉPARATEUR DE SESSIONS CORROMPUES
+app.use((req, res, next) => {
+  if (req.session && !req.session.initialized) {
+    req.session.initialized = true;
+    req.session.createdAt = new Date().toISOString();
+  }
+  
+  // Réparer les sessions Passport corrompues
+  if (req.session && req.session.passport && !req.user) {
+    console.log('🔄 Tentative de réparation session...');
+    // La désérialisation se fera automatiquement
+  }
+  
+  next();
+});
+
+// 🧪 VÉRIFICATEUR DE SESSION EN TEMPS RÉEL
+app.use((req, res, next) => {
+  console.log('🔍 Session State:', {
+    id: req.sessionID?.substring(0, 8),
+    exists: !!req.session,
+    user: req.user?.id || 'none',
+    cookies: req.headers.cookie ? req.headers.cookie.length + ' chars' : 'none',
+    url: req.url
+  });
+  next();
+});
+
+// -------------------- Initialisation Passport --------------------
+app.use(passport.initialize());
+app.use(passport.session());
+
 
 // -------------------- Initialisation des tables --------------------
 (async () => {
@@ -154,32 +170,6 @@ app.use((req, res, next) => {
       CREATE INDEX IF NOT EXISTS "IDX_session_expire" 
       ON session ("expire")
     `);
-
-    await pool.query(`
-  CREATE TABLE IF NOT EXISTS user_mots (
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    mot_id INTEGER REFERENCES mots(id) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (user_id, mot_id)
-  )
-`);
-
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS duels (
-    id SERIAL PRIMARY KEY,
-    challenger_id INTEGER REFERENCES users(id),
-    opponent_id INTEGER REFERENCES users(id),
-    duel_type TEXT DEFAULT 'classic',
-    quiz_type TEXT DEFAULT 'pinyin',
-    quiz_data JSONB,
-    challenger_score INTEGER,
-    opponent_score INTEGER,
-    status TEXT DEFAULT 'pending',
-    expires_at TIMESTAMP DEFAULT (NOW() + INTERVAL '24 hours'),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP
-  )
-`);
     
     console.log("✅ Table 'session' vérifiée ou créée.");
 
@@ -190,309 +180,395 @@ await pool.query(`
   }
 })();
 
-
-
-// -------------------- Auth Supabase --------------------
-
-app.get('/auth/supabase', (req, res) => {
-  const redirectTo = `${process.env.SUPABASE_URL}/auth/v1/authorize`;
-  const params = new URLSearchParams({
-    provider: 'google',
-    redirect_to: `${req.protocol}://${req.get('host')}/auth/callback`
-  });
-  
-  res.redirect(`${redirectTo}?${params.toString()}`);
+// -------------------- Serialize / Deserialize DEBUG --------------------
+// 🔐 PASSPORT POUR CLOUD - VERSION STABLE
+passport.serializeUser((user, done) => {
+  console.log('🔒 Sérialisation:', user.id);
+  done(null, user.id);
 });
 
-// -------------------- Auth Email (Magic Link) --------------------
-
-// Route pour envoyer le magic link
-app.post('/auth/email', async (req, res) => {
-  const { email } = req.body;
-  
+passport.deserializeUser(async (id, done) => {
   try {
-    console.log('📧 Envoi magic link à:', email);
+    console.log('🔓 Désérialisation:', id);
+    const res = await pool.query(
+      "SELECT id, email, name FROM users WHERE id = $1", 
+      [id]
+    );
     
-    const { data, error } = await supabase.auth.signInWithOtp({
-      email: email,
-      options: {
-        emailRedirectTo: `http://localhost:3000/auth/callback`
-      }
-    });
-    
-    if (error) {
-      console.error('❌ Erreur magic link:', error);
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Erreur: ' + error.message 
-      });
+    if (res.rows.length === 0) {
+      console.log('❌ Utilisateur non trouvé');
+      return done(null, false);
     }
     
-    console.log('✅ Magic link envoyé à:', email);
-    res.json({ 
-      success: true, 
-      message: 'Lien de connexion envoyé à ' + email 
-    });
+    const user = res.rows[0];
+    console.log('✅ Utilisateur chargé:', user.email);
+    done(null, user);
     
-  } catch (error) {
-    console.error('❌ Erreur envoi email:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Erreur serveur: ' + error.message 
-    });
+  } catch (err) {
+    console.error('❌ Erreur désérialisation:', err);
+    done(err, null);
   }
 });
 
-// Route pour la page de login email
-app.get('/login-email', (req, res) => {
-  res.render('login-email', {
-    supabaseUrl: process.env.SUPABASE_URL,
-    supabaseKey: process.env.SUPABASE_ANON_KEY
-  });
-});
+// -------------------- Passport Google --------------------
+const Client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Callback - Version optimisée et propre
-app.get('/auth/callback', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Connexion en cours...</title>
-        <style>
-            body { 
-                font-family: Arial, sans-serif; 
-                text-align: center; 
-                margin: 100px auto;
-                max-width: 400px;
-            }
-            .spinner {
-                border: 4px solid #f3f3f3;
-                border-top: 4px solid #3B82F6;
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                animation: spin 1s linear infinite;
-                margin: 20px auto;
-            }
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-        </style>
-    </head>
-    <body>
-        <h2>Connexion en cours...</h2>
-        <div class="spinner"></div>
-        <p>Redirection automatique...</p>
-        
-        <script>
-            // Récupère le token du hash
-            const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
-            const accessToken = params.get('access_token');
+// 🔥 CONFIGURATION AMÉLIORÉE DE PASSPORT
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "https://chinese-quizz.vercel.app/auth/google/callback",
+    passReqToCallback: true, // ← IMPORTANT pour accéder à req
+    scope: ['profile', 'email'],
+    state: true // Sécurité contre les attaques CSRF
+  },
+  async function(req, accessToken, refreshToken, profile, done) {
+    const transaction = await pool.connect();
+    try {
+      console.log('🔐 Début authentification Google');
+      const { id, displayName, emails, photos } = profile;
+      const email = emails[0].value;
 
-            if (accessToken) {
-                // Envoie le token au serveur
-                fetch('/auth/token-handler', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ access_token: accessToken })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.href = '/dashboard';
-                    } else {
-                        window.location.href = '/?error=auth_failed';
-                    }
-                })
-                .catch(error => {
-                    console.error('Erreur:', error);
-                    window.location.href = '/?error=network_error';
-                });
-            } else {
-                window.location.href = '/?error=no_token';
-            }
-        </script>
-    </body>
-    </html>
-  `);
-});
+      await transaction.query('BEGIN');
 
-// Route pour traiter le token
-app.post('/auth/token-handler', async (req, res) => {
-  try {
-    const { access_token, refresh_token } = req.body;
-    
-    console.log('🔐 Token reçu pour traitement');
-
-    if (!access_token) {
-      throw new Error('Aucun token reçu');
-    }
-
-    // Utilise le token pour récupérer l'user
-    const { data: { user }, error } = await supabase.auth.getUser(access_token);
-    
-    if (error) {
-      console.error('❌ Erreur getUser:', error);
-      throw error;
-    }
-    
-    if (!user) {
-      throw new Error('Utilisateur non trouvé avec ce token');
-    }
-
-    console.log('✅ Utilisateur récupéré:', user.email);
-
-    // SYNCHRONISATION avec ta base Neon
-    let neonUser = await pool.query('SELECT * FROM users WHERE email = $1', [user.email]);
-    
-    if (neonUser.rows.length === 0) {
-      // Nouvel user - créer dans Neon
-      console.log('🆕 Création nouvel utilisateur dans Neon');
-      neonUser = await pool.query(
-        `INSERT INTO users (email, name, provider, provider_id, created_at) 
-         VALUES ($1, $2, 'google', $3, NOW()) RETURNING *`,
-        [user.email, user.user_metadata.full_name || user.email.split('@')[0], user.id]
+      // ✅ CORRIGER : Déclarer userRes avec 'let'
+      let userRes = await transaction.query(
+        `SELECT id, email, name, provider_id FROM users 
+         WHERE provider_id = $1 OR email = $2 
+         ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END 
+         LIMIT 1`,
+        [id, email]
       );
-      console.log('✅ Nouvel utilisateur créé:', user.email);
-    } else {
-      // User existant - mettre à jour si nécessaire
-      console.log('✅ Utilisateur existant trouvé:', user.email);
-      
-      if (!neonUser.rows[0].provider_id) {
-        await pool.query(
-          'UPDATE users SET provider_id = $1, provider = $2 WHERE id = $3',
-          [user.id, 'google', neonUser.rows[0].id]
+
+      let isNewUser = false;
+      let user;
+
+      if (userRes.rows.length === 0) {
+        // 🆕 NOUVEL UTILISATEUR
+        console.log('👤 Création nouveau utilisateur:', email);
+        const newUser = await transaction.query(
+          `INSERT INTO users (email, name, provider, provider_id, last_login) 
+           VALUES ($1, $2, 'google', $3, NOW())  -- ✅ Commentaire correct
+           RETURNING id, email, name`,
+          [email, displayName, id]
         );
-        console.log('🔄 Provider ID mis à jour');
+        user = newUser.rows[0];
+        isNewUser = true;
+        
+        await addWelcomeGift(transaction, user.id);
+        
+      } else {
+        // 🔄 UTILISATEUR EXISTANT
+        user = userRes.rows[0];
+        
+        if (user.provider_id !== id) {
+          console.log('🔗 Liaison compte existant avec Google');
+          await transaction.query(
+            'UPDATE users SET provider_id = $1, provider = $2, last_login = NOW() WHERE id = $3',
+            [id, 'google', user.id]
+          );
+        } else {
+          await transaction.query(
+            'UPDATE users SET last_login = NOW() WHERE id = $1',
+            [user.id]
+          );
+        }
+      }
+
+      await transaction.query('COMMIT');
+      
+      console.log('✅ Authentification réussie pour:', user.email);
+      done(null, { 
+        id: user.id,
+        email: user.email, 
+        name: user.name,
+        isNewUser: isNewUser
+      });
+
+    } catch (err) {
+      await transaction.query('ROLLBACK');
+      console.error('❌ Erreur Passport Google:', err);
+      
+      // Erreur plus spécifique
+      const errorMessage = err.code === '23505' ? 
+        'Un compte avec cet email existe déjà' : 
+        'Erreur de base de données';
+      
+      done(new Error(errorMessage), null);
+    } finally {
+      transaction.release();
+    }
+  }
+));
+
+// 🎁 FONCTION POUR LE MOT CADEAU
+async function addWelcomeGift(transaction, userId) {
+  try {
+    console.log('🎁 Recherche du mot cadeau "加油"');
+    
+    const motRes = await transaction.query(
+      "SELECT id, chinese, pinyin, english FROM mots WHERE chinese = '加油'"
+    );
+    
+    if (motRes.rows.length > 0) {
+      const mot = motRes.rows[0];
+      console.log('✅ Mot cadeau trouvé:', mot);
+      
+      await transaction.query(
+        `INSERT INTO user_mots (user_id, mot_id, mastered, review_count, next_review) 
+         VALUES ($1, $2, false, 0, NOW() + INTERVAL '1 day')`,
+        [userId, mot.id]
+      );
+      
+      console.log('🎁 Mot "加油" ajouté à la collection du nouvel utilisateur');
+      
+      // 🆕 AJOUT DE QUELQUES MOTS SUPPLÉMENTAIRES POUR COMMENCER
+      await addStarterWords(transaction, userId);
+      
+    } else {
+      console.warn('⚠️ Mot "加油" non trouvé dans la base');
+    }
+  } catch (giftError) {
+    console.error('❌ Erreur ajout mot cadeau:', giftError);
+    throw giftError; // Propager l'erreur pour rollback
+  }
+}
+
+// 🆕 MOTS DE DÉMARAGE SUPPLÉMENTAIRES
+async function addStarterWords(transaction, userId) {
+  try {
+    const starterWords = ['你好', '谢谢', '我', '你', '是'];
+    
+    for (const word of starterWords) {
+      const wordRes = await transaction.query(
+        "SELECT id FROM mots WHERE chinese = $1",
+        [word]
+      );
+      
+      if (wordRes.rows.length > 0) {
+        await transaction.query(
+          `INSERT INTO user_mots (user_id, mot_id, mastered, review_count, next_review) 
+           VALUES ($1, $2, false, 0, NOW() + INTERVAL '1 day')`,
+          [userId, wordRes.rows[0].id]
+        );
       }
     }
+    
+    console.log(`🎁 ${starterWords.length} mots de démarrage ajoutés`);
+  } catch (error) {
+    console.error('❌ Erreur mots démarrage:', error);
+    // Ne pas propager pour ne pas bloquer l'inscription
+  }
+}
 
-    // Crée la session Express
-    req.session.userId = neonUser.rows[0].id;
-    req.session.user = neonUser.rows[0];
-    req.session.supabaseAccessToken = access_token;
+// 🔥 ROUTES AMÉLIORÉES
+app.get("/auth/google", 
+  (req, res, next) => {
+    // Sauvegarde l'URL de retour
+    if (req.query.returnTo) {
+      req.session.returnTo = req.query.returnTo;
+    }
+    next();
+  },
+  passport.authenticate("google", { 
+    scope: ["profile", "email"],
+    prompt: "select_account" // ← Laisse l'utilisateur choisir son compte
+  })
+);
 
-    // Sauvegarde la session
-    await new Promise((resolve, reject) => {
+app.get("/auth/google/callback",
+  passport.authenticate("google", { 
+    failureRedirect: "/index?error=auth_failed"
+  }),
+  (req, res) => {
+    console.log('✅ Connexion réussie via callback');
+    
+    // Forcer la sauvegarde de la session AVANT redirection
+    req.session.save((err) => {
+      if (err) {
+        console.error('❌ Erreur sauvegarde session:', err);
+        return res.redirect('/index?error=session_error');
+      }
+      
+      console.log('💾 Session sauvegardée, redirection...');
+      const returnTo = req.session.returnTo || '/dashboard';
+      delete req.session.returnTo;
+      
+      if (req.user.isNewUser) {
+        return res.redirect('/welcome');
+      }
+      
+      res.redirect(returnTo);
+    });
+  }
+);
+
+// 🔥 ONE-TAP AMÉLIORÉ AVEC GESTION D'ERREUR ROBUSTE
+app.post("/auth/google/one-tap", async (req, res) => {
+  const transaction = await pool.connect();
+  
+  try {
+    const { credential } = req.body;
+    console.log('🔐 Google One Tap token reçu');
+    
+    if (!credential) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Token manquant' 
+      });
+    }
+
+    const ticket = await Client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    
+    const payload = ticket.getPayload();
+    const { sub: googleId, name, email } = payload;
+
+    await transaction.query('BEGIN');
+
+    let userRes = await transaction.query(
+      `SELECT id, email, name, provider_id FROM users 
+       WHERE provider_id = $1 OR email = $2 
+       ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END 
+       LIMIT 1`,
+      [googleId, email]
+    );
+
+    let isNewUser = false;
+    let user;
+
+    if (userRes.rows.length === 0) {
+      userRes = await transaction.query(
+        `INSERT INTO users (email, name, provider, provider_id, last_login) 
+         VALUES ($1, $2, 'google', $3, NOW()) 
+         RETURNING id, email, name`,
+        [email, name, googleId]
+      );
+      user = userRes.rows[0];
+      isNewUser = true;
+    } else {
+      user = userRes.rows[0];
+      await transaction.query(
+        'UPDATE users SET last_login = NOW() WHERE id = $1',
+        [user.id]
+      );
+    }
+
+    await transaction.query('COMMIT');
+
+    // Modification ici : Utiliser login() de Passport
+    req.login(user, async (err) => {
+      if (err) {
+        console.error('❌ Erreur login Passport:', err);
+        return res.status(500).json({ success: false, error: 'Erreur authentification' });
+      }
+
+      // Puis sauvegarder la session
       req.session.save((err) => {
         if (err) {
           console.error('❌ Erreur sauvegarde session:', err);
-          reject(err);
-        } else {
-          console.log('✅ Session sauvegardée - User ID:', neonUser.rows[0].id);
-          resolve();
+          return res.status(500).json({ success: false, error: 'Erreur session' });
         }
+
+        console.log('✅ Session créée avec succès:', req.session);
+        res.json({ 
+          success: true, 
+          redirect: isNewUser ? '/welcome' : '/dashboard',
+          user: { 
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            isNewUser: isNewUser
+          }
+        });
       });
     });
 
-    res.json({ 
-      success: true, 
-      user: {
-        id: neonUser.rows[0].id,
-        email: neonUser.rows[0].email,
-        name: neonUser.rows[0].name
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Erreur token-handler:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message 
-    });
+  } catch (err) {
+    await transaction.query('ROLLBACK');
+    console.error('❌ Erreur Google One Tap:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    transaction.release();
   }
 });
 
-// Fonction pour synchroniser un user
-async function syncUserWithSupabase(supabaseUser) {
-  try {
-    let neonUser = await pool.query('SELECT * FROM users WHERE email = $1', [supabaseUser.email]);
-    
-    if (neonUser.rows.length === 0) {
-      // Créer dans Neon
-      const result = await pool.query(
-        `INSERT INTO users (email, name, provider, provider_id, created_at) 
-         VALUES ($1, $2, 'google', $3, NOW()) RETURNING *`,
-        [supabaseUser.email, supabaseUser.user_metadata.full_name, supabaseUser.id]
-      );
-      return result.rows[0];
-    } else {
-      // Mettre à jour si nécessaire
-      if (!neonUser.rows[0].provider_id) {
-        await pool.query(
-          'UPDATE users SET provider_id = $1, provider = $2 WHERE id = $3',
-          [supabaseUser.id, 'google', neonUser.rows[0].id]
-        );
-      }
-      return neonUser.rows[0];
+// 🆕 ROUTE DE DÉCONNEXION AMÉLIORÉE
+app.post('/auth/logout', (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      console.error('❌ Erreur déconnexion:', err);
     }
-  } catch (error) {
-    console.error('❌ Erreur sync user:', error);
-    throw error;
+    req.session.destroy(() => {
+      res.json({ success: true });
+    });
+  });
+});
+
+// 🆕 MIDDLEWARE DE VÉRIFICATION DE SESSION
+app.use((req, res, next) => {
+  if (req.isAuthenticated()) {
+    // Mettre à jour le last_activity
+    req.session.lastActivity = Date.now();
   }
-}
+  next();
+});
 
-// Nouvelle route pour traiter le token
-app.post('/auth/token', async (req, res) => {
-  try {
-    const { access_token, refresh_token } = req.body;
-    
-    console.log('🔐 Token reçu:', access_token ? 'OUI' : 'NON');
-
-    if (!access_token) {
-      throw new Error('Aucun token reçu');
+// 🆕 MIDDLEWARE DE SÉCURITÉ DES SESSIONS
+app.use((req, res, next) => {
+  if (req.session) {
+    // Initialiser le compteur d'activité
+    if (!req.session.lastActivity) {
+      req.session.lastActivity = Date.now();
     }
-
-    // Utilise le token pour récupérer la session
-    const { data: { user }, error } = await supabase.auth.getUser(access_token);
     
-    if (error) throw error;
-    if (!user) throw new Error('Utilisateur non trouvé');
-
-    console.log('✅ Utilisateur récupéré:', user.email);
-
-    // Trouve ou crée l'user dans ta base
-    let dbUser = await pool.query('SELECT * FROM users WHERE email = $1', [user.email]);
+    // Vérifier l'inactivité (24h max)
+    const inactiveTime = Date.now() - req.session.lastActivity;
+    const maxInactiveTime = 24 * 60 * 60 * 1000; // 24 heures
     
-    if (dbUser.rows.length === 0) {
-      dbUser = await pool.query(
-        `INSERT INTO users (email, name, provider, provider_id, created_at) 
-         VALUES ($1, $2, 'google', $3, NOW()) RETURNING *`,
-        [user.email, user.user_metadata.full_name || user.email.split('@')[0], user.id]
-      );
-      console.log('👤 Nouvel utilisateur créé:', user.email);
-    }
-
-    // Crée la session
-    req.session.userId = dbUser.rows[0].id;
-    req.session.user = dbUser.rows[0];
-    req.session.supabaseAccessToken = access_token;
-
-    await new Promise((resolve, reject) => {
-      req.session.save((err) => {
-        if (err) reject(err);
-        else resolve();
+    if (inactiveTime > maxInactiveTime && req.isAuthenticated()) {
+      console.log('🔐 Session expirée par inactivité');
+      return req.logout((err) => {
+        if (err) console.error('Erreur déconnexion:', err);
+        res.redirect('/index?error=session_expired');
       });
-    });
-
-    console.log('✅ Session créée pour:', user.email);
-    res.json({ success: true, user: dbUser.rows[0] });
-
-  } catch (error) {
-    console.error('❌ Erreur token auth:', error);
-    res.status(500).json({ success: false, error: error.message });
+    }
+    
+    // Mettre à jour l'activité à chaque requête authentifiée
+    if (req.isAuthenticated()) {
+      req.session.lastActivity = Date.now();
+    }
   }
+  next();
 });
 
-// Middleware d'auth mis à jour
-function ensureAuth(req, res, next) {
-  if (req.session.userId) {
-    return next();
+// 🆕 MIDDLEWARE POUR LA RÉAUTHENTIFICATION AUTOMATIQUE
+app.use(async (req, res, next) => {
+  if (req.isAuthenticated() && !req.user) {
+    try {
+      // Tentative de récupération de l'utilisateur depuis la base
+      const userRes = await pool.query(
+        'SELECT id, email, name FROM users WHERE id = $1',
+        [req.session.passport.user]
+      );
+      
+      if (userRes.rows.length > 0) {
+        req.user = userRes.rows[0];
+        console.log('🔄 Utilisateur récupéré depuis la base');
+      } else {
+        // Utilisateur supprimé de la base
+        console.log('❌ Utilisateur non trouvé en base, déconnexion');
+        req.logout();
+        return res.redirect('/index?error=user_not_found');
+      }
+    } catch (error) {
+      console.error('Erreur récupération utilisateur:', error);
+    }
   }
-  res.redirect('/auth/supabase');
-}
+  next();
+});
 
 // -------------------- Protection --------------------
 function ensureAuth(req, res, next) {
