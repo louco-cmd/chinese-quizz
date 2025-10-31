@@ -8,14 +8,6 @@ const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
 
-
-process.env.GOOGLE_CLIENT_ID = "722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com";
-process.env.GOOGLE_CLIENT_SECRET = "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";
-process.env.DATABASE_URL = "postgresql://neondb_owner:npg_q8LhtX3ybFre@ep-jolly-breeze-a1bb693a-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
-process.env.SESSION_SECRET = "ma_super_secret_key_123";
-process.env.PORT = 3000;
-
-
 // -------------------- Connexion PostgreSQL --------------------
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -746,39 +738,6 @@ app.get('/api/debug-session', (req, res) => {
   });
 });
 
-// -------------------- Bypass Auth en Développement --------------------
-const ENABLE_AUTH_BYPASS = true;
-let authBypassEnabled = true;
-
-function developmentAuthBypass(req, res, next) {
-  if (!ENABLE_AUTH_BYPASS) return next();
-  
-  console.log('🔓 Bypass auth ACTIF');
-  
-  const testUser = {
-    id: 7,
-    name: "Test User DEV",
-    email: "dev@example.com"
-  };
-  
-  req.user = testUser;
-  req.session.user = testUser;
-  req.session.passport = { user: 1 };
-  req.isAuthenticated = () => true;
-  
-  next();
-}
-
-app.use(developmentAuthBypass);
-
-app.get('/toggle-auth', (req, res) => {
-  authBypassEnabled = !authBypassEnabled;
-  console.log(`🔄 Bypass auth: ${authBypassEnabled ? 'ACTIVÉ' : 'DÉSACTIVÉ'}`);
-  res.json({ 
-    bypassEnabled: authBypassEnabled,
-    message: `Bypass auth ${authBypassEnabled ? 'activé' : 'désactivé'}`
-  });
-});
 
 // ---------------------API
 
