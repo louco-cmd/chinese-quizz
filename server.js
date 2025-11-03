@@ -7,6 +7,7 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const { OAuth2Client } = require('google-auth-library');
 
 const app = express();
+app.set('trust proxy', 1); // Pour les déploiements derrière un proxy (Heroku, Render, etc.)
 
 // -------------------- Connexion PostgreSQL --------------------
 const pool = new Pool({
