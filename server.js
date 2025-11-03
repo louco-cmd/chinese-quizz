@@ -20,11 +20,6 @@ app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
-
-// -------------------- Configuration Vercel --------------------
-app.set('trust proxy', 1);
-
-// -------------------- Session pour Vercel --------------------
 // -------------------- Session Cloud Optimisée --------------------
 const PostgreSQLStore = require('connect-pg-simple')(session);
 
