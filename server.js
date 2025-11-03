@@ -217,7 +217,7 @@ const Client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "https://chinese-quizz.vercel.app/auth/google/callback",
+    callbackURL: "https://chinese-quizz.onrender.com/auth/google/callback",
     passReqToCallback: true, // ← IMPORTANT pour accéder à req
     scope: ['profile', 'email'],
     state: true // Sécurité contre les attaques CSRF
