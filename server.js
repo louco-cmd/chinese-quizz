@@ -297,66 +297,6 @@ passport.use(new GoogleStrategy({
   }
 ));
 
-// 🎁 FONCTION POUR LE MOT CADEAU
-async function addWelcomeGift(transaction, userId) {
-  try {
-    console.log('🎁 Recherche du mot cadeau "加油"');
-    
-    const motRes = await transaction.query(
-      "SELECT id, chinese, pinyin, english FROM mots WHERE chinese = '加油'"
-    );
-    
-    if (motRes.rows.length > 0) {
-      const mot = motRes.rows[0];
-      console.log('✅ Mot cadeau trouvé:', mot);
-      
-      await transaction.query(
-        `INSERT INTO user_mots (user_id, mot_id, mastered, review_count, next_review) 
-         VALUES ($1, $2, false, 0, NOW() + INTERVAL '1 day')`,
-        [userId, mot.id]
-      );
-      
-      console.log('🎁 Mot "加油" ajouté à la collection du nouvel utilisateur');
-      
-      // 🆕 AJOUT DE QUELQUES MOTS SUPPLÉMENTAIRES POUR COMMENCER
-      await addStarterWords(transaction, userId);
-      
-    } else {
-      console.warn('⚠️ Mot "加油" non trouvé dans la base');
-    }
-  } catch (giftError) {
-    console.error('❌ Erreur ajout mot cadeau:', giftError);
-    throw giftError; // Propager l'erreur pour rollback
-  }
-}
-
-// 🆕 MOTS DE DÉMARAGE SUPPLÉMENTAIRES
-async function addStarterWords(transaction, userId) {
-  try {
-    const starterWords = ['你好', '谢谢', '我', '你', '是'];
-    
-    for (const word of starterWords) {
-      const wordRes = await transaction.query(
-        "SELECT id FROM mots WHERE chinese = $1",
-        [word]
-      );
-      
-      if (wordRes.rows.length > 0) {
-        await transaction.query(
-          `INSERT INTO user_mots (user_id, mot_id, mastered, review_count, next_review) 
-           VALUES ($1, $2, false, 0, NOW() + INTERVAL '1 day')`,
-          [userId, wordRes.rows[0].id]
-        );
-      }
-    }
-    
-    console.log(`🎁 ${starterWords.length} mots de démarrage ajoutés`);
-  } catch (error) {
-    console.error('❌ Erreur mots démarrage:', error);
-    // Ne pas propager pour ne pas bloquer l'inscription
-  }
-}
-
 // 🔥 ROUTES AMÉLIORÉES
 app.get("/auth/google", 
   (req, res, next) => {

@@ -6,129 +6,9 @@
     <title>Duels - 加油！</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --surface: #ffffff;
-            --surface-1: #f8f9fa;
-            --surface-2: #e9ecef;
-            --primary: #0d6efd;
-            --primary-container: #e3f2fd;
-            --on-primary: #ffffff;
-            --text: #202124;
-            --text-secondary: #5f6368;
-            --border: #dadce0;
-        }
+    <link href="/css/accountandduels.css" rel="stylesheet">
 
-        body {
-            background-color: var(--surface-1);
-            color: var(--text);
-            font-family: 'Segoe UI', system-ui, sans-serif;
-        }
 
-        .card {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.05);
-            transition: box-shadow 0.2s ease;
-        }
-
-        .card:hover {
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.05);
-        }
-
-        .card-header {
-            background: var(--surface);
-            border-bottom: 1px solid var(--border);
-            padding: 1rem 1.25rem;
-        }
-
-        .btn {
-            border-radius: 8px;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-
-        .btn-primary {
-            background: var(--primary);
-            border: none;
-        }
-
-        .btn-outline-primary {
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
-        .form-control {
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            transition: border-color 0.2s ease;
-        }
-
-        .form-control:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.1);
-        }
-
-        .list-item {
-            transition: background-color 0.15s ease;
-            border: none;
-        }
-
-        .list-item:hover {
-            background-color: var(--surface-1);
-        }
-
-        .avatar {
-            width: 32px;
-            height: 32px;
-            background: var(--primary-container);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--primary);
-            font-size: 0.875rem;
-        }
-
-        .badge {
-            border-radius: 6px;
-            font-weight: 500;
-        }
-
-        .modal-content {
-            border: none;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-        }
-
-        .alert {
-            border: none;
-            border-radius: 8px;
-        }
-
-        .text-muted {
-            color: var(--text-secondary) !important;
-        }
-
-        /* Ordre mobile */
-        .mobile-order-1 {
-            order: 1;
-        }
-
-        .mobile-order-2 {
-            order: 2;
-        }
-
-        @media (min-width: 992px) {
-            .mobile-order-1 {
-                order: 0;
-            }
-
-            .mobile-order-2 {
-                order: 0;
-            }
-        }
-    </style>
 </head>
 <body>
     <!-- Header -->
@@ -141,7 +21,7 @@
     <%- include('partials/navbar', {currentPage: 'duels'}) %>
 
     <!-- Main Content -->
-    <div class="container-fluid py-4">
+    <div class="container py-4">
         <div class="row g-4">
             <!-- Colonne Droite - Actions (PREMIER sur mobile) -->
             <div class="col-12 col-lg-4 mobile-order-1">
@@ -548,48 +428,58 @@
             }
         }
 
-        function renderDuelItem(duel, userId, isPending) {
-            const isChallenger = duel.challenger_id === userId;
-            const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name;
-            const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
-            const opponentScore = isChallenger ? duel.opponent_score : duel.challenger_score;
-            const hasUserPlayed = userScore !== null;
-            const hasOpponentPlayed = opponentScore !== null;
+  function renderDuelItem(duel, userId, isPending) {
+    const isChallenger = duel.challenger_id === userId;
+    const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name;
+    const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
+    const opponentScore = isChallenger ? duel.opponent_score : duel.challenger_score;
+    const hasUserPlayed = userScore !== null;
+    const hasOpponentPlayed = opponentScore !== null;
 
-            let status = '', cta = '';
+    let status = '', cta = '';
 
-            if (isPending) {
-                if (!hasUserPlayed) {
-                    status = '<span class="badge bg-primary">À jouer</span>';
-                    cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">Jouer</button>`;
-                } else {
-                    status = '<span class="badge bg-secondary">En attente</span>';
-                    cta = '';
-                }
-            } else {
-                const userWon = (isChallenger && userScore > opponentScore) || (!isChallenger && opponentScore > userScore);
-                status = userWon ? '<span class="badge bg-success">Victoire</span>' : '<span class="badge bg-danger">Défaite</span>';
-                cta = '';
-            }
-
-            return `
-                <div class="list-item d-flex justify-content-between align-items-center border-bottom p-3">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar me-3">
-                            <i class="bi bi-person"></i>
-                        </div>
-                        <div>
-                            <div class="small fw-medium">${opponentName}</div>
-                            <div class="text-muted" style="font-size: 0.75rem;">
-                                ${userScore || '?'} - ${opponentScore || '?'}
-                                ${status}
-                            </div>
-                        </div>
-                    </div>
-                    ${cta}
-                </div>
-            `;
+    if (isPending) {
+        if (!hasUserPlayed) {
+            status = '<span class="badge bg-primary">À jouer</span>';
+            cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">Jouer</button>`;
+        } else {
+            status = '<span class="badge bg-secondary">En attente</span>';
+            cta = '';
         }
+    } else {
+        // CORRECTION : Logique simplifiée et correcte
+        const userWon = userScore > opponentScore;
+        const isDraw = userScore === opponentScore;
+        
+        if (isDraw) {
+            status = '<span class="badge bg-warning">Égalité</span>';
+        } else if (userWon) {
+            status = '<span class="badge bg-success">Victoire</span>';
+        } else {
+            status = '<span class="badge bg-danger">Défaite</span>';
+        }
+        cta = '';
+    }
+
+    return `
+        <div class="list-item d-flex justify-content-between align-items-center border-bottom p-3">
+            <div class="d-flex align-items-center">
+                <div class="avatar me-3">
+                    <i class="bi bi-person"></i>
+                </div>
+                <div>
+                    <div class="small fw-medium">${opponentName}</div>
+                    <div class="text-muted" style="font-size: 0.75rem;">
+                        ${userScore !== null ? userScore : '?'} - ${opponentScore !== null ? opponentScore : '?'}
+                        ${status}
+                    </div>
+                </div>
+            </div>
+            ${cta}
+        </div>
+    `;
+}
+
 
         function playDuel(duelId) {
             window.location.href = `/duel-play/${duelId}`;

@@ -416,6 +416,8 @@
 
 let currentChinese = '';
 let existingWordData = null;
+let currentRequestController = null; // 🔥 Pour annuler les requêtes en cours
+
 
 const chineseInput = document.getElementById('chinese');
 const submitBtn = document.getElementById('submitBtn');
@@ -470,11 +472,19 @@ chineseInput.addEventListener('keypress', (e) => {
   }
 });
 
+// 🔥 MODIFIER searchAndAddWord() pour supporter l'annulation
 async function searchAndAddWord() {
   const chinese = chineseInput.value.trim();
   if (!chinese) return;
   
-  // Vérifier que c'est bien du chinois
+  // Annuler toute requête précédente
+  if (currentRequestController) {
+    currentRequestController.abort();
+  }
+  
+  // Créer un nouveau controller pour cette requête
+  currentRequestController = new AbortController();
+  
   if (/[^\u4e00-\u9fff]/.test(chinese)) {
     showStatus('Only Chinese characters allowed', 'error');
     return;
@@ -485,7 +495,13 @@ async function searchAndAddWord() {
   showStatus('Searching...', 'info');
 
   try {
-    const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`);
+    const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`, {
+      signal: currentRequestController.signal // 🔥 Lier l'annulation
+    });
+    
+    // Réinitialiser le controller après succès
+    currentRequestController = null;
+    
     const data = await res.json();
 
     if (data.exists) {
@@ -498,8 +514,12 @@ async function searchAndAddWord() {
       showScreen('newWordScreen');
     }
   } catch (err) {
-    showStatus('Error searching database', 'error');
-    enableSubmitButton();
+    if (err.name === 'AbortError') {
+      console.log('Requête annulée');
+    } else {
+      showStatus('Error searching database', 'error');
+      enableSubmitButton();
+    }
   }
 }
 
@@ -589,23 +609,51 @@ async function confirmAddNewWord() {
   };
 
   try {
-    const res = await fetch('/ajouter', {
+    let message = '';
+
+    // 🔥 ÉTAPE 1: Mise à jour base générale si nécessaire
+    if (existingWordData && existingWordData.id) {
+      const hasBeenModified = 
+        pinyin !== (existingWordData.pinyin || '') ||
+        english !== (existingWordData.english || '') ||
+        description !== (existingWordData.description || '');
+
+      if (hasBeenModified) {
+        showStatus('Updating word in database...', 'info');
+        await fetch(`/update/${existingWordData.id}`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        message = 'Word updated and ';
+      }
+    }
+
+    // 🔥 ÉTAPE 2: Ajout base personnelle
+    showStatus(`${message ? 'Adding to collection...' : 'Adding word...'}`, 'info');
+    
+    const addRes = await fetch('/ajouter', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
     });
-    const data = await res.json();
+
+    const data = await addRes.json();
 
     if (data.success) {
+      showStatus(`✅ ${message}added to your collection!`, 'success');
       showSuccessAnimation();
       setTimeout(resetForm, 1500);
     } else {
       showStatus(`❌ ${data.message}`, 'error');
     }
+
   } catch(err) {
-    showStatus('❌ Server error', 'error');
+    console.error('❌ Erreur:', err);
+    showStatus('❌ Operation failed: ' + err.message, 'error');
   }
 }
+
 
 // Animation de succès
 function showSuccessAnimation() {
@@ -635,12 +683,66 @@ function showScreen(screenId) {
 }
 
 function showInputScreen() {
+  // 🔥 ANNULER LES REQUÊTES EN COURS
+  if (currentRequestController) {
+    currentRequestController.abort();
+    currentRequestController = null;
+  }
+  
+  // Réinitialisation complète
+  currentChinese = '';
+  existingWordData = null;
+  
+  // UI reset
+  chineseInput.value = '';
+  chineseInput.classList.remove('valid', 'invalid');
+  submitBtn.classList.remove('visible');
+  enableSubmitButton();
+  
+  // Nettoyer les messages
+  errorMessage.textContent = '';
+  statusMessage.textContent = '';
+  
+  // Retour à l'écran principal
   showScreen('inputScreen');
-  clearStatus();
+  
+  // Focus
+  setTimeout(() => chineseInput.focus(), 50);
 }
 
 function showNewWordScreen() {
+  const newPreview = document.getElementById('newPreviewChinese');
+  const pinyinField = document.getElementById('newPinyin');
+  const englishField = document.getElementById('newEnglish');
+  const descriptionField = document.getElementById('newDescription');
+  
+  // Toujours afficher le caractère chinois
+  newPreview.textContent = currentChinese;
+  
+  // Pré-remplir avec les données existantes si disponibles
+  if (existingWordData) {
+    pinyinField.value = existingWordData.pinyin || '';
+    englishField.value = existingWordData.english || '';
+    descriptionField.value = existingWordData.description || '';
+  } else {
+    // Réinitialiser si nouveau mot
+    pinyinField.value = '';
+    englishField.value = '';
+    descriptionField.value = '';
+  }
+  
   showScreen('newWordScreen');
+  
+  // Focus stratégique : sur le premier champ vide ou celui à corriger
+  setTimeout(() => {
+    if (!pinyinField.value) {
+      pinyinField.focus();
+    } else if (!englishField.value) {
+      englishField.focus();
+    } else {
+      descriptionField.focus();
+    }
+  }, 100);
 }
 
 function showStatus(message, type) {

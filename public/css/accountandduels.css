@@ -1,0 +1,207 @@
+:root {
+    --surface: #ffffff;
+    --surface-1: #f8f9fa;
+    --surface-2: #e9ecef;
+    --primary: #0d6efd;
+    --primary-container: #e3f2fd;
+    --on-primary: #ffffff;
+    --text: #202124;
+    --text-secondary: #5f6368;
+    --border: #dadce0;
+}
+
+body {
+    background-color: var(--surface-1);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    padding-bottom: 80px;
+}
+
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.05);
+    transition: box-shadow 0.2s ease;
+}
+
+.card:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.btn-primary {
+    background: var(--primary);
+    border: none;
+}
+
+.avatar {
+    width: 32px;
+    height: 32px;
+    background: var(--primary-container);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+}
+
+.badge {
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.text-muted {
+    color: var(--text-secondary) !important;
+}
+
+/* Ordre mobile */
+.mobile-order-1 {
+    order: 1;
+}
+
+.mobile-order-2 {
+    order: 2;
+}
+
+@media (min-width: 992px) {
+    .mobile-order-1 {
+        order: 0;
+    }
+
+    .mobile-order-2 {
+        order: 0;
+    }
+}
+
+/* Contributions - CORRIGÉ */
+    .contributions-fullwidth {
+      width: 100%;
+      background: var(--surface-1);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 0;
+      margin: 0;
+    }
+
+    .contributions-wrapper {
+      width: 100%;
+      max-width: 100%;
+      padding: 0 1rem;
+    }
+
+    .contribution-day {
+      width: 100%;
+      height: 100%;
+      aspect-ratio: 1;
+      border-radius: 2px;
+      background-color: var(--surface-2);
+      cursor: pointer;
+      position: relative;
+      border: 1px solid rgba(0,0,0,0.05);
+      transition: all 0.2s ease;
+      min-width: 10px;
+      min-height: 10px;
+    }
+
+  .contributions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(12px, 1fr));
+      grid-auto-rows: 12px;
+      gap: 2px;
+      margin: 0 auto;
+      width: 100%;
+      max-width: 900px;
+    }
+
+.contribution-day {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background-color: var(--surface-2);
+    cursor: pointer;
+    position: relative;
+    border: 1px solid rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+    min-width: 10px;
+    min-height: 10px;
+}
+
+  .contribution-day:hover {
+      transform: scale(1.2);
+      z-index: 10;
+    }
+
+    .contribution-day:hover::after {
+      content: attr(data-count) " quiz le " attr(data-date);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: var(--surface);
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      z-index: 1000;
+    }
+
+/* Niveaux de couleur */
+.level-0 { background-color: var(--surface-1); }
+.level-1 { background-color: #cfe2ff; }
+.level-2 { background-color: #6ea8fe; }
+.level-3 { background-color: #3d8bfd; }
+.level-4 { background-color: var(--primary); }
+
+.contributions-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 0.5rem;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.color-scale {
+    display: flex;
+    gap: 2px;
+}
+
+.color-level {
+    width: 10px;
+    height: 10px;
+    border-radius: 1px;
+}
+
+    /* Mobile optimisations */
+    @media (max-width: 768px) {
+      .contributions-wrapper {
+        padding: 0 0.5rem;
+      }
+      
+      .contributions-grid {
+        grid-auto-rows: 10px;
+        gap: 1px;
+      }
+      
+      .contribution-day {
+        min-width: 8px;
+        min-height: 8px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .contributions-grid {
+        grid-auto-rows: 8px;
+      }
+      
+      .contribution-day {
+        min-width: 6px;
+        min-height: 6px;
+      }
+    }
