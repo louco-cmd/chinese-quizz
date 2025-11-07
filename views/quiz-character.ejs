@@ -53,196 +53,236 @@
   <script src="/js/global.js"></script>
   <script src="/js/saveQuiz.js"></script>
   <script>
-    let quizWords = []; 
-    let quizIdx = 0;
-    let quizInputs = [];
-    let correctCount = 0;
-    let wrongCount = 0;
-    let currentWord = null;
-    let hasSecondChance = false;
+let quizWords = []; 
+let quizResults = [];
+let quizIdx = 0;
+let quizInputs = [];
+let correctCount = 0;
+let wrongCount = 0;
+let currentWord = null;
+let hasSecondChance = false;
 
-    const quizQuestion = document.getElementById('quizQuestion');
-    const quizFields = document.getElementById('quizFields');
-    const checkBtn = document.getElementById('checkBtn');
-    const quizResult = document.getElementById('quizResult');
-    const quizForm = document.getElementById('quizForm');
-    const quizScore = document.getElementById('quizScore');
+const quizQuestion = document.getElementById('quizQuestion');
+const quizFields = document.getElementById('quizFields');
+const checkBtn = document.getElementById('checkBtn');
+const quizResult = document.getElementById('quizResult');
+const quizForm = document.getElementById('quizForm');
+const quizScore = document.getElementById('quizScore');
 
-    const urlParams = new URLSearchParams(window.location.search);
-    let quizCount = urlParams.get('count');
+const urlParams = new URLSearchParams(window.location.search);
+let quizCount = urlParams.get('count');
 
-    if (quizCount !== "all") {
-      quizCount = parseInt(quizCount);
-    }
+if (quizCount !== "all") {
+  quizCount = parseInt(quizCount);
+}
 
+// 🔥 FONCTIONS UTILITAIRES
 function shuffleArray(arr) {
-      for(let i = arr.length - 1; i > 0; i--){
+    for(let i = arr.length - 1; i > 0; i--){
         const j = Math.floor(Math.random() * (i + 1));
         [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
     }
+}
 
-async function loadQuizWords(count = 10) {
-      const res = await fetch('/quiz-mots');
-      const mots = await res.json();
-
-      if (!mots.length) {
-        quizQuestion.textContent = '⚠️ Aucun mot disponible. Ajoutez des mots pour lancer le quiz.';
-        checkBtn.style.display = 'none';
-        return;
-      }
-
-      shuffleArray(mots);
-      quizWords = (count === 'all' || count >= mots.length) ? mots : mots.slice(0, count);
-
-      quizIdx = 0;
-      correctCount = 0;
-      wrongCount = 0;
-      hasSecondChance = false;
-      updateScore();
-      checkBtn.style.display = 'inline-block';
-      showQuizWord();
-    }
-
-function updateScore() {
-      quizScore.textContent = `✅ ${correctCount} | ❌ ${wrongCount}`;
-    }
-
-// 🔥 NOUVELLE FONCTION : Fin du quiz
-function endQuiz() {
-      quizQuestion.textContent = '🎉 Quiz terminé !';
-      quizResult.textContent = `Score final: ${correctCount}/${quizWords.length}`;
-      quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
-      checkBtn.style.display = 'none';
-      quizFields.innerHTML = '';
-      
-      // 🔥 SAUVEGARDE DU QUIZ
-      const wordsArray = quizWords.map(word => word.chinese);
-      saveQuizResults(correctCount, quizWords.length, 'character', wordsArray);
-      
-      setTimeout(() => { 
-        window.location.href = '/dashboard'; 
-      }, 3000);
-    }
-
-// 🔥 FONCTIONS POUR GÉRER LE BOUTON
 function disableSubmitButton() {
-  const submitBtn = document.getElementById('checkBtn');
-  submitBtn.disabled = true;
-  submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Chargement...';
-  submitBtn.classList.add('disabled');
+    const submitBtn = document.getElementById('checkBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Chargement...';
+    submitBtn.classList.add('disabled');
 }
 
 function enableSubmitButton() {
-  const submitBtn = document.getElementById('checkBtn');
-  submitBtn.disabled = false;
-  submitBtn.innerHTML = 'Soumettre';
-  submitBtn.classList.remove('disabled');
+    const submitBtn = document.getElementById('checkBtn');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = 'Soumettre';
+    submitBtn.classList.remove('disabled');
 }
 
-// 🔥 MODIFIE LA FONCTION showQuizWord
+function updateScore() {
+    quizScore.textContent = `✅ ${correctCount} | ❌ ${wrongCount}`;
+}
+
+async function saveQuizResults(score, totalQuestions, quizType, results) {
+    try {
+        const response = await fetch('/api/quiz/save', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                score: score,
+                total_questions: totalQuestions,
+                quiz_type: quizType,
+                results: results
+            })
+        });
+        
+        const data = await response.json();
+        console.log('📥 Réponse sauvegarde:', data);
+        
+    } catch (error) {
+        console.error('❌ Erreur sauvegarde quiz:', error);
+    }
+}
+
+// 🔥 INIT TRACKING
+function initQuizTracking() {
+    quizResults = quizWords.map(word => {
+        return {
+            mot_id: word.id,
+            chinese: word.chinese,
+            pinyin: word.pinyin,
+            english: word.english,
+            correct: null,
+            attempts: 0
+        };
+    });
+}
+
+// 🔥 CHARGEMENT QUIZ
+async function loadQuizWords(count = 10) {
+    const res = await fetch('/quiz-mots');
+    const mots = await res.json();
+
+    if (!mots.length) {
+        quizQuestion.textContent = '⚠️ Aucun mot disponible. Ajoutez des mots pour lancer le quiz.';
+        checkBtn.style.display = 'none';
+        return;
+    }
+
+    shuffleArray(mots);
+    quizWords = (count === 'all' || count >= mots.length) ? mots : mots.slice(0, count);
+    
+    initQuizTracking();
+    
+    quizIdx = 0;
+    correctCount = 0;
+    wrongCount = 0;
+    hasSecondChance = false;
+    updateScore();
+    checkBtn.style.display = 'inline-block';
+    showQuizWord();
+}
+
+// 🔥 AFFICHAGE - UN SEUL CHAMP GLOBAL
 function showQuizWord() {
-  quizFields.innerHTML = '';
-  quizInputs = [];
-  quizResult.textContent = '';
-  hasSecondChance = false;
+    quizFields.innerHTML = '';
+    quizInputs = [];
+    quizResult.textContent = '';
+    hasSecondChance = false;
 
-  if (quizIdx >= quizWords.length) {
-    endQuiz();
-    return;
-  }
+    if (quizIdx >= quizWords.length) {
+        endQuiz();
+        return;
+    }
 
-  enableSubmitButton(); // 🔥 RÉACTIVER LE BOUTON POUR LA NOUVELLE QUESTION
+    enableSubmitButton();
+    currentWord = quizWords[quizIdx];
 
-  currentWord = quizWords[quizIdx];
-  quizQuestion.textContent = `Comment écrire "${currentWord.english}" en chinois ?`;
+    // 🔥 QUESTION CARACTÈRES
+    quizQuestion.textContent = `Comment écrire "${currentWord.english}" en chinois ?`;
 
-  // Créer un input pour chaque caractère chinois
-  for (let i = 0; i < currentWord.chinese.length; i++) {
+    // 🔥 UN SEUL CHAMP GLOBAL
     const inp = document.createElement('input');
     inp.type = 'text';
-    inp.maxLength = 1;
-    inp.placeholder = '?';
-    inp.className = 'form-control text-center';
-    inp.style.width = '60px';
-    inp.style.fontSize = '24px';
-    
-    inp.addEventListener('input', (e) => {
-      if (e.target.value.length >= e.target.maxLength && quizInputs[i+1]){
-        quizInputs[i+1].focus();
-      }
-    });
+    inp.placeholder = 'Écrivez les caractères chinois ici...';
+    inp.className = 'form-control form-control-lg text-center';
+    inp.style.fontSize = '20px';
+    inp.style.padding = '15px';
+    inp.autocomplete = 'off';
     
     quizFields.appendChild(inp);
     quizInputs.push(inp);
-  }
 
-  if (quizInputs[0]) {
-    quizInputs[0].focus();
-  }
+    // Focus et sélection du texte
+    inp.focus();
+    inp.select();
 }
 
-// 🔥 REMPLACE LA FONCTION quizForm.onsubmit
+// 🔥 SOUMISSION - UN SEUL CHAMP
 quizForm.onsubmit = (e) => {
-  e.preventDefault();
-  disableSubmitButton(); // 🔥 DÉSACTIVER IMMÉDIATEMENT
+    e.preventDefault();
+    disableSubmitButton();
 
-  const userAnswer = quizInputs.map(inp => inp.value.trim()).join('');
-  const correctAnswer = currentWord.chinese;
+    // 🔥 UN SEUL CHAMP - valeur directe
+    const userAnswer = quizInputs[0].value.trim();
+    const correctAnswer = currentWord.chinese;
+    const isCorrect = userAnswer === correctAnswer;
 
-  if (userAnswer === correctAnswer) {
-    quizResult.textContent = "✅ Correct !";
-    quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
-    
-    if (!hasSecondChance) {
-      correctCount++;
+    // Tracking des résultats
+    const currentResultIndex = quizResults.findIndex(result => result.mot_id === currentWord.id);
+    if (currentResultIndex !== -1) {
+        if (!hasSecondChance) {
+            quizResults[currentResultIndex].correct = isCorrect;
+            quizResults[currentResultIndex].attempts = 1;
+        } else {
+            quizResults[currentResultIndex].correct = false;
+            quizResults[currentResultIndex].attempts = 2;
+        }
     }
-    
-    updateScore();
-    quizIdx++;
-    
-    setTimeout(() => {
-      enableSubmitButton(); // 🔥 RÉACTIVER
-      showQuizWord();
-    }, 1500);
-    
-  } else {
-    if (!hasSecondChance) {
-      wrongCount++;
-      updateScore();
-      
-      quizResult.textContent = `❌ Faux ! Réponse : ${correctAnswer}`;
-      quizResult.className = "mb-3 text-center text-danger fw-bold fs-4";
-      hasSecondChance = true;
-      
-      quizInputs.forEach(input => {
-        input.value = '';
-        input.style.border = '2px solid #dc3545';
-        input.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
-      });
-      quizInputs[0].focus();
-      
-      enableSubmitButton(); // 🔥 RÉACTIVER POUR LA 2E CHANCE
-      
+
+    if (isCorrect) {
+        quizResult.textContent = "✅ Correct !";
+        quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
+        
+        if (!hasSecondChance) correctCount++;
+        
+        updateScore();
+        quizIdx++;
+        
+        setTimeout(() => {
+            enableSubmitButton();
+            showQuizWord();
+        }, 1500);
+        
     } else {
-      quizResult.textContent = `✅ Bien ! Réponse : ${correctAnswer}`;
-      quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
-      
-      quizIdx++;
-      
-      setTimeout(() => {
-        enableSubmitButton(); // 🔥 RÉACTIVER
-        showQuizWord();
-      }, 1500);
+        if (!hasSecondChance) {
+            wrongCount++;
+            updateScore();
+            
+            quizResult.textContent = `❌ Faux ! Réponse : ${correctAnswer}`;
+            quizResult.className = "mb-3 text-center text-danger fw-bold fs-4";
+            hasSecondChance = true;
+            
+            // Vide et prépare pour la seconde chance
+            quizInputs[0].value = '';
+            quizInputs[0].style.border = '2px solid #dc3545';
+            quizInputs[0].focus();
+            
+            enableSubmitButton();
+            
+        } else {
+            quizResult.textContent = `✅ Bien ! Réponse : ${correctAnswer}`;
+            quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
+            
+            quizIdx++;
+            
+            setTimeout(() => {
+                enableSubmitButton();
+                showQuizWord();
+            }, 1500);
+        }
     }
-  }
 };
+
+// 🔥 FIN QUIZ
+function endQuiz() {
+    quizQuestion.textContent = '🎉 Quiz terminé !';
+    quizResult.textContent = `Score final: ${correctCount}/${quizWords.length}`;
+    quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
+    checkBtn.style.display = 'none';
+    quizFields.innerHTML = '';
+    
+    // Sauvegarde avec type "character"
+    saveQuizResults(correctCount, quizWords.length, 'character', quizResults);
+    
+    setTimeout(() => { 
+        window.location.href = '/dashboard'; 
+    }, 3000);
+}
 
 // Lancer le quiz
 document.addEventListener('DOMContentLoaded', () => {
-      loadQuizWords(quizCount || 10);
-    });
-    
+    loadQuizWords(quizCount || 10);
+});
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

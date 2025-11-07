@@ -426,19 +426,27 @@ cardContainer.addEventListener('wheel', (e) => {
     }
   });
 
-//create card element
 function createCardElement(word) {
     const card = document.createElement('div');
     card.classList.add('col', 'mb-4'); 
     
     const hskLevelDisplay = word.hsk || 'Street';
     const chineseFontSizeClass = (word.chinese && word.chinese.length >= 3) ? 'fs-chinese-small' : 'fs-chinese';
+    
+    // 🔥 NOUVEAU : Système de pictos par score
+    const score = word.score || 0;
+    const picto = getScorePicto(score);
 
     card.innerHTML = `
       <div class="card card-custom-bg rounded-4 shadow-lg p-3 mx-auto" style="width: 320px; height: 500px; position: relative;">
 
           <div class="position-absolute top-0 end-0 mt-3 me-3">
               <span class="hsk-tag-custom py-1 px-2 border border-light">HSK : ${hskLevelDisplay}</span>
+          </div>
+
+          <!-- 🔥 NOUVEAU : Picto de niveau de connaissance -->
+          <div class="position-absolute top-0 start-0 mt-0 ms-3">
+              <span class="score-picto fs-4" title="Niveau de connaissance: ${score}%">${picto}</span>
           </div>
 
           <!-- CARACTÈRE CHINOIS CLIQUABLE -->
@@ -483,6 +491,16 @@ function createCardElement(word) {
     card.querySelector('.edit-btn').onclick = () => openEdit(word);
     
     return card;
+}
+
+// 🔥 NOUVELLE FONCTION : Retourne le picto selon le score
+function getScorePicto(score) {
+    if (score >= 80) return '🥳';  // 80-100 : Excellent
+    if (score >= 60) return '☺️';  // 60-79 : Bon
+    if (score >= 40) return '😑';  // 40-59 : Moyen
+    if (score >= 20) return '🥺';  // 20-39 : Faible
+    if (score >= 1) return '😭';   // 1-19 : Très faible
+    return '🫥';                   // 0 : Non appris
 }
 
 // 🎯 SYSTÈME DE HOVER SIMPLIFIÉ - APPROCHE DIFFÉRENTE

@@ -674,6 +674,54 @@ app.get('/api/debug-session', (req, res) => {
   });
 });
 
+//---------------------- Middleware
+// NOUVELLE FONCTION: Mettre à jour le score d'un mot
+async function updateWordScore(userId, motId, isCorrect) {
+  try {
+    console.log(`🎯 updateWordScore - User:${userId}, Mot:${motId}, Correct:${isCorrect}`);
+    
+    // Vérifier si le mot existe dans user_mots
+    const existing = await pool.query(
+      'SELECT * FROM user_mots WHERE user_id = $1 AND mot_id = $2',
+      [userId, motId]
+    );
+
+    if (existing.rows.length === 0) {
+      // Nouveau mot - l'ajouter avec score initial
+      const initialScore = isCorrect ? 15 : 0;
+      console.log(`➕ Nouveau mot ${motId} - Score initial: ${initialScore}`);
+      
+      await pool.query(
+        'INSERT INTO user_mots (user_id, mot_id, score, nb_quiz, nb_correct) VALUES ($1, $2, $3, $4, $5)',
+        [userId, motId, initialScore, 1, isCorrect ? 1 : 0]
+      );
+    } else {
+      // Mettre à jour le score existant
+      const current = existing.rows[0];
+      const newNbQuiz = (current.nb_quiz || 0) + 1;
+      const newNbCorrect = (current.nb_correct || 0) + (isCorrect ? 1 : 0);
+      
+      // 🔥 NOUVEAU SYSTÈME : +15 si correct, -20 si incorrect
+      let newScore;
+      if (isCorrect) {
+        newScore = Math.min(100, (current.score || 0) + 15);
+      } else {
+        newScore = Math.max(0, (current.score || 0) - 20);
+      }
+      
+      console.log(`✏️ Mise à jour mot ${motId}: ${current.score} -> ${newScore} (${isCorrect ? '+15' : '-20'})`);
+      
+      await pool.query(
+        'UPDATE user_mots SET score = $1, nb_quiz = $2, nb_correct = $3 WHERE user_id = $4 AND mot_id = $5',
+        [newScore, newNbQuiz, newNbCorrect, userId, motId]
+      );
+    }
+    
+    console.log(`✅ Score mis à jour pour mot ${motId}`);
+  } catch (error) {
+    console.error('❌ Erreur updateWordScore:', error);
+  }
+}
 
 // ---------------------API
 
@@ -782,58 +830,74 @@ app.get("/api/quiz/history", ensureAuth, async (req, res) => {
 
 app.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
   try {
-    console.log('💾 /api/quiz/save - User authentifié:', req.user);
+    console.log('💾 /api/quiz/save - Données reçues:', req.body);
     
     const {
       score,
       total_questions,
       quiz_type,
-      words_used
+      results,      // NOUVEAU : pour les scores détaillés
+      words_used    // ANCIEN : pour la compatibilité
     } = req.body;
 
     // Validation
     if (score === undefined || total_questions === undefined || !quiz_type) {
-      return res.status(400).json({ 
-        error: 'Données manquantes',
-        received: req.body
-      });
+      return res.status(400).json({ error: 'Données manquantes' });
     }
 
     const scoreNum = parseInt(score);
     const totalNum = parseInt(total_questions);
+    const ratio = ((scoreNum / totalNum) * 100).toFixed(2);
+
+    // 🔥 GÉRER LA COMPATIBILITÉ : utiliser results OU words_used
+    let wordsForHistory = [];
     
-    if (isNaN(scoreNum) || isNaN(totalNum)) {
-      return res.status(400).json({ 
-        error: 'Score ou total_questions invalide'
-      });
+    if (words_used) {
+      // Ancien format : words_used est un tableau de pinyins
+      wordsForHistory = words_used;
+    } else if (results) {
+      // Nouveau format : results est un tableau d'objets
+      wordsForHistory = results.map(r => r.pinyin);
     }
 
-    const ratio = ((scoreNum / totalNum) * 100).toFixed(2);
-    
-    console.log(`💾 Insertion - User:${req.user.id}, Score:${scoreNum}/${totalNum}`);
+    console.log('📝 Données pour historique:', wordsForHistory);
 
-    const result = await pool.query(
+    // 1. Sauvegarder le quiz dans l'historique
+    const quizResult = await pool.query(
       `INSERT INTO quiz_history 
        (user_id, score, total_questions, ratio, quiz_type, words_used) 
        VALUES ($1, $2, $3, $4, $5, $6) 
        RETURNING *`,
-      [req.user.id, scoreNum, totalNum, ratio, quiz_type, JSON.stringify(words_used || [])]
+      [req.user.id, scoreNum, totalNum, ratio, quiz_type, JSON.stringify(wordsForHistory)]
     );
 
-    console.log('✅ Quiz sauvegardé avec ID:', result.rows[0].id);
+    // 2. NOUVEAU : Mettre à jour les scores des mots
+    if (results && Array.isArray(results)) {
+      console.log(`🔄 Mise à jour de ${results.length} scores de mots...`);
+      
+      for (const result of results) {
+        console.log(`🎯 Traitement mot:`, result);
+        
+        if (result.mot_id && result.correct !== null && result.correct !== undefined) {
+          await updateWordScore(req.user.id, result.mot_id, result.correct);
+        } else {
+          console.log('❌ Données manquantes pour mot:', result);
+        }
+      }
+      console.log('✅ Tous les scores mis à jour');
+    } else {
+      console.log('ℹ️ Aucun résultat détaillé à traiter');
+    }
     
     res.json({ 
       success: true, 
-      quiz: result.rows[0],
-      message: `Quiz sauvegardé : ${scoreNum}/${totalNum} (${ratio}%)`
+      quiz: quizResult.rows[0],
+      message: `Quiz sauvegardé avec ${results ? results.length : 0} scores mis à jour`
     });
     
   } catch (err) {
     console.error('❌ Erreur sauvegarde quiz:', err);
-    res.status(500).json({ 
-      error: err.message,
-      details: 'Erreur base de données'
-    });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -858,16 +922,32 @@ app.get("/mes-mots", ensureAuth, async (req, res) => {
 
   try {
     const { rows } = await pool.query(`
-      SELECT mots.*
+      SELECT mots.*, 
+             user_mots.score,
+             user_mots.nb_quiz,
+             user_mots.nb_correct
       FROM mots
       JOIN user_mots ON mots.id = user_mots.mot_id
       WHERE user_mots.user_id = $1
-      ORDER BY mots.id ASC
+      ORDER BY user_mots.score ASC, mots.id ASC
     `, [userId]);
+
+    console.log(`📊 ${rows.length} mots avec scores récupérés pour l'utilisateur ${userId}`);
+    
+    // Log du premier mot pour vérifier
+    if (rows.length > 0) {
+      console.log('🔍 Exemple mot avec score:', {
+        id: rows[0].id,
+        chinese: rows[0].chinese, 
+        score: rows[0].score,
+        nb_quiz: rows[0].nb_quiz
+      });
+    }
 
     res.json(rows);
 
   } catch (err) {
+    console.error('❌ Erreur récupération mes-mots:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -969,16 +1049,71 @@ app.get('/quiz-mots', ensureAuth, async (req, res) => {
   const userId = req.user.id;
 
   try {
+    // Récupérer tous les mots de l'utilisateur avec leurs scores
     const { rows } = await pool.query(`
-      SELECT mots.*
-      FROM mots
-      JOIN user_mots ON mots.id = user_mots.mot_id
+      SELECT mots.*, 
+             COALESCE(user_mots.score, 0) as score,
+             COALESCE(user_mots.nb_quiz, 0) as nb_quiz
+      FROM user_mots 
+      JOIN mots ON user_mots.mot_id = mots.id
       WHERE user_mots.user_id = $1
-      ORDER BY RANDOM()
     `, [userId]);
 
-    res.json(rows);
+    if (rows.length === 0) {
+      return res.json([]);
+    }
+
+    console.log(`📊 ${rows.length} mots trouvés pour l'utilisateur ${userId}`);
+
+    // Catégoriser les mots par score
+    const motsFaibles = rows.filter(mot => mot.score < 50);      // Score < 50
+    const motsMoyens = rows.filter(mot => mot.score >= 50 && mot.score <= 80); // 50-80
+    const motsForts = rows.filter(mot => mot.score > 80);       // Score > 80
+
+    console.log(`📈 Répartition: ${motsFaibles.length} faibles, ${motsMoyens.length} moyens, ${motsForts.length} forts`);
+
+    // Calculer le nombre de mots à sélectionner par catégorie
+    const totalMots = parseInt(req.query.count) || 10;
+    const nbFaibles = Math.min(motsFaibles.length, Math.ceil(totalMots * 0.6));  // 60%
+    const nbMoyens = Math.min(motsMoyens.length, Math.ceil(totalMots * 0.3));    // 30%
+    const nbForts = Math.min(motsForts.length, Math.ceil(totalMots * 0.1));      // 10%
+
+    console.log(`🎯 Sélection: ${nbFaibles} faibles, ${nbMoyens} moyens, ${nbForts} forts`);
+
+    // Fonction pour mélanger et sélectionner
+    const shuffleAndSelect = (array, count) => {
+      const shuffled = [...array].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, count);
+    };
+
+    // Sélectionner les mots de chaque catégorie
+    const selectionFaibles = shuffleAndSelect(motsFaibles, nbFaibles);
+    const selectionMoyens = shuffleAndSelect(motsMoyens, nbMoyens);
+    const selectionForts = shuffleAndSelect(motsForts, nbForts);
+
+    // Combiner toutes les sélections
+    let motsSelectionnes = [
+      ...selectionFaibles,
+      ...selectionMoyens, 
+      ...selectionForts
+    ];
+
+    // Si on n'a pas assez de mots, compléter avec d'autres catégories
+    if (motsSelectionnes.length < totalMots) {
+      const motsRestants = rows.filter(mot => !motsSelectionnes.includes(mot));
+      const complement = shuffleAndSelect(motsRestants, totalMots - motsSelectionnes.length);
+      motsSelectionnes = [...motsSelectionnes, ...complement];
+    }
+
+    // Mélanger une dernière fois
+    motsSelectionnes = shuffleAndSelect(motsSelectionnes, motsSelectionnes.length);
+
+    console.log(`✅ ${motsSelectionnes.length} mots sélectionnés pour le quiz`);
+
+    res.json(motsSelectionnes);
+
   } catch (err) {
+    console.error('❌ Erreur récupération mots quiz:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -137,13 +137,18 @@
     }
 
     function showQuizWord() {
+      console.log('🔍 DEBUG showQuizWord:'); // 🔥 NOUVEAU LOG
+      console.log('  quizIdx:', quizIdx);
+      console.log('  quizWords.length:', quizWords.length);
+      console.log('  Condition quizIdx >= quizWords.length:', quizIdx >= quizWords.length);
+
       quizFields.innerHTML = '';
       quizInputs = [];
       quizResult.textContent = '';
       hasSecondChance = false;
       chineseCharacter.style.display = 'none';
 
-      if (quizIdx >= quizWords.length) {
+      if (quizIdx > quizWords.length - 1) {
         endQuiz();
         return;
       }
@@ -250,6 +255,11 @@
 
       const correctAnswer = normalizePinyin(currentWord.pinyin);
 
+        console.log('🔍 DEBUG SOUMISSION:'); // 🔥 NOUVEAU LOG
+        console.log('  Avant traitement - quizIdx:', quizIdx);
+        console.log('  Réponse correcte?', userAnswer === correctAnswer);
+        console.log('  hasSecondChance:', hasSecondChance);
+
       if (userAnswer === correctAnswer) {
         quizResult.textContent = "✅ Correct !";
         quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
@@ -260,7 +270,8 @@
         
         updateScore();
         quizIdx++;
-        
+        console.log('  ✅ Après 2e chance - quizIdx:', quizIdx); // 🔥 LOG
+
         setTimeout(() => {
           enableSubmitButton();
           showQuizWord();

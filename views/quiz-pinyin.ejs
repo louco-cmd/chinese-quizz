@@ -56,6 +56,7 @@
 <script src="/js/saveQuiz.js"></script>
 <script>
 let quizWords = []; 
+let quizResults = [];
 let quizIdx = 0;
 let quizInputs = [];
 let correctCount = 0;
@@ -87,6 +88,7 @@ function shuffleArray(arr) {
   }
 }
 
+// MODIFIER loadQuizWords :
 async function loadQuizWords(count = 10) {
   const res = await fetch('/quiz-mots');
   const mots = await res.json();
@@ -99,7 +101,9 @@ async function loadQuizWords(count = 10) {
 
   shuffleArray(mots);
   quizWords = (count === 'all' || count >= mots.length) ? mots : mots.slice(0, count);
-
+  
+  initQuizTracking(); // NOUVEAU: initialiser le tracking
+  
   quizIdx = 0;
   correctCount = 0;
   wrongCount = 0;
@@ -107,6 +111,20 @@ async function loadQuizWords(count = 10) {
   updateScore();
   checkBtn.style.display = 'inline-block';
   showQuizWord();
+}
+
+// CORRECTION dans ton code client
+function initQuizTracking() {
+    quizResults = quizWords.map(word => {
+        return {
+            mot_id: word.id, // 🔥 C'EST ÇA qu'il faut utiliser !
+            chinese: word.chinese,
+            pinyin: word.pinyin,
+            english: word.english,
+            correct: null, // sera true/false après réponse
+            attempts: 0
+        };
+    });
 }
 
 function showQuizWord() {
@@ -160,22 +178,6 @@ function updateScore() {
   quizScore.textContent = `✅ ${correctCount} | ❌ ${wrongCount}`;
 }
 
-// 🔥 NOUVELLE FONCTION : Fin du quiz
-function endQuiz() {
-  quizQuestion.textContent = '🎉 Quiz terminé !';
-  quizResult.textContent = `Score final: ${correctCount}/${quizWords.length}`;
-  quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
-  checkBtn.style.display = 'none';
-  quizFields.innerHTML = '';
-  
-  // 🔥 SAUVEGARDE DU QUIZ
-  const wordsArray = quizWords.map(word => word.pinyin);
-  saveQuizResults(correctCount, quizWords.length, 'pinyin', wordsArray);
-  
-  setTimeout(() => { 
-    window.location.href = '/dashboard'; 
-  }, 3000);
-}
 
 // 🔥 FONCTIONS POUR GÉRER LE BOUTON
 function disableSubmitButton() {
@@ -195,16 +197,33 @@ function enableSubmitButton() {
 // 🔥 PUIS DANS quizForm.onsubmit, remplace par :
 quizForm.onsubmit = (e) => {
   e.preventDefault();
+  disableSubmitButton();
 
-  disableSubmitButton(); // 🔥 DÉSACTIVER IMMÉDIATEMENT
+  const userAnswer = normalizePinyin(quizInputs.map(inp => inp.value).join(""));
+  const correctAnswer = normalizePinyin(currentWord.pinyin);
+  const isCorrect = userAnswer === correctAnswer;
 
-  const userAnswer = normalizePinyin(
-    quizInputs.map(inp => inp.value).join("")
+    const currentResultIndex = quizResults.findIndex(result => 
+    result.pinyin === currentWord.pinyin && result.english === currentWord.english
   );
 
-  const correctAnswer = normalizePinyin(currentWord.pinyin);
+  if (currentResultIndex !== -1) {
+    console.log(`🎯 Mise à jour index ${currentResultIndex}:`, currentWord);
+    quizResults[currentResultIndex].correct = isCorrect;
+    quizResults[currentResultIndex].attempts = hasSecondChance ? 2 : 1;
+  } else {
+    console.error('❌ Impossible de trouver le mot dans quizResults:', currentWord);
+  }
 
-  if (userAnswer === correctAnswer) {
+  console.log('🎯 Avant mise à jour quizResults:', quizResults[quizIdx]);
+
+  // NOUVEAU: Sauvegarder le résultat pour ce mot spécifique
+  quizResults[quizIdx].correct = isCorrect;
+  quizResults[quizIdx].attempts = hasSecondChance ? 2 : 1;
+
+  console.log('🎯 Après mise à jour quizResults:', quizResults[quizIdx]);
+  
+  if (isCorrect) {
     quizResult.textContent = "✅ Correct !";
     quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
     
@@ -216,7 +235,7 @@ quizForm.onsubmit = (e) => {
     quizIdx++;
     
     setTimeout(() => {
-      enableSubmitButton(); // 🔥 RÉACTIVER
+      enableSubmitButton();
       showQuizWord();
     }, 1500);
     
@@ -236,7 +255,7 @@ quizForm.onsubmit = (e) => {
       });
       quizInputs[0].focus();
       
-      enableSubmitButton(); // 🔥 RÉACTIVER POUR LA 2E CHANCE
+      enableSubmitButton();
       
     } else {
       quizResult.textContent = `✅ Bien ! Correct : ${currentWord.pinyin}`;
@@ -245,7 +264,7 @@ quizForm.onsubmit = (e) => {
       quizIdx++;
       
       setTimeout(() => {
-        enableSubmitButton(); // 🔥 RÉACTIVER
+        enableSubmitButton();
         showQuizWord();
       }, 1500);
     }
