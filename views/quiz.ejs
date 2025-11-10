@@ -209,9 +209,9 @@ function startQuiz() {
   
   let url;
   if (selectedQuizType === 'pinyin') {
-    url = `/quiz-pinyin?count=${selectedCount}`;
+    url = `/quiz-pinyin?count=${encodeURIComponent(selectedCount)}`;
   } else {
-    url = `/quiz-character?count=${selectedCount}`;
+    url = `/quiz-character?count=${encodeURIComponent(selectedCount)}`;
   }
   
   // Fermer la modal et rediriger

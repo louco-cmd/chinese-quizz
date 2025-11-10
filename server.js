@@ -1047,9 +1047,10 @@ app.get("/check-mot/:chinese", ensureAuth, async (req, res) => {
 
 app.get('/quiz-mots', ensureAuth, async (req, res) => {
   const userId = req.user.id;
+  const requestedCount = req.query.count === 'all' ? null : parseInt(req.query.count) || 10;
 
   try {
-    // Récupérer tous les mots de l'utilisateur avec leurs scores
+    // Récupérer tous les mots avec leurs scores et nombre de quiz, SAUF ceux à 100
     const { rows } = await pool.query(`
       SELECT mots.*, 
              COALESCE(user_mots.score, 0) as score,
@@ -1057,58 +1058,65 @@ app.get('/quiz-mots', ensureAuth, async (req, res) => {
       FROM user_mots 
       JOIN mots ON user_mots.mot_id = mots.id
       WHERE user_mots.user_id = $1
+      AND user_mots.score < 100  /* Exclure les mots maîtrisés */
     `, [userId]);
 
     if (rows.length === 0) {
       return res.json([]);
     }
 
-    console.log(`📊 ${rows.length} mots trouvés pour l'utilisateur ${userId}`);
+    console.log(`📊 ${rows.length} mots à apprendre trouvés pour l'utilisateur ${userId}`);
 
     // Catégoriser les mots par score
-    const motsFaibles = rows.filter(mot => mot.score < 50);      // Score < 50
-    const motsMoyens = rows.filter(mot => mot.score >= 50 && mot.score <= 80); // 50-80
-    const motsForts = rows.filter(mot => mot.score > 80);       // Score > 80
+    const motsFaibles = rows.filter(mot => mot.score < 50)
+      .sort((a, b) => a.nb_quiz - b.nb_quiz); // Priorité aux mots moins testés
+    const motsMoyens = rows.filter(mot => mot.score >= 50 && mot.score < 80)
+      .sort((a, b) => a.nb_quiz - b.nb_quiz);
+    const motsForts = rows.filter(mot => mot.score >= 80)
+      .sort((a, b) => a.nb_quiz - b.nb_quiz);
 
-    console.log(`📈 Répartition: ${motsFaibles.length} faibles, ${motsMoyens.length} moyens, ${motsForts.length} forts`);
+    const totalMots = requestedCount || rows.length;
+    
+    // Calculer les proportions désirées
+    let nbFaibles = Math.ceil(totalMots * 0.7);  // 70%
+    let nbMoyens = Math.ceil(totalMots * 0.2);   // 20%
+    let nbForts = Math.ceil(totalMots * 0.1);    // 10%
 
-    // Calculer le nombre de mots à sélectionner par catégorie
-    const totalMots = parseInt(req.query.count) || 10;
-    const nbFaibles = Math.min(motsFaibles.length, Math.ceil(totalMots * 0.6));  // 60%
-    const nbMoyens = Math.min(motsMoyens.length, Math.ceil(totalMots * 0.3));    // 30%
-    const nbForts = Math.min(motsForts.length, Math.ceil(totalMots * 0.1));      // 10%
-
-    console.log(`🎯 Sélection: ${nbFaibles} faibles, ${nbMoyens} moyens, ${nbForts} forts`);
-
-    // Fonction pour mélanger et sélectionner
-    const shuffleAndSelect = (array, count) => {
-      const shuffled = [...array].sort(() => Math.random() - 0.5);
-      return shuffled.slice(0, count);
-    };
-
-    // Sélectionner les mots de chaque catégorie
-    const selectionFaibles = shuffleAndSelect(motsFaibles, nbFaibles);
-    const selectionMoyens = shuffleAndSelect(motsMoyens, nbMoyens);
-    const selectionForts = shuffleAndSelect(motsForts, nbForts);
-
-    // Combiner toutes les sélections
-    let motsSelectionnes = [
-      ...selectionFaibles,
-      ...selectionMoyens, 
-      ...selectionForts
-    ];
-
-    // Si on n'a pas assez de mots, compléter avec d'autres catégories
-    if (motsSelectionnes.length < totalMots) {
-      const motsRestants = rows.filter(mot => !motsSelectionnes.includes(mot));
-      const complement = shuffleAndSelect(motsRestants, totalMots - motsSelectionnes.length);
-      motsSelectionnes = [...motsSelectionnes, ...complement];
+    // Ajuster les proportions si une catégorie manque de mots
+    if (motsFaibles.length < nbFaibles) {
+      const deficit = nbFaibles - motsFaibles.length;
+      nbFaibles = motsFaibles.length;
+      const ratio = nbMoyens / (nbMoyens + nbForts);
+      nbMoyens += Math.ceil(deficit * ratio);
+      nbForts += Math.floor(deficit * (1 - ratio));
     }
 
-    // Mélanger une dernière fois
-    motsSelectionnes = shuffleAndSelect(motsSelectionnes, motsSelectionnes.length);
+    if (motsMoyens.length < nbMoyens) {
+      const deficit = nbMoyens - motsMoyens.length;
+      nbMoyens = motsMoyens.length;
+      nbFaibles = Math.min(motsFaibles.length, nbFaibles + deficit);
+    }
 
-    console.log(`✅ ${motsSelectionnes.length} mots sélectionnés pour le quiz`);
+    if (motsForts.length < nbForts) {
+      const deficit = nbForts - motsForts.length;
+      nbForts = motsForts.length;
+      nbFaibles = Math.min(motsFaibles.length, nbFaibles + deficit);
+    }
+
+    // Sélectionner les mots
+    const selectionFaibles = motsFaibles.slice(0, nbFaibles);
+    const selectionMoyens = motsMoyens.slice(0, nbMoyens);
+    const selectionForts = motsForts.slice(0, nbForts);
+
+    let motsSelectionnes = [...selectionFaibles, ...selectionMoyens, ...selectionForts];
+    motsSelectionnes = shuffleArray(motsSelectionnes);
+
+    console.log('📈 Distribution finale:', {
+      faibles: selectionFaibles.length,
+      moyens: selectionMoyens.length,
+      forts: selectionForts.length,
+      total: motsSelectionnes.length
+    });
 
     res.json(motsSelectionnes);
 
@@ -1642,40 +1650,75 @@ app.get('/dashboard', ensureAuth, async (req, res) => {
 });
 
 app.get('/account-info', ensureAuth, async (req, res) => {
-  const userId = req.user.id; 
-
+  const userId = req.user.id;
+  
   try {
-    // 1. Récupérer les données utilisateur
-    // Nous demandons UNIQUEMENT les colonnes existantes : name et email
-    const userRes = await pool.query('SELECT name, email FROM users WHERE id = $1', [userId]);
-    const user = userRes.rows[0] || {};
-    
-    // 2. Récupérer les mots de l'utilisateur (on n'a besoin que du hsk pour les stats)
-    const wordsRes = await pool.query(`
-      SELECT mots.hsk
-      FROM mots
-      JOIN user_mots ON mots.id = user_mots.mot_id
+    // 1. Récupérer les infos utilisateur
+    const userInfo = await pool.query(`
+      SELECT name FROM users WHERE id = $1
+    `, [userId]);
+
+    // 2. Récupérer les mots avec leurs scores et niveau HSK
+    const userMots = await pool.query(`
+      SELECT 
+        user_mots.score,
+        user_mots.mot_id,
+        mots.chinese, 
+        mots.pinyin, 
+        mots.english,
+        mots.hsk
+      FROM user_mots 
+      JOIN mots ON user_mots.mot_id = mots.id 
       WHERE user_mots.user_id = $1
     `, [userId]);
     
-    // Calcul des Stats HSK
-    const stats = { HSK1: 0, HSK2: 0, HSK3: 0, HSK4: 0, HSK5: 0, HSK6: 0, Street: 0 };
-    wordsRes.rows.forEach(w => {
-      const hskKey = w.hsk && stats[`HSK${w.hsk}`] !== undefined ? `HSK${w.hsk}` : 'Street';
-      stats[hskKey]++;
+    // 3. Calculer les stats HSK
+    const hskStats = {
+      HSK1: 0,
+      HSK2: 0,
+      HSK3: 0,
+      HSK4: 0,
+      HSK5: 0,
+      HSK6: 0,
+      Street: 0
+    };
+
+    userMots.rows.forEach(mot => {
+      if (mot.hsk) {
+        hskStats[`HSK${mot.hsk}`] = (hskStats[`HSK${mot.hsk}`] || 0) + 1;
+      } else {
+        hskStats.Street++;
+      }
     });
 
-    // 3. Renvoyer toutes les données
+    // 4. Récupérer les stats quiz/duels
+    const quizStats = await pool.query(`
+      SELECT COUNT(*) as total_quizzes
+      FROM quiz_history 
+      WHERE user_id = $1
+    `, [userId]);
+    
+    const duelStats = await pool.query(`
+      SELECT COUNT(*) as total_duels
+      FROM duels 
+      WHERE challenger_id = $1 OR opponent_id = $1
+    `, [userId]);
+    
+    // Construire la réponse
     res.json({
-      name: user.name,
-      // Nous ne renvoyons plus photoUrl, le client utilisera un avatar par défaut
-      wordCount: wordsRes.rows.length,
-      stats: stats
+      name: userInfo.rows[0]?.name || 'User',
+      wordCount: userMots.rows.length,
+      user_mots: userMots.rows,
+      stats: {
+        ...hskStats,
+        total_quizzes: parseInt(quizStats.rows[0].total_quizzes),
+        total_duels: parseInt(duelStats.rows[0].total_duels)
+      }
     });
-
+    
   } catch (err) {
-    console.error("Erreur API /account-info:", err);
-    res.status(500).json({ error: "Erreur serveur lors de la récupération des données" });
+    console.error('Erreur /account-info:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 

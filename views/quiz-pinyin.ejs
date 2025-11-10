@@ -89,31 +89,37 @@ function shuffleArray(arr) {
 }
 
 // MODIFIER loadQuizWords :
-async function loadQuizWords(count = 10) {
-  const res = await fetch('/quiz-mots');
-  const mots = await res.json();
+async function loadQuizWords(count) {
+  try {
+    // Ajouter le count dans l'URL de la requête
+    const res = await fetch(`/quiz-mots?count=${encodeURIComponent(count)}`);
+    const mots = await res.json();
 
-  if (!mots.length) {
-    quizQuestion.textContent = '⚠️ Aucun mot disponible. Ajoutez des mots pour lancer le quiz.';
-    checkBtn.style.display = 'none';
-    return;
+    if (!mots.length) {
+      quizQuestion.textContent = '⚠️ Aucun mot disponible. Ajoutez des mots pour lancer le quiz.';
+      checkBtn.style.display = 'none';
+      return;
+    }
+
+    // Utiliser directement les mots retournés par le serveur
+    quizWords = mots;
+    
+    initQuizTracking();
+    quizIdx = 0;
+    correctCount = 0;
+    wrongCount = 0;
+    hasSecondChance = false;
+    updateScore();
+    checkBtn.style.display = 'inline-block';
+    showQuizWord();
+    
+    console.log(`📚 Nombre de mots chargés: ${quizWords.length}`); // Debug
+  } catch (error) {
+    console.error('Erreur lors du chargement des mots:', error);
+    quizQuestion.textContent = '⚠️ Erreur lors du chargement des mots.';
   }
-
-  shuffleArray(mots);
-  quizWords = (count === 'all' || count >= mots.length) ? mots : mots.slice(0, count);
-  
-  initQuizTracking(); // NOUVEAU: initialiser le tracking
-  
-  quizIdx = 0;
-  correctCount = 0;
-  wrongCount = 0;
-  hasSecondChance = false;
-  updateScore();
-  checkBtn.style.display = 'inline-block';
-  showQuizWord();
 }
 
-// CORRECTION dans ton code client
 function initQuizTracking() {
     quizResults = quizWords.map(word => {
         return {
