@@ -250,9 +250,6 @@ passport.use(new GoogleStrategy({
         );
         user = newUser.rows[0];
         isNewUser = true;
-        
-        await addWelcomeGift(transaction, user.id);
-        
       } else {
         // 🔄 UTILISATEUR EXISTANT
         user = userRes.rows[0];
