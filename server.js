@@ -327,10 +327,6 @@ app.get("/auth/google/callback",
       const returnTo = req.session.returnTo || '/dashboard';
       delete req.session.returnTo;
       
-      if (req.user.isNewUser) {
-        return res.redirect('/welcome');
-      }
-      
       res.redirect(returnTo);
     });
   }
@@ -408,7 +404,7 @@ app.post("/auth/google/one-tap", async (req, res) => {
         console.log('✅ Session créée avec succès:', req.session);
         res.json({ 
           success: true, 
-          redirect: isNewUser ? '/welcome' : '/dashboard',
+          redirect: '/dashboard',
           user: { 
             id: user.id,
             name: user.name,
