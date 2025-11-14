@@ -268,9 +268,9 @@ quizForm.onsubmit = (e) => {
       quizIdx++;
       
       setTimeout(() => {
+        hideCharacterCard();
         enableSubmitButton();
-        showQuizWord();
-        hideCharacterCard()
+        showQuizWord()
       }, 1500);
     }
   }

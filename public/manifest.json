@@ -4,6 +4,7 @@
   "description": "add oil on your Chinese learning journey!",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay"],
   "background_color": "#ffffff",
   "theme_color": "#0d6efd",
   "orientation": "portrait",
