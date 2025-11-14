@@ -18,13 +18,8 @@
 </head>
 <body>
 
- <div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
-  <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
-    加油！
-  </span>
-</div>
-
- <%- include('partials/navbar', {currentPage: 'quiz-character'}) %>
+<%- include('partials/header') %>
+s<%- include('partials/navbar', {currentPage: 'quiz-character'}) %>
 
   <div class="quiz-container container my-4 p-4 bg-light rounded shadow-sm col-12 col-md-10 col-lg-6">
 
@@ -32,7 +27,7 @@
     <div id="quizQuestion" class="mb-3 fw-bold fs-5 text-center"></div>
 
     <!-- Résultat AU DESSUS des champs -->
-    <div id="quizResult" class="mb-3 text-center fs-4 fw-bold"></div>
+    <div id="quizResult" class="badge bg-light text-dark border mb-3 p-2 fs-6"></div>
 
     <!-- Formulaire du quiz -->
     <form id="quizForm" class="p-4 bg-light rounded gap-4 d-flex flex-column">
@@ -41,7 +36,7 @@
       <!-- Boutons - seulement "Soumettre" -->
       <div class="d-flex flex-column gap-2">
         <button type="submit" id="checkBtn" class="btn btn-primary w-100">Soumettre</button>
-        <!-- ❌ Bouton Annuler supprimé -->
+
       </div>
     </form>
     
@@ -71,6 +66,7 @@ const quizScore = document.getElementById('quizScore');
 
 const urlParams = new URLSearchParams(window.location.search);
 let quizCount = urlParams.get('count');
+let hskLevel = urlParams.get('hsk') || 'all'; // ⬅️ NOUVEAU : Récupère le filtre HSK
 
 if (quizCount !== "all") {
   quizCount = parseInt(quizCount);
@@ -137,13 +133,13 @@ function initQuizTracking() {
     });
 }
 
-// 🔥 CHARGEMENT QUIZ
-async function loadQuizWords(count = 10) {
-    const res = await fetch('/quiz-mots');
+// 🔥 CHARGEMENT QUIZ AVEC FILTRE HSK
+async function loadQuizWords(count = 10, hsk = 'all') { // ⬅️ MODIFIÉ : ajout paramètre hsk
+    const res = await fetch(`/quiz-mots?count=${encodeURIComponent(count)}&hsk=${encodeURIComponent(hsk)}`);
     const mots = await res.json();
 
     if (!mots.length) {
-        quizQuestion.textContent = '⚠️ Aucun mot disponible. Ajoutez des mots pour lancer le quiz.';
+        quizQuestion.textContent = '⚠️ Aucun mot disponible pour ce niveau HSK. Ajoutez des mots pour lancer le quiz.';
         checkBtn.style.display = 'none';
         return;
     }
@@ -238,8 +234,8 @@ quizForm.onsubmit = (e) => {
             wrongCount++;
             updateScore();
             
-            quizResult.textContent = `❌ Faux ! Réponse : ${correctAnswer}`;
-            quizResult.className = "mb-3 text-center text-danger fw-bold fs-4";
+            quizResult.textContent = `❌ Wrong ! Correct anwer is : ${correctAnswer}`;
+            quizResult.className = "alert alert-info mb-3 text-center border-0 py-2";
             hasSecondChance = true;
             
             // Vide et prépare pour la seconde chance
@@ -279,9 +275,13 @@ function endQuiz() {
     }, 3000);
 }
 
-// Lancer le quiz
+// Lancer le quiz avec les paramètres HSK
 document.addEventListener('DOMContentLoaded', () => {
-    loadQuizWords(quizCount || 10);
+    console.log('🎯 Paramètres quiz character:', { 
+        count: quizCount || 10, 
+        hsk: hskLevel 
+    });
+    loadQuizWords(quizCount || 10, hskLevel); // ⬅️ MODIFIÉ : passe le hskLevel
 });
 </script>
 

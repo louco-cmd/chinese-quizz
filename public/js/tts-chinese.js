@@ -45,7 +45,7 @@ class ChineseTTS {
     const utterance = new SpeechSynthesisUtterance(text);
     
     // Configuration
-    utterance.rate = options.rate || 0.8; // Vitesse lente pour le chinois
+    utterance.rate = options.rate || 0.6; // Vitesse lente pour le chinois
     utterance.pitch = options.pitch || 1;
     utterance.volume = options.volume || 1;
     

@@ -78,12 +78,7 @@
 </head>
 <body>
   
-<div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
-  <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
-    加油！
-  </span>
-</div>
-
+<%- include('partials/header') %>
 <%- include('partials/navbar', {currentPage: currentPage}) %>
 
 <section class="container my-4">
@@ -121,36 +116,51 @@
   </div>
 </section>
 
-<!-- 🔥 MODAL POUR CHOISIR LE NOMBRE DE MOTS -->
+<!-- 🔥 MODAL POUR CHOISIR LE NOMBRE DE MOTS ET FILTRE HSK -->
 <div class="modal fade" id="countModal" tabindex="-1">
-  <div class="modal-dialog modal-sm">
+  <div class="modal-dialog modal-large">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="modalTitle">Amount of words</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
+        <!-- FILTRE HSK AJOUTÉ ICI -->
+        <div class="mb-4">
+          <label class="form-label fw-medium">Filter by HSK level</label>
+          <select class="form-select" id="hskFilter">
+            <option value="all">All levels</option>
+            <option value="1">HSK 1</option>
+            <option value="2">HSK 2</option>
+            <option value="3">HSK 3</option>
+            <option value="4">HSK 4</option>
+            <option value="5">HSK 5</option>
+            <option value="6">HSK 6</option>
+            <option value="street">Street Chinese</option>
+          </select>
+        </div>
+
         <div class="d-grid gap-2">
           <div class="count-option p-3 rounded text-center" data-count="10" onclick="selectCount(10)">
-            <i class="bi bi-1-circle me-2"></i><strong>10 mots</strong>
+            <i class="bi bi-1-circle me-2"></i><strong>10 words</strong>
             <small class="d-block text-muted">Fast</small>
           </div>
           <div class="count-option p-3 rounded text-center" data-count="20" onclick="selectCount(20)">
-            <i class="bi bi-2-circle me-2"></i><strong>20 mots</strong>
+            <i class="bi bi-2-circle me-2"></i><strong>20 words</strong>
             <small class="d-block text-muted">Standard</small>
           </div>
           <div class="count-option p-3 rounded text-center" data-count="30" onclick="selectCount(30)">
-            <i class="bi bi-3-circle me-2"></i><strong>30 mots</strong>
+            <i class="bi bi-3-circle me-2"></i><strong>30 words</strong>
             <small class="d-block text-muted">Serious</small>
           </div>
           <div class="count-option p-3 rounded text-center" data-count="all" onclick="selectCount('all')">
-            <i class="bi bi-infinity me-2"></i><strong>Tous les mots</strong>
+            <i class="bi bi-infinity me-2"></i><strong>All the words</strong>
             <small class="d-block text-muted">Are you crazy ma ?</small>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">cancel</button>
         <button type="button" class="btn btn-primary" id="startQuizBtn" onclick="startQuiz()" disabled>
           <i class="bi bi-rocket-takeoff me-2"></i>Start the quiz
         </button>
@@ -203,15 +213,18 @@ function selectCount(count) {
   document.getElementById('startQuizBtn').disabled = false;
 }
 
-// 🔥 LANCE LE QUIZ
+// 🔥 LANCE LE QUIZ AVEC FILTRE HSK
 function startQuiz() {
   if (!selectedQuizType || !selectedCount) return;
   
+  // Récupère le filtre HSK sélectionné
+  const hskFilter = document.getElementById('hskFilter').value;
+  
   let url;
   if (selectedQuizType === 'pinyin') {
-    url = `/quiz-pinyin?count=${encodeURIComponent(selectedCount)}`;
+    url = `/quiz-pinyin?count=${encodeURIComponent(selectedCount)}&hsk=${encodeURIComponent(hskFilter)}`;
   } else {
-    url = `/quiz-character?count=${encodeURIComponent(selectedCount)}`;
+    url = `/quiz-character?count=${encodeURIComponent(selectedCount)}&hsk=${encodeURIComponent(hskFilter)}`;
   }
   
   // Fermer la modal et rediriger

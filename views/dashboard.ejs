@@ -7,7 +7,9 @@
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0d6efd"/>
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <style>
     body {
       background: linear-gradient(180deg, #0d6efd 0%, #0dcaf0 100%);
@@ -412,6 +414,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3"></script>
+<script src="/js/global.js"></script>
 <script>
 
 let currentChinese = '';
@@ -562,11 +566,41 @@ function setConfirmButtonState(alreadyCaptured) {
   }
 }
 
+// 🔥 AJOUTE CETTE FONCTION DANS TON SCRIPT
+function convertirPinyin(texteChinois) {
+  // Vérifie si pinyin-pro est disponible
+  if (typeof pinyinPro === 'undefined') {
+    console.warn('pinyin-pro non chargé');
+    return ''; // Retourne vide si la lib n'est pas chargée
+  }
+  
+  if (!texteChinois || typeof texteChinois !== 'string') {
+    return '';
+  }
+  
+  try {
+    return pinyinPro.pinyin(texteChinois, {
+      toneType: 'symbol',    // nǐ hǎo (avec accents)
+      pattern: 'pinyin',
+      separate: ' '
+    });
+  } catch (error) {
+    console.error('Erreur conversion pinyin:', error);
+    return ''; // Retourne vide en cas d'erreur
+  }
+}
+
 function displayNewWordForm() {
   document.getElementById('newPreviewChinese').textContent = currentChinese;
-  document.getElementById('newPinyin').value = '';
+  
+  // 🔥 GÉNÉRATION AUTOMATIQUE du pinyin
+  const pinyinAuto = convertirPinyin(currentChinese);
+  document.getElementById('newPinyin').value = pinyinAuto;
+  
   document.getElementById('newEnglish').value = '';
   document.getElementById('newDescription').value = '';
+  
+  console.log('🎯 Pinyin auto-généré:', pinyinAuto);
 }
 
 async function confirmAddExistingWord() {

@@ -70,3 +70,56 @@ window.fetchWithAuth = fetchWithAuth;
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');
 }
+// 🔥 CHARGEMENT DYNAMIQUE robuste
+function chargerPinyinPro() {
+  return new Promise((resolve, reject) => {
+    // Vérifie si déjà en cours de chargement
+    if (window._pinyinLoading) {
+      window._pinyinLoading.then(resolve).catch(reject);
+      return;
+    }
+    
+    window._pinyinLoading = new Promise((res, rej) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/pinyin-pro@3';
+      script.onload = () => {
+        console.log('✅ pinyin-pro chargé avec succès');
+        res();
+      };
+      script.onerror = () => {
+        console.warn('❌ CDN bloqué, utilisation alternative...');
+        rej();
+      };
+      document.head.appendChild(script);
+    });
+    
+    window._pinyinLoading.then(resolve).catch(reject);
+  });
+}
+
+window.convertirPinyin = function(texteChinois) {
+  // Si pinyin-pro n'est pas chargé, on le charge dynamiquement
+  if (typeof pinyinPro === 'undefined') {
+    return chargerPinyinPro().then(() => {
+      return convertirPinyin(texteChinois); // Rappelle la fonction une fois chargé
+    }).catch(() => {
+      return ''; // Retourne vide si échec
+    });
+  }
+  
+  if (!texteChinois || typeof texteChinois !== 'string') {
+    return '';
+  }
+  
+  try {
+    return pinyinPro.pinyin(texteChinois, {
+      toneType: 'symbol',
+      pattern: 'pinyin',
+      separate: ' '
+    });
+  } catch (error) {
+    console.error('❌ Erreur conversion pinyin:', error);
+    return '';
+  }
+};
+

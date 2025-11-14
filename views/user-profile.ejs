@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= profileUser.name %> - 加油！</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        .progress-container {
+            margin: 1rem 0;
+        }
+        .progress {
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .progress-bar {
+            transition: width 0.6s ease;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <%- include('partials/header') %>
+    <%- include('partials/navbar', {currentPage: 'duels'}) %>
+
+    <div class="container py-4">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a href="/duels" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back
+            </a>
+            <% if (!isOwnProfile) { %>
+                <button class="btn btn-primary btn-sm" onclick="challengeUser(<%= profileUser.id %>, '<%= profileUser.name %>')">
+                    <i class="bi bi-sword me-1"></i> Challenge
+                </button>
+            <% } %>
+        </div>
+
+        <!-- Profile Card -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body text-center">
+                <i class="bi bi-person-circle fs-1 text-primary mb-3"></i>
+                <h4 class="card-title"><%= profileUser.name %></h4>
+                
+                <!-- Stats principales -->
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="h5 mb-1 text-primary"><%= stats.total_words || 0 %></div>
+                        <small class="text-muted">Words</small>
+                    </div>
+                    <div class="col-6">
+                        <div class="h5 mb-1 text-warning"><%= stats.total_duels || 0 %></div>
+                        <small class="text-muted">Duels</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h6 class="mb-0 d-flex align-items-center">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Performance
+                </h6>
+            </div>
+            <div class="card-body">
+                <!-- Stats globales -->
+                <div class="row text-center mb-4">
+                    <div class="col-4">
+                        <div class="h5 mb-1" id="totalWords">-</div>
+                        <div class="text-muted small">Words</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="h5 mb-1" id="totalQuizzes">-</div>
+                        <div class="text-muted small">Quizzes</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="h5 mb-1" id="totalDuels">-</div>
+                        <div class="text-muted small">Duels</div>
+                    </div>
+                </div>
+                
+                <!-- Jauge de progression -->
+                <div class="progress-container">
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-primary" id="masteredBar" role="progressbar" style="width: 0%"></div>
+                        <div class="progress-bar bg-info" id="learningBar" role="progressbar" style="width: 0%"></div>
+                        <div class="progress-bar bg-warning" id="mediumBar" role="progressbar" style="width: 0%"></div>
+                        <div class="progress-bar bg-secondary" id="newBar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div class="text-center text-muted mt-2" style="font-size: 0.8rem;">
+                        <span id="masteryText">0% mastered words</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HSK Distribution -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-bar-chart me-2"></i>
+                    Words by Level
+                </h6>
+            </div>
+            <div class="card-body">
+                <% if (hskStats.length > 0) { %>
+                    <div class="row g-2">
+                        <% hskStats.forEach(stat => { %>
+                            <div class="col-6 col-md-4">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body text-center p-2">
+                                        <div class="h6 mb-1 text-dark"><%= stat.level %></div>
+                                        <div class="h5 text-primary"><%= stat.count %></div>
+                                        <small class="text-muted">words</small>
+                                    </div>
+                                </div>
+                            </div>
+                        <% }); %>
+                    </div>
+                <% } else { %>
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-info-circle fs-2 opacity-50"></i>
+                        <p class="mt-2 mb-0">No words yet</p>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de défi -->
+    <div class="modal fade" id="challengeModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title">Challenge <span id="opponentName"></span></h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="challengeForm">
+                        <input type="hidden" id="opponentId">
+                        
+                        <div class="mb-3">
+                            <label class="form-label small fw-medium">Duel Type</label>
+                            <select class="form-select" id="duelType" required>
+                                <option value="classic">Classic (20 words)</option>
+                                <option value="match_aa">Match AA (10 common words)</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="createChallenge()">
+                        Send Challenge
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentOpponent = null;
+
+        // Chargement des données de performance
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPerformanceStats();
+        });
+
+       async function loadPerformanceStats() {
+    try {
+        // Utilise l'endpoint account-info avec l'ID du profil
+        const response = await fetch(`/account-info?user_id=<%= profileUser.id %>`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        console.log('Performance data received:', data);
+        
+        // Mise à jour des totaux
+        document.getElementById('totalWords').textContent = data.wordCount || 0;
+        document.getElementById('totalQuizzes').textContent = data.stats?.total_quizzes || 0;
+        document.getElementById('totalDuels').textContent = data.stats?.total_duels || 0;
+        
+        // Vérifier si user_mots existe dans les données
+        const words = data.user_mots || [];
+        console.log('Words found:', words.length);
+        
+        if (words.length === 0) {
+            console.log('No words found');
+            // Afficher un état vide
+            document.getElementById('masteryText').textContent = 'No words';
+            return;
+        }
+        
+        // Compte le nombre de mots dans chaque catégorie
+        const mastered = words.filter(w => w.score >= 90).length;
+        const learning = words.filter(w => w.score >= 60 && w.score < 90).length;
+        const medium = words.filter(w => w.score >= 30 && w.score < 60).length;
+        const new_words = words.filter(w => w.score < 30).length;
+        
+        console.log('Score distribution:', { mastered, learning, medium, new_words });
+        
+        // Calculer les pourcentages
+        const total = words.length;
+        const bars = {
+            masteredBar: (mastered / total) * 100,
+            learningBar: (learning / total) * 100,
+            mediumBar: (medium / total) * 100,
+            newBar: (new_words / total) * 100
+        };
+        
+        console.log('Percentages:', bars);
+        
+        // Mettre à jour les barres
+        Object.entries(bars).forEach(([id, percentage]) => {
+            const bar = document.getElementById(id);
+            if (bar) {
+                bar.style.width = `${percentage}%`;
+                console.log(`Setting ${id} width to ${percentage}%`);
+                // Ajout d'un titre au survol
+                bar.title = `${Math.round(percentage)}%`;
+            } else {
+                console.warn(`Bar element ${id} not found`);
+            }
+        });
+        
+        const masteredPercentage = Math.round((mastered / total) * 100);
+        document.getElementById('masteryText').textContent = `${masteredPercentage}% mastered words`;
+        
+    } catch (error) {
+        console.error('Erreur chargement performances:', error);
+        displayPerformanceError();
+    }
+}
+        function displayPerformanceError() {
+            const container = document.querySelector('.card-body');
+            if (container) {
+                container.innerHTML = `
+                    <div class="alert alert-warning small mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Unable to load performance data
+                    </div>
+                `;
+            }
+        }
+
+        function challengeUser(userId, userName) {
+            currentOpponent = userId;
+            document.getElementById('opponentName').textContent = userName;
+            document.getElementById('opponentId').value = userId;
+            new bootstrap.Modal(document.getElementById('challengeModal')).show();
+        }
+
+        async function createChallenge() {
+            const duelType = document.getElementById('duelType').value;
+            
+            try {
+                const response = await fetch('/api/duels/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        opponent_id: currentOpponent,
+                        duel_type: duelType,
+                        quiz_type: 'pinyin'
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('challengeModal')).hide();
+                    alert('Challenge sent!');
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                alert('Network error');
+            }
+        }
+    </script>
+</body>
+</html>

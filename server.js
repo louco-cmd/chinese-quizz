@@ -1041,28 +1041,53 @@ app.get("/check-mot/:chinese", ensureAuth, async (req, res) => {
 app.get('/quiz-mots', ensureAuth, async (req, res) => {
   const userId = req.user.id;
   const requestedCount = req.query.count === 'all' ? null : parseInt(req.query.count) || 10;
+  const hskLevel = req.query.hsk || 'all';
+
+  console.log('🎯 API /quiz-mots appelée avec:', { 
+    userId, 
+    requestedCount, 
+    hskLevel 
+  });
 
   try {
-    // Récupérer tous les mots avec leurs scores et nombre de quiz, SAUF ceux à 100
-    const { rows } = await pool.query(`
+    let query = `
       SELECT mots.*, 
              COALESCE(user_mots.score, 0) as score,
              COALESCE(user_mots.nb_quiz, 0) as nb_quiz
       FROM user_mots 
       JOIN mots ON user_mots.mot_id = mots.id
       WHERE user_mots.user_id = $1
-      AND user_mots.score < 100  /* Exclure les mots maîtrisés */
-    `, [userId]);
+      AND user_mots.score < 100
+    `;
+    
+    let params = [userId];
+    let paramCount = 1;
+
+    // Filtre HSK corrigé
+    if (hskLevel !== 'all') {
+      if (hskLevel === 'street') {
+        query += ` AND mots.hsk IS NULL`;  // Street Chinese = hsk IS NULL
+      } else {
+        paramCount++;
+        query += ` AND mots.hsk = $${paramCount}`;  // HSK normal = hsk = valeur
+        params.push(parseInt(hskLevel));
+      }
+    }
+
+    console.log('📝 Query:', query);
+    console.log('🔧 Paramètres:', params);
+
+    const { rows } = await pool.query(query, params);
+    console.log('✅ Résultats DB:', rows.length, 'lignes');
 
     if (rows.length === 0) {
+      console.log('ℹ️ Aucun mot trouvé avec ces critères');
       return res.json([]);
     }
 
-    console.log(`📊 ${rows.length} mots à apprendre trouvés pour l'utilisateur ${userId}`);
-
-    // Catégoriser les mots par score
+    // Le reste de ta logique de sélection intelligente...
     const motsFaibles = rows.filter(mot => mot.score < 50)
-      .sort((a, b) => a.nb_quiz - b.nb_quiz); // Priorité aux mots moins testés
+      .sort((a, b) => a.nb_quiz - b.nb_quiz);
     const motsMoyens = rows.filter(mot => mot.score >= 50 && mot.score < 80)
       .sort((a, b) => a.nb_quiz - b.nb_quiz);
     const motsForts = rows.filter(mot => mot.score >= 80)
@@ -1070,12 +1095,11 @@ app.get('/quiz-mots', ensureAuth, async (req, res) => {
 
     const totalMots = requestedCount || rows.length;
     
-    // Calculer les proportions désirées
-    let nbFaibles = Math.ceil(totalMots * 0.7);  // 70%
-    let nbMoyens = Math.ceil(totalMots * 0.2);   // 20%
-    let nbForts = Math.ceil(totalMots * 0.1);    // 10%
+    let nbFaibles = Math.ceil(totalMots * 0.7);
+    let nbMoyens = Math.ceil(totalMots * 0.2);
+    let nbForts = Math.ceil(totalMots * 0.1);
 
-    // Ajuster les proportions si une catégorie manque de mots
+    // Ajustements des proportions...
     if (motsFaibles.length < nbFaibles) {
       const deficit = nbFaibles - motsFaibles.length;
       nbFaibles = motsFaibles.length;
@@ -1096,7 +1120,6 @@ app.get('/quiz-mots', ensureAuth, async (req, res) => {
       nbFaibles = Math.min(motsFaibles.length, nbFaibles + deficit);
     }
 
-    // Sélectionner les mots
     const selectionFaibles = motsFaibles.slice(0, nbFaibles);
     const selectionMoyens = motsMoyens.slice(0, nbMoyens);
     const selectionForts = motsForts.slice(0, nbForts);
@@ -1108,14 +1131,21 @@ app.get('/quiz-mots', ensureAuth, async (req, res) => {
       faibles: selectionFaibles.length,
       moyens: selectionMoyens.length,
       forts: selectionForts.length,
-      total: motsSelectionnes.length
+      total: motsSelectionnes.length,
+      hsk: hskLevel
     });
 
     res.json(motsSelectionnes);
 
   } catch (err) {
-    console.error('❌ Erreur récupération mots quiz:', err);
-    res.status(500).json({ error: err.message });
+    console.error('💥 ERREUR /quiz-mots:');
+    console.error('Message:', err.message);
+    console.error('Stack:', err.stack);
+    
+    res.status(500).json({ 
+      error: 'Erreur serveur',
+      details: err.message
+    });
   }
 });
 
@@ -1643,13 +1673,24 @@ app.get('/dashboard', ensureAuth, async (req, res) => {
 });
 
 app.get('/account-info', ensureAuth, async (req, res) => {
-  const userId = req.user.id;
+  // Permet de récupérer les données d'un autre utilisateur si user_id est fourni
+  const targetUserId = req.query.user_id || req.user.id;
+  const currentUserId = req.user.id;
+  
+  console.log('🎯 /account-info appelé:', { targetUserId, currentUserId });
   
   try {
+    // Vérifier que l'utilisateur a le droit d'accéder à ces données
+    // (optionnel: pour restreindre l'accès aux données sensibles)
+    
     // 1. Récupérer les infos utilisateur
     const userInfo = await pool.query(`
       SELECT name FROM users WHERE id = $1
-    `, [userId]);
+    `, [targetUserId]);
+
+    if (userInfo.rows.length === 0) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
 
     // 2. Récupérer les mots avec leurs scores et niveau HSK
     const userMots = await pool.query(`
@@ -1663,7 +1704,7 @@ app.get('/account-info', ensureAuth, async (req, res) => {
       FROM user_mots 
       JOIN mots ON user_mots.mot_id = mots.id 
       WHERE user_mots.user_id = $1
-    `, [userId]);
+    `, [targetUserId]);
     
     // 3. Calculer les stats HSK
     const hskStats = {
@@ -1689,17 +1730,17 @@ app.get('/account-info', ensureAuth, async (req, res) => {
       SELECT COUNT(*) as total_quizzes
       FROM quiz_history 
       WHERE user_id = $1
-    `, [userId]);
+    `, [targetUserId]);
     
     const duelStats = await pool.query(`
       SELECT COUNT(*) as total_duels
       FROM duels 
       WHERE challenger_id = $1 OR opponent_id = $1
-    `, [userId]);
+    `, [targetUserId]);
     
     // Construire la réponse
-    res.json({
-      name: userInfo.rows[0]?.name || 'User',
+    const response = {
+      name: userInfo.rows[0].name,
       wordCount: userMots.rows.length,
       user_mots: userMots.rows,
       stats: {
@@ -1707,10 +1748,19 @@ app.get('/account-info', ensureAuth, async (req, res) => {
         total_quizzes: parseInt(quizStats.rows[0].total_quizzes),
         total_duels: parseInt(duelStats.rows[0].total_duels)
       }
+    };
+
+    console.log('✅ /account-info réponse:', {
+      name: response.name,
+      wordCount: response.wordCount,
+      totalQuizzes: response.stats.total_quizzes,
+      totalDuels: response.stats.total_duels
     });
     
+    res.json(response);
+    
   } catch (err) {
-    console.error('Erreur /account-info:', err);
+    console.error('❌ Erreur /account-info:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -1821,6 +1871,162 @@ app.get('/duel-play/:id', ensureAuth, async (req, res) => {
   } catch (err) {
     console.error('Erreur page duel:', err);
     res.redirect('/duels?error=server_error');
+  }
+});
+
+app.get('/duel/:id', ensureAuth, async (req, res) => {
+  try {
+    const duelId = req.params.id;
+    const userId = req.user.id;
+
+    const duelResult = await pool.query(`
+      SELECT 
+        d.*,
+        c.name as challenger_name,
+        c.email as challenger_email,
+        o.name as opponent_name, 
+        o.email as opponent_email
+      FROM duels d
+      LEFT JOIN users c ON d.challenger_id = c.id
+      LEFT JOIN users o ON d.opponent_id = o.id
+      WHERE d.id = $1 AND (d.challenger_id = $2 OR d.opponent_id = $2)
+    `, [duelId, userId]);
+
+    if (duelResult.rows.length === 0) {
+      return res.status(404).render('error', { message: 'Duel non trouvé' });
+    }
+
+    const duel = duelResult.rows[0];
+    
+    console.log('🔍 Duel trouvé:', duel.id);
+    console.log('📊 quiz_data brut:', duel.quiz_data);
+    
+    // Parse les données du quiz - CORRECTION ICI
+    let quizData = [];
+    if (duel.quiz_data) {
+      try {
+        let parsedData = typeof duel.quiz_data === 'string' 
+          ? JSON.parse(duel.quiz_data) 
+          : duel.quiz_data;
+        
+        // ⬅️ EXTRACTION DES MOTS DEPUIS LA STRUCTURE
+        if (parsedData.words && Array.isArray(parsedData.words)) {
+          quizData = parsedData.words;
+          console.log('✅ Mots extraits de quiz_data.words:', quizData.length);
+        } else if (Array.isArray(parsedData)) {
+          // Ancien format où les mots sont directement dans l'array
+          quizData = parsedData;
+          console.log('✅ Mots dans array direct:', quizData.length);
+        } else {
+          console.log('❌ Structure inconnue de quiz_data');
+        }
+        
+      } catch (e) {
+        console.error('❌ Erreur parsing quiz_data:', e);
+      }
+    }
+
+    console.log('📝 quizData final:', quizData.length, 'mots');
+
+    res.render('duel-detail', {
+      currentPage: 'duels',
+      user: req.user,
+      duel: duel,
+      quizData: quizData,
+      isChallenger: duel.challenger_id === userId
+    });
+
+  } catch (error) {
+    console.error('Erreur détail duel:', error);
+    res.status(500).render('error', { message: 'Erreur serveur' });
+  }
+});
+
+app.get('/user/:id', ensureAuth, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const currentUserId = req.user.id;
+
+    console.log('🎯 Route /user/:id appelée avec:', { userId, currentUserId });
+
+    // Récupérer les infos de l'utilisateur
+    const userResult = await pool.query(`
+      SELECT id, name, email, created_at
+      FROM users 
+      WHERE id = $1
+    `, [userId]);
+
+    console.log('📊 Résultat query user:', userResult.rows);
+
+    if (userResult.rows.length === 0) {
+      console.log('❌ Utilisateur non trouvé');
+      return res.status(404).send(`
+        <div class="alert alert-warning">
+          Utilisateur non trouvé
+          <a href="/duels">Retour aux duels</a>
+        </div>
+      `);
+    }
+
+    const user = userResult.rows[0];
+    console.log('✅ Utilisateur trouvé:', user.name);
+
+    // 🗳️ CORRECTION : Requête sans la table quizzes qui n'existe pas
+    const statsResult = await pool.query(`
+      SELECT 
+        COUNT(DISTINCT um.mot_id) as total_words,
+        COUNT(DISTINCT d.id) as total_duels
+      FROM users u
+      LEFT JOIN user_mots um ON u.id = um.user_id
+      LEFT JOIN duels d ON (u.id = d.challenger_id OR u.id = d.opponent_id)
+      WHERE u.id = $1
+      GROUP BY u.id
+    `, [userId]);
+
+    const stats = statsResult.rows[0] || {};
+    console.log('📈 Stats récupérées:', stats);
+
+    // Récupérer la répartition HSK
+    const hskResult = await pool.query(`
+      SELECT 
+        CASE 
+          WHEN m.hsk IS NULL THEN 'Street' 
+          ELSE 'HSK ' || m.hsk::text 
+        END as level,
+        COUNT(*) as count
+      FROM user_mots um
+      JOIN mots m ON um.mot_id = m.id
+      WHERE um.user_id = $1
+      GROUP BY CASE WHEN m.hsk IS NULL THEN 'Street' ELSE 'HSK ' || m.hsk::text END
+      ORDER BY level
+    `, [userId]);
+
+    console.log('🎯 Données HSK:', hskResult.rows);
+
+    res.render('user-profile', {
+      currentPage: 'duels',
+      user: req.user,
+      profileUser: user,
+      stats: stats,
+      hskStats: hskResult.rows,
+      isOwnProfile: userId == currentUserId
+    });
+
+  } catch (error) {
+    console.error('💥 ERREUR COMPLÈTE /user/:id:', error);
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Erreur</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"></head>
+      <body class="container mt-5">
+        <div class="alert alert-danger">
+          <h4>Erreur serveur</h4>
+          <p>${error.message}</p>
+          <a href="/duels" class="btn btn-primary">Retour aux duels</a>
+        </div>
+      </body>
+      </html>
+    `);
   }
 });
 

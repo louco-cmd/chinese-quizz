@@ -1,5 +1,5 @@
 {
-  "name": "加油！jiayou!",
+  "name": "jiayou",
   "short_name": "Jiayou", 
   "description": "add oil on your Chinese learning journey!",
   "start_url": "/",
@@ -19,5 +19,6 @@
       "type": "image/png"
     }
   ],
-  "categories": ["education", "productivity"]
+  "categories": ["education", "productivity"],
+  "splash_pages": null
 }

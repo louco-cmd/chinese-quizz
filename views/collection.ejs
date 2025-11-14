@@ -149,14 +149,7 @@ body {
   </script>
 </head>
 <body>
-
- <div class="d-flex justify-content-between align-items-center bg-primary text-white p-3">
-  <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
-    加油！
-  </span>
-</div>
-
-  <!-- Navigation -->
+  <%- include('partials/header') %>
   <%- include('partials/navbar', {currentPage: 'collection'}) %>
 
 <section class="section d-flex flex-column align-items-center mt-4">
