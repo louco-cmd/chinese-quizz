@@ -134,6 +134,7 @@ function showQuizWord() {
   quizInputs = []
   quizResult.textContent = '';
   hasSecondChance = false;
+  hideCharacterCard()
 
   if (quizIdx >= quizWords.length) {
     endQuiz();
@@ -236,6 +237,7 @@ quizForm.onsubmit = (e) => {
     quizIdx++;
     
     setTimeout(() => {
+      hideCharacterCard()
       enableSubmitButton();
       showQuizWord();
     }, 1500);
