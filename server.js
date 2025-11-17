@@ -1,3 +1,5 @@
+
+
 const { Pool } = require("pg");
 const path = require("path");
 const express = require("express");
@@ -1265,7 +1267,7 @@ app.post('/api/user/update-name', ensureAuth, async (req, res) => {
           FROM users 
           WHERE (email ILIKE $1 OR name ILIKE $1) 
             AND id != $2
-          LIMIT 10
+          LIMIT 5
         `, [searchQuery, req.user.id]);
 
         console.log(`✅ Résultats recherche: ${result.rows.length} utilisateurs`);
@@ -1276,6 +1278,78 @@ app.post('/api/user/update-name', ensureAuth, async (req, res) => {
         res.status(500).json({ error: 'Erreur recherche' });
       }
     });
+
+
+// 📊 STATISTIQUES DE TOUS LES JOUEURS - CORRIGÉE
+app.get('/api/players/stats', ensureAuth, async (req, res) => {
+  try {
+    console.log('📊 Chargement stats tous les joueurs');
+    
+    // TEST : Vérifie d'abord la connexion à la DB
+    const testQuery = await pool.query('SELECT NOW() as time');
+    console.log('✅ Connexion DB OK:', testQuery.rows[0].time);
+
+    const result = await pool.query(`
+      SELECT 
+        u.id,
+        u.name,
+        u.email,
+        COUNT(DISTINCT uw.mot_id) as total_words,           -- ⬅️ CORRIGÉ : mot_id au lieu de word_id
+        COUNT(DISTINCT CASE 
+          WHEN d.status = 'completed' AND (
+            (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+            (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+          ) THEN d.id
+        END) as wins,
+        COUNT(DISTINCT CASE 
+          WHEN d.status = 'completed' AND (
+            (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
+            (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
+          ) THEN d.id
+        END) as losses,
+        CASE 
+          WHEN COUNT(DISTINCT CASE 
+            WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN d.id
+          END) > 0 THEN
+            ROUND(
+              (COUNT(DISTINCT CASE 
+                WHEN d.status = 'completed' AND (
+                  (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+                  (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+                ) THEN d.id
+              END) * 100.0) / 
+              COUNT(DISTINCT CASE 
+                WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN d.id
+              END)
+            , 1)
+          ELSE 0
+        END as win_ratio
+      FROM users u
+      LEFT JOIN user_mots uw ON u.id = uw.user_id           -- ⬅️ CORRIGÉ : user_mots au lieu de user_words
+      LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id)
+      WHERE u.id IN (SELECT DISTINCT user_id FROM user_mots) -- ⬅️ CORRIGÉ : user_mots
+      GROUP BY u.id, u.name, u.email
+      ORDER BY wins DESC, total_words DESC
+    `);
+
+    console.log(`✅ ${result.rows.length} joueurs trouvés`);
+    if (result.rows.length > 0) {
+      console.log('📊 Exemple joueur:', result.rows[0]);
+    }
+    
+    // ✅ RETOURNE BIEN LE TABLEAU
+    res.json(result.rows);
+    
+  } catch (err) {
+    console.error('❌ Erreur détaillée stats joueurs:', err);
+    
+    // ✅ RETOURNE UNE ERREUR PROPRE
+    res.status(500).json({ 
+      error: 'Erreur chargement des statistiques joueurs',
+      details: err.message 
+    });
+  }
+});
 
     // 📍 STATS PERSO
     app.get('/api/duels/stats', ensureAuth, async (req, res) => {
@@ -2030,7 +2104,20 @@ app.get('/user/:id', ensureAuth, async (req, res) => {
   }
 });
 
-// Middleware de simulation d'utilisateur pour les tests
+app.get('/leaderboard', ensureAuth, async (req, res) => {
+  try {
+    console.log('📄 Chargement page classement pour:', req.user.name);
+    res.render('leaderboard', {  // ← SUPPRIME 'players/'
+      user: req.user,
+      title: 'Classement des Joueurs - Jiayou'
+    });
+  } catch (err) {
+    console.error('❌ Erreur page classement:', err);
+    res.status(500).render('error', { error: 'Erreur chargement page' });
+  }
+});
+
+//Middleware de simulation d'utilisateur pour les tests
 app.use((req, res, next) => {
   if (req.session && req.session.userId && !req.user) {
     // Tentative de récupération de l'utilisateur

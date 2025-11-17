@@ -26,10 +26,10 @@
 
     <div class="container py-4">
         <!-- Header -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <a href="/duels" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left"></i> Back
-            </a>
+      <div class="d-flex justify-content-between align-items-center mb-4">
+             <button onclick="window.history.back()" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back
+            </button>
             <% if (!isOwnProfile) { %>
                 <button class="btn btn-primary btn-sm" onclick="challengeUser(<%= profileUser.id %>, '<%= profileUser.name %>')">
                     <i class="bi bi-sword me-1"></i> Challenge
