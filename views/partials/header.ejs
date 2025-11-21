@@ -3,18 +3,38 @@
     <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
         加油！
     </span>
-    
+
     <!-- Zone de notifications -->
     <div id="header-notifications" class="position-absolute top-100 start-50 translate-middle-x mt-2" 
          style="z-index: 9999; min-width: 300px; display: none;">
         <!-- Les notifications seront injectées ici -->
     </div>
-    
+
     <!-- Indicateur de notifications (optionnel) -->
     <div id="notification-indicator" class="position-absolute top-0 end-0 mt-1 me-1" style="display: none;">
         <span class="badge bg-danger rounded-pill" id="notification-count">0</span>
     </div>
+
+    <!-- Nouveau bloc compte + argent -->
+    <div class="d-flex align-items-center position-absolute end-0 me-3" style="top: 50%; transform: translateY(-50%); gap: 16px;">
+
+        <!-- Argent 
+        <div class="d-flex align-items-center px-2 py-1 --bs-warning-border-subtle bg-opacity-10 border border-warning rounded-pill" title="Votre solde" style="gap: 0.4rem; user-select: none; width: fit-content;">
+        <i class="fa-solid fa-coins text-warning fs-5"></i>
+        <span class="bi bi-cash-coin"></span>
+        <span class="--bs-warning-text-emphasis fw-normal fs-6 mb-0">100</span>
+        </div>-->
+
+
+        <!-- Mon Compte -->
+        <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold" 
+           style="gap: 6px; transition: color 0.3s ease;">
+            <i class="fa-solid fa-user"></i>
+            <i class="jiayou-nav-icon bi bi-person-square"></i>
+        </a>
+    </div>
 </div>
+
 
 <!-- Style pour les notifications -->
 <style>

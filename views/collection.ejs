@@ -466,13 +466,58 @@ function createCardElement(word) {
                   <button class="btn btn-sm btn-outline-success btn-audio" 
                     data-text="${word.chinese}"
                     title="Écouter la prononciation">
-                    <i class="bi bi-volume-up"></i>  <!-- ← Picto uniquement -->
+                    <i class="bi bi-volume-up"></i> 
                   </button>
-                  <a href="#" class="btn btn-link text-success edit-btn">✏️ Edit</a>
+                  <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-success dropdown-toggle bi bi-gear-fill" type="button" id="dropdownMenuButton${word.id}" data-bs-toggle="dropdown" aria-expanded="false"  style="border: 1px solid #dee2e6;">
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton${word.id}">
+                    <li><a class="dropdown-item edit-btn" href="#">✏️ edit</a></li>
+                    <li><button class="dropdown-item text-danger delete-btn" type="button">🗑️ delete</button></li>
+                    </ul>
+                </div>
               </div>
+              
           </div>
       </div>
     `;
+
+card.querySelector('.delete-btn').onclick = async () => {
+  if (!confirm(`Are you sure you want delete "${word.chinese}" from your collection ?`)) return;
+
+  try {
+    const response = await fetch('/mes-mots/delete', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ mot_id: word.id }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      alert(data.message || 'Word has been successfully deleted');
+      // Supprimer localement pour mise à jour rapide
+      words = words.filter(w => w.id !== word.id);
+
+      // Si tu veux gérer la navigation après suppression
+      if (words.length === 0) {
+        cardContainer.innerHTML = '<p>No words yet.</p>';
+        listBody.innerHTML = '';
+        return;
+      }
+
+      // Ajuster l'index si nécessaire
+      if (idx >= words.length) idx = words.length - 1;
+      showCard();
+      showList();
+    } else {
+      alert(data.error || 'Erreur lors de la suppression');
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Erreur réseau');
+  }
+};
 
     // Transforme les caractères chinois (ton code existant)
     const chineseContainer = card.querySelector('.chinese-clickable');

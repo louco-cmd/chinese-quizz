@@ -11,36 +11,36 @@ const urlsToCache = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
-  );
-});
-
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Retourne le cache si trouvé, sinon fetch
-        return response || fetch(event.request);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      for (const url of urlsToCache) {
+        try {
+          await cache.add(url);
+        } catch (err) {
+          console.warn('Impossible de cacher', url, err);
+          // Tu peux décider d’ignorer ou gérer autrement
+        }
       }
-    )
+    })
   );
 });
 
-// Dans ton sw.js - ajoute cette règle
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  
-  // 🔥 AUTORISER les requêtes vers jsdelivr
+
+  // Autoriser les requêtes vers jsdelivr à passer directement
   if (url.hostname === 'cdn.jsdelivr.net') {
     event.respondWith(fetch(event.request));
     return;
   }
-  
-  // ... le reste de ta logique existante
+
+  // Sinon, essaie de retourner du cache, sinon fetch
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request);
+    }).catch(() => {
+      // Gestion optionnelle en cas d’erreur (ex: offline)
+      return caches.match('/offline.html'); // si tu as une page offline
     })
   );
 });

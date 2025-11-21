@@ -87,6 +87,11 @@
   </style>
 </head>
 <body>
+  
+  <% if (error === 'auth_failed') { %>
+  <div class="alert alert-danger">Erreur d’authentification. Veuillez réessayer.</div>
+  <% } %>
+
   <div class="login-container d-flex align-items-center justify-content-center py-4">
     <div class="container">
       <div class="row justify-content-center">
