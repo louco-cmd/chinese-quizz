@@ -13,6 +13,11 @@ const {
   reauth,
   requestLogger,
   errorHandler,
+  shuffleArray,
+  generateDuelQuiz,
+  getRandomUserWords,
+  getCommonWords,
+  updateWordScore
 } = require('./middleware/index');
 const PostgreSQLStore = require('connect-pg-simple')(session);
 const apiRoutes = require('./routes/api');

@@ -1,8 +1,21 @@
 const express = require('express');
 const { pool } = require('../config/database');
-const { ensureAuth } = require('../middleware');
-const {updateWordScore} = require('../middleware/index');
 const router = express.Router();
+const {
+  ensureAuth,
+  resilience,
+  repair,
+  checker,
+  security,
+  reauth,
+  requestLogger,
+  errorHandler,
+  shuffleArray,
+  generateDuelQuiz,
+  getRandomUserWords,
+  getCommonWords,
+  updateWordScore
+} = require('../middleware/index');
 
 // ---------------------API
 
