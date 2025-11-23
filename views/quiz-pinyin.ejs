@@ -59,6 +59,8 @@ let correctCount = 0;
 let wrongCount = 0;
 let currentWord = null;
 let hasSecondChance = false;
+let quizEnded = false;
+
 
 const quizQuestion = document.getElementById('quizQuestion');
 const quizFields = document.getElementById('quizFields');
@@ -115,6 +117,7 @@ async function loadQuizWords(count, hskLevel = 'all') {
     quizQuestion.textContent = '⚠️ Erreur lors du chargement des mots.';
   }
 }
+
 function initQuizTracking() {
     quizResults = quizWords.map(word => {
         return {
@@ -130,6 +133,7 @@ function initQuizTracking() {
 
 function showQuizWord() {
   // 🔥 SUPPRIME LE DOUBLON - garde seulement une fois ces lignes :
+  if (window.quizEnded) return;
   quizFields.innerHTML = '';
   quizInputs = []
   quizResult.textContent = '';
@@ -138,6 +142,7 @@ function showQuizWord() {
 
   if (quizIdx >= quizWords.length) {
     endQuiz();
+    console.log('🔥 end is lauched')
     return;
   }
   
@@ -180,8 +185,6 @@ function updateScore() {
   quizScore.textContent = `✅ ${correctCount} | ❌ ${wrongCount}`;
 }
 
-
-// 🔥 FONCTIONS POUR GÉRER LE BOUTON
 function disableSubmitButton() {
   const submitBtn = document.getElementById('checkBtn');
   submitBtn.disabled = true;
@@ -196,7 +199,6 @@ function enableSubmitButton() {
   submitBtn.classList.remove('disabled');
 }
 
-// 🔥 PUIS DANS quizForm.onsubmit, remplace par :
 quizForm.onsubmit = (e) => {
   e.preventDefault();
   disableSubmitButton();
@@ -217,13 +219,9 @@ quizForm.onsubmit = (e) => {
     console.error('❌ Impossible de trouver le mot dans quizResults:', currentWord);
   }
 
-  console.log('🎯 Avant mise à jour quizResults:', quizResults[quizIdx]);
-
   // NOUVEAU: Sauvegarder le résultat pour ce mot spécifique
   quizResults[quizIdx].correct = isCorrect;
   quizResults[quizIdx].attempts = hasSecondChance ? 2 : 1;
-
-  console.log('🎯 Après mise à jour quizResults:', quizResults[quizIdx]);
   
   if (isCorrect) {
     quizResult.textContent = "✅ Correct !";
@@ -237,7 +235,8 @@ quizForm.onsubmit = (e) => {
     quizIdx++;
     
     setTimeout(() => {
-      hideCharacterCard()
+      if (quizEnded) return;
+      hideCharacterCard();
       enableSubmitButton();
       showQuizWord();
     }, 1500);
@@ -269,11 +268,12 @@ quizForm.onsubmit = (e) => {
       
       quizIdx++;
       
-      setTimeout(() => {
-        hideCharacterCard();
-        enableSubmitButton();
-        showQuizWord()
-      }, 1500);
+    setTimeout(() => {
+      if (quizEnded) return;
+      hideCharacterCard();
+      enableSubmitButton();
+      showQuizWord();
+    }, 1500);
     }
   }
 };
@@ -327,6 +327,44 @@ function hideCharacterCard() {
     if (card) {
         card.remove();
     }
+}
+
+function endQuiz() {
+  console.log("🏁 endQuiz() appelée (version FORCE)");
+
+  // Met à jour les textes et styles
+  quizQuestion.textContent = '🎉 Quiz ended !';
+  quizResult.textContent = `Final score: ${correctCount}/${quizWords.length}`;
+  quizResult.className = "alert alert-success text-center fw-bold";
+
+  // Modifie le bouton existant : texte, style, type, et comportement
+  checkBtn.innerHTML = '<i class="bi bi-coin me-2"></i>Collect 5 coins';
+  checkBtn.className = 'btn btn-success w-100';
+  checkBtn.type = 'button'; // Important : ne plus soumettre le formulaire
+
+  // Forcer l’arrêt de tous les timers existants
+  let id = window.setTimeout(() => {}, 0);
+  while (id--) {
+    window.clearTimeout(id);
+    window.clearInterval(id);
+  };
+
+  // Désactiver le formulaire définitivement
+  quizForm.onkeydown = (e) => e.preventDefault();
+  quizForm.oninput = (e) => e.preventDefault();
+  quizForm.onclick = (e) => e.stopPropagation();
+
+  // Mettre à jour la variable globale (empêche showQuizWord)
+  window.quizEnded = true;
+
+  checkBtn.onclick = () => {
+    // Action au clic : redirection ou autre
+    window.location.href = '/quiz';
+  };
+
+  // Sauvegarde
+  console.log("💾 Sauvegarde des résultats...");
+  saveQuizResults(correctCount, quizWords.length, "pinyin", quizResults);
 }
 
 // Lancer le quiz

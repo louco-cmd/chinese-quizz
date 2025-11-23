@@ -218,13 +218,21 @@
       border: 3px solid #dc3545;
     }
     
-    .error-message {
-      color: #ffe5e5;
-      font-size: 0.9rem;
-      text-align: center;
-      margin-top: 0.5rem;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    }
+.error-message {
+  color: #ff0019; /* texte rouge foncé */
+  background-color: rgba(255, 244, 245, 0.8); /* rose clair transparent */
+  border: 1px solid hwb(354 71% 4%); /* bordure rose */
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 400;
+  text-align: center;
+  margin-top: 1rem;
+  padding: 10px 15px;
+  box-shadow: 0 2px 6px rgba(114, 28, 36, 0.3);
+  user-select: text;
+  display: none;
+}
+
 
     /* Écrans secondaires */
     .floating-card {
@@ -305,7 +313,7 @@
 </head>
 <body>
 
-  <!-- Navigation -->
+  <%- include('partials/header', {currentPage: 'dashboard'}) %>
   <%- include('partials/navbar', {currentPage: 'dashboard'}) %>
 
 <!-- ÉCRAN 1 : SAISIE PRINCIPALE -->
@@ -344,42 +352,45 @@
     </div>
 
     <!-- ÉCRAN 2 : MOT EXISTANT -->
-    <div id="existingWordScreen" class="screen">
-      <div class="floating-card">
-        <h3 class="text-success text-center mb-3">
-          <i class="bi bi-check-circle-fill me-2"></i>Word Found
-        </h3>
-        
-        <div class="chinese-preview" id="previewChinese"></div>
-        
-        <div class="word-info">
-          <div class="word-info-row">
-            <span class="word-info-label">Pinyin</span>
-            <span class="word-info-value" id="displayPinyin">-</span>
-          </div>
-          <div class="word-info-row">
-            <span class="word-info-label">English</span>
-            <span class="word-info-value" id="displayEnglish">-</span>
-          </div>
-          <div class="word-info-row">
-            <span class="word-info-label">Description</span>
-            <span class="word-info-value" id="displayDescription">-</span>
-          </div>
-        </div>
-        
-        <div class="d-grid gap-2">
-          <button class="btn btn-success btn-lg" id="confirmAddBtn" onclick="confirmAddExistingWord()">
-            <i class="bi bi-check-lg me-2"></i>Confirm & Add
-          </button>
-          <button class="btn btn-outline-secondary" onclick="showNewWordScreen()">
-            <i class="bi bi-pencil me-2"></i>Edit Before Adding
-          </button>
-          <button class="btn btn-outline-secondary" onclick="showInputScreen()">
-            <i class="bi bi-arrow-left me-2"></i>Cancel
-          </button>
-        </div>
+ <div id="existingWordScreen" class="screen">
+  <div class="floating-card">
+    <h3 id="existingWordTitle" class="text-success text-center mb-3">
+      <i class="bi bi-check-circle-fill me-2"></i>Word Found
+    </h3>
+    
+    <div id="existingWordError" class="error-message" style="display:none;"></div> <!-- <-- ici -->
+    
+    <div class="chinese-preview" id="previewChinese"></div>
+    
+    <div class="word-info">
+      <div class="word-info-row">
+        <span class="word-info-label">Pinyin</span>
+        <span class="word-info-value" id="displayPinyin">-</span>
+      </div>
+      <div class="word-info-row">
+        <span class="word-info-label">English</span>
+        <span class="word-info-value" id="displayEnglish">-</span>
+      </div>
+      <div class="word-info-row">
+        <span class="word-info-label">Description</span>
+        <span class="word-info-value" id="displayDescription">-</span>
       </div>
     </div>
+    
+    <div class="d-grid gap-2">
+      <button class="btn btn-success btn-lg" id="confirmAddBtn" onclick="confirmAddExistingWord()">
+        <i class="bi bi-check-lg me-2"></i>Capture the word (3 coins)
+      </button>
+      <button class="btn btn-outline-secondary" onclick="showNewWordScreen()">
+        <i class="bi bi-pencil me-2"></i>Edit Before Adding
+      </button>
+      <button class="btn btn-outline-secondary" onclick="showInputScreen()">
+        <i class="bi bi-arrow-left me-2"></i>Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
 
     <!-- ÉCRAN 3 : NOUVEAU MOT -->
     <div id="newWordScreen" class="screen">
@@ -451,7 +462,7 @@ function validateChineseInput(input) {
   if (nonChineseChars) {
     input.classList.add('invalid');
     input.classList.remove('valid');
-    errorMessage.textContent = '⚠️ Only Chinese characters please';
+    errorMessage.textContent = 'Only Chinese characters allowed';
   } else {
     input.classList.add('valid');
     input.classList.remove('invalid');
@@ -560,7 +571,7 @@ function setConfirmButtonState(alreadyCaptured) {
     confirmBtn.classList.add('btn-secondary');
   } else {
     confirmBtn.disabled = false;
-    confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Confirm & Add';
+    confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3 coins)';
     confirmBtn.classList.remove('btn-secondary');
     confirmBtn.classList.add('btn-success');
   }
@@ -606,6 +617,13 @@ function displayNewWordForm() {
 async function confirmAddExistingWord() {
   if (!existingWordData) return;
 
+  // Reset avant chaque tentative
+  const errorDiv = document.getElementById('existingWordError');
+  const confirmBtn = document.getElementById('confirmAddBtn');
+  errorDiv.style.display = 'none';
+  errorDiv.textContent = '';
+  confirmBtn.disabled = false;
+
   try {
     const res = await fetch('/ajouter', {
       method: 'POST',
@@ -618,12 +636,26 @@ async function confirmAddExistingWord() {
       showSuccessAnimation();
       setTimeout(resetForm, 1500);
     } else {
-      showStatus(`❌ ${data.message}`, 'error');
+      // Affiche le message d’erreur dans la popup
+      errorDiv.textContent = `${data.message}`;
+      errorDiv.style.display = 'block';
+
+      // Désactive le bouton Confirm pour éviter de re-soumettre
+      confirmBtn.disabled = true;
+
+      // Optionnel : change le style du titre pour indiquer une erreur
+      const title = document.getElementById('existingWordTitle');
+      title.classList.remove('text-success');
+      title.classList.add('text-danger');
+      title.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i> Word not added`;
     }
   } catch(err) {
-    showStatus('❌ Server error', 'error');
+    errorDiv.textContent = '❌ Server error. Please try again later.';
+    errorDiv.style.display = 'block';
+    confirmBtn.disabled = true;
   }
 }
+
 
 async function confirmAddNewWord() {
   const pinyin = document.getElementById('newPinyin').value.trim();

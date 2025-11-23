@@ -1,39 +1,35 @@
-<div class="d-flex justify-content-between align-items-center bg-primary text-white p-3 position-relative">
-    <!-- Logo/Titre -->
+<div class="d-flex justify-content-between align-items-center position-relative bg-primary text-white p-3"
+     style="<%= currentPage === 'dashboard' ? 'background-color: transparent !important; color: inherit !important; padding: 0;' : '' %>">
+  
+  <% if (currentPage !== 'dashboard') { %>
+    <!-- Logo/Titre (disparaît sur dashboard) -->
     <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
-        加油！
+      加油！
     </span>
-
-    <!-- Zone de notifications -->
-    <div id="header-notifications" class="position-absolute top-100 start-50 translate-middle-x mt-2" 
-         style="z-index: 9999; min-width: 300px; display: none;">
-        <!-- Les notifications seront injectées ici -->
+  <% } else { %>
+    <!-- Spacer invisible pour garder l'espace du logo -->
+    <div style="width: 3rem;"></div>
+  <% } %>
+  
+  <div class="d-flex align-items-center gap-2">
+    <!-- Solde compact, aligné horizontalement -->
+    <div title="Votre solde" class="d-flex align-items-center px-2 py-1 bg-white bg-opacity-10 rounded-pill text-white" style="min-width: fit-content; gap: 8px; user-select: none;">
+      <i class="fa-solid fa-coins fs-5"></i>
+      <small class="text-white fw-semibold" style="font-size: 0.75rem;">solde :</small>
+      <span id="game-balance" class="fw-bold fs-6"><%= Number(balance) + '$' %></span>
     </div>
 
-    <!-- Indicateur de notifications (optionnel) -->
-    <div id="notification-indicator" class="position-absolute top-0 end-0 mt-1 me-1" style="display: none;">
-        <span class="badge bg-danger rounded-pill" id="notification-count">0</span>
-    </div>
-
-    <!-- Nouveau bloc compte + argent -->
-    <div class="d-flex align-items-center position-absolute end-0 me-3" style="top: 50%; transform: translateY(-50%); gap: 16px;">
-
-        <!-- Argent 
-        <div class="d-flex align-items-center px-2 py-1 --bs-warning-border-subtle bg-opacity-10 border border-warning rounded-pill" title="Votre solde" style="gap: 0.4rem; user-select: none; width: fit-content;">
-        <i class="fa-solid fa-coins text-warning fs-5"></i>
-        <span class="bi bi-cash-coin"></span>
-        <span class="--bs-warning-text-emphasis fw-normal fs-6 mb-0">100</span>
-        </div>-->
-
-
-        <!-- Mon Compte -->
-        <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold" 
-           style="gap: 6px; transition: color 0.3s ease;">
-            <i class="fa-solid fa-user"></i>
-            <i class="jiayou-nav-icon bi bi-person-square"></i>
-        </a>
-    </div>
+    <!-- Mon Compte -->
+    <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold" style="gap: 6px; transition: color 0.3s ease;">
+      <i class="fa-solid fa-user"></i>
+      <i class="jiayou-nav-icon bi bi-person-square"></i>
+    </a>
+  </div>
 </div>
+
+
+
+
 
 
 <!-- Style pour les notifications -->
@@ -88,6 +84,8 @@
 </style>
 
 <script>
+window.addEventListener('load', fetchAndUpdateBalance);
+
 // Gestionnaire de notifications global
 class NotificationManager {
     constructor() {
@@ -238,6 +236,32 @@ class NotificationManager {
         this.show({ type: 'info', title, message, ...options });
     }
 }
+
+async function fetchAndUpdateBalance() {
+  try {
+    const res = await fetch('/api/balance', { credentials: 'include' });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`HTTP ${res.status}: ${errorText}`);
+    }
+    const data = await res.json();
+    if (data.balance !== undefined) {
+      updateGameBalance(data.balance);
+    } else {
+      throw new Error('Balance missing in response');
+    }
+  } catch (error) {
+    console.error('Erreur requête balance:', error);
+  }
+}
+
+function updateGameBalance(newBalance) {
+  const balanceEl = document.getElementById('game-balance');
+  if (balanceEl) {
+    balanceEl.textContent = newBalance + '$';
+  }
+}
+
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', () => {

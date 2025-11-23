@@ -14,7 +14,8 @@ const {
   generateDuelQuiz,
   getRandomUserWords,
   getCommonWords,
-  updateWordScore
+  updateWordScore,
+  addTransaction,
 } = require('../middleware/index');
 
 // ---------------------API
@@ -123,19 +124,23 @@ router.get("/api/quiz/history", ensureAuth, async (req, res) => {
 });
 
 router.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
+  const client = await pool.connect();
+
   try {
+    await client.query("BEGIN");
+
     console.log('💾 /api/quiz/save - Données reçues:', req.body);
-    
+
     const {
       score,
       total_questions,
       quiz_type,
-      results,      // NOUVEAU : pour les scores détaillés
-      words_used    // ANCIEN : pour la compatibilité
+      results,
+      words_used
     } = req.body;
 
-    // Validation
     if (score === undefined || total_questions === undefined || !quiz_type) {
+      await client.query("ROLLBACK");
       return res.status(400).json({ error: 'Données manquantes' });
     }
 
@@ -143,21 +148,18 @@ router.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
     const totalNum = parseInt(total_questions);
     const ratio = ((scoreNum / totalNum) * 100).toFixed(2);
 
-    // 🔥 GÉRER LA COMPATIBILITÉ : utiliser results OU words_used
     let wordsForHistory = [];
-    
+
     if (words_used) {
-      // Ancien format : words_used est un tableau de pinyins
       wordsForHistory = words_used;
     } else if (results) {
-      // Nouveau format : results est un tableau d'objets
       wordsForHistory = results.map(r => r.pinyin);
     }
 
     console.log('📝 Données pour historique:', wordsForHistory);
 
     // 1. Sauvegarder le quiz dans l'historique
-    const quizResult = await pool.query(
+    const quizResult = await client.query(
       `INSERT INTO quiz_history 
        (user_id, score, total_questions, ratio, quiz_type, words_used) 
        VALUES ($1, $2, $3, $4, $5, $6) 
@@ -165,13 +167,13 @@ router.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
       [req.user.id, scoreNum, totalNum, ratio, quiz_type, JSON.stringify(wordsForHistory)]
     );
 
-    // 2. NOUVEAU : Mettre à jour les scores des mots
+    // 2. Mettre à jour les scores des mots (si présents)
     if (results && Array.isArray(results)) {
       console.log(`🔄 Mise à jour de ${results.length} scores de mots...`);
-      
+
       for (const result of results) {
         console.log(`🎯 Traitement mot:`, result);
-        
+
         if (result.mot_id && result.correct !== null && result.correct !== undefined) {
           await updateWordScore(req.user.id, result.mot_id, result.correct);
         } else {
@@ -182,16 +184,47 @@ router.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
     } else {
       console.log('ℹ️ Aucun résultat détaillé à traiter');
     }
-    
-    res.json({ 
-      success: true, 
+
+    // 3. Créditer la récompense de 5 coins au joueur
+
+    // Récupérer le solde actuel avec verrou (FOR UPDATE)
+    const { rows: userRows } = await client.query(
+      "SELECT balance FROM users WHERE id = $1 FOR UPDATE",
+      [req.user.id]
+    );
+
+    if (userRows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Utilisateur introuvable" });
+    }
+
+    // Insérer la transaction + mise à jour du solde
+    const REWARD_AMOUNT = 5;
+
+    await client.query(
+      "INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
+      [req.user.id, REWARD_AMOUNT, 'quiz_reward', 'Récompense fin de quiz']
+    );
+
+    await client.query(
+      "UPDATE users SET balance = balance + $1 WHERE id = $2",
+      [REWARD_AMOUNT, req.user.id]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
       quiz: quizResult.rows[0],
-      message: `Quiz sauvegardé avec ${results ? results.length : 0} scores mis à jour`
+      message: `Quiz sauvegardé avec ${results ? results.length : 0} scores mis à jour, et ${REWARD_AMOUNT} coins crédités.`
     });
-    
+
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error('❌ Erreur sauvegarde quiz:', err);
     res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -258,49 +291,110 @@ router.post("/verifier", ensureAuth, async (req, res) => {
   }
 });
 
-router.post("/ajouter", ensureAuth , async (req, res) => {
+router.post("/ajouter", ensureAuth, async (req, res) => {
   const { chinese, pinyin, english, description, hsk } = req.body;
-  const userId = req.user.id; // récupère l'utilisateur connecté
+  const userId = req.user.id;
+
+  const COST = 3; // coût de l'action
+
+  const client = await pool.connect();
 
   try {
-    // 1. Vérifier si le mot existe déjà dans la table mots
-    let { rows } = await pool.query("SELECT * FROM mots WHERE chinese=$1", [chinese]);
+    await client.query("BEGIN");
+
+    // 0. Récupérer et verrouiller le solde utilisateur
+    const { rows: userRows } = await client.query(
+      "SELECT balance FROM users WHERE id=$1 FOR UPDATE",
+      [userId]
+    );
+
+    if (userRows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.json({ success: false, message: "Utilisateur introuvable." });
+    }
+
+    const currentBalance = userRows[0].balance;
+
+    if (currentBalance < COST) {
+      await client.query("ROLLBACK");
+      return res.json({
+        success: false,
+        message: "unsufiscient balance (3 coins requierd)"
+      });
+    }
+
+    // 1. Vérifier si le mot existe dans la table globale
+    let { rows } = await client.query(
+      "SELECT id FROM mots WHERE chinese=$1",
+      [chinese]
+    );
+
     let motId;
 
     if (rows.length > 0) {
-      // Le mot existe déjà
       motId = rows[0].id;
     } else {
-      // Créer le mot
-      const insertRes = await pool.query(
-        "INSERT INTO mots (chinese,pinyin,english,description,hsk) VALUES ($1,$2,$3,$4,$5) RETURNING id",
+      const insertRes = await client.query(
+        `INSERT INTO mots (chinese,pinyin,english,description,hsk)
+         VALUES ($1,$2,$3,$4,$5)
+         RETURNING id`,
         [chinese, pinyin, english, description, hsk]
       );
       motId = insertRes.rows[0].id;
     }
 
-    // 2. Vérifier si le mot est déjà lié à l'utilisateur
-    const { rows: userMotRows } = await pool.query(
-      "SELECT * FROM user_mots WHERE user_id=$1 AND mot_id=$2",
+    // 2. Vérifier si l’utilisateur possède déjà le mot
+    const { rows: userMotRows } = await client.query(
+      "SELECT 1 FROM user_mots WHERE user_id=$1 AND mot_id=$2",
       [userId, motId]
     );
 
     if (userMotRows.length > 0) {
-      return res.json({ success: false, message: "Mot déjà dans votre liste" });
+      await client.query("ROLLBACK");
+      return res.json({
+        success: false,
+        message: "You already captured this word"
+      });
     }
 
-    // 3. Ajouter le lien utilisateur ↔ mot
-    await pool.query(
+    // 3. Débiter l'utilisateur
+    await client.query(
+      "UPDATE users SET balance = balance - $1 WHERE id = $2",
+      [COST, userId]
+    );
+
+    // 4. Enregistrer la transaction
+    await client.query(
+      `INSERT INTO transactions (user_id, amount, type, description)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, -COST, "capture_word", `Captured word ${chinese}`]
+    );
+
+    // 5. Associer le mot à l'utilisateur
+    await client.query(
       "INSERT INTO user_mots (user_id, mot_id) VALUES ($1,$2)",
       [userId, motId]
     );
 
-    res.json({ success: true, motId });
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      motId,
+      newBalance: currentBalance - COST,
+      message: "Word added successfully. 3 coins deducted."
+    });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    await client.query("ROLLBACK");
+    console.error("Erreur ajout:", err);
+    res.status(500).json({ success: false, message: "Internal server error." });
+  } finally {
+    client.release();
   }
 });
+
+
 
 //en test
 router.post("/mes-mots/delete", ensureAuth, async (req, res) => {
@@ -943,5 +1037,36 @@ router.post('/api/duels/:id/submit', ensureAuth, async (req, res) => {
     transaction.release();
   }
 });
+
+
+// MONEY
+router.get('/api/balance', ensureAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const { rows } = await pool.query(`
+      SELECT balance FROM users WHERE id = $1
+    `, [userId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const balance = rows[0].balance;
+
+    console.log(`📊 Solde récupéré pour user ${userId} : ${balance}`);
+
+    res.json({ balance });
+    console.log('balance is', {balance})
+
+  } catch (err) {
+    console.error('❌ Erreur /api/balance:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+
+
 
 module.exports = router;

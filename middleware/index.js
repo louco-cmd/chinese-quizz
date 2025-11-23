@@ -301,6 +301,50 @@ async function updateWordScore(userId, motId, isCorrect) {
   }
 }
 
+async function addTransaction(userId, amount, type, description = "") {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query(
+      "SELECT balance FROM users WHERE id = $1 FOR UPDATE",
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      await client.query("ROLLBACK");
+      return { success: false, message: "Utilisateur introuvable" };
+    }
+
+    const balance = rows[0].balance;
+
+    if (amount < 0 && balance + amount < 0) {
+      await client.query("ROLLBACK");
+      return { success: false, message: "Solde insuffisant" };
+    }
+
+    await client.query(
+      "INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
+      [userId, amount, type, description]
+    );
+
+    await client.query(
+      "UPDATE users SET balance = balance + $1 WHERE id = $2",
+      [amount, userId]
+    );
+
+    await client.query("COMMIT");
+    return { success: true };
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    return { success: false, message: "Erreur serveur interne" };
+  } finally {
+    client.release();
+  }
+}
+
+
 // === EXPORT DE TOUS LES MIDDLEWARES ===
 module.exports = {
   // Authentification
@@ -324,5 +368,6 @@ module.exports = {
   getRandomUserWords,
   getCommonWords,
   shuffleArray,
-  updateWordScore
+  updateWordScore,
+  addTransaction
 };

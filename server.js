@@ -17,7 +17,8 @@ const {
   generateDuelQuiz,
   getRandomUserWords,
   getCommonWords,
-  updateWordScore
+  updateWordScore,
+  addTransaction
 } = require('./middleware/index');
 const PostgreSQLStore = require('connect-pg-simple')(session);
 const apiRoutes = require('./routes/api');
@@ -63,6 +64,18 @@ app.use(security);
 app.use(reauth);
 app.use(requestLogger);
 app.use("/", apiRoutes);
+app.use(async (req, res, next) => {
+  if (req.session && req.session.userId) {
+    try {
+      res.locals.balance = await getUserBalance(req.session.userId);
+    } catch {
+      res.locals.balance = 0;
+    }
+  } else {
+    res.locals.balance = 0;
+  }
+  next();
+});
 
 // Connexion google
 app.get("/auth/google", 
