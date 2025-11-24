@@ -2,42 +2,48 @@ const { pool } = require('../config/database');
 
 // === MIDDLEWARE D'AUTHENTIFICATION ===
 function ensureAuth(req, res, next) {
-  console.log('🔐 ensureAuth appelé pour:', req.method, req.url);
-  console.log('🔐 Session ID:', req.sessionID);
-  console.log('🔐 User:', req.user);
-  console.log('🔐 isAuthenticated:', req.isAuthenticated ? req.isAuthenticated() : 'method_not_available');
-  
+  console.log('🔐 ensureAuth →', req.method, req.url);
+
+  // 1️⃣ Cas Passport normal
   if (req.isAuthenticated && req.isAuthenticated()) {
-    console.log('✅ Auth réussie (Passport)');
+    console.log('✅ Auth OK (Passport)');
     return next();
   }
-  
+
+  // 2️⃣ Cas bypass via req.user (dev/login-as l'a mis lui-même)
   if (req.user) {
-    console.log('✅ Auth réussie (req.user)');
+    console.log('✅ Auth OK (req.user présent)');
     return next();
   }
-  
-  if (req.session && req.session.user) {
-    console.log('✅ Auth réussie (session.user)');
+
+  // 3️⃣ Cas session.user défini
+  if (req.session?.user) {
+    console.log('⚠️ Auth OK via req.session.user (compat)');
     req.user = req.session.user;
     return next();
   }
-  
-  if (req.session && req.session.passport && req.session.passport.user) {
-    console.log('✅ Auth réussie (session.passport)');
+
+  // 4️⃣ Cas session.passport.user (Passport stocké en session)
+  if (req.session?.passport?.user) {
+    console.log('⚠️ Auth OK via session.passport.user');
+    // Si Passport n'a pas rechargé req.user, on le pose à minima
+    req.user = { id: req.session.passport.user };
     return next();
   }
-  
-  console.log('❌ Auth échouée - Redirection vers /index');
-  
+
+  // ❌ Rien trouvé → non authentifié
+  console.log('❌ Auth échouée → redirection / ou 401 API');
+
+  // Si API
   if (req.url.startsWith('/api/')) {
-    return res.status(401).json({ 
+    return res.status(401).json({
       error: 'Non authentifié',
       redirect: '/'
     });
   }
-  
-  res.redirect('/');
+
+  // Si page
+  return res.redirect('/');
 }
 
 // === MIDDLEWARE DE SESSIONS ===
@@ -301,48 +307,48 @@ async function updateWordScore(userId, motId, isCorrect) {
   }
 }
 
-async function addTransaction(userId, amount, type, description = "") {
-  const client = await pool.connect();
+async function addTransaction(client, userId, amount, type, description = "") {
   try {
-    await client.query("BEGIN");
-
+    // Vérifier existence et verrouiller la ligne pour éviter concurrence
     const { rows } = await client.query(
       "SELECT balance FROM users WHERE id = $1 FOR UPDATE",
       [userId]
     );
 
     if (rows.length === 0) {
-      await client.query("ROLLBACK");
       return { success: false, message: "Utilisateur introuvable" };
     }
 
     const balance = rows[0].balance;
 
     if (amount < 0 && balance + amount < 0) {
-      await client.query("ROLLBACK");
       return { success: false, message: "Solde insuffisant" };
     }
 
-    await client.query(
-      "INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
-      [userId, amount, type, description]
-    );
-
+    // Mettre à jour le solde
     await client.query(
       "UPDATE users SET balance = balance + $1 WHERE id = $2",
       [amount, userId]
     );
 
-    await client.query("COMMIT");
-    return { success: true };
+    // Insérer la transaction
+    const result = await client.query(
+      "INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4) RETURNING *",
+      [userId, amount, type, description]
+    );
 
-  } catch (err) {
-    await client.query("ROLLBACK");
-    return { success: false, message: "Erreur serveur interne" };
-  } finally {
-    client.release();
+    return { 
+      success: true, 
+      transaction: result.rows[0],
+      message: "Transaction effectuée avec succès"
+    };
+
+  } catch (error) {
+    return { success: false, message: error.message };
   }
 }
+
+
 
 
 // === EXPORT DE TOUS LES MIDDLEWARES ===

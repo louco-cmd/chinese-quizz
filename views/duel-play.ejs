@@ -298,38 +298,49 @@
       }
     };
 
-    // Soumission du score au serveur
-    async function submitDuelScore(score) {
-      try {
-        const response = await fetch(`/api/duels/${duelId}/submit`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            score: score
-          })
-        });
+    // Dans votre page HTML, ajoutez un log pour vérifier l'ID
+console.log('🔍 Duel ID:', duelId);
+console.log('🔍 Quiz data:', quizData);
 
-        const result = await response.json();
-        
-        if (result.success) {
-          if (result.duel_completed) {
-            // Les deux joueurs ont terminé
-            setTimeout(() => {
-              window.location.href = '/duels?message=duel_completed';
-            }, 2000);
-          } else {
-            // En attente de l'adversaire
-            setTimeout(() => {
-              window.location.href = '/duels?message=score_submitted';
-            }, 2000);
-          }
-        } else {
-          alert('Erreur: ' + result.error);
-        }
-      } catch (error) {
-        alert('Erreur réseau: ' + error.message);
+// Soumission du score au serveur
+async function submitDuelScore(score) {
+  console.log('🎯 Soumission score:', { duelId, score });
+  
+  try {
+    const response = await fetch(`/api/duels/${duelId}/submit`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        score: score
+      })
+    });
+
+    console.log('📨 Réponse serveur:', response.status);
+    
+    const result = await response.json();
+    console.log('📊 Résultat:', result);
+    
+    if (result.success) {
+      if (result.duel_completed) {
+        console.log('🎉 Duel terminé, redirection...');
+        setTimeout(() => {
+          window.location.href = '/duels?message=duel_completed';
+        }, 2000);
+      } else {
+        console.log('⏳ En attente adversaire...');
+        setTimeout(() => {
+          window.location.href = '/duels?message=score_submitted';
+        }, 2000);
       }
+    } else {
+      console.error('❌ Erreur serveur:', result.error);
+      alert('Erreur: ' + result.error);
     }
+  } catch (error) {
+    console.error('❌ Erreur réseau:', error);
+    alert('Erreur réseau: ' + error.message);
+  }
+}
   </script>
 </body>
 </html>

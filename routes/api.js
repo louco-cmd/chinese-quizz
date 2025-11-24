@@ -394,9 +394,6 @@ router.post("/ajouter", ensureAuth, async (req, res) => {
   }
 });
 
-
-
-//en test
 router.post("/mes-mots/delete", ensureAuth, async (req, res) => {
   const userId = req.user.id; // L'id de l'utilisateur connecté
   const { mot_id } = req.body;
@@ -812,64 +809,204 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
 });
 
 // 📍 CRÉATION D'UN DUEL
+// 📍 CRÉATION D'UN DUEL AVEC PARI
 router.post('/api/duels/create', ensureAuth, async (req, res) => {
-  const transaction = await pool.connect();
-  
-  try {
-    const { opponent_id, duel_type = 'classic', quiz_type = 'pinyin' } = req.body;
-    console.log('🎯 Création duel:', { challenger: req.user.id, opponent_id, duel_type, quiz_type });
+  const client = await pool.connect();
 
-    // Vérifier que l'opposant existe
-    const opponentCheck = await transaction.query(
-      'SELECT id, name FROM users WHERE id = $1',
+  try {
+    const { opponent_id, duel_type = 'classic', quiz_type = 'pinyin', bet_amount = 0 } = req.body;
+    const challengerId = req.user.id;
+
+    console.log('🎯 Création duel avec pari:', { challengerId, opponent_id, duel_type, bet_amount });
+
+    // Vérif opposant AVANT la transaction
+    const opponentCheck = await client.query(
+      'SELECT id, name, balance FROM users WHERE id = $1',
       [opponent_id]
     );
+    
+    console.log('[Création Duel] Opposant vérifié:', opponentCheck.rows[0]);
 
     if (opponentCheck.rows.length === 0) {
+      console.log('[Création Duel] Opposant non trouvé');
       return res.status(404).json({ error: 'Utilisateur non trouvé' });
     }
 
-    if (opponent_id === req.user.id) {
+    if (opponent_id === challengerId) {
+      console.log('[Création Duel] Tentative de duel contre soi-même');
       return res.status(400).json({ error: 'Vous ne pouvez pas vous défier vous-même' });
     }
 
-    await transaction.query('BEGIN');
+    // ✅ VÉRIFICATION DU SOLDE OPPOSANT AVANT TRANSACTION
+    const opponentBalance = opponentCheck.rows[0].balance;
+    console.log('[Création Duel] Solde opposant (avant verrouillage):', opponentBalance);
 
-    // Générer les données du quiz
-    const quizData = await generateDuelQuiz(transaction, req.user.id, opponent_id, duel_type, quiz_type);
-    
-    if (!quizData) {
-      await transaction.query('ROLLBACK');
-      return res.status(400).json({ error: 'Impossible de générer le quiz (pas assez de mots)' });
+    if (bet_amount > 0 && opponentBalance < bet_amount) {
+      console.log('[Création Duel] Opposant n\'a pas assez pour couvrir le pari');
+      return res.status(400).json({ 
+        error: `${opponentCheck.rows[0].name} n'a pas assez de coins (${opponentBalance}) pour accepter ce pari de ${bet_amount} coins` 
+      });
     }
 
-    // Créer le duel
-    const duelResult = await transaction.query(`
+    await client.query('BEGIN');
+    console.log('[Création Duel] Transaction démarrée');
+
+    // Vérifier solde challenger (avec verrouillage)
+    const challengerBalance = await client.query(
+      'SELECT balance FROM users WHERE id = $1 FOR UPDATE',
+      [challengerId]
+    );
+    console.log('[Création Duel] Solde challenger:', challengerBalance.rows[0].balance);
+
+    if (challengerBalance.rows[0].balance < bet_amount) {
+      console.log('[Création Duel] Solde insuffisant pour pari');
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: "Solde insuffisant pour parier" });
+    }
+
+    // ✅ VÉRIFICATION DOUBLE du solde opposant (avec verrouillage)
+    const opponentBalanceLocked = await client.query(
+      'SELECT balance FROM users WHERE id = $1 FOR UPDATE',
+      [opponent_id]
+    );
+    console.log('[Création Duel] Solde opposant (verrouillé):', opponentBalanceLocked.rows[0].balance);
+
+    if (bet_amount > 0 && opponentBalanceLocked.rows[0].balance < bet_amount) {
+      console.log('[Création Duel] Opposant n\'a pas assez pour couvrir le pari (après verrouillage)');
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        error: `${opponentCheck.rows[0].name} n'a pas assez de coins pour accepter ce pari` 
+      });
+    }
+
+    // Débit challenger (blocage mise)
+    console.log('[Création Duel] Débit du challenger');
+    const debitChallenger = await addTransaction(client, challengerId, -bet_amount, "bet", "Mise duel");
+    console.log('[Création Duel] Résultat débit challenger:', debitChallenger);
+
+    if (!debitChallenger) {
+      console.log('[Création Duel] Échec débit challenger');
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Échec de la transaction challenger' });
+    }
+
+    // ✅ DÉBIT OPPOSANT (NOUVEAU) - Blocage de sa mise aussi
+    console.log('[Création Duel] Débit de l\'opposant');
+    const debitOpponent = await addTransaction(client, opponent_id, -bet_amount, "bet", "Mise duel");
+    console.log('[Création Duel] Résultat débit opposant:', debitOpponent);
+
+    if (!debitOpponent) {
+      console.log('[Création Duel] Échec débit opposant');
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Échec de la transaction opposant' });
+    }
+
+    // Génération quiz
+    console.log('[Création Duel] Génération quiz');
+    const quizData = await generateDuelQuiz(client, challengerId, opponent_id, duel_type, quiz_type);
+
+    if (!quizData) {
+      console.log('[Création Duel] Quiz non généré');
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Pas assez de mots pour générer le duel' });
+    }
+
+    console.log('[Création Duel] Insertion duel en base');
+    const duelResult = await client.query(`
       INSERT INTO duels 
-      (challenger_id, opponent_id, duel_type, quiz_type, quiz_data, status)
-      VALUES ($1, $2, $3, $4, $5, 'pending')
+      (challenger_id, opponent_id, duel_type, quiz_type, quiz_data, bet_amount, status)
+      VALUES ($1, $2, $3, $4, $5, $6, 'pending')
       RETURNING *
-    `, [req.user.id, opponent_id, duel_type, quiz_type, JSON.stringify(quizData)]);
+    `, [
+      challengerId,
+      opponent_id,
+      duel_type,
+      quiz_type,
+      JSON.stringify(quizData),
+      bet_amount
+    ]);
 
-    await transaction.query('COMMIT');
+    await client.query('COMMIT');
+    console.log('[Création Duel] Transaction commitée');
 
-    const duel = duelResult.rows[0];
-    console.log('✅ Duel créé avec ID:', duel.id);
-    
-    res.json({ 
-      success: true, 
-      duel: duel,
-      message: `Défi lancé contre ${opponentCheck.rows[0].name} !`
+    res.json({
+      success: true,
+      duel: duelResult.rows[0],
+      message: `Défi lancé avec un pari de ${bet_amount} coins !`
     });
 
   } catch (err) {
-    await transaction.query('ROLLBACK');
     console.error('❌ Erreur création duel:', err);
-    res.status(500).json({ error: 'Erreur création duel' });
+    try {
+      await client.query('ROLLBACK');
+      console.log('[Création Duel] Transaction rollback effectuée');
+    } catch (rollbackErr) {
+      console.error('❌ Erreur rollback:', rollbackErr);
+    }
+    res.status(500).json({ error: 'Erreur serveur' });
   } finally {
-    transaction.release();
+    client.release();
+    console.log('[Création Duel] Connexion client libérée');
   }
 });
+
+// 📍 ACCEPTATION DU DUEL (débit de la mise adversaire)
+router.post('/api/duels/:id/accept', ensureAuth, async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const duelId = req.params.id;
+    const userId = req.user.id;
+
+    await client.query("BEGIN");
+
+    const duelCheck = await client.query(`
+      SELECT * FROM duels 
+      WHERE id = $1 
+      AND opponent_id = $2
+      AND status = 'pending'
+    `, [duelId, userId]);
+
+    if (duelCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Duel non trouvé ou déjà accepté" });
+    }
+
+    const duel = duelCheck.rows[0];
+
+    // Vérifier solde
+    const userBalance = await client.query(
+      "SELECT balance FROM users WHERE id = $1 FOR UPDATE",
+      [userId]
+    );
+
+    if (userBalance.rows[0].balance < duel.bet_amount) {
+      await client.query("ROLLBACK");
+      
+      // Rembourse challenger
+      await addTransaction(duel.challenger_id, duel.bet_amount, "bet_refund", "Mise remboursée");
+      
+      return res.status(400).json({ error: "Solde insuffisant pour accepter le pari" });
+    }
+
+    // Débit adversaire
+    const debit = await addTransaction(userId, -duel.bet_amount, "bet", "Mise duel");
+    if (!debit.success) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: debit.message });
+    }
+
+    await client.query("COMMIT");
+    res.json({ success: true, message: "Duel accepté !" });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: "Erreur serveur" });
+  } finally {
+    client.release();
+  }
+});
+
 
 // 📍 DUELS EN ATTENTE (pour /account et /quiz)
 router.get('/api/duels/pending', ensureAuth, async (req, res) => {
@@ -966,77 +1103,138 @@ router.get('/api/duels/:id', ensureAuth, async (req, res) => {
   }
 });
 
-// 📍 SOUMETTRE SCORE
+// 📍 SOUMETTRE SCORE (CORRIGÉ)
 router.post('/api/duels/:id/submit', ensureAuth, async (req, res) => {
-  const transaction = await pool.connect();
+  const client = await pool.connect();
   
   try {
     const duelId = req.params.id;
     const { score } = req.body;
-    console.log('🎯 Soumission score:', { duelId, userId: req.user.id, score });
 
-    await transaction.query('BEGIN');
+    console.log('🎯 Soumission score duel:', { duelId, userId: req.user.id, score });
+
+    await client.query('BEGIN');
 
     // Vérifier le duel
-    const duelCheck = await transaction.query(`
+    const duelCheck = await client.query(`
       SELECT * FROM duels 
-      WHERE id = $1 AND (challenger_id = $2 OR opponent_id = $2)
+      WHERE id = $1 
+      AND (challenger_id = $2 OR opponent_id = $2)
       AND status = 'pending'
     `, [duelId, req.user.id]);
 
     if (duelCheck.rows.length === 0) {
-      await transaction.query('ROLLBACK');
+      await client.query('ROLLBACK');
+      console.log('❌ Duel non trouvé:', { duelId, userId: req.user.id });
       return res.status(404).json({ error: 'Duel non trouvé ou déjà terminé' });
     }
 
     const duel = duelCheck.rows[0];
     const isChallenger = duel.challenger_id === req.user.id;
 
-    // Mettre à jour le score
-    if (isChallenger) {
-      await transaction.query(`
-        UPDATE duels SET challenger_score = $1 WHERE id = $2
-      `, [score, duelId]);
-    } else {
-      await transaction.query(`
-        UPDATE duels SET opponent_score = $1 WHERE id = $2
-      `, [score, duelId]);
-    }
+    console.log('📊 Duel trouvé:', { 
+      duelId: duel.id, 
+      challenger: duel.challenger_id, 
+      opponent: duel.opponent_id,
+      isChallenger 
+    });
 
-    // Vérifier si les deux ont joué
-    const updatedDuel = await transaction.query(`
+    // Mettre à jour le score du joueur
+    await client.query(`
+      UPDATE duels SET ${isChallenger ? 'challenger_score' : 'opponent_score'} = $1 
+      WHERE id = $2
+    `, [score, duelId]);
+
+    // Récupérer l'état du duel après MAJ
+    const updatedDuel = await client.query(`
       SELECT * FROM duels WHERE id = $1
     `, [duelId]);
 
     const currentDuel = updatedDuel.rows[0];
-    
-    if (currentDuel.challenger_score !== null && currentDuel.opponent_score !== null) {
-      // Les deux ont joué → marquer comme complété
-      await transaction.query(`
-        UPDATE duels SET 
+
+    const bothPlayed =
+      currentDuel.challenger_score !== null &&
+      currentDuel.opponent_score !== null;
+
+    // ✅ CORRECTION : Déclarer winnerId en dehors du bloc
+    let winnerId = null;
+
+    if (bothPlayed) {
+      console.log('🎯 Duel terminé, détermination du gagnant...');
+
+      // 📌 Déterminer gagnant
+      if (currentDuel.challenger_score > currentDuel.opponent_score) {
+        winnerId = currentDuel.challenger_id;
+      } else if (currentDuel.opponent_score > currentDuel.challenger_score) {
+        winnerId = currentDuel.opponent_id;
+      }
+
+      console.log('🏆 Gagnant:', winnerId, 'Pari:', currentDuel.bet_amount);
+
+      // 📌 Crédit du gagnant si pari
+      if (winnerId && currentDuel.bet_amount > 0) {
+        console.log('💰 Crédit du gagnant:', winnerId, 'Montant:', currentDuel.bet_amount * 2);
+        
+        await addTransaction(
+          client,
+          winnerId,
+          currentDuel.bet_amount * 2, // 2 mises
+          "bet_reward",
+          "Gain duel"
+        );
+        
+        console.log('✅ Pari honoré pour le gagnant');
+      } else if (currentDuel.bet_amount > 0) {
+        console.log('🤝 Match nul - remboursement des paris');
+        
+        // En cas de match nul, rembourser les deux joueurs
+        await addTransaction(
+          client,
+          currentDuel.challenger_id,
+          currentDuel.bet_amount,
+          "bet_refund",
+          "Remboursement duel (match nul)"
+        );
+        
+        await addTransaction(
+          client,
+          currentDuel.opponent_id,
+          currentDuel.bet_amount,
+          "bet_refund",
+          "Remboursement duel (match nul)"
+        );
+      }
+
+      // 📌 Mise à jour du duel (gagnant + completion)
+      await client.query(`
+        UPDATE duels SET
+          winner_id = $1,
           status = 'completed',
           completed_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-      `, [duelId]);
+        WHERE id = $2
+      `, [winnerId, duelId]);
+      
+      console.log('✅ Duel marqué comme terminé');
     }
 
-    await transaction.query('COMMIT');
+    await client.query('COMMIT');
+    console.log('✅ Transaction commitée');
 
-    console.log('✅ Score soumis avec succès');
-    res.json({ 
-      success: true, 
-      message: 'Score enregistré !',
-      duel_completed: currentDuel.challenger_score !== null && currentDuel.opponent_score !== null
+    res.json({
+      success: true,
+      duel_completed: bothPlayed,
+      winner_id: winnerId // ✅ Maintenant winnerId est toujours défini
     });
 
   } catch (err) {
-    await transaction.query('ROLLBACK');
+    await client.query('ROLLBACK');
     console.error('❌ Erreur soumission score:', err);
     res.status(500).json({ error: 'Erreur enregistrement score' });
   } finally {
-    transaction.release();
+    client.release();
   }
 });
+
 
 
 // MONEY

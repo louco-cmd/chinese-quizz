@@ -344,6 +344,7 @@ app.get('/api/debug-session', (req, res) => {
 
 
 // Pages EJS
+
 app.get("/", (req, res) => {
     const error = req.query.error;  // <-- récupère l'erreur depuis la query string
   if (req.user) {
