@@ -18,6 +18,13 @@
         .progress-bar {
             transition: width 0.6s ease;
         }
+        .clickable-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .clickable-row:hover {
+            background-color: #f8f9fa;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -26,12 +33,12 @@
 
     <div class="container py-4">
         <!-- Header -->
-      <div class="d-flex justify-content-between align-items-center mb-4">
-             <button onclick="window.history.back()" class="btn btn-outline-secondary btn-sm">
-            <i class="bi bi-arrow-left"></i> Back
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <button onclick="window.history.back()" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Back
             </button>
             <% if (!isOwnProfile) { %>
-                <button class="btn btn-primary btn-sm" onclick="challengeUser(<%= profileUser.id %>, '<%= profileUser.name %>')">
+                <button class="btn btn-primary btn-sm" onclick="openDuelModal(<%= profileUser.id %>, '<%= profileUser.name %>')">
                     <i class="bi bi-sword me-1"></i> Challenge
                 </button>
             <% } %>
@@ -97,64 +104,55 @@
             </div>
         </div>
 
-        <!-- HSK Distribution -->
+        <!-- Duels récents de cet utilisateur -->
         <div class="card shadow-sm">
             <div class="card-header bg-white">
-                <h6 class="mb-0">
-                    <i class="bi bi-bar-chart me-2"></i>
-                    Words by Level
+                <h6 class="mb-0 d-flex align-items-center">
+                    <i class="bi bi-clock me-2"></i>
+                    Recent duels
                 </h6>
             </div>
-            <div class="card-body">
-                <% if (hskStats.length > 0) { %>
-                    <div class="row g-2">
-                        <% hskStats.forEach(stat => { %>
-                            <div class="col-6 col-md-4">
-                                <div class="card border-0 bg-light">
-                                    <div class="card-body text-center p-2">
-                                        <div class="h6 mb-1 text-dark"><%= stat.level %></div>
-                                        <div class="h5 text-primary"><%= stat.count %></div>
-                                        <small class="text-muted">words</small>
-                                    </div>
-                                </div>
-                            </div>
-                        <% }); %>
+            <div class="card-body p-0">
+                <div id="user-recent-duels">
+                    <div class="text-center py-4">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        <p class="mt-2 text-muted small">Loading...</p>
                     </div>
-                <% } else { %>
-                    <div class="text-center text-muted py-3">
-                        <i class="bi bi-info-circle fs-2 opacity-50"></i>
-                        <p class="mt-2 mb-0">No words yet</p>
-                    </div>
-                <% } %>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal de défi -->
-    <div class="modal fade" id="challengeModal" tabindex="-1">
+    <!-- Modal Défi - MÊME QUE LA PAGE DUELS -->
+    <div class="modal fade" id="duelModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h6 class="modal-title">Challenge <span id="opponentName"></span></h6>
+                    <h6 class="modal-title">challenge <span id="opponentName"></span></h6>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="challengeForm">
+                    <form id="duelForm">
                         <input type="hidden" id="opponentId">
                         
                         <div class="mb-3">
-                            <label class="form-label small fw-medium">Duel Type</label>
+                            <label class="form-label small fw-medium">Duel type</label>
                             <select class="form-select" id="duelType" required>
                                 <option value="classic">Classic (20 words)</option>
-                                <option value="match_aa">Match AA (10 common words)</option>
+                                <option value="match_aa">Match AA (10 words in commom)</option>
                             </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="betAmount" class="form-label">Mise (coins)</label>
+                            <input type="number" id="betAmount" class="form-control" min="0" value="0">
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="createChallenge()">
-                        Send Challenge
+                    <button type="button" class="btn btn-primary" onclick="createDuel()">
+                        Send a duel 
                     </button>
                 </div>
             </div>
@@ -165,80 +163,79 @@
     <script>
         let currentOpponent = null;
 
-        // Chargement des données de performance
+        // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
             loadPerformanceStats();
+            loadUserRecentDuels();
         });
 
-       async function loadPerformanceStats() {
-    try {
-        // Utilise l'endpoint account-info avec l'ID du profil
-        const response = await fetch(`/account-info?user_id=<%= profileUser.id %>`);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        console.log('Performance data received:', data);
-        
-        // Mise à jour des totaux
-        document.getElementById('totalWords').textContent = data.wordCount || 0;
-        document.getElementById('totalQuizzes').textContent = data.stats?.total_quizzes || 0;
-        document.getElementById('totalDuels').textContent = data.stats?.total_duels || 0;
-        
-        // Vérifier si user_mots existe dans les données
-        const words = data.user_mots || [];
-        console.log('Words found:', words.length);
-        
-        if (words.length === 0) {
-            console.log('No words found');
-            // Afficher un état vide
-            document.getElementById('masteryText').textContent = 'No words';
-            return;
-        }
-        
-        // Compte le nombre de mots dans chaque catégorie
-        const mastered = words.filter(w => w.score >= 90).length;
-        const learning = words.filter(w => w.score >= 60 && w.score < 90).length;
-        const medium = words.filter(w => w.score >= 30 && w.score < 60).length;
-        const new_words = words.filter(w => w.score < 30).length;
-        
-        console.log('Score distribution:', { mastered, learning, medium, new_words });
-        
-        // Calculer les pourcentages
-        const total = words.length;
-        const bars = {
-            masteredBar: (mastered / total) * 100,
-            learningBar: (learning / total) * 100,
-            mediumBar: (medium / total) * 100,
-            newBar: (new_words / total) * 100
-        };
-        
-        console.log('Percentages:', bars);
-        
-        // Mettre à jour les barres
-        Object.entries(bars).forEach(([id, percentage]) => {
-            const bar = document.getElementById(id);
-            if (bar) {
-                bar.style.width = `${percentage}%`;
-                console.log(`Setting ${id} width to ${percentage}%`);
-                // Ajout d'un titre au survol
-                bar.title = `${Math.round(percentage)}%`;
-            } else {
-                console.warn(`Bar element ${id} not found`);
+        // Chargement des performances
+        async function loadPerformanceStats() {
+            try {
+                const response = await fetch(`/account-info?user_id=<%= profileUser.id %>`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                console.log('Performance data received:', data);
+                
+                // Mise à jour des totaux
+                document.getElementById('totalWords').textContent = data.wordCount || 0;
+                document.getElementById('totalQuizzes').textContent = data.stats?.total_quizzes || 0;
+                document.getElementById('totalDuels').textContent = data.stats?.total_duels || 0;
+                
+                const words = data.user_mots || [];
+                console.log('Words found:', words.length);
+                
+                if (words.length === 0) {
+                    console.log('No words found');
+                    document.getElementById('masteryText').textContent = 'No words';
+                    return;
+                }
+                
+                // Compte le nombre de mots dans chaque catégorie
+                const mastered = words.filter(w => w.score >= 90).length;
+                const learning = words.filter(w => w.score >= 60 && w.score < 90).length;
+                const medium = words.filter(w => w.score >= 30 && w.score < 60).length;
+                const new_words = words.filter(w => w.score < 30).length;
+                
+                console.log('Score distribution:', { mastered, learning, medium, new_words });
+                
+                // Calculer les pourcentages
+                const total = words.length;
+                const bars = {
+                    masteredBar: (mastered / total) * 100,
+                    learningBar: (learning / total) * 100,
+                    mediumBar: (medium / total) * 100,
+                    newBar: (new_words / total) * 100
+                };
+                
+                console.log('Percentages:', bars);
+                
+                // Mettre à jour les barres
+                Object.entries(bars).forEach(([id, percentage]) => {
+                    const bar = document.getElementById(id);
+                    if (bar) {
+                        bar.style.width = `${percentage}%`;
+                        console.log(`Setting ${id} width to ${percentage}%`);
+                        bar.title = `${Math.round(percentage)}%`;
+                    } else {
+                        console.warn(`Bar element ${id} not found`);
+                    }
+                });
+                
+                const masteredPercentage = Math.round((mastered / total) * 100);
+                document.getElementById('masteryText').textContent = `${masteredPercentage}% mastered words`;
+                
+            } catch (error) {
+                console.error('Erreur chargement performances:', error);
+                displayPerformanceError();
             }
-        });
-        
-        const masteredPercentage = Math.round((mastered / total) * 100);
-        document.getElementById('masteryText').textContent = `${masteredPercentage}% mastered words`;
-        
-    } catch (error) {
-        console.error('Erreur chargement performances:', error);
-        displayPerformanceError();
-    }
-}
+        }
+
         function displayPerformanceError() {
             const container = document.querySelector('.card-body');
             if (container) {
@@ -251,16 +248,150 @@
             }
         }
 
-        function challengeUser(userId, userName) {
-            currentOpponent = userId;
-            document.getElementById('opponentName').textContent = userName;
-            document.getElementById('opponentId').value = userId;
-            new bootstrap.Modal(document.getElementById('challengeModal')).show();
+        // Duels récents de l'utilisateur
+        // Duels récents de l'utilisateur - AVEC ENDPOINT EXISTANT
+async function loadUserRecentDuels() {
+    try {
+        const response = await fetch(`/api/duels/history?limit=6`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error: ${response.status}`);
+        }
+        
+        const duels = await response.json();
+        const container = document.getElementById('user-recent-duels');
+
+        // Vérifier que c'est bien un tableau
+        if (!Array.isArray(duels)) {
+            throw new Error('Les données reçues ne sont pas un tableau');
         }
 
-        async function createChallenge() {
+        // Filtrer pour n'afficher que les duels de l'utilisateur du profil
+        const profileUserId = <%= profileUser.id %>;
+        const userDuels = duels.filter(duel => 
+            duel.challenger_id === profileUserId || 
+            duel.opponent_id === profileUserId
+        );
+
+        console.log('📊 Duels filtrés:', { 
+            totalDuels: duels.length, 
+            userDuels: userDuels.length,
+            profileUserId 
+        });
+
+        if (userDuels.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <i class="bi bi-sword fs-2 opacity-50"></i>
+                    <p class="mt-2 small">Aucun duel</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = userDuels.map(duel => renderDuelItem(duel, profileUserId, false)).join('');
+
+    } catch (error) {
+        console.error('❌ Erreur duels récents:', error);
+        document.getElementById('user-recent-duels').innerHTML = `
+            <div class="alert alert-warning m-3 small">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Erreur de chargement des duels
+            </div>
+        `;
+    }
+}
+        // MÊME FONCTION renderDuelItem QUE LA PAGE DUELS
+        function renderDuelItem(duel, userId, isPending) {
+            const isChallenger = duel.challenger_id === userId;
+            const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name;
+            const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
+            const opponentScore = isChallenger ? duel.opponent_score : duel.challenger_score;
+            const hasUserPlayed = userScore !== null;
+            const hasOpponentPlayed = opponentScore !== null;
+
+            let status = '', cta = '';
+
+            if (isPending) {
+                if (!hasUserPlayed) {
+                    status = '<span class="badge bg-primary">À jouer</span>';
+                    cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">Jouer</button>`;
+                } else {
+                    status = '<span class="badge bg-secondary">En attente</span>';
+                    cta = '';
+                }
+            } else {
+                const userWon = userScore > opponentScore;
+                const isDraw = userScore === opponentScore;
+                
+                if (isDraw) {
+                    status = '<span class="badge bg-warning">Even</span>';
+                } else if (userWon) {
+                    status = '<span class="badge bg-success">Victory</span>';
+                } else {
+                    status = '<span class="badge bg-danger">Defeated</span>';
+                }
+                cta = '';
+            }
+
+            // Affichage du montant du pari
+            const betDisplay = duel.bet_amount > 0 ? 
+                `<span class="badge bg-warning text-dark ms-2"><i class="bi bi-coin me-1"></i>${duel.bet_amount}</span>` : 
+                '';
+
+            // Rendre la ligne cliquable si le duel est terminé
+            const isCompleted = !isPending && hasUserPlayed && hasOpponentPlayed;
+            const clickableClass = isCompleted ? 'clickable-row' : '';
+            const onClick = isCompleted ? `onclick="viewDuelDetails(${duel.id})"` : '';
+
+            return `
+                <div class="list-item d-flex justify-content-between align-items-center border-bottom p-3 ${clickableClass}" 
+                    ${onClick}
+                    style="${isCompleted ? 'cursor: pointer; transition: background-color 0.2s;' : ''}"
+                    onmouseover="${isCompleted ? 'this.style.backgroundColor=\"#f8f9fa\"' : ''}"
+                    onmouseout="${isCompleted ? 'this.style.backgroundColor=\"\"' : ''}">
+                    <div class="d-flex align-items-center">
+                        <div class="avatar me-3">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <div>
+                            <div class="small fw-medium">
+                                ${opponentName}
+                                ${betDisplay}
+                            </div>
+                            <div class="text-muted" style="font-size: 0.75rem;">
+                                ${userScore !== null ? userScore : '?'} - ${opponentScore !== null ? opponentScore : '?'}
+                                ${status}
+                            </div>
+                        </div>
+                    </div>
+                    ${cta}
+                </div>
+            `;
+        }
+
+        // MÊMES FONCTIONS QUE LA PAGE DUELS
+        function viewDuelDetails(duelId) {
+            window.location.href = `/duel/${duelId}`;
+        }
+
+        function playDuel(duelId) {
+            window.location.href = `/duel-play/${duelId}`;
+        }
+
+        function openDuelModal(opponentId, opponentName) {
+            currentOpponent = opponentId;
+            document.getElementById('opponentName').textContent = opponentName;
+            document.getElementById('opponentId').value = opponentId;
+            new bootstrap.Modal(document.getElementById('duelModal')).show();
+        }
+
+        async function createDuel() {
             const duelType = document.getElementById('duelType').value;
-            
+            const betAmount = parseInt(document.getElementById('betAmount').value) || 0;
+
+            console.log('🚀 Lancement création duel', { currentOpponent, duelType, betAmount });
+
             try {
                 const response = await fetch('/api/duels/create', {
                     method: 'POST',
@@ -268,21 +399,37 @@
                     body: JSON.stringify({
                         opponent_id: currentOpponent,
                         duel_type: duelType,
-                        quiz_type: 'pinyin'
+                        quiz_type: 'pinyin',
+                        bet_amount: betAmount
                     })
                 });
 
+                console.log('⏳ Réponse reçue, status:', response.status);
+
                 const result = await response.json();
-                
+                console.log('🔥 JSON récupéré:', result);
+
                 if (result.success) {
-                    bootstrap.Modal.getInstance(document.getElementById('challengeModal')).hide();
-                    alert('Challenge sent!');
+                    console.log('✅ Duel créé avec succès, fermeture modal');
+                    bootstrap.Modal.getInstance(document.getElementById('duelModal')).hide();
+                    showAlert('Défi lancé !', 'success');
                 } else {
-                    alert('Error: ' + result.error);
+                    console.warn('⚠️ Erreur dans création duel:', result.error);
+                    showAlert(result.error, 'danger');
                 }
             } catch (error) {
-                alert('Network error');
+                console.error('❌ Erreur réseau ou fetch:', error);
+                showAlert('Erreur réseau', 'danger');
             }
+        }
+
+        function showAlert(message, type) {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 250px;';
+            alert.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+            document.body.appendChild(alert);
+            setTimeout(() => alert.remove(), 4000);
         }
     </script>
 </body>

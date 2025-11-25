@@ -13,11 +13,13 @@
   
   <div class="d-flex align-items-center gap-2">
     <!-- Solde compact, aligné horizontalement -->
-    <div title="Votre solde" class="d-flex align-items-center px-2 py-1 bg-white bg-opacity-10 rounded-pill text-white" style="min-width: fit-content; gap: 8px; user-select: none;">
-      <i class="fa-solid fa-coins fs-5"></i>
-      <small class="text-white fw-semibold" style="font-size: 0.75rem;">solde :</small>
-      <span id="game-balance" class="fw-bold fs-6"><%= Number(balance) + '₵' %></span>
+    <a href="/bank" title="Voir le détail du compte" class="text-decoration-none">
+    <div title="Votre solde" class="d-flex align-items-center px-2 py-1 bg-white bg-opacity-10 rounded-pill text-white" style="min-width: fit-content; gap: 8px; user-select: none; transition: all 0.2s ease; cursor: pointer;">
+        <i class="fa-solid fa-coins fs-5"></i>
+        <small class="text-white fw-semibold" style="font-size: 0.75rem;">solde :</small>
+        <span id="game-balance" class="fw-bold fs-6"><%= Number(balance) + '₵' %></span>
     </div>
+    </a>
 
     <!-- Mon Compte -->
     <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold" style="gap: 6px; transition: color 0.3s ease;">

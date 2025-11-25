@@ -344,7 +344,6 @@ app.get('/api/debug-session', (req, res) => {
 
 
 // Pages EJS
-
 app.get("/", (req, res) => {
     const error = req.query.error;  // <-- récupère l'erreur depuis la query string
   if (req.user) {
@@ -749,6 +748,22 @@ app.get('/leaderboard', ensureAuth, async (req, res) => {
   } catch (err) {
     console.error('❌ Erreur page classement:', err);
     res.status(500).render('error', { error: 'Erreur chargement page' });
+  }
+});
+
+app.get('/bank', ensureAuth, async (req, res) => {
+  try {
+    console.log('🏦 Chargement page compte bancaire pour user:', req.user.id);
+    
+    res.render('bank', {
+      user: req.user,
+      title: 'Mon Compte - 加油！',
+      currentPage: 'bank'
+    });
+    
+  } catch (err) {
+    console.error('❌ Erreur chargement page bank:', err);
+    res.status(500).render('error', { error: 'Erreur lors du chargement de la page' });
   }
 });
 

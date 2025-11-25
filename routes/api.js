@@ -1263,7 +1263,37 @@ router.get('/api/balance', ensureAuth, async (req, res) => {
   }
 });
 
+// 📍 HISTORIQUE DES TRANSACTIONS (EXCLUT LES TRANSACTIONS À 0)
+router.get('/api/transactions', ensureAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
 
+    console.log('📊 Chargement transactions pour user:', userId);
+
+    const result = await pool.query(`
+      SELECT 
+        id,
+        user_id,
+        amount,
+        type,
+        description,
+        created_at
+      FROM transactions 
+      WHERE user_id = $1 
+      AND amount != 0
+      ORDER BY created_at DESC
+      LIMIT 100
+    `, [userId]);
+
+    console.log(`✅ ${result.rows.length} transactions récupérées pour l'utilisateur ${userId}`);
+    
+    res.json(result.rows);
+    
+  } catch (err) {
+    console.error('❌ Erreur chargement transactions:', err);
+    res.status(500).json({ error: 'Erreur lors du chargement des transactions' });
+  }
+});
 
 
 
