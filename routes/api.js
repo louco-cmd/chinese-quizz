@@ -1295,6 +1295,99 @@ router.get('/api/transactions', ensureAuth, async (req, res) => {
   }
 });
 
+// Acheter un booster
+router.post('/api/acheter-booster', ensureAuth, async (req, res) => {
+  // Déclaration des constantes directement dans la route
+  const BOOSTER_COST = 40;
+  const BOOSTER_CARD_COUNT = 5;
+
+  const userId = req.user.id;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Vérifier le solde avec verrou
+    const { rows: userRows } = await client.query(
+      'SELECT balance FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.json({ success: false, message: 'Utilisateur introuvable' });
+    }
+
+    const currentBalance = userRows[0].balance;
+
+    if (currentBalance < BOOSTER_COST) {
+      await client.query('ROLLBACK');
+      return res.json({ 
+        success: false, 
+        message: `Solde insuffisant. Il vous faut ${BOOSTER_COST} pièces.` 
+      });
+    }
+
+    // Sélectionner 5 mots aléatoires
+    const { rows: randomWords } = await client.query(
+      `SELECT id, chinese, pinyin, english, description, hsk 
+       FROM mots 
+       WHERE id NOT IN (
+         SELECT mot_id FROM user_mots WHERE user_id = $1
+       )
+       ORDER BY RANDOM() 
+       LIMIT $2`,
+      [userId, BOOSTER_CARD_COUNT]
+    );
+
+    // Si pas assez de nouveaux mots disponibles
+    if (randomWords.length < BOOSTER_CARD_COUNT) {
+      await client.query('ROLLBACK');
+      return res.json({ 
+        success: false, 
+        message: 'Pas assez de nouveaux mots disponibles à découvrir.' 
+      });
+    }
+
+    // Débiter l'utilisateur (en utilisant votre fonction addTransaction existante)
+    const transactionResult = await addTransaction(
+      client, 
+      userId, 
+      -BOOSTER_COST, 
+      'booster_purchase', 
+      `Achat booster de ${BOOSTER_CARD_COUNT} mots`
+    );
+
+    if (!transactionResult.success) {
+      await client.query('ROLLBACK');
+      return res.json({ success: false, message: transactionResult.message });
+    }
+
+    // Ajouter les mots à la collection de l'utilisateur
+    for (const word of randomWords) {
+      await client.query(
+        'INSERT INTO user_mots (user_id, mot_id) VALUES ($1, $2)',
+        [userId, word.id]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      words: randomWords,
+      newBalance: currentBalance - BOOSTER_COST,
+      message: `Booster acheté ! Vous avez obtenu ${BOOSTER_CARD_COUNT} nouveaux mots.`
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Erreur achat booster:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  } finally {
+    client.release();
+  }
+});
 
 
 module.exports = router;

@@ -164,15 +164,16 @@ body {
 <nav class="jiayou-navbar" id="jiayou-navbar-main">
   <div class="jiayou-navbar-container">
     <div class="jiayou-nav-items">
-      <div class="jiayou-nav-item">
-        <a href="/dashboard" 
-           class="jiayou-nav-link <%= currentPage === 'dashboard' ? 'jiayou-active' : '' %>" 
-           data-jiayou-page="dashboard">
-          <i class="jiayou-nav-icon bi bi-house-door-fill"></i>
-          <span class="jiayou-nav-text">Home</span>
+
+    <div class="jiayou-nav-item">
+        <a href="/store" 
+            class="jiayou-nav-link <%= currentPage === 'store' ? 'jiayou-active' : '' %>" 
+            data-jiayou-page="store">
+            <i class="jiayou-nav-icon bi bi-shop"></i>
+            <span class="jiayou-nav-text">Store</span>
         </a>
-      </div>
-      
+    </div>
+
       <div class="jiayou-nav-item">
         <a href="/collection" 
            class="jiayou-nav-link <%= currentPage === 'collection' ? 'jiayou-active' : '' %>" 
@@ -182,6 +183,15 @@ body {
         </a>
       </div>
       
+      <div class="jiayou-nav-item">
+        <a href="/dashboard" 
+           class="jiayou-nav-link <%= currentPage === 'dashboard' ? 'jiayou-active' : '' %>" 
+           data-jiayou-page="dashboard">
+          <i class="jiayou-nav-icon bi bi-search-heart-fill"></i>
+          <span class="jiayou-nav-text">Search</span>
+        </a>
+      </div>
+
       <!-- 🔥 NOUVEAU LIEN QUIZ AJOUTÉ ICI -->
       <div class="jiayou-nav-item">
         <a href="/quiz" 
@@ -192,14 +202,6 @@ body {
         </a>
       </div>
       
-      <div class="jiayou-nav-item">
-        <a href="/account" 
-           class="jiayou-nav-link <%= currentPage === 'account' ? 'jiayou-active' : '' %>" 
-           data-jiayou-page="account">
-          <i class="jiayou-nav-icon bi bi-person-square"></i>
-          <span class="jiayou-nav-text">Account</span>
-        </a>
-      </div>
       
       <div class="jiayou-nav-item">
         <a href="/duels" 
@@ -208,7 +210,8 @@ body {
           <i class="jiayou-nav-icon bi bi-joystick"></i>
           <span class="jiayou-nav-text">Duels</span>
         </a>
-      </div>
+        </div>
+      
     </div>
   </div>
 </nav>

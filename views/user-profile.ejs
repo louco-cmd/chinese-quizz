@@ -249,58 +249,35 @@
         }
 
         // Duels récents de l'utilisateur
-        // Duels récents de l'utilisateur - AVEC ENDPOINT EXISTANT
-async function loadUserRecentDuels() {
-    try {
-        const response = await fetch(`/api/duels/history?limit=6`);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error: ${response.status}`);
-        }
-        
-        const duels = await response.json();
-        const container = document.getElementById('user-recent-duels');
+        async function loadUserRecentDuels() {
+            try {
+                const response = await fetch(`/api/duels/user-history?user_id=<%= profileUser.id %>&limit=6`);
+                const duels = await response.json();
+                const container = document.getElementById('user-recent-duels');
 
-        // Vérifier que c'est bien un tableau
-        if (!Array.isArray(duels)) {
-            throw new Error('Les données reçues ne sont pas un tableau');
-        }
+                if (duels.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-sword fs-2 opacity-50"></i>
+                            <p class="mt-2 small">Aucun duel</p>
+                        </div>
+                    `;
+                    return;
+                }
 
-        // Filtrer pour n'afficher que les duels de l'utilisateur du profil
-        const profileUserId = <%= profileUser.id %>;
-        const userDuels = duels.filter(duel => 
-            duel.challenger_id === profileUserId || 
-            duel.opponent_id === profileUserId
-        );
+                container.innerHTML = duels.map(duel => renderDuelItem(duel, <%= profileUser.id %>, false)).join('');
 
-        console.log('📊 Duels filtrés:', { 
-            totalDuels: duels.length, 
-            userDuels: userDuels.length,
-            profileUserId 
-        });
-
-        if (userDuels.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-4 text-muted">
-                    <i class="bi bi-sword fs-2 opacity-50"></i>
-                    <p class="mt-2 small">Aucun duel</p>
-                </div>
-            `;
-            return;
+            } catch (error) {
+                console.error('Erreur duels récents:', error);
+                document.getElementById('user-recent-duels').innerHTML = `
+                    <div class="alert alert-warning m-3 small">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Erreur de chargement
+                    </div>
+                `;
+            }
         }
 
-        container.innerHTML = userDuels.map(duel => renderDuelItem(duel, profileUserId, false)).join('');
-
-    } catch (error) {
-        console.error('❌ Erreur duels récents:', error);
-        document.getElementById('user-recent-duels').innerHTML = `
-            <div class="alert alert-warning m-3 small">
-                <i class="bi bi-exclamation-triangle me-1"></i>
-                Erreur de chargement des duels
-            </div>
-        `;
-    }
-}
         // MÊME FONCTION renderDuelItem QUE LA PAGE DUELS
         function renderDuelItem(duel, userId, isPending) {
             const isChallenger = duel.challenger_id === userId;

@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store - 加油！</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        /* Prevent horizontal scroll */
+        body {
+            overflow-x: hidden;
+        }
+        
+        .booster-card {
+            transition: all 0.3s ease;
+            border: none;
+        }
+        .booster-card:hover {
+            transform: translateY(-0px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        .coming-soon {
+            opacity: 0.6;
+            filter: grayscale(0.3);
+        }
+        .pack-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+        }
+        
+        /* Booster opening animation */
+        .booster-opening {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 60vh;
+            border-radius: 20px;
+            margin: 0 -12px;
+        }
+        .booster-pack-animation {
+            animation: pulse 2s infinite;
+            cursor: pointer;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Cards animation - RESPONSIVE */
+        .card-carousel {
+            position: relative;
+            height: 280px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .carousel-card {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%) scale(0.8);
+            opacity: 0;
+            transition: all 0.5s ease;
+            width: 180px;
+            max-width: 90%;
+        }
+        .carousel-card.active {
+            opacity: 1;
+            transform: translateX(-50%) scale(1);
+            z-index: 10;
+        }
+        .carousel-card.previous {
+            opacity: 0.5;
+            transform: translateX(-120%) scale(0.7);
+        }
+        .carousel-card.next {
+            opacity: 0.5;
+            transform: translateX(20%) scale(0.7);
+        }
+        
+        /* Success animation */
+        .success-animation {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .success-animation.show {
+            opacity: 1;
+        }
+        .checkmark {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #28a745;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2.5rem;
+            animation: bounceIn 0.6s ease;
+        }
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            50% { transform: scale(1.1); }
+            70% { transform: scale(0.9); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            .pack-icon {
+                width: 50px;
+                height: 50px;
+                font-size: 1.2rem;
+            }
+            
+            .booster-opening {
+                min-height: 40vh;
+                border-radius: 15px;
+            }
+            
+            .booster-pack-animation {
+                font-size: 6rem !important;
+            }
+            
+            .card-carousel {
+                height: 250px;
+            }
+            
+            .carousel-card {
+                width: 160px;
+            }
+            
+            .container {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .carousel-card {
+                width: 140px;
+            }
+            
+            .card-carousel {
+                height: 230px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <%- include('partials/header', {currentPage: 'store'}) %>
+    <%- include('partials/navbar', {currentPage: 'store'}) %>
+
+    <div class="container py-4">
+        <!-- Main store section -->
+        <div id="storeSection">
+
+            <!-- Main Booster - MOBILE VERTICAL VERSION -->
+            <div class="row justify-content-center">
+                <div class="col-12">
+                    <div class="booster-card card shadow-sm mb-4">
+                        <div class="card-body p-4">
+                            <!-- Desktop version (horizontal) -->
+                            <div class="d-none d-md-flex row align-items-center">
+                                <div class="col-auto">
+                                    <div class="pack-icon">
+                                        <i class="bi bi-gift"></i>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <h5 class="card-title fw-bold text-primary mb-1">Words Booster</h5>
+                                    <p class="text-muted mb-2 small">
+                                        5 random Chinese words to discover and learn
+                                    </p>
+                                </div>
+                                <div class="col-auto">
+                                    <button 
+                                        id="buyBooster" 
+                                        class="btn btn-primary <%= user.balance < 40 ? 'disabled' : '' %>"
+                                        <%= user.balance < 40 ? 'disabled' : '' %>
+                                    >
+                                        <i class="bi bi-cart3 me-2"></i>
+                                        Buy (40₵)
+                                    </button>
+                                    <% if (user.balance < 40) { %>
+                                        <p class="text-danger small mt-1 mb-0">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>
+                                            Insufficient balance
+                                        </p>
+                                    <% } %>
+                                </div>
+                            </div>
+                            
+                            <!-- Mobile version (vertical) -->
+                            <div class="d-md-none text-center">
+                                <div class="pack-icon mx-auto mb-3">
+                                    <i class="bi bi-gift"></i>
+                                </div>
+                                <h5 class="card-title fw-bold text-primary mb-2">Words Booster</h5>
+                                <p class="text-muted mb-3">
+                                    5 random Chinese words to discover and learn
+                                </p>
+                                <button 
+                                    id="buyBoosterMobile" 
+                                    class="btn btn-primary w-100 <%= user.balance < 40 ? 'disabled' : '' %>"
+                                    <%= user.balance < 40 ? 'disabled' : '' %>
+                                >
+                                    <i class="bi bi-cart3 me-2"></i>
+                                    Buy (40₵)
+                                </button>
+                                <% if (user.balance < 40) { %>
+                                    <p class="text-danger small mt-2 mb-0">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>
+                                        Insufficient balance
+                                    </p>
+                                <% } %>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HSK Packs (coming soon) -->
+            <div class="row mt-2">
+                <div class="col-12">
+                    <h5 class="text-muted mb-4">Thematic Packs (coming soon)</h5>
+                </div>
+                <% const hskLevels = [1, 2, 3, 4, 5, 6]; %>
+                <% for (let i = 0; i < hskLevels.length; i++) { %>
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="booster-card card shadow-sm coming-soon">
+                        <div class="card-body p-3">
+                            <div class="row align-items-center">
+                                <div class="col-auto">
+                                    <div class="pack-icon" style="background: linear-gradient(135deg, #6c757d, #495057);">
+                                        <i class="bi bi-lock"></i>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <h6 class="card-title fw-bold text-muted mb-1">HSK <%= hskLevels[i] %> Pack</h6>
+                                    <p class="text-muted small mb-2">Words from HSK <%= hskLevels[i] %> level</p>
+                                    <span class="badge bg-secondary">Coming soon</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <% } %>
+            </div>
+        </div>
+
+        <!-- Booster opening section -->
+        <div id="openingSection" class="d-none">
+            <div class="booster-opening text-white text-center p-3 pb-1 p-md-4 pb-md-2 mx-2 mx-md-3 mb-2">
+                <h3 class="fw-bold mb-3">Open your booster!</h3>
+                <p class="mb-3">Click on the pack to discover your new words</p>
+                
+                <div class="booster-pack-animation" id="boosterPack" style="font-size: 7rem;">
+                    <i class="bi bi-gift"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cards reveal section -->
+        <div id="revealSection" class="d-none">
+            <div class="text-center mb-4">
+                <h3 class="fw-bold text-dark mb-2">Your new words</h3>
+                <p class="text-muted">Discover the words you just acquired</p>
+            </div>
+
+            <div class="card-carousel mb-4" id="cardCarousel">
+                <!-- Cards will be added here dynamically -->
+            </div>
+
+            <div class="text-center">
+                <button id="captureWords" class="btn btn-success btn-lg w-100 w-md-auto">
+                    <i class="bi bi-download me-2"></i>
+                    Capture these words
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success animation -->
+    <div id="successAnimation" class="success-animation">
+        <div class="checkmark">
+            <i class="bi bi-check"></i>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    let currentBalance = <%= user.balance %>;
+    let currentWords = [];
+    let currentCardIndex = 0;
+
+    // Initialization
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle both buttons (desktop and mobile)
+        document.getElementById('buyBooster').addEventListener('click', purchaseBooster);
+        document.getElementById('buyBoosterMobile').addEventListener('click', purchaseBooster);
+
+        document.getElementById('boosterPack').addEventListener('click', startCardReveal);
+        document.getElementById('captureWords').addEventListener('click', redirectToCollection);
+    });
+
+    // Buy booster
+    async function purchaseBooster() {
+        const buyButton = document.getElementById('buyBooster');
+        const buyButtonMobile = document.getElementById('buyBoosterMobile');
+        
+        // Disable buttons
+        buyButton.disabled = true;
+        buyButtonMobile.disabled = true;
+        
+        buyButton.innerHTML = `
+            <div class="d-flex align-items-center justify-content-center">
+                <div class="spinner-border spinner-border-sm me-2" role="status" style="width: 1rem; height: 1rem;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                Processing...
+            </div>
+        `;
+        
+        buyButtonMobile.innerHTML = `
+            <div class="d-flex align-items-center justify-content-center">
+                <div class="spinner-border spinner-border-sm me-2" role="status" style="width: 1rem; height: 1rem;">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                Processing...
+            </div>
+        `;
+
+        try {
+            const response = await fetch('/api/acheter-booster', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                currentBalance = result.newBalance;
+                currentWords = result.words;
+                
+                document.getElementById('storeSection').classList.add('d-none');
+                document.getElementById('openingSection').classList.remove('d-none');
+                
+            } else {
+                showAlert('Error: ' + result.message, 'danger');
+                resetBuyButtons();
+            }
+        } catch (error) {
+            console.error('Purchase error:', error);
+            showAlert('Purchase error', 'danger');
+            resetBuyButtons();
+        }
+    }
+
+    // Reset buy buttons
+    function resetBuyButtons() {
+        const buyButton = document.getElementById('buyBooster');
+        const buyButtonMobile = document.getElementById('buyBoosterMobile');
+        
+        buyButton.disabled = currentBalance < 40;
+        buyButtonMobile.disabled = currentBalance < 40;
+        
+        buyButton.innerHTML = '<i class="bi bi-cart3 me-2"></i>Buy (40₵)';
+        buyButtonMobile.innerHTML = '<i class="bi bi-cart3 me-2"></i>Buy (40₵)';
+    }
+    
+    // Start cards reveal
+    function startCardReveal() {
+        document.getElementById('openingSection').classList.add('d-none');
+        document.getElementById('revealSection').classList.remove('d-none');
+        
+        createCardCarousel();
+        showCard(0);
+    }
+
+    // Create cards carousel
+    function createCardCarousel() {
+        const carousel = document.getElementById('cardCarousel');
+        carousel.innerHTML = '';
+
+        currentWords.forEach((word, index) => {
+            const card = document.createElement('div');
+            card.className = `carousel-card card ${index === 0 ? 'active' : ''}`;
+            card.innerHTML = `
+                <div class="card-body text-center p-4">
+                    <h4 class="fw-bold text-primary mb-3">${word.chinese}</h4>
+                    <p class="text-muted mb-2">${word.pinyin || ''}</p>
+                    <p class="h5 text-dark mb-3">${word.english}</p>
+                    ${word.description ? `<p class="small text-muted">${word.description}</p>` : ''}
+                    ${word.hsk ? `<span class="badge bg-success">HSK ${word.hsk}</span>` : ''}
+                </div>
+            `;
+            carousel.appendChild(card);
+        });
+    }
+
+    // Show specific card
+    function showCard(index) {
+        const cards = document.querySelectorAll('.carousel-card');
+        
+        cards.forEach((card, i) => {
+            card.classList.remove('active', 'previous', 'next');
+            
+            if (i === index) {
+                card.classList.add('active');
+            } else if (i === (index - 1 + cards.length) % cards.length) {
+                card.classList.add('previous');
+            } else if (i === (index + 1) % cards.length) {
+                card.classList.add('next');
+            }
+        });
+        
+        currentCardIndex = index;
+        
+        // Auto-advance every 3 seconds
+        clearTimeout(window.cardTimeout);
+        if (cards.length > 1) {
+            window.cardTimeout = setTimeout(() => {
+                showCard((index + 1) % cards.length);
+            }, 3000);
+        }
+    }
+
+    // Redirect to collection
+    function redirectToCollection() {
+        showSuccessAnimation();
+        setTimeout(() => {
+            window.location.href = '/collection';
+        }, 1000);
+    }
+
+    // Success animation
+    function showSuccessAnimation() {
+        const successAnim = document.getElementById('successAnimation');
+        successAnim.classList.add('show');
+        
+        setTimeout(() => {
+            successAnim.classList.remove('show');
+        }, 1000);
+    }
+
+    // Show alert
+    function showAlert(message, type) {
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 250px;';
+        alert.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+        document.body.appendChild(alert);
+        setTimeout(() => alert.remove(), 4000);
+    }
+   
+   </script>
+</body>
+</html>

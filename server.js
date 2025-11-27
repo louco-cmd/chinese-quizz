@@ -342,7 +342,6 @@ app.get('/api/debug-session', (req, res) => {
 });
 
 
-
 // Pages EJS
 app.get("/", (req, res) => {
     const error = req.query.error;  // <-- récupère l'erreur depuis la query string
@@ -764,6 +763,26 @@ app.get('/bank', ensureAuth, async (req, res) => {
   } catch (err) {
     console.error('❌ Erreur chargement page bank:', err);
     res.status(500).render('error', { error: 'Erreur lors du chargement de la page' });
+  }
+});
+
+// Route pour afficher la page store
+app.get('/store', ensureAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT balance FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    
+    res.render('store', {
+      user: {
+        ...req.user,
+        balance: rows[0].balance
+      }
+    });
+  } catch (error) {
+    console.error('Erreur:', error);
+    res.status(500).send('Erreur serveur');
   }
 });
 

@@ -63,9 +63,8 @@ const pool = new Pool({
     `);
     
     console.log("✅ Table 'session' vérifiée ou créée.");
-
-    
     console.log("✅ Tables 'mots' et 'users' vérifiées ou créées.");
+    
   } catch (err) {
     console.error("❌ Erreur lors de l'initialisation :", err);
   }
