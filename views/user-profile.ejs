@@ -251,28 +251,33 @@
         // Duels récents de l'utilisateur
         async function loadUserRecentDuels() {
             try {
-                const response = await fetch(`/api/duels/user-history?user_id=<%= profileUser.id %>&limit=6`);
+                const response = await fetch(`/api/duels/history?limit=6`);
                 const duels = await response.json();
                 const container = document.getElementById('user-recent-duels');
 
-                if (duels.length === 0) {
+                console.log('📊 Duels reçus:', duels); // Debug
+
+                if (!duels || duels.length === 0) {
                     container.innerHTML = `
                         <div class="text-center py-4 text-muted">
                             <i class="bi bi-sword fs-2 opacity-50"></i>
-                            <p class="mt-2 small">Aucun duel</p>
+                            <p class="mt-2 small">No duels</p>
                         </div>
                     `;
                     return;
                 }
 
-                container.innerHTML = duels.map(duel => renderDuelItem(duel, <%= profileUser.id %>, false)).join('');
+                // CORRECTION : Utiliser l'ID de l'utilisateur du profil depuis une data attribute
+                const profileUserId = parseInt(document.body.getAttribute('data-profile-user-id') || '<%= profileUser.id %>');
+                
+                container.innerHTML = duels.map(duel => renderDuelItem(duel, profileUserId, false)).join('');
 
             } catch (error) {
-                console.error('Erreur duels récents:', error);
+                console.error('Error loading recent duels:', error);
                 document.getElementById('user-recent-duels').innerHTML = `
                     <div class="alert alert-warning m-3 small">
                         <i class="bi bi-exclamation-triangle me-1"></i>
-                        Erreur de chargement
+                        Loading error
                     </div>
                 `;
             }

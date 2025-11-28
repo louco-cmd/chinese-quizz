@@ -341,7 +341,6 @@ app.get('/api/debug-session', (req, res) => {
   });
 });
 
-
 // Pages EJS
 app.get("/", (req, res) => {
     const error = req.query.error;  // <-- récupère l'erreur depuis la query string
@@ -376,99 +375,6 @@ app.get('/dashboard', ensureAuth, async (req, res) => {
   } catch (err) {
     console.error("❌ Dashboard error:", err);
     res.status(500).send("Erreur serveur");
-  }
-});
-
-app.get('/account-info', ensureAuth, async (req, res) => {
-  // Permet de récupérer les données d'un autre utilisateur si user_id est fourni
-  const targetUserId = req.query.user_id || req.user.id;
-  const currentUserId = req.user.id;
-  
-  console.log('🎯 /account-info appelé:', { targetUserId, currentUserId });
-  
-  try {
-    // Vérifier que l'utilisateur a le droit d'accéder à ces données
-    // (optionnel: pour restreindre l'accès aux données sensibles)
-    
-    // 1. Récupérer les infos utilisateur
-    const userInfo = await pool.query(`
-      SELECT name FROM users WHERE id = $1
-    `, [targetUserId]);
-
-    if (userInfo.rows.length === 0) {
-      return res.status(404).json({ error: 'Utilisateur non trouvé' });
-    }
-
-    // 2. Récupérer les mots avec leurs scores et niveau HSK
-    const userMots = await pool.query(`
-      SELECT 
-        user_mots.score,
-        user_mots.mot_id,
-        mots.chinese, 
-        mots.pinyin, 
-        mots.english,
-        mots.hsk
-      FROM user_mots 
-      JOIN mots ON user_mots.mot_id = mots.id 
-      WHERE user_mots.user_id = $1
-    `, [targetUserId]);
-    
-    // 3. Calculer les stats HSK
-    const hskStats = {
-      HSK1: 0,
-      HSK2: 0,
-      HSK3: 0,
-      HSK4: 0,
-      HSK5: 0,
-      HSK6: 0,
-      Street: 0
-    };
-
-    userMots.rows.forEach(mot => {
-      if (mot.hsk) {
-        hskStats[`HSK${mot.hsk}`] = (hskStats[`HSK${mot.hsk}`] || 0) + 1;
-      } else {
-        hskStats.Street++;
-      }
-    });
-
-    // 4. Récupérer les stats quiz/duels
-    const quizStats = await pool.query(`
-      SELECT COUNT(*) as total_quizzes
-      FROM quiz_history 
-      WHERE user_id = $1
-    `, [targetUserId]);
-    
-    const duelStats = await pool.query(`
-      SELECT COUNT(*) as total_duels
-      FROM duels 
-      WHERE challenger_id = $1 OR opponent_id = $1
-    `, [targetUserId]);
-    
-    // Construire la réponse
-    const response = {
-      name: userInfo.rows[0].name,
-      wordCount: userMots.rows.length,
-      user_mots: userMots.rows,
-      stats: {
-        ...hskStats,
-        total_quizzes: parseInt(quizStats.rows[0].total_quizzes),
-        total_duels: parseInt(duelStats.rows[0].total_duels)
-      }
-    };
-
-    console.log('✅ /account-info réponse:', {
-      name: response.name,
-      wordCount: response.wordCount,
-      totalQuizzes: response.stats.total_quizzes,
-      totalDuels: response.stats.total_duels
-    });
-    
-    res.json(response);
-    
-  } catch (err) {
-    console.error('❌ Erreur /account-info:', err);
-    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 

@@ -65,6 +65,22 @@
         .table-header {
             display: none;
         }
+        /* Ajoutez dans la section <style> */
+
+        .player-info .text-truncate {
+            max-width: 200px;
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Sur mobile */
+        @media (max-width: 768px) {
+            .player-card-mobile .text-truncate {
+                max-width: 150px;
+            }
+        }
         
         @media (min-width: 769px) {
             .table-header {
@@ -227,152 +243,206 @@
             loadLeaderboard();
         });
 
-        // Charger le classement
+        // // Charger le classement
         async function loadLeaderboard() {
-            try {
-                const container = document.getElementById('leaderboard-container');
-                if (!container) return;
-                
-                container.innerHTML = `
-                    <div class="text-center py-4 py-md-5">
-                        <div class="spinner-border text-primary" role="status"></div>
-                        <p class="mt-2 text-muted small">Chargement du classement...</p>
-                    </div>
-                `;
+  try {
+    const container = document.getElementById('leaderboard-container');
+    if (!container) return;
+    
+    container.innerHTML = `
+      <div class="text-center py-4 py-md-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted small">Chargement du classement...</p>
+      </div>
+    `;
 
-                const response = await fetch('/api/players/stats');
-                
-                if (!response.ok) {
-                    throw new Error(`Erreur HTTP: ${response.status}`);
-                }
-                
-                const players = await response.json();
-                
-                if (!Array.isArray(players)) {
-                    throw new Error('Format de données invalide');
-                }
-                
-                allPlayers = players;
-                originalRanks.clear();
-                players.forEach((player, index) => {
-                    originalRanks.set(player.id, index + 1);
-                });
-                
-                displayPlayers(players);
-                
-            } catch (error) {
-                console.error('Erreur classement:', error);
-                const container = document.getElementById('leaderboard-container');
-                if (container) {
-                    container.innerHTML = `
-                        <div class="text-center py-4 text-muted">
-                            <i class="bi bi-exclamation-triangle"></i>
-                            <p class="mt-2 small">Erreur de chargement</p>
-                            <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadLeaderboard()">
-                                Réessayer
-                            </button>
-                        </div>
-                    `;
-                }
-            }
-        }
+    const response = await fetch('/api/players/stats');
+    
+    if (!response.ok) {
+      throw new Error(`Erreur HTTP: ${response.status}`);
+    }
+    
+    const players = await response.json();
+    
+    // DEBUG : Vérifiez les données reçues
+    console.log('👥 Données joueurs reçues:', players.map(p => ({
+      name: p.name,
+      tagline: p.tagline,
+      country: p.country,
+      hasTagline: !!(p.tagline && p.tagline.trim() !== ''),
+      hasCountry: !!(p.country && p.country.trim() !== '')
+    })));
+    
+    if (!Array.isArray(players)) {
+      throw new Error('Format de données invalide');
+    }
+    
+    allPlayers = players;
+    originalRanks.clear();
+    players.forEach((player, index) => {
+      originalRanks.set(player.id, index + 1);
+    });
+    
+    displayPlayers(players);
+    
+  } catch (error) {
+    console.error('Erreur classement:', error);
+    const container = document.getElementById('leaderboard-container');
+    if (container) {
+      container.innerHTML = `
+        <div class="text-center py-4 text-muted">
+          <i class="bi bi-exclamation-triangle"></i>
+          <p class="mt-2 small">Erreur de chargement</p>
+          <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadLeaderboard()">
+            Réessayer
+          </button>
+        </div>
+      `;
+    }
+  }
+}
 
         // Afficher les joueurs
         function displayPlayers(players) {
-            const container = document.getElementById('leaderboard-container');
-            const isFiltered = players.length !== allPlayers.length;
-            
-            container.innerHTML = players.map((player, index) => {
-                const originalRank = originalRanks.get(player.id);
-                const displayRank = isFiltered ? originalRank : (index + 1);
-                const isCurrentUser = player.id === currentUserId;
+    const container = document.getElementById('leaderboard-container');
+    const isFiltered = players.length !== allPlayers.length;
+    
+    container.innerHTML = players.map((player, index) => {
+        const originalRank = originalRanks.get(player.id);
+        const displayRank = isFiltered ? originalRank : (index + 1);
+        const isCurrentUser = player.id === currentUserId;
+        
+        // DEBUG pour chaque joueur
+        console.log(`🎯 Joueur ${player.name}:`, {
+            tagline: player.tagline,
+            country: player.country,
+            hasTagline: !!(player.tagline && player.tagline.trim() !== ''),
+            hasCountry: !!(player.country && player.country.trim() !== '')
+        });
+        
+        // Helper pour le drapeau - afficher seulement si pays renseigné
+        const countryFlag = player.country && player.country.trim() !== '' ? 
+            getFlagEmoji(player.country) : '';
+        
+        // Helper pour la catch phrase
+        const catchPhrase = player.tagline && player.tagline.trim() !== '' ? 
+            player.tagline : '';
+        
+        // Version Desktop
+        const desktopRow = `
+            <div class="table-row d-none d-md-flex rank-${displayRank <= 3 ? displayRank : ''}"
+                 onclick="viewUserProfile('${player.id}')"
+                 onmouseover="this.style.backgroundColor='#f8f9fa'"
+                 onmouseout="this.style.backgroundColor=''">
                 
-                // Version Desktop - Alignement parfait
-                const desktopRow = `
-                    <div class="table-row d-none d-md-flex rank-${displayRank <= 3 ? displayRank : ''}"
-                         onclick="viewUserProfile('${player.id}')"
-                         onmouseover="this.style.backgroundColor='#f8f9fa'"
-                         onmouseout="this.style.backgroundColor=''">
-                        
-                        <!-- Colonne Joueur -->
-                        <div class="player-info d-flex align-items-center">
-                            <div class="rank-badge me-3">
-                                ${displayRank}
+                <!-- Colonne Joueur - MODIFIÉE -->
+                <div class="player-info d-flex align-items-center">
+                    <div class="rank-badge me-3">
+                        ${displayRank}
+                    </div>
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <div class="me-3 text-muted">
+                            <i class="bi bi-person-circle"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-medium text-dark d-flex align-items-center gap-2 mb-1">
+                                ${player.name}
+                                ${countryFlag ? `<span class="fs-6">${countryFlag}</span>` : ''}
+                                ${isCurrentUser ? '<span class="badge bg-primary ms-2">You</span>' : ''}
                             </div>
-                            <div class="d-flex align-items-center">
-                                <div class="me-3 text-muted">
-                                    <i class="bi bi-person-circle"></i>
+                            ${catchPhrase ? `
+                                <div class="text-muted small text-truncate" style="max-width: 200px;">
+                                    <i class="bi bi-quote me-1 opacity-50"></i>${catchPhrase}
                                 </div>
-                                <div>
-                                    <div class="fw-medium text-dark">
-                                        ${player.name}
-                                        ${isCurrentUser ? '<span class="badge bg-primary ms-2">You</span>' : ''}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Colonnes Statistiques -->
-                        <div class="stat-item stats-number words">
-                            ${player.total_words || 0}
-                        </div>
-                        <div class="stat-item stats-number wins">
-                            ${player.wins || 0}
-                        </div>
-                        <div class="stat-item stats-number losses">
-                            ${player.losses || 0}
-                        </div>
-                        <div class="stat-item stats-number ratio">
-                            ${player.win_ratio || 0}%
+                            ` : ''}
                         </div>
                     </div>
-                `;
+                </div>
+
+                <!-- Colonnes Statistiques -->
+                <div class="stat-item stats-number words">
+                    ${player.total_words || 0}
+                </div>
+                <div class="stat-item stats-number wins">
+                    ${player.wins || 0}
+                </div>
+                <div class="stat-item stats-number losses">
+                    ${player.losses || 0}
+                </div>
+                <div class="stat-item stats-number ratio">
+                    ${player.win_ratio || 0}%
+                </div>
+            </div>
+        `;
+        
+        // Version Mobile - MODIFIÉE
+        const mobileCard = `
+            <div class="player-card-mobile border-bottom p-3 player-row rank-${displayRank <= 3 ? displayRank : ''}"
+                 onclick="viewUserProfile('${player.id}')"
+                 style="cursor: pointer; transition: background-color 0.2s;">
                 
-                // Version Mobile (inchangée)
-                const mobileCard = `
-                    <div class="player-card-mobile border-bottom p-3 player-row rank-${displayRank <= 3 ? displayRank : ''}"
-                         onclick="viewUserProfile('${player.id}')"
-                         style="cursor: pointer; transition: background-color 0.2s;">
-                        
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div class="d-flex align-items-center">
-                                <div class="rank-badge me-3">
-                                    ${displayRank}
-                                </div>
-                                <div>
-                                    <div class="fw-medium text-dark">
-                                        ${player.name}
-                                        ${isCurrentUser ? '<span class="badge bg-primary ms-1">You</span>' : ''}
-                                    </div>
-                                </div>
-                            </div>
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div class="d-flex align-items-center flex-grow-1">
+                        <div class="rank-badge me-3">
+                            ${displayRank}
                         </div>
-                        
-                        <div class="row g-0 mobile-stats">
-                            <div class="col-3 mobile-stat">
-                                <span class="value words">${player.total_words || 0}</span>
-                                <span class="label">Words</span>
+                        <div class="flex-grow-1">
+                            <div class="fw-medium text-dark d-flex align-items-center gap-2 mb-1">
+                                ${player.name}
+                                ${countryFlag ? `<span class="fs-6">${countryFlag}</span>` : ''}
+                                ${isCurrentUser ? '<span class="badge bg-primary ms-1">You</span>' : ''}
                             </div>
-                            <div class="col-3 mobile-stat">
-                                <span class="value wins">${player.wins || 0}</span>
-                                <span class="label">Victories</span>
+                            ${catchPhrase ? `
+                            <div class="text-muted small text-truncate">
+                                <i class="bi bi-quote me-1 opacity-50"></i>${catchPhrase.replace(/'/g, "\\'")}
                             </div>
-                            <div class="col-3 mobile-stat">
-                                <span class="value losses">${player.losses || 0}</span>
-                                <span class="label">Defeat</span>
-                            </div>
-                            <div class="col-3 mobile-stat">
-                                <span class="value ratio">${player.win_ratio || 0}%</span>
-                                <span class="label">Ratio</span>
-                            </div>
+                        ` : ''}
                         </div>
                     </div>
-                `;
+                </div>
                 
-                return desktopRow + mobileCard;
-            }).join('');
-        }
+                <div class="row g-0 mobile-stats">
+                    <div class="col-3 mobile-stat">
+                        <span class="value words">${player.total_words || 0}</span>
+                        <span class="label">Words</span>
+                    </div>
+                    <div class="col-3 mobile-stat">
+                        <span class="value wins">${player.wins || 0}</span>
+                        <span class="label">Victories</span>
+                    </div>
+                    <div class="col-3 mobile-stat">
+                        <span class="value losses">${player.losses || 0}</span>
+                        <span class="label">Defeat</span>
+                    </div>
+                    <div class="col-3 mobile-stat">
+                        <span class="value ratio">${player.win_ratio || 0}%</span>
+                        <span class="label">Ratio</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return desktopRow + mobileCard;
+    }).join('');
+}
 
+        // Ajoutez cette fonction si elle n'est pas déjà définie
+        function getFlagEmoji(countryCode) {
+    if (!countryCode || countryCode.trim() === '') {
+        return '';
+    }
+    
+    try {
+        const codePoints = countryCode.toUpperCase().trim().split('').map(char => 
+            127397 + char.charCodeAt()
+        );
+        return String.fromCodePoint(...codePoints);
+    } catch (error) {
+        console.warn('Error generating flag emoji:', error);
+        return '';
+    }
+}
+        
         // Filtrer les joueurs
         function filterPlayers() {
             const searchTerm = document.getElementById('player-search').value.toLowerCase().trim();

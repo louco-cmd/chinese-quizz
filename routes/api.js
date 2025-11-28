@@ -20,7 +20,102 @@ const {
 
 // ---------------------API
 
-// 🎯 ROUTE AVEC LA BONNE TABLE user_mots
+router.get('/account-info', ensureAuth, async (req, res) => {
+  // Permet de récupérer les données d'un autre utilisateur si user_id est fourni
+  const targetUserId = req.query.user_id || req.user.id;
+  const currentUserId = req.user.id;
+  
+  console.log('🎯 /account-info appelé:', { targetUserId, currentUserId });
+  
+  try {
+    // 1. Récupérer les infos utilisateur COMPLÈTES
+    const userInfo = await pool.query(`
+      SELECT name, tagline, country FROM users WHERE id = $1
+    `, [targetUserId]);
+
+    if (userInfo.rows.length === 0) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    const user = userInfo.rows[0];
+
+    // 2. Récupérer les mots avec leurs scores et niveau HSK
+    const userMots = await pool.query(`
+      SELECT 
+        user_mots.score,
+        user_mots.mot_id,
+        mots.chinese, 
+        mots.pinyin, 
+        mots.english,
+        mots.hsk
+      FROM user_mots 
+      JOIN mots ON user_mots.mot_id = mots.id 
+      WHERE user_mots.user_id = $1
+    `, [targetUserId]);
+    
+    // 3. Calculer les stats HSK
+    const hskStats = {
+      HSK1: 0,
+      HSK2: 0,
+      HSK3: 0,
+      HSK4: 0,
+      HSK5: 0,
+      HSK6: 0,
+      Street: 0
+    };
+
+    userMots.rows.forEach(mot => {
+      if (mot.hsk) {
+        hskStats[`HSK${mot.hsk}`] = (hskStats[`HSK${mot.hsk}`] || 0) + 1;
+      } else {
+        hskStats.Street++;
+      }
+    });
+
+    // 4. Récupérer les stats quiz/duels
+    const quizStats = await pool.query(`
+      SELECT COUNT(*) as total_quizzes
+      FROM quiz_history 
+      WHERE user_id = $1
+    `, [targetUserId]);
+    
+    const duelStats = await pool.query(`
+      SELECT COUNT(*) as total_duels
+      FROM duels 
+      WHERE challenger_id = $1 OR opponent_id = $1
+    `, [targetUserId]);
+    
+    // Construire la réponse COMPLÈTE
+    const response = {
+      name: user.name,
+      tagline: user.tagline,        // ← NOUVEAU
+      country: user.country,        // ← NOUVEAU
+      wordCount: userMots.rows.length,
+      user_mots: userMots.rows,
+      stats: {
+        ...hskStats,
+        total_quizzes: parseInt(quizStats.rows[0].total_quizzes),
+        total_duels: parseInt(duelStats.rows[0].total_duels)
+      }
+    };
+
+    console.log('✅ /account-info réponse:', {
+      name: response.name,
+      tagline: response.tagline,    // ← NOUVEAU
+      country: response.country,    // ← NOUVEAU
+      wordCount: response.wordCount,
+      totalQuizzes: response.stats.total_quizzes,
+      totalDuels: response.stats.total_duels
+    });
+    
+    res.json(response);
+    
+  } catch (err) {
+    console.error('❌ Erreur /account-info:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 router.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
   const userId = req.user.id;
 
@@ -148,6 +243,20 @@ router.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
     const totalNum = parseInt(total_questions);
     const ratio = ((scoreNum / totalNum) * 100).toFixed(2);
 
+    // 🔥 NOUVEAU : Calcul des pièces gagnées selon les conditions
+    let coinsEarned = 0;
+    if (scoreNum === 0) {
+      coinsEarned = 0;
+    } else if (ratio > 0 && ratio <= 50) {
+      coinsEarned = 2;
+    } else if (ratio > 50 && ratio <= 70) {
+      coinsEarned = 3;
+    } else if (ratio > 70) {
+      coinsEarned = 5;
+    }
+
+    console.log(`💰 Calcul récompense: ${scoreNum}/${totalNum} = ${ratio}% → ${coinsEarned} coins`);
+
     let wordsForHistory = [];
 
     if (words_used) {
@@ -185,7 +294,7 @@ router.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
       console.log('ℹ️ Aucun résultat détaillé à traiter');
     }
 
-    // 3. Créditer la récompense de 5 coins au joueur
+    // 3. 🔥 MODIFIÉ : Créditer la récompense conditionnelle au joueur
 
     // Récupérer le solde actuel avec verrou (FOR UPDATE)
     const { rows: userRows } = await client.query(
@@ -198,25 +307,31 @@ router.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
       return res.status(404).json({ error: "Utilisateur introuvable" });
     }
 
-    // Insérer la transaction + mise à jour du solde
-    const REWARD_AMOUNT = 5;
+    // Insérer la transaction + mise à jour du solde (seulement si coins gagnés)
+    if (coinsEarned > 0) {
+      await client.query(
+        "INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
+        [req.user.id, coinsEarned, 'quiz_reward', 
+         `Quiz ${quiz_type}: ${scoreNum}/${totalNum} correct (${ratio}%) - ${coinsEarned} coins earned`]
+      );
 
-    await client.query(
-      "INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
-      [req.user.id, REWARD_AMOUNT, 'quiz_reward', 'Récompense fin de quiz']
-    );
+      await client.query(
+        "UPDATE users SET balance = balance + $1 WHERE id = $2",
+        [coinsEarned, req.user.id]
+      );
 
-    await client.query(
-      "UPDATE users SET balance = balance + $1 WHERE id = $2",
-      [REWARD_AMOUNT, req.user.id]
-    );
+      console.log(`💰 ${coinsEarned} coins crédités à l'utilisateur ${req.user.id}`);
+    } else {
+      console.log(`ℹ️ Aucune récompense pour ${scoreNum}/${totalNum} (${ratio}%)`);
+    }
 
     await client.query("COMMIT");
 
     res.json({
       success: true,
       quiz: quizResult.rows[0],
-      message: `Quiz sauvegardé avec ${results ? results.length : 0} scores mis à jour, et ${REWARD_AMOUNT} coins crédités.`
+      coins_earned: coinsEarned, // 🔥 NOUVEAU : Retourner le nombre de pièces gagnées
+      message: `Quiz sauvegardé avec ${results ? results.length : 0} scores mis à jour${coinsEarned > 0 ? `, et ${coinsEarned} coins crédités` : ', aucune récompense'}`
     });
 
   } catch (err) {
@@ -568,62 +683,57 @@ router.get('/quiz-mots', ensureAuth, async (req, res) => {
   }
 });
 
-router.post('/api/user/update-name', ensureAuth, async (req, res) => {
+router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
+  const client = await pool.connect();
+  
   try {
-    console.log('🔵 Route update-name routerelée');
-    console.log('Body reçu:', req.body);
+    await client.query('BEGIN');
 
-    // METHODE 1: Récupérer l'userId depuis le body (plus simple)
-    const { name, userId } = req.body;
+    const { name, tagline, country } = req.body;
     
-    // METHODE 2: Si userId n'est pas dans le body, essayez la session
-    const finalUserId = userId || req.session.userId || req.session.user?.id;
-    
-    console.log('UserId utilisé:', finalUserId);
-
-    if (!finalUserId) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'ID utilisateur manquant' 
-      });
-    }
-
-    if (!name || name.trim().length === 0) {
+    if (!name || name.length > 50) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ 
         success: false, 
-        message: 'Le prénom est requis' 
+        message: 'Name is required and must be less than 50 characters' 
       });
     }
 
-    // Mise à jour dans la base de données
-    const result = await pool.query(
-      'UPDATE users SET name = $1 WHERE id = $2 RETURNING id, name',
-      [name.trim(), finalUserId]
+    if (tagline && tagline.length > 100) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Tagline must be less than 100 characters' 
+      });
+    }
+
+    // Mettre à jour le profil SANS updated_at
+    await client.query(
+      `UPDATE users 
+       SET name = $1, tagline = $2, country = $3
+       WHERE id = $4`,
+      [name, tagline, country, req.user.id]
     );
 
-    console.log('Résultat DB:', result.rows);
+    await client.query('COMMIT');
 
-    if (result.rows.length > 0) {
-      res.json({ 
-        success: true,
-        message: 'Prénom mis à jour avec succès !',
-        newName: result.rows[0].name
-      });
-    } else {
-      res.status(404).json({ 
-        success: false, 
-        message: 'Utilisateur non trouvé' 
-      });
-    }
-    
+    res.json({
+      success: true,
+      message: 'Profile updated successfully'
+    });
+
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    await client.query('ROLLBACK');
+    console.error('Error updating profile:', error);
     res.status(500).json({ 
       success: false, 
-      message: 'Erreur serveur: ' + error.message 
+      message: 'Error updating profile' 
     });
+  } finally {
+    client.release();
   }
 });
+
 
 // Duels API
 // 📍 CLASSEMENT
@@ -695,7 +805,7 @@ router.get('/api/duels/search', ensureAuth, async (req, res) => {
   }
 });
 
-// 📊 STATISTIQUES DE TOUS LES JOUEURS - CORRIGÉE
+// 📊 STATISTIQUES DE TOUS LES JOUEURS - AVEC TAGLINE ET COUNTRY
 router.get('/api/players/stats', ensureAuth, async (req, res) => {
   try {
     console.log('📊 Chargement stats tous les joueurs');
@@ -709,7 +819,9 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
         u.id,
         u.name,
         u.email,
-        COUNT(DISTINCT uw.mot_id) as total_words,           -- ⬅️ CORRIGÉ : mot_id au lieu de word_id
+        u.tagline,           -- ⬅️ NOUVEAU : phrase d'accroche
+        u.country,           -- ⬅️ NOUVEAU : pays
+        COUNT(DISTINCT uw.mot_id) as total_words,
         COUNT(DISTINCT CASE 
           WHEN d.status = 'completed' AND (
             (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
@@ -740,25 +852,29 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
           ELSE 0
         END as win_ratio
       FROM users u
-      LEFT JOIN user_mots uw ON u.id = uw.user_id           -- ⬅️ CORRIGÉ : user_mots au lieu de user_words
+      LEFT JOIN user_mots uw ON u.id = uw.user_id
       LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id)
-      WHERE u.id IN (SELECT DISTINCT user_id FROM user_mots) -- ⬅️ CORRIGÉ : user_mots
-      GROUP BY u.id, u.name, u.email
+      WHERE u.id IN (SELECT DISTINCT user_id FROM user_mots)
+      GROUP BY u.id, u.name, u.email, u.tagline, u.country  -- ⬅️ AJOUTER tagline et country
       ORDER BY wins DESC, total_words DESC
     `);
 
     console.log(`✅ ${result.rows.length} joueurs trouvés`);
     if (result.rows.length > 0) {
-      console.log('📊 Exemple joueur:', result.rows[0]);
+      console.log('📊 Exemple joueur:', {
+        name: result.rows[0].name,
+        tagline: result.rows[0].tagline,
+        country: result.rows[0].country,
+        total_words: result.rows[0].total_words,
+        wins: result.rows[0].wins
+      });
     }
     
-    // ✅ RETOURNE BIEN LE TABLEAU
     res.json(result.rows);
     
   } catch (err) {
     console.error('❌ Erreur détaillée stats joueurs:', err);
     
-    // ✅ RETOURNE UNE ERREUR PROPRE
     res.status(500).json({ 
       error: 'Erreur chargement des statistiques joueurs',
       details: err.message 
@@ -808,7 +924,6 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
   }
 });
 
-// 📍 CRÉATION D'UN DUEL
 // 📍 CRÉATION D'UN DUEL AVEC PARI
 router.post('/api/duels/create', ensureAuth, async (req, res) => {
   const client = await pool.connect();
@@ -1006,7 +1121,6 @@ router.post('/api/duels/:id/accept', ensureAuth, async (req, res) => {
     client.release();
   }
 });
-
 
 // 📍 DUELS EN ATTENTE (pour /account et /quiz)
 router.get('/api/duels/pending', ensureAuth, async (req, res) => {

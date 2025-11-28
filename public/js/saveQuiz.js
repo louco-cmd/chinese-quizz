@@ -49,37 +49,41 @@
 // }
 
 // 📍 Après la fin d'un quiz, ajoute cette fonction
-async function saveQuizResults(score, totalQuestions, quizType, results) {
-  try {
-    console.log('📤 Envoi des résultats au serveur:', {
-      score,
-      totalQuestions,
-      quizType,
-      results: results.map(r => ({ mot_id: r.mot_id, correct: r.correct }))
-    });
-    
-    const response = await fetch('/api/quiz/save', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        score: score,
-        total_questions: totalQuestions,
-        quiz_type: quizType,
-        results: results
-      })
-    });
-    
+async function saveQuizResults(correctCount, totalWords, quizType, quizResults, coinsEarned = 0) {
+    try {
+        console.log('💾 Sauvegarde résultats quiz...', { 
+            correctCount, 
+            totalWords, 
+            quizType, 
+            coinsEarned,
+            quizResults 
+        });
 
-    const data = await response.json();
-    console.log('📥 Réponse du serveur:', data);
-    
-    if (data.success) {
-      console.log('✅ Quiz sauvegardé avec scores détaillés');
-    } else {
-      console.warn('⚠️ Quiz non sauvegardé:', data.error);
+        const response = await fetch('/save-quiz-results', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                correct_count: correctCount,
+                total_words: totalWords,
+                quiz_type: quizType,
+                quiz_results: quizResults,
+                coins_earned: coinsEarned // ← Nouveau paramètre
+            })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log('✅ Résultats sauvegardés avec succès!');
+            if (coinsEarned > 0) {
+                console.log(`💰 ${coinsEarned} pièces gagnées!`);
+            }
+        } else {
+            console.error('❌ Erreur sauvegarde:', result.message);
+        }
+    } catch (error) {
+        console.error('❌ Erreur réseau:', error);
     }
-    
-  } catch (error) {
-    console.error('❌ Erreur sauvegarde quiz:', error);
-  }
 }

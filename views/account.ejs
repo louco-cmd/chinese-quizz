@@ -33,6 +33,67 @@
 }
 </style>
 </head>
+
+<!-- Modal d'édition du profil -->
+<div class="modal fade" id="editProfileModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">Edit profile</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="profileEditForm">
+          <!-- Nom -->
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Name</label>
+            <input type="text" class="form-control form-control-sm" id="editName" 
+                   value="<%= user.name %>" maxlength="50">
+            <div class="form-text">Max 50 characters</div>
+          </div>
+          
+          <!-- Phrase d'accroche -->
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Tagline</label>
+            <textarea class="form-control form-control-sm" id="editTagline" 
+                      rows="2" maxlength="100" placeholder="Your learning motto...">
+              <%= user.tagline || '' %>
+            </textarea>
+            <div class="form-text">Max 100 characters</div>
+          </div>
+          
+          <!-- Pays -->
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Country</label>
+            <select class="form-select form-select-sm" id="editCountry">
+              <option value="">Select your country</option>
+              <option value="FR" <%= user.country === 'FR' ? 'selected' : '' %>>🇫🇷 France</option>
+              <option value="US" <%= user.country === 'US' ? 'selected' : '' %>>🇺🇸 United States</option>
+              <option value="GB" <%= user.country === 'GB' ? 'selected' : '' %>>🇬🇧 United Kingdom</option>
+              <option value="DE" <%= user.country === 'DE' ? 'selected' : '' %>>🇩🇪 Germany</option>
+              <option value="ES" <%= user.country === 'ES' ? 'selected' : '' %>>🇪🇸 Spain</option>
+              <option value="IT" <%= user.country === 'IT' ? 'selected' : '' %>>🇮🇹 Italy</option>
+              <option value="JP" <%= user.country === 'JP' ? 'selected' : '' %>>🇯🇵 Japan</option>
+              <option value="KR" <%= user.country === 'KR' ? 'selected' : '' %>>🇰🇷 South Korea</option>
+              <option value="CN" <%= user.country === 'CN' ? 'selected' : '' %>>🇨🇳 China</option>
+              <option value="CA" <%= user.country === 'CA' ? 'selected' : '' %>>🇨🇦 Canada</option>
+              <option value="AU" <%= user.country === 'AU' ? 'selected' : '' %>>🇦🇺 Australia</option>
+              <option value="BR" <%= user.country === 'BR' ? 'selected' : '' %>>🇧🇷 Brazil</option>
+              <!-- Ajoutez d'autres pays selon vos besoins -->
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" onclick="saveProfile()">
+          <i class="bi bi-check me-1"></i>Save
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <body>
   <%- include('partials/header') %>
   <%- include('partials/navbar', {currentPage: 'account'}) %>
@@ -95,9 +156,16 @@
           </div>
         </div>
 
-            <!-- Info utilisateur -->
+        <!-- Version avec seulement le drapeau à côté du nom -->
         <div class="card">
           <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <h6 class="card-title mb-0 fw-bold">Profile</h6>
+              <button class="btn btn-sm btn-outline-primary" onclick="openEditProfileModal()">
+                <i class="bi bi-pencil"></i> Edit
+              </button>
+            </div>
+
             <div class="row align-items-center">
               <div class="col-auto">
                 <div class="avatar" style="width: 48px; height: 48px;">
@@ -105,31 +173,20 @@
                 </div>
               </div>
               <div class="col">
-                <div class="d-flex align-items-center">
-                  <h6 id="userName" class="card-title mb-1 fw-bold text-truncate me-2"></h6>
-                  <button class="btn btn-sm btn-outline-primary" onclick="enableNameEdit()">
-                    <i class="bi bi-pencil"></i>
-                  </button>
+                <!-- Nom avec drapeau -->
+                <div class="mb-2 d-flex align-items-center">
+                  <div class="fw-bold text-dark me-2" id="userNameDisplay">Loading...</div>
+                  <span class="flag-icon fs-6" id="userFlagDisplay">🏳️</span>
                 </div>
-                <p class="card-text text-muted mb-0 small">
-                  <i class="bi bi-journal-text me-1"></i>
-                  <span id="wordCountNumber">0</span> words
-                </p>
+                
+                <!-- Phrase d'accroche seulement -->
+                <div class="mb-0">
+                  <p class="text-muted small mb-0" id="userTaglineDisplay">
+                    <i class="bi bi-quote me-1"></i>
+                    <span id="taglineText">Loading...</span>
+                  </p>
+                </div>
               </div>
-            </div>
-            
-            <!-- Formulaire d'édition (caché par défaut) -->
-            <div id="nameEditForm" class="mt-3" style="display: none;">
-              <div class="input-group input-group-sm">
-                <input type="text" id="nameInput" class="form-control" placeholder="New name">
-                <button class="btn btn-success" type="button" onclick="saveName()">
-                  <i class="bi bi-check"></i>
-                </button>
-                <button class="btn btn-secondary" type="button" onclick="cancelNameEdit()">
-                  <i class="bi bi-x"></i>
-                </button>
-              </div>
-              <div class="form-text">Maximum 50 characters</div>
             </div>
           </div>
         </div>
@@ -222,52 +279,69 @@
       loadPerformanceStats(); // Ajouter cette ligne
     });
 
-    // Données utilisateur
+
+   // Données utilisateur
     async function loadUserData() {
-      try {
-        const res = await fetch('/account-info'); 
-        if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
-        
-        const data = await res.json(); 
-        
-        document.getElementById('userName').textContent = data.name;
-        document.getElementById('wordCountNumber').textContent = data.wordCount;
-
-        const hskStatsElement = document.getElementById('hskStats');
-        hskStatsElement.innerHTML = '';
-        
-        // Filtrer uniquement les niveaux HSK (exclure total_quizzes et total_duels)
-        const hskLevels = Object.keys(data.stats).filter(key => 
-          key === 'Street' || key.startsWith('HSK')
-        );
-        
-        for(const level of hskLevels) {
-          const li = document.createElement('li');
-          li.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
-          li.textContent = level;
-          
-          const badge = document.createElement('span');
-          const badgeClass = level === 'Street' ? 'bg-success' : 'bg-primary'; 
-          badge.className = `badge ${badgeClass}`;
-          badge.textContent = data.stats[level];
-          
-          li.appendChild(badge);
-          hskStatsElement.appendChild(li);
-        }
-
-      } catch (err) {
-        console.error('Error loading data:', err);
-        document.getElementById('wordCountNumber').textContent = '0';
-        document.getElementById('hskStats').innerHTML = `
-          <div class="alert alert-warning small mb-0">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            Unable to load HSK statistics
-          </div>
-        `;
+  try {
+    const res = await fetch('/account-info'); 
+    const data = await res.json();
+    
+    console.log('🔍 DEBUG - Données reçues:', data);
+    
+    // Mettre à jour les informations du profil
+    const userNameDisplay = document.getElementById('userNameDisplay');
+    const taglineText = document.getElementById('taglineText');
+    const userFlagDisplay = document.getElementById('userFlagDisplay');
+    
+    if (userNameDisplay) {
+      userNameDisplay.textContent = data.name || 'Unknown';
+    }
+    
+    if (taglineText) {
+      taglineText.textContent = data.tagline || 'Learning Chinese characters!';
+    }
+    
+    // CORRECTION : Mettre à jour le drapeau avec la donnée country
+    if (userFlagDisplay) {
+      if (data.country && data.country.trim() !== '') {
+        userFlagDisplay.textContent = getFlagEmoji(data.country);
+        console.log('🎯 Drapeau mis à jour:', data.country, '->', getFlagEmoji(data.country));
+      } else {
+        userFlagDisplay.textContent = '🏳️';
+        console.log('🎯 Drapeau par défaut (pas de pays)');
       }
     }
 
-    // Stats quiz
+    // Le reste pour les stats HSK...
+    const hskStatsElement = document.getElementById('hskStats');
+    if (hskStatsElement && data.stats) {
+      hskStatsElement.innerHTML = '';
+      
+      const hskLevels = Object.keys(data.stats).filter(key => 
+        key === 'Street' || key.startsWith('HSK')
+      );
+      
+      for(const level of hskLevels) {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
+        li.textContent = level;
+        
+        const badge = document.createElement('span');
+        const badgeClass = level === 'Street' ? 'bg-success' : 'bg-primary'; 
+        badge.className = `badge ${badgeClass}`;
+        badge.textContent = data.stats[level];
+        
+        li.appendChild(badge);
+        hskStatsElement.appendChild(li);
+      }
+    }
+
+  } catch (err) {
+    console.error('Error loading data:', err);
+  }
+}
+  
+  // Stats quiz
     async function loadQuizStats() {
       try {
         const response = await fetch('/api/quiz/history?limit=5');
@@ -709,76 +783,198 @@
       `;
     }
 
-    // Édition du prénom
-function enableNameEdit() {
-  const currentName = document.getElementById('userName').textContent;
-  document.getElementById('nameInput').value = currentName;
-  document.getElementById('nameEditForm').style.display = 'block';
-  document.getElementById('userName').parentElement.style.display = 'none';
-}
-
-function cancelNameEdit() {
-  document.getElementById('nameEditForm').style.display = 'none';
-  document.getElementById('userName').parentElement.style.display = 'flex';
-}
-
-async function saveName() {
-  const newName = document.getElementById('nameInput').value.trim();
-  
-  if (!newName) {
-    showNotification('Name cannot be empty', 'error');
-    return;
+// Fonction helper pour les drapeaux (à ajouter dans votre backend EJS ou frontend)
+  function getFlagEmoji(countryCode) {
+  if (!countryCode || countryCode.trim() === '') {
+    return '🏳️';
   }
   
   try {
-    const saveButton = document.querySelector('#nameEditForm button.btn-success');
-    saveButton.innerHTML = '<i class="bi bi-arrow-repeat spinner"></i>';
-    saveButton.disabled = true;
+    // Nettoyer le code pays
+    const cleanCode = countryCode.toUpperCase().trim();
+    console.log('🔄 Conversion drapeau:', cleanCode);
+    
+    const codePoints = cleanCode.split('').map(char => 
+      127397 + char.charCodeAt()
+    );
+    const flag = String.fromCodePoint(...codePoints);
+    console.log('✅ Drapeau généré:', flag);
+    return flag;
+  } catch (error) {
+    console.warn('❌ Erreur génération drapeau:', error, 'pour countryCode:', countryCode);
+    return '🏳️';
+  }
+}
 
-    // TEMPORAIRE: Utilisez la route test
-    const response = await fetch('/api/user/update-name', {
+// Ouvrir le modal d'édition
+function openEditProfileModal() {
+  // Récupérer les valeurs actuelles directement depuis les éléments
+  const currentName = document.getElementById('userNameDisplay').textContent;
+  const currentTagline = document.getElementById('taglineText').textContent;
+  const currentFlag = document.getElementById('userFlagDisplay').textContent;
+  
+  // Remplir les champs du modal
+  document.getElementById('editName').value = currentName;
+  document.getElementById('editTagline').value = currentTagline;
+  
+  // Déterminer le pays à partir du drapeau affiché
+  const countrySelect = document.getElementById('editCountry');
+  const countryFromFlag = getCountryFromFlag(currentFlag);
+  
+  if (countryFromFlag) {
+    countrySelect.value = countryFromFlag;
+  } else {
+    countrySelect.value = ''; // "Select your country"
+  }
+  
+  // Ouvrir le modal
+  const modal = new bootstrap.Modal(document.getElementById('editProfileModal'));
+  modal.show();
+}
+
+// Helper pour obtenir le code pays à partir du drapeau emoji
+function getCountryFromFlag(flagEmoji) {
+  const flagToCountry = {
+    '🇫🇷': 'FR',
+    '🇺🇸': 'US', 
+    '🇬🇧': 'GB',
+    '🇩🇪': 'DE',
+    '🇪🇸': 'ES',
+    '🇮🇹': 'IT',
+    '🇯🇵': 'JP',
+    '🇰🇷': 'KR',
+    '🇨🇳': 'CN',
+    '🇨🇦': 'CA',
+    '🇦🇺': 'AU',
+    '🇧🇷': 'BR',
+    '🏳️': '' // Drapeau neutre = pas de pays sélectionné
+  };
+  return flagToCountry[flagEmoji] || '';
+}
+
+// Helper pour obtenir le code pays à partir du nom affiché
+function getCountryNameFromDisplay(displayText) {
+  const countries = {
+    'France': 'FR',
+    'United States': 'US',
+    'United Kingdom': 'GB', 
+    'Germany': 'DE',
+    'Spain': 'ES',
+    'Italy': 'IT',
+    'Japan': 'JP',
+    'South Korea': 'KR',
+    'China': 'CN',
+    'Canada': 'CA',
+    'Australia': 'AU',
+    'Brazil': 'BR',
+    'Not specified': ''
+  };
+  
+  return countries[displayText] || '';
+}
+
+// Sauvegarder le profil
+async function saveProfile() {
+  const name = document.getElementById('editName').value.trim();
+  const tagline = document.getElementById('editTagline').value.trim();
+  const country = document.getElementById('editCountry').value;
+
+  console.log('🔍 Debug saveProfile - Éléments:', {
+    editName: document.getElementById('editName'),
+    editTagline: document.getElementById('editTagline'), 
+    editCountry: document.getElementById('editCountry'),
+    userNameDisplay: document.getElementById('userNameDisplay'),
+    taglineText: document.getElementById('taglineText'),
+    userFlagDisplay: document.getElementById('userFlagDisplay'),
+    saveButton: document.querySelector('#editProfileModal .btn-primary')
+  });
+  
+  if (!name) {
+    showNotification('Name cannot be empty', 'error');
+    return;
+  }
+
+  const saveButton = document.querySelector('#editProfileModal .btn-primary');
+  const originalHTML = saveButton ? saveButton.innerHTML : '<i class="bi bi-check me-1"></i>Save'; // ← CORRECTION: originalHTML au lieu de originalText
+
+  try {
+    if (saveButton) {
+      saveButton.innerHTML = '<i class="bi bi-hourglass me-2"></i>Saving...';
+      saveButton.disabled = true;
+    }
+    // ← SUPPRIMER l'accolade fermante en trop ici
+
+    const response = await fetch('/api/user/update-profile', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ name: newName }),
+      body: JSON.stringify({ 
+        name: name,
+        tagline: tagline,
+        country: country 
+      }),
       credentials: 'include'
     });
-    
-    // Vérifiez le contenu de la réponse
-    const responseText = await response.text();
-    console.log('Réponse brute:', responseText);
-    
-    // Essayez de parser en JSON
-    let result;
-    try {
-      result = JSON.parse(responseText);
-    } catch (e) {
-      throw new Error(`Server returned HTML instead of JSON. Check if route exists.`);
-    }
-    
+
+    const result = await response.json();
+
     if (!response.ok) {
-      throw new Error(result.message || `Erreur HTTP: ${response.status}`);
+      throw new Error(result.message || `HTTP error: ${response.status}`);
     }
-    
+
     if (result.success) {
-      document.getElementById('userName').textContent = newName;
-      cancelNameEdit();
-      showNotification('Test réussi! ' + result.message, 'success');
+      // Mettre à jour l'affichage avec vérifications
+      const userNameDisplay = document.getElementById('userNameDisplay');
+      const taglineText = document.getElementById('taglineText');
+      const userFlagDisplay = document.getElementById('userFlagDisplay');
+      
+      if (userNameDisplay) userNameDisplay.textContent = name;
+      if (taglineText) taglineText.textContent = tagline || 'Learning Chinese characters!';
+      if (userFlagDisplay) {
+        userFlagDisplay.textContent = country ? getFlagEmoji(country) : '🏳️';
+      }
+
+      // Fermer le modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+      if (modal) modal.hide();
+      
+      showNotification('Profile updated successfully!', 'success');
+      
+      // Recharger les données pour s'assurer que tout est synchronisé
+      setTimeout(() => loadUserData(), 500);
     } else {
       throw new Error(result.message || 'Unknown error');
     }
-    
+
   } catch (error) {
-    console.error('Erreur:', error);
-    showNotification('Erreur: ' + error.message, 'error');
+    console.error('Error updating profile:', error);
+    showNotification('Error: ' + error.message, 'error');
   } finally {
-    const saveButton = document.querySelector('#nameEditForm button.btn-success');
     if (saveButton) {
-      saveButton.innerHTML = '<i class="bi bi-check"></i>';
+      saveButton.innerHTML = originalHTML; // ← CORRECTION: utiliser originalHTML
       saveButton.disabled = false;
     }
   }
+}
+
+// Helper pour obtenir le nom du pays à partir du code
+function getCountryName(countryCode) {
+  const countries = {
+    'FR': 'France',
+    'US': 'United States',
+    'GB': 'United Kingdom',
+    'DE': 'Germany',
+    'ES': 'Spain',
+    'IT': 'Italy',
+    'JP': 'Japan',
+    'KR': 'South Korea',
+    'CN': 'China',
+    'CA': 'Canada',
+    'AU': 'Australia',
+    'BR': 'Brazil'
+  };
+  return countries[countryCode] || countryCode;
 }
 
 // Notifications

@@ -330,19 +330,34 @@ function hideCharacterCard() {
 }
 
 function endQuiz() {
-  console.log("🏁 endQuiz() appelée (version FORCE)");
+  // Calcul du pourcentage de réussite
+  const successRate = (correctCount / quizWords.length) * 100;
+  
+  // Déterminer le gain en pièces selon les conditions
+  let coinsEarned = 0;
+  if (correctCount === 0) {
+    coinsEarned = 0;
+  } else if (successRate > 0 && successRate <= 50) {
+    coinsEarned = 2;
+  } else if (successRate > 50 && successRate <= 70) {
+    coinsEarned = 3;
+  } else if (successRate > 70) {
+    coinsEarned = 5;
+  }
 
   // Met à jour les textes et styles
   quizQuestion.textContent = '🎉 Quiz ended !';
-  quizResult.textContent = `Final score: ${correctCount}/${quizWords.length}`;
-  quizResult.className = "alert alert-success text-center fw-bold";
+  quizResult.textContent = `Final score: ${correctCount}/${quizWords.length} (${Math.round(successRate)}%)${coinsEarned > 0 ? ` - ${coinsEarned}₵ earned` : ''}`;
+  quizResult.className = coinsEarned > 0 ? "alert alert-success text-center fw-bold" : "alert alert-warning text-center fw-bold";
 
-  // Modifie le bouton existant : texte, style, type, et comportement
-  checkBtn.innerHTML = '<i class="bi bi-coin me-2"></i>Collect 5₵ coins';
-  checkBtn.className = 'btn btn-success w-100';
-  checkBtn.type = 'button'; // Important : ne plus soumettre le formulaire
+  // Modifie le bouton existant
+  checkBtn.innerHTML = coinsEarned > 0 
+    ? `<i class="bi bi-coin me-2"></i>Collect ${coinsEarned}₵ coins`
+    : `<i class="bi bi-flag me-2"></i>Finish quiz`;
+  checkBtn.className = coinsEarned > 0 ? 'btn btn-success w-100' : 'btn btn-secondary w-100';
+  checkBtn.type = 'button';
 
-  // Forcer l’arrêt de tous les timers existants
+  // Forcer l'arrêt de tous les timers existants
   let id = window.setTimeout(() => {}, 0);
   while (id--) {
     window.clearTimeout(id);
@@ -354,17 +369,41 @@ function endQuiz() {
   quizForm.oninput = (e) => e.preventDefault();
   quizForm.onclick = (e) => e.stopPropagation();
 
-  // Mettre à jour la variable globale (empêche showQuizWord)
+  // Mettre à jour la variable globale
   window.quizEnded = true;
 
   checkBtn.onclick = () => {
-    // Action au clic : redirection ou autre
-    window.location.href = '/quiz';
-  };
+    // Sauvegarder les résultats
+    console.log("💾 Sauvegarde des résultats...");
+    
+    // Préparer les données pour l'API
+    const quizData = {
+      score: correctCount,
+      total_questions: quizWords.length,
+      quiz_type: "pinyin",
+      results: quizResults,
+      words_used: quizWords.map(word => word.pinyin)
+    };
 
-  // Sauvegarde
-  console.log("💾 Sauvegarde des résultats...");
-  saveQuizResults(correctCount, quizWords.length, "pinyin", quizResults);
+    // Appeler votre API existante
+    fetch('/api/quiz/save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(quizData)
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('✅ Quiz sauvegardé:', data);
+      // Redirection après sauvegarde
+      window.location.href = '/quiz';
+    })
+    .catch(error => {
+      console.error('❌ Erreur sauvegarde:', error);
+      window.location.href = '/quiz';
+    });
+  };
 }
 
 // Lancer le quiz
