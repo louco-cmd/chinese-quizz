@@ -341,6 +341,7 @@ app.get('/api/debug-session', (req, res) => {
   });
 });
 
+
 // Pages EJS
 app.get("/", (req, res) => {
     const error = req.query.error;  // <-- récupère l'erreur depuis la query string
@@ -438,52 +439,72 @@ app.get('/duels', ensureAuth, (req, res) => {
   });
 });
 
-app.get('/duel-play/:id', ensureAuth, async (req, res) => {
+app.get('/user/:id', ensureAuth, async (req, res) => {
   try {
-    const duelId = req.params.id;
-    
-    // Vérifier que l'utilisateur peut jouer ce duel
-    const duelResult = await pool.query(`
-      SELECT d.*, 
-             u1.name as challenger_name,
-             u2.name as opponent_name
-      FROM duels d
-      JOIN users u1 ON d.challenger_id = u1.id
-      JOIN users u2 ON d.opponent_id = u2.id
-      WHERE d.id = $1 AND (d.challenger_id = $2 OR d.opponent_id = $2)
-      AND d.status = 'pending'
-      AND d.expires_at > NOW()
-    `, [duelId, req.user.id]);
+    const userId = req.params.id;
+    const currentUserId = req.user.id;
 
-    if (duelResult.rows.length === 0) {
-      return res.redirect('/duels?error=duel_not_found');
+    // Récupérer les infos de l'utilisateur
+    const userResult = await pool.query(`
+      SELECT id, name, email, created_at, country, tagline, balance
+      FROM users 
+      WHERE id = $1
+    `, [userId]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).send('Utilisateur non trouvé');
     }
 
-    const duel = duelResult.rows[0];
-    const isChallenger = duel.challenger_id === req.user.id;
-    
-    // Vérifier si l'utilisateur a déjà joué
-    const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
-    
-    if (userScore !== null) {
-      return res.render('duel-waiting', {
-        duel: duel,
-        userScore: userScore,
-        currentPage: 'duels',
-        user: req.user // 🔥 AJOUTÉ ICI
-      });
-    }
+    const user = userResult.rows[0];
 
-    res.render('duel-play', {
-      duel: duel,
-      quizData: duel.quiz_data,
+    // Stats globales
+    const statsResult = await pool.query(`
+      SELECT 
+        COUNT(DISTINCT um.mot_id) as total_words,
+        COUNT(DISTINCT d.id) as total_duels
+      FROM users u
+      LEFT JOIN user_mots um ON u.id = um.user_id
+      LEFT JOIN duels d ON (u.id = d.challenger_id OR u.id = d.opponent_id)
+      WHERE u.id = $1
+      GROUP BY u.id
+    `, [userId]);
+
+    const stats = statsResult.rows[0] || {};
+
+    // Récupérer la répartition HSK - CORRECTION ICI
+    const hskResult = await pool.query(`
+      SELECT 
+        CASE 
+          WHEN m.hsk IS NULL THEN 'Street' 
+          ELSE 'HSK ' || m.hsk::text 
+        END as level,
+        COUNT(*) as count
+      FROM user_mots um
+      JOIN mots m ON um.mot_id = m.id
+      WHERE um.user_id = $1
+      GROUP BY 
+        CASE 
+          WHEN m.hsk IS NULL THEN 'Street' 
+          ELSE 'HSK ' || m.hsk::text 
+        END
+      ORDER BY level
+    `, [userId]);
+
+    console.log('🎯 Données HSK récupérées:', hskResult.rows); // Debug
+
+    res.render('user-profile', {
       currentPage: 'duels',
-      user: req.user // 🔥 AJOUTÉ ICI
+      user: req.user,
+      profileUser: user,
+      stats: stats,
+      hskStats: hskResult.rows, // ← BIEN ENVOYÉ
+      isOwnProfile: userId == currentUserId,
+      balance: user.balance || 0
     });
 
-  } catch (err) {
-    console.error('Erreur page duel:', err);
-    res.redirect('/duels?error=server_error');
+  } catch (error) {
+    console.error('💥 ERREUR /user/:id:', error);
+    res.status(500).send('Erreur serveur');
   }
 });
 
@@ -562,9 +583,9 @@ app.get('/user/:id', ensureAuth, async (req, res) => {
 
     console.log('🎯 Route /user/:id appelée avec:', { userId, currentUserId });
 
-    // Récupérer les infos de l'utilisateur
+    // Récupérer les infos de l'utilisateur AVEC pays et tagline
     const userResult = await pool.query(`
-      SELECT id, name, email, created_at
+      SELECT id, name, email, created_at, country, tagline, balance
       FROM users 
       WHERE id = $1
     `, [userId]);
@@ -584,7 +605,7 @@ app.get('/user/:id', ensureAuth, async (req, res) => {
     const user = userResult.rows[0];
     console.log('✅ Utilisateur trouvé:', user.name);
 
-    // 🗳️ CORRECTION : Requête sans la table quizzes qui n'existe pas
+    // Stats
     const statsResult = await pool.query(`
       SELECT 
         COUNT(DISTINCT um.mot_id) as total_words,
@@ -597,7 +618,6 @@ app.get('/user/:id', ensureAuth, async (req, res) => {
     `, [userId]);
 
     const stats = statsResult.rows[0] || {};
-    console.log('📈 Stats récupérées:', stats);
 
     // Récupérer la répartition HSK
     const hskResult = await pool.query(`
@@ -614,15 +634,14 @@ app.get('/user/:id', ensureAuth, async (req, res) => {
       ORDER BY level
     `, [userId]);
 
-    console.log('🎯 Données HSK:', hskResult.rows);
-
     res.render('user-profile', {
       currentPage: 'duels',
       user: req.user,
       profileUser: user,
       stats: stats,
       hskStats: hskResult.rows,
-      isOwnProfile: userId == currentUserId
+      isOwnProfile: userId == currentUserId,
+      balance: user.balance || 0  // ← AJOUTE CETTE LIGNE
     });
 
   } catch (error) {

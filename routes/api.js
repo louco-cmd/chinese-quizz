@@ -1349,8 +1349,6 @@ router.post('/api/duels/:id/submit', ensureAuth, async (req, res) => {
   }
 });
 
-
-
 // MONEY
 router.get('/api/balance', ensureAuth, async (req, res) => {
   try {

@@ -6,6 +6,8 @@
     <title><%= profileUser.name %> - 加油！</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/css/accountandduels.css" rel="stylesheet">
+
     <style>
         .progress-container {
             margin: 1rem 0;
@@ -18,16 +20,9 @@
         .progress-bar {
             transition: width 0.6s ease;
         }
-        .clickable-row {
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .clickable-row:hover {
-            background-color: #f8f9fa;
-        }
     </style>
 </head>
-<body class="bg-light">
+<body class="bg-light" data-profile-user-id="<%= profileUser.id %>">
     <%- include('partials/header') %>
     <%- include('partials/navbar', {currentPage: 'duels'}) %>
 
@@ -44,86 +39,95 @@
             <% } %>
         </div>
 
-        <!-- Profile Card -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-body text-center">
-                <i class="bi bi-person-circle fs-1 text-primary mb-3"></i>
-                <h4 class="card-title"><%= profileUser.name %></h4>
-                
-                <!-- Stats principales -->
-                <div class="row text-center">
-                    <div class="col-6">
-                        <div class="h5 mb-1 text-primary"><%= stats.total_words || 0 %></div>
-                        <small class="text-muted">Words</small>
-                    </div>
-                    <div class="col-6">
-                        <div class="h5 mb-1 text-warning"><%= stats.total_duels || 0 %></div>
-                        <small class="text-muted">Duels</small>
-                    </div>
+        <!-- Version avec seulement le drapeau à côté du nom -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <div class="row align-items-center">
+              <div class="col-auto">
+                <div class="avatar" style="width: 48px; height: 48px;">
+                  <i class="bi bi-person-fill"></i>
                 </div>
-            </div>
-        </div>
-
-        <!-- Performance -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-white">
-                <h6 class="mb-0 d-flex align-items-center">
-                    <i class="bi bi-graph-up me-2"></i>
-                    Performance
-                </h6>
-            </div>
-            <div class="card-body">
-                <!-- Stats globales -->
-                <div class="row text-center mb-4">
-                    <div class="col-4">
-                        <div class="h5 mb-1" id="totalWords">-</div>
-                        <div class="text-muted small">Words</div>
-                    </div>
-                    <div class="col-4">
-                        <div class="h5 mb-1" id="totalQuizzes">-</div>
-                        <div class="text-muted small">Quizzes</div>
-                    </div>
-                    <div class="col-4">
-                        <div class="h5 mb-1" id="totalDuels">-</div>
-                        <div class="text-muted small">Duels</div>
-                    </div>
+              </div>
+              <div class="col">
+                <!-- Nom avec drapeau -->
+                <div class="mb-0 d-flex align-items-center">
+                  <div class="fw-bold text-dark me-2" id="userNameDisplay"><%= profileUser.name %></div>
+                  <span class="flag-icon fs-6" id="userFlagDisplay">
+                    <% if (profileUser.country) { %>
+                      <!-- Le drapeau sera géré par JavaScript -->
+                    <% } else { %>
+                      🏳️
+                    <% } %>
+                  </span>
                 </div>
                 
-                <!-- Jauge de progression -->
-                <div class="progress-container">
-                    <div class="progress" style="height: 8px;">
-                        <div class="progress-bar bg-primary" id="masteredBar" role="progressbar" style="width: 0%"></div>
-                        <div class="progress-bar bg-info" id="learningBar" role="progressbar" style="width: 0%"></div>
-                        <div class="progress-bar bg-warning" id="mediumBar" role="progressbar" style="width: 0%"></div>
-                        <div class="progress-bar bg-secondary" id="newBar" role="progressbar" style="width: 0%"></div>
-                    </div>
-                    <div class="text-center text-muted mt-2" style="font-size: 0.8rem;">
-                        <span id="masteryText">0% mastered words</span>
-                    </div>
+                <!-- Phrase d'accroche seulement -->
+                <div class="mb-4">
+                  <p class="text-muted small mb-0" id="userTaglineDisplay">
+                    <i class="bi bi-quote me-1"></i>
+                    <span id="taglineText">
+                      <% if (profileUser.tagline) { %>
+                        <%= profileUser.tagline %>
+                      <% } else { %>
+                        No tagline yet
+                      <% } %>
+                    </span>
+                  </p>
                 </div>
+              </div>
             </div>
+            
+            <!-- Stats globales -->
+            <div class="row text-center mb-4">
+              <div class="col-4">
+                <div class="h5 mb-1" id="totalWords">-</div>
+                <div class="text-muted small">Words</div>
+              </div>
+              <div class="col-4">
+                <div class="h5 mb-1" id="totalQuizzes">-</div>
+                <div class="text-muted small">Quizzes</div>
+              </div>
+              <div class="col-4">
+                <div class="h5 mb-1" id="totalDuels">-</div>
+                <div class="text-muted small">Duels</div>
+              </div>
+            </div>
+            
+            <!-- Jauge de progression -->
+            <div class="progress-container">
+              <div class="progress" style="height: 8px;">
+                <div class="progress-bar bg-primary" id="masteredBar" role="progressbar" style="width: 0%"></div>
+                <div class="progress-bar bg-info" id="learningBar" role="progressbar" style="width: 0%"></div>
+                <div class="progress-bar bg-warning" id="mediumBar" role="progressbar" style="width: 0%"></div>
+                <div class="progress-bar bg-secondary" id="newBar" role="progressbar" style="width: 0%"></div>
+              </div>
+              <div class="text-center text-muted mt-2" style="font-size: 0.8rem;">
+                <span id="masteryText">0% mastered words</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- Duels récents de cet utilisateur -->
-        <div class="card shadow-sm">
-            <div class="card-header bg-white">
-                <h6 class="mb-0 d-flex align-items-center">
-                    <i class="bi bi-clock me-2"></i>
-                    Recent duels
-                </h6>
-            </div>
-            <div class="card-body p-0">
-                <div id="user-recent-duels">
-                    <div class="text-center py-4">
-                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                        <p class="mt-2 text-muted small">Loading...</p>
-                    </div>
+        <!-- Statistiques des mots -->
+        <div class="card">
+          <div class="card-header">
+            <h6 class="mb-0 d-flex align-items-center">
+              <i class="bi bi-bar-chart me-2"></i>
+              Words statistics
+            </h6>
+          </div>
+          <div class="card-body">
+            <ul id="hskStats" class="list-group list-group-flush">
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <p class="mt-2 text-muted small">Loading statistics...</p>
                 </div>
-            </div>
+            </ul>
+          </div>
         </div>
     </div>
 
-    <!-- Modal Défi - MÊME QUE LA PAGE DUELS -->
+    <!-- Modal Défi -->
     <div class="modal fade" id="duelModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -165,9 +169,70 @@
 
         // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
+            initializeUserProfile();
             loadPerformanceStats();
-            loadUserRecentDuels();
+            loadHskStats();
         });
+
+        // Initialisation du profil utilisateur avec les données EJS
+        function initializeUserProfile() {
+            const flagDisplay = document.getElementById('userFlagDisplay');
+            <% if (profileUser.country) { %>
+                flagDisplay.textContent = getFlagEmoji('<%= profileUser.country %>');
+                flagDisplay.title = '<%= profileUser.country %>';
+            <% } else { %>
+                flagDisplay.textContent = '🏳️';
+            <% } %>
+        }
+
+        // Fonction utilitaire pour obtenir l'emoji drapeau
+        function getFlagEmoji(countryCode) {
+            if (!countryCode) return '🏳️';
+            const codePoints = countryCode
+                .toUpperCase()
+                .split('')
+                .map(char => 127397 + char.charCodeAt());
+            return String.fromCodePoint(...codePoints);
+        }
+
+        // Chargement des statistiques HSK
+        function loadHskStats() {
+            const container = document.getElementById('hskStats');
+            
+            <% if (hskStats && hskStats.length > 0) { %>
+                const hskStats = [
+                    <% hskStats.forEach((stat, index) => { %>
+                        { level: "<%= stat.level %>", count: <%= stat.count %> }<%= index < hskStats.length - 1 ? ',' : '' %>
+                    <% }); %>
+                ];
+                
+                console.log('📊 Statistiques HSK chargées:', hskStats);
+                
+                // Trier les niveaux HSK dans l'ordre logique
+                const sortedStats = hskStats.sort((a, b) => {
+                    const getLevelNumber = (level) => {
+                        if (level === 'Street') return 0;
+                        const match = level.match(/HSK (\d+)/);
+                        return match ? parseInt(match[1]) : 99;
+                    };
+                    return getLevelNumber(a.level) - getLevelNumber(b.level);
+                });
+
+                container.innerHTML = sortedStats.map(stat => `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="fw-medium">${stat.level}</span>
+                        <span class="badge bg-primary rounded-pill">${stat.count} words</span>
+                    </li>
+                `).join('');
+            <% } else { %>
+                container.innerHTML = `
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-bar-chart fs-2 opacity-50"></i>
+                        <p class="mt-2 small">No words learned yet</p>
+                    </div>
+                `;
+            <% } %>
+        }
 
         // Chargement des performances
         async function loadPerformanceStats() {
@@ -248,119 +313,7 @@
             }
         }
 
-        // Duels récents de l'utilisateur
-        async function loadUserRecentDuels() {
-            try {
-                const response = await fetch(`/api/duels/history?limit=6`);
-                const duels = await response.json();
-                const container = document.getElementById('user-recent-duels');
-
-                console.log('📊 Duels reçus:', duels); // Debug
-
-                if (!duels || duels.length === 0) {
-                    container.innerHTML = `
-                        <div class="text-center py-4 text-muted">
-                            <i class="bi bi-sword fs-2 opacity-50"></i>
-                            <p class="mt-2 small">No duels</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                // CORRECTION : Utiliser l'ID de l'utilisateur du profil depuis une data attribute
-                const profileUserId = parseInt(document.body.getAttribute('data-profile-user-id') || '<%= profileUser.id %>');
-                
-                container.innerHTML = duels.map(duel => renderDuelItem(duel, profileUserId, false)).join('');
-
-            } catch (error) {
-                console.error('Error loading recent duels:', error);
-                document.getElementById('user-recent-duels').innerHTML = `
-                    <div class="alert alert-warning m-3 small">
-                        <i class="bi bi-exclamation-triangle me-1"></i>
-                        Loading error
-                    </div>
-                `;
-            }
-        }
-
-        // MÊME FONCTION renderDuelItem QUE LA PAGE DUELS
-        function renderDuelItem(duel, userId, isPending) {
-            const isChallenger = duel.challenger_id === userId;
-            const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name;
-            const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
-            const opponentScore = isChallenger ? duel.opponent_score : duel.challenger_score;
-            const hasUserPlayed = userScore !== null;
-            const hasOpponentPlayed = opponentScore !== null;
-
-            let status = '', cta = '';
-
-            if (isPending) {
-                if (!hasUserPlayed) {
-                    status = '<span class="badge bg-primary">À jouer</span>';
-                    cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">Jouer</button>`;
-                } else {
-                    status = '<span class="badge bg-secondary">En attente</span>';
-                    cta = '';
-                }
-            } else {
-                const userWon = userScore > opponentScore;
-                const isDraw = userScore === opponentScore;
-                
-                if (isDraw) {
-                    status = '<span class="badge bg-warning">Even</span>';
-                } else if (userWon) {
-                    status = '<span class="badge bg-success">Victory</span>';
-                } else {
-                    status = '<span class="badge bg-danger">Defeated</span>';
-                }
-                cta = '';
-            }
-
-            // Affichage du montant du pari
-            const betDisplay = duel.bet_amount > 0 ? 
-                `<span class="badge bg-warning text-dark ms-2"><i class="bi bi-coin me-1"></i>${duel.bet_amount}</span>` : 
-                '';
-
-            // Rendre la ligne cliquable si le duel est terminé
-            const isCompleted = !isPending && hasUserPlayed && hasOpponentPlayed;
-            const clickableClass = isCompleted ? 'clickable-row' : '';
-            const onClick = isCompleted ? `onclick="viewDuelDetails(${duel.id})"` : '';
-
-            return `
-                <div class="list-item d-flex justify-content-between align-items-center border-bottom p-3 ${clickableClass}" 
-                    ${onClick}
-                    style="${isCompleted ? 'cursor: pointer; transition: background-color 0.2s;' : ''}"
-                    onmouseover="${isCompleted ? 'this.style.backgroundColor=\"#f8f9fa\"' : ''}"
-                    onmouseout="${isCompleted ? 'this.style.backgroundColor=\"\"' : ''}">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar me-3">
-                            <i class="bi bi-person"></i>
-                        </div>
-                        <div>
-                            <div class="small fw-medium">
-                                ${opponentName}
-                                ${betDisplay}
-                            </div>
-                            <div class="text-muted" style="font-size: 0.75rem;">
-                                ${userScore !== null ? userScore : '?'} - ${opponentScore !== null ? opponentScore : '?'}
-                                ${status}
-                            </div>
-                        </div>
-                    </div>
-                    ${cta}
-                </div>
-            `;
-        }
-
-        // MÊMES FONCTIONS QUE LA PAGE DUELS
-        function viewDuelDetails(duelId) {
-            window.location.href = `/duel/${duelId}`;
-        }
-
-        function playDuel(duelId) {
-            window.location.href = `/duel-play/${duelId}`;
-        }
-
+        // Fonctions pour les duels
         function openDuelModal(opponentId, opponentName) {
             currentOpponent = opponentId;
             document.getElementById('opponentName').textContent = opponentName;
