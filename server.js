@@ -341,7 +341,6 @@ app.get('/api/debug-session', (req, res) => {
   });
 });
 
-
 // Pages EJS
 app.get("/", (req, res) => {
     const error = req.query.error;  // <-- récupère l'erreur depuis la query string
@@ -437,75 +436,6 @@ app.get('/duels', ensureAuth, (req, res) => {
     currentPage: 'duels',
     user: req.user
   });
-});
-
-app.get('/user/:id', ensureAuth, async (req, res) => {
-  try {
-    const userId = req.params.id;
-    const currentUserId = req.user.id;
-
-    // Récupérer les infos de l'utilisateur
-    const userResult = await pool.query(`
-      SELECT id, name, email, created_at, country, tagline, balance
-      FROM users 
-      WHERE id = $1
-    `, [userId]);
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).send('Utilisateur non trouvé');
-    }
-
-    const user = userResult.rows[0];
-
-    // Stats globales
-    const statsResult = await pool.query(`
-      SELECT 
-        COUNT(DISTINCT um.mot_id) as total_words,
-        COUNT(DISTINCT d.id) as total_duels
-      FROM users u
-      LEFT JOIN user_mots um ON u.id = um.user_id
-      LEFT JOIN duels d ON (u.id = d.challenger_id OR u.id = d.opponent_id)
-      WHERE u.id = $1
-      GROUP BY u.id
-    `, [userId]);
-
-    const stats = statsResult.rows[0] || {};
-
-    // Récupérer la répartition HSK - CORRECTION ICI
-    const hskResult = await pool.query(`
-      SELECT 
-        CASE 
-          WHEN m.hsk IS NULL THEN 'Street' 
-          ELSE 'HSK ' || m.hsk::text 
-        END as level,
-        COUNT(*) as count
-      FROM user_mots um
-      JOIN mots m ON um.mot_id = m.id
-      WHERE um.user_id = $1
-      GROUP BY 
-        CASE 
-          WHEN m.hsk IS NULL THEN 'Street' 
-          ELSE 'HSK ' || m.hsk::text 
-        END
-      ORDER BY level
-    `, [userId]);
-
-    console.log('🎯 Données HSK récupérées:', hskResult.rows); // Debug
-
-    res.render('user-profile', {
-      currentPage: 'duels',
-      user: req.user,
-      profileUser: user,
-      stats: stats,
-      hskStats: hskResult.rows, // ← BIEN ENVOYÉ
-      isOwnProfile: userId == currentUserId,
-      balance: user.balance || 0
-    });
-
-  } catch (error) {
-    console.error('💥 ERREUR /user/:id:', error);
-    res.status(500).send('Erreur serveur');
-  }
 });
 
 app.get('/duel/:id', ensureAuth, async (req, res) => {
@@ -688,6 +618,87 @@ app.get('/bank', ensureAuth, async (req, res) => {
   } catch (err) {
     console.error('❌ Erreur chargement page bank:', err);
     res.status(500).render('error', { error: 'Erreur lors du chargement de la page' });
+  }
+});
+
+// Route pour JOUER un duel (page de quiz)
+app.get('/duel-play/:id', ensureAuth, async (req, res) => {
+  try {
+    const duelId = req.params.id;
+    const userId = req.user.id;
+
+    console.log('🎯 Route /duel-play/:id appelée avec:', { duelId, userId });
+
+    // Récupérer les infos du duel
+    const duelResult = await pool.query(`
+      SELECT 
+        d.*,
+        c.name as challenger_name,
+        o.name as opponent_name
+      FROM duels d
+      LEFT JOIN users c ON d.challenger_id = c.id
+      LEFT JOIN users o ON d.opponent_id = o.id
+      WHERE d.id = $1 AND (d.challenger_id = $2 OR d.opponent_id = $2)
+    `, [duelId, userId]);
+
+    if (duelResult.rows.length === 0) {
+      return res.status(404).render('error', { message: 'Duel non trouvé' });
+    }
+
+    const duel = duelResult.rows[0];
+    
+    // Vérifier que l'utilisateur peut jouer (n'a pas déjà joué)
+    const isChallenger = duel.challenger_id === userId;
+    const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
+    
+    if (userScore !== null) {
+      console.log('❌ Utilisateur a déjà joué, redirection vers détail');
+      return res.redirect(`/duel/${duelId}`);
+    }
+
+    console.log('📊 quiz_data brut:', duel.quiz_data);
+    
+    // Parse les données du quiz
+    let quizData = [];
+    if (duel.quiz_data) {
+      try {
+        let parsedData = typeof duel.quiz_data === 'string' 
+          ? JSON.parse(duel.quiz_data) 
+          : duel.quiz_data;
+        
+        // Extraction des mots
+        if (parsedData.words && Array.isArray(parsedData.words)) {
+          quizData = { words: parsedData.words }; // Structure attendue par le frontend
+          console.log('✅ Mots extraits de quiz_data.words:', quizData.words.length);
+        } else if (Array.isArray(parsedData)) {
+          // Ancien format
+          quizData = { words: parsedData };
+          console.log('✅ Mots dans array direct:', quizData.words.length);
+        } else {
+          console.log('❌ Structure inconnue de quiz_data');
+          quizData = { words: [] };
+        }
+        
+      } catch (e) {
+        console.error('❌ Erreur parsing quiz_data:', e);
+        quizData = { words: [] };
+      }
+    }
+
+    console.log('📝 quizData final:', quizData.words ? quizData.words.length : 0, 'mots');
+
+    // Rendre le template de jeu de duel
+    res.render('duel-play', {
+      currentPage: 'duels',
+      user: req.user,
+      duel: duel,
+      quizData: quizData,  // Doit être un objet avec propriété "words"
+      isChallenger: isChallenger
+    });
+
+  } catch (error) {
+    console.error('💥 ERREUR /duel-play/:id:', error);
+    res.status(500).render('error', { message: 'Erreur serveur' });
   }
 });
 
