@@ -141,7 +141,7 @@ app.post("/auth/google/one-tap", async (req, res) => {
     await transaction.query('BEGIN');
 
     let userRes = await transaction.query(
-      `SELECT id, email, name, provider_id FROM users 
+      `SELECT id, email, name, provider_id, balance FROM users 
        WHERE provider_id = $1 OR email = $2 
        ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END 
        LIMIT 1`,
@@ -152,14 +152,16 @@ app.post("/auth/google/one-tap", async (req, res) => {
     let user;
 
     if (userRes.rows.length === 0) {
+      // 🆕 NOUVEL UTILISATEUR - DONNER 100 PIÈCES
       userRes = await transaction.query(
-        `INSERT INTO users (email, name, provider, provider_id, last_login) 
-         VALUES ($1, $2, 'google', $3, NOW()) 
-         RETURNING id, email, name`,
+        `INSERT INTO users (email, name, provider, provider_id, last_login, balance) 
+         VALUES ($1, $2, 'google', $3, NOW(), 100)  -- ✅ 100 pièces pour les nouveaux
+         RETURNING id, email, name, balance`,
         [email, name, googleId]
       );
       user = userRes.rows[0];
       isNewUser = true;
+      console.log(`🎉 Nouvel utilisateur One Tap créé avec ${user.balance} pièces`);
     } else {
       user = userRes.rows[0];
       await transaction.query(
@@ -170,21 +172,19 @@ app.post("/auth/google/one-tap", async (req, res) => {
 
     await transaction.query('COMMIT');
 
-    // Modification ici : Utiliser login() de Passport
     req.login(user, async (err) => {
       if (err) {
         console.error('❌ Erreur login Passport:', err);
         return res.status(500).json({ success: false, error: 'Erreur authentification' });
       }
 
-      // Puis sauvegarder la session
       req.session.save((err) => {
         if (err) {
           console.error('❌ Erreur sauvegarde session:', err);
           return res.status(500).json({ success: false, error: 'Erreur session' });
         }
 
-        console.log('✅ Session créée avec succès:', req.session);
+        console.log('✅ Session créée avec succès. Balance:', user.balance);
         res.json({ 
           success: true, 
           redirect: '/dashboard',
@@ -192,6 +192,7 @@ app.post("/auth/google/one-tap", async (req, res) => {
             id: user.id,
             name: user.name,
             email: user.email,
+            balance: user.balance,
             isNewUser: isNewUser
           }
         });
@@ -326,7 +327,6 @@ app.get('/session-persistence-test', (req, res) => {
   });
 });
 
-// Route pour inspecter la session
 app.get('/api/debug-session', (req, res) => {
   console.log('=== SESSION COMPLETE ===');
   console.log('Session ID:', req.sessionID);
@@ -340,6 +340,7 @@ app.get('/api/debug-session', (req, res) => {
     user: req.session.user
   });
 });
+
 
 // Pages EJS
 app.get("/", (req, res) => {
@@ -403,20 +404,6 @@ app.get('/collection', ensureAuth, async (req, res) => {
   }
 });
 
-app.get('/quiz-pinyin', ensureAuth, (req, res) => {
-  res.render('quiz-pinyin', {
-    currentPage: 'quiz-pinyin',
-    user: req.user
-  });
-});
-
-app.get('/quiz-character', ensureAuth, (req, res) => {
-  res.render('quiz-character', {
-    currentPage: 'quiz-character', 
-    user: req.user
-  });
-});
-
 app.get('/account', ensureAuth, (req, res) => {
   res.render('account', {
     currentPage: 'account',
@@ -427,6 +414,13 @@ app.get('/account', ensureAuth, (req, res) => {
 app.get('/quiz', ensureAuth, (req, res) => {
   res.render('quiz', {
     currentPage: 'quiz',
+    user: req.user
+  });
+});
+
+app.get('/quiz-play', ensureAuth, (req, res) => {
+  res.render('quiz-play', {
+    currentPage: 'quiz-play',
     user: req.user
   });
 });
@@ -723,6 +717,8 @@ app.get('/store', ensureAuth, async (req, res) => {
 });
 
 app.use(errorHandler);
+
+
 
 // -------------------- Lancer serveur --------------------
 const PORT = process.env.PORT || 3000;

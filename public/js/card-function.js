@@ -360,6 +360,13 @@ function hideCharacterCard() {
     }
 }
 
+// S'assurer que la fonction est accessible
+window.showCardDetails = function(wordId, chineseText) {
+  // Votre code existant pour afficher les détails
+  console.log('Show card for:', chineseText, 'ID:', wordId);
+  // Ouvrir une modal ou afficher des détails
+};
+
 // ==================================================
 // EXPORT POUR LES MODULES (si besoin)
 // ==================================================

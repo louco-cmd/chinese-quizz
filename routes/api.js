@@ -116,31 +116,6 @@ router.get('/account-info', ensureAuth, async (req, res) => {
   }
 });
 
-router.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
-  const userId = req.user.id;
-
-  try {
-    const chinese = decodeURIComponent(req.params.chinese);
-    console.log('🔍 DEBUG - Vérification:', { userId, chinese });
-
-    const { rows } = await pool.query(`
-      SELECT mots.*
-      FROM mots
-      JOIN user_mots ON mots.id = user_mots.mot_id
-      WHERE user_mots.user_id = $1 AND mots.chinese = $2
-    `, [userId, chinese]);
-
-    console.log('✅ DEBUG - Résultats:', rows);
-    const alreadyExists = rows.length > 0;
-    
-    res.json({ alreadyExists });
-
-  } catch (err) {
-    console.error('❌ DEBUG - Erreur:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
 router.get("/api/contributions", ensureAuth, async (req, res) => {
   try {
     console.log('🔍 Requête reçue pour /api/contributions');
@@ -572,16 +547,46 @@ router.get("/check-mot/:chinese", ensureAuth, async (req, res) => {
   }
 });
 
-router.get('/quiz-mots', ensureAuth, async (req, res) => {
+router.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const chinese = decodeURIComponent(req.params.chinese);
+    console.log('🔍 DEBUG - Vérification:', { userId, chinese });
+
+    const { rows } = await pool.query(`
+      SELECT mots.*
+      FROM mots
+      JOIN user_mots ON mots.id = user_mots.mot_id
+      WHERE user_mots.user_id = $1 AND mots.chinese = $2
+    `, [userId, chinese]);
+
+    console.log('✅ DEBUG - Résultats:', rows);
+    const alreadyExists = rows.length > 0;
+    
+    res.json({ alreadyExists });
+
+  } catch (err) {
+    console.error('❌ DEBUG - Erreur:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+ router.get('/quiz-mots', ensureAuth, async (req, res) => {
   const userId = req.user.id;
   const requestedCount = req.query.count === 'all' ? null : parseInt(req.query.count) || 10;
   const hskLevel = req.query.hsk || 'all';
+  const quizType = req.query.type || 'pinyin';
 
-  console.log('🎯 API /quiz-mots routerelée avec:', { 
+  console.log('🎯 API /quiz-mots appelée avec:', { 
     userId, 
     requestedCount, 
-    hskLevel 
+    hskLevel,
+    quizType,
+    fullUrl: req.originalUrl,
+    queryParams: req.query
   });
+
 
   try {
     let query = `
@@ -600,12 +605,22 @@ router.get('/quiz-mots', ensureAuth, async (req, res) => {
     // Filtre HSK corrigé
     if (hskLevel !== 'all') {
       if (hskLevel === 'street') {
-        query += ` AND mots.hsk IS NULL`;  // Street Chinese = hsk IS NULL
+        query += ` AND mots.hsk IS NULL`;
       } else {
         paramCount++;
-        query += ` AND mots.hsk = $${paramCount}`;  // HSK normal = hsk = valeur
+        query += ` AND mots.hsk = $${paramCount}`;
         params.push(parseInt(hskLevel));
       }
+    }
+
+    // 🔥 NOUVEAU : Filtre optionnel pour le mode caractères
+    if (quizType === 'character') {
+      // Optionnel : filtrer les mots trop longs pour les débutants en caractères
+      // Par exemple, limiter à 3 caractères maximum
+      // query += ` AND LENGTH(mots.chinese) <= 3`;
+      
+      // Ou prioriser les mots avec moins de caractères
+      // query += ` ORDER BY LENGTH(mots.chinese) ASC, mots.hsk ASC`;
     }
 
     console.log('📝 Query:', query);
@@ -619,7 +634,7 @@ router.get('/quiz-mots', ensureAuth, async (req, res) => {
       return res.json([]);
     }
 
-    // Le reste de ta logique de sélection intelligente...
+    // La logique de sélection intelligente par score reste identique
     const motsFaibles = rows.filter(mot => mot.score < 50)
       .sort((a, b) => a.nb_quiz - b.nb_quiz);
     const motsMoyens = rows.filter(mot => mot.score >= 50 && mot.score < 80)
@@ -666,7 +681,8 @@ router.get('/quiz-mots', ensureAuth, async (req, res) => {
       moyens: selectionMoyens.length,
       forts: selectionForts.length,
       total: motsSelectionnes.length,
-      hsk: hskLevel
+      hsk: hskLevel,
+      type: quizType
     });
 
     res.json(motsSelectionnes);

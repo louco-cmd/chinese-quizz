@@ -40,22 +40,21 @@ passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.GOOGLE_CALLBACK_URL,
-    passReqToCallback: true, // ← IMPORTANT pour accéder à req
+    passReqToCallback: true,
     scope: ['profile', 'email'],
-    state: true, // Sécurité contre les attaques CSRF
+    state: true,
   },
   async function(req, accessToken, refreshToken, profile, done) {
     const transaction = await pool.connect();
     try {
-      console.log("PROFILE GOOGLE :", profile); // 👈 ajoute ça !
+      console.log("PROFILE GOOGLE :", profile);
       const { id, displayName, emails, photos } = profile;
       const email = emails[0].value;
 
       await transaction.query('BEGIN');
 
-      // ✅ CORRIGER : Déclarer userRes avec 'let'
       let userRes = await transaction.query(
-        `SELECT id, email, name, provider_id FROM users 
+        `SELECT id, email, name, provider_id, balance FROM users 
          WHERE provider_id = $1 OR email = $2 
          ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END 
          LIMIT 1`,
@@ -66,16 +65,18 @@ passport.use(new GoogleStrategy({
       let user;
 
       if (userRes.rows.length === 0) {
-        // 🆕 NOUVEL UTILISATEUR
-        console.log('👤 Création nouveau utilisateur:', email);
+        // 🆕 NOUVEL UTILISATEUR - DONNER 100 PIÈCES
+        console.log('👤 Création nouveau utilisateur avec bonus de 100 pièces:', email);
         const newUser = await transaction.query(
-          `INSERT INTO users (email, name, provider, provider_id, last_login) 
-           VALUES ($1, $2, 'google', $3, NOW())  -- ✅ Commentaire correct
-           RETURNING id, email, name`,
+          `INSERT INTO users (email, name, provider, provider_id, last_login, balance) 
+           VALUES ($1, $2, 'google', $3, NOW(), 100)  -- ✅ 100 pièces pour les nouveaux
+           RETURNING id, email, name, balance`,
           [email, displayName, id]
         );
         user = newUser.rows[0];
         isNewUser = true;
+        
+        console.log(`🎉 Nouvel utilisateur créé avec ${user.balance} pièces`);
       } else {
         // 🔄 UTILISATEUR EXISTANT
         user = userRes.rows[0];
@@ -96,11 +97,12 @@ passport.use(new GoogleStrategy({
 
       await transaction.query('COMMIT');
       
-      console.log('✅ Authentification réussie pour:', user.email);
+      console.log('✅ Authentification réussie pour:', user.email, 'Balance:', user.balance);
       done(null, { 
         id: user.id,
         email: user.email, 
         name: user.name,
+        balance: user.balance,
         isNewUser: isNewUser
       });
 
@@ -108,7 +110,6 @@ passport.use(new GoogleStrategy({
       await transaction.query('ROLLBACK');
       console.error('❌ Erreur Passport Google:', err);
       
-      // Erreur plus spécifique
       const errorMessage = err.code === '23505' ? 
         'Un compte avec cet email existe déjà' : 
         'Erreur de base de données';
@@ -119,7 +120,6 @@ passport.use(new GoogleStrategy({
     }
   }
 ));
-console.log("GOOGLE_CALLBACK_URL =", process.env.GOOGLE_CALLBACK_URL);
 
 
 // === FONCTION POUR CONFIGURER LES ROUTES ===

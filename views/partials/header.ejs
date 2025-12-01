@@ -11,234 +11,280 @@
     <div style="width: 3rem;"></div>
   <% } %>
   
-  <div class="d-flex align-items-center gap-2">
+  <div class="d-flex align-items-center gap-3">
     <!-- Solde compact, aligné horizontalement -->
-    <a href="/bank" title="Voir le détail du compte" class="text-decoration-none">
-    <div title="Votre solde" class="d-flex align-items-center px-2 py-1 bg-white bg-opacity-10 rounded-pill text-white" style="min-width: fit-content; gap: 8px; user-select: none; transition: all 0.2s ease; cursor: pointer;">
+    <a href="/bank" title="View account details" class="text-decoration-none">
+      <div title="Your balance" class="d-flex align-items-center px-2 py-1 bg-white bg-opacity-10 rounded-pill text-white" 
+           style="min-width: fit-content; gap: 8px; user-select: none; transition: all 0.2s ease; cursor: pointer;">
         <i class="fa-solid fa-coins fs-5"></i>
         <small class="text-white fw-semibold" style="font-size: 0.75rem;">balance :</small>
         <span id="game-balance" class="fw-bold fs-6"><%= Number(balance) + '₵' %></span>
-    </div>
+      </div>
     </a>
 
-    <!-- Mon Compte -->
-    <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold" style="gap: 6px; transition: color 0.3s ease;">
-      <i class="fa-solid fa-user"></i>
-      <i class="jiayou-nav-icon bi bi-person-square"></i>
-    </a>
+    <!-- Mon Compte avec pastille de notifications pour les duels -->
+    <div class="position-relative">
+      <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold" 
+         style="gap: 6px; transition: color 0.3s ease; position: relative;">
+        <i class="bi bi-person-square"></i>
+        <!-- Pastille de notifications pour les duels -->
+        <span id="duel-notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary border border-white" 
+              style="display: none; font-size: 0.6rem; padding: 0.25rem 0.4rem; min-width: 1.2rem;">
+          <span id="duel-count">0</span>
+        </span>
+      </a>
+    </div>
   </div>
 </div>
 
-
-
-
-
-
-<!-- Style pour les notifications -->
 <style>
-.notification-item {
-    animation: slideDown 0.3s ease-out;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    border-left: 4px solid #0d6efd;
+/* Styles pour la pastille de notifications */
+#duel-notification-badge {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease;
 }
 
-.notification-success {
-    border-left-color: #198754;
+#duel-notification-badge:hover {
+  transform: scale(1.1);
 }
 
-.notification-warning {
-    border-left-color: #ffc107;
-}
-
-.notification-error {
-    border-left-color: #dc3545;
-}
-
-.notification-info {
-    border-left-color: #0dcaf0;
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes slideUp {
-    from {
-        opacity: 1;
-        transform: translateY(0);
-    }
-    to {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-}
-
-.notification-exit {
-    animation: slideUp 0.3s ease-out forwards;
+/* Style pour le hover du lien compte */
+a[href="/account"]:hover {
+  color: #cfe2ff !important;
 }
 </style>
 
 <script>
-window.addEventListener('load', fetchAndUpdateBalance);
+// 🔥 MODIFICATION : Vérifier si on est sur la page account
+const isAccountPage = window.location.pathname === '/account';
 
-// Gestionnaire de notifications global
-class NotificationManager {
-    constructor() {
-        this.notifications = [];
-        this.maxNotifications = 3;
-        this.autoHideDelay = 5000; // 5 secondes
-        this.init();
-    }
-    
-    init() {
-        // Écouter les événements de notification
-        document.addEventListener('showNotification', (e) => {
-            this.show(e.detail);
-        });
-    }
-    
-    show(notification) {
-        const notificationData = {
-            id: Date.now() + Math.random(),
-            type: notification.type || 'info',
-            title: notification.title,
-            message: notification.message,
-            duration: notification.duration || this.autoHideDelay,
-            action: notification.action
-        };
-        
-        this.notifications.unshift(notificationData);
-        this.render();
-        
-        // Auto-hide si une durée est spécifiée
-        if (notificationData.duration > 0) {
-            setTimeout(() => {
-                this.hide(notificationData.id);
-            }, notificationData.duration);
-        }
-    }
-    
-    hide(notificationId) {
-        const notificationElement = document.querySelector(`[data-notification-id="${notificationId}"]`);
-        if (notificationElement) {
-            notificationElement.classList.add('notification-exit');
-            setTimeout(() => {
-                this.notifications = this.notifications.filter(n => n.id !== notificationId);
-                this.render();
-            }, 300);
-        }
-    }
-    
-    hideAll() {
-        const container = document.getElementById('header-notifications');
-        if (container) {
-            container.querySelectorAll('.notification-item').forEach(item => {
-                item.classList.add('notification-exit');
-            });
-            setTimeout(() => {
-                this.notifications = [];
-                this.render();
-            }, 300);
-        }
-    }
-    
-    render() {
-        const container = document.getElementById('header-notifications');
-        const indicator = document.getElementById('notification-indicator');
-        const countElement = document.getElementById('notification-count');
-        
-        if (!container) return;
-        
-        // Limiter le nombre de notifications affichées
-        const notificationsToShow = this.notifications.slice(0, this.maxNotifications);
-        
-        if (notificationsToShow.length > 0) {
-            container.innerHTML = notificationsToShow.map(notif => `
-                <div class="card notification-item notification-${notif.type} mb-2" 
-                     data-notification-id="${notif.id}">
-                    <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
-                                <h6 class="card-title mb-1">${notif.title}</h6>
-                                <p class="card-text small mb-0">${notif.message}</p>
-                                ${notif.action ? `
-                                    <button class="btn btn-sm btn-outline-${notif.type} mt-2" 
-                                            onclick="window.notificationManager.handleAction('${notif.action}')">
-                                        ${notif.action.label || 'Action'}
-                                    </button>
-                                ` : ''}
-                            </div>
-                            <button type="button" class="btn-close btn-close-sm ms-2" 
-                                    onclick="window.notificationManager.hide('${notif.id}')"
-                                    aria-label="Fermer"></button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-            
-            container.style.display = 'block';
-            
-            // Mettre à jour l'indicateur
-            if (indicator && countElement) {
-                indicator.style.display = 'block';
-                countElement.textContent = this.notifications.length;
-            }
-        } else {
-            container.style.display = 'none';
-            if (indicator) {
-                indicator.style.display = 'none';
-            }
-        }
-    }
-    
-    handleAction(action) {
-        switch (action.type) {
-            case 'redirect':
-                window.location.href = action.url;
-                break;
-            case 'reload':
-                window.location.reload();
-                break;
-            case 'callback':
-                if (typeof action.callback === 'function') {
-                    action.callback();
-                }
-                break;
-            case 'duel_invite':
-                // Exemple pour une invitation de duel
-                if (action.duelId) {
-                    window.location.href = `/duel-play/${action.duelId}`;
-                }
-                break;
-        }
-        this.hideAll();
-    }
-    
-    // Méthodes utilitaires pour les types courants
-    success(title, message, options = {}) {
-        this.show({ type: 'success', title, message, ...options });
-    }
-    
-    error(title, message, options = {}) {
-        this.show({ type: 'error', title, message, ...options });
-    }
-    
-    warning(title, message, options = {}) {
-        this.show({ type: 'warning', title, message, ...options });
-    }
-    
-    info(title, message, options = {}) {
-        this.show({ type: 'info', title, message, ...options });
-    }
+window.addEventListener('load', function() {
+  fetchAndUpdateBalance();
+  if (!isAccountPage) {
+    loadPendingDuels(); // Charger les duels en attente uniquement si PAS sur account
+  }
+});
+
+// Stockage local pour suivre si la notification a déjà été affichée aujourd'hui
+function shouldShowDuelNotification() {
+  const lastNotificationDate = localStorage.getItem('lastDuelNotificationDate');
+  if (!lastNotificationDate) return true;
+  
+  const today = new Date().toDateString();
+  const lastDate = new Date(lastNotificationDate).toDateString();
+  
+  return today !== lastDate;
 }
 
+function markDuelNotificationShown() {
+  localStorage.setItem('lastDuelNotificationDate', new Date().toISOString());
+}
+
+// Fonction pour charger les duels en attente
+async function loadPendingDuels() {
+  // Ne pas exécuter sur la page account
+  if (isAccountPage) return;
+  
+  try {
+    const response = await fetch('/api/duels/pending');
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const duels = await response.json();
+    updateDuelNotification(duels.length);
+    
+    // Afficher une notification discrète UNE FOIS par jour maximum
+    if (duels.length > 0 && shouldShowDuelNotification()) {
+      console.log(`🎯 ${duels.length} pending duel(s)`);
+      
+      let message = '';
+      if (duels.length === 1) {
+        message = 'You have a pending duel';
+      } else {
+        message = `You have ${duels.length} pending duels`;
+      }
+      
+      // Afficher une notification discrète
+      showInfoNotification('Pending duel', message, {
+        duration: 20000 // 4 secondes
+      });
+      
+      // Marquer comme affiché pour aujourd'hui
+      markDuelNotificationShown();
+    }
+    
+  } catch (error) {
+    console.error('Error loading duels:', error);
+    // En cas d'erreur, cacher la pastille
+    const badge = document.getElementById('duel-notification-badge');
+    if (badge) {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+// 🔥 MODIFICATION : Fonction simplifiée qui ne touche qu'aux éléments du header
+function updateDuelNotification(count) {
+  // Ne rien faire si on est sur la page account
+  if (isAccountPage) return;
+  
+  const badge = document.getElementById('duel-notification-badge');
+  const countElement = document.getElementById('duel-count');
+  
+  if (!badge || !countElement) return;
+  
+  if (count > 0) {
+    countElement.textContent = count > 9 ? '9+' : count;
+    badge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// 🔥 MODIFICATION : Gestionnaire de notifications uniquement pour les pages hors account
+class NotificationManager {
+  constructor() {
+    // Ne pas initialiser sur la page account
+    if (isAccountPage) return;
+    
+    this.notifications = [];
+    this.maxNotifications = 1; // Une seule notification à la fois
+    this.init();
+  }
+  
+  init() {
+    document.addEventListener('showNotification', (e) => {
+      this.show(e.detail);
+    });
+  }
+  
+  show(notification) {
+    // Créer un élément de notification simple
+    const notificationData = {
+      id: Date.now() + Math.random(),
+      type: notification.type || 'info',
+      title: notification.title,
+      message: notification.message,
+      duration: notification.duration || 4000
+    };
+    
+    // Supprimer toute notification existante
+    this.hideAll();
+    
+    // Créer et afficher la nouvelle notification
+    this.createNotificationElement(notificationData);
+    
+    // Auto-hide si une durée est spécifiée
+    if (notificationData.duration > 0) {
+      setTimeout(() => {
+        this.hide(notificationData.id);
+      }, notificationData.duration);
+    }
+  }
+  
+  createNotificationElement(notification) {
+    // Créer l'élément
+    const notificationElement = document.createElement('div');
+    notificationElement.className = `position-fixed top-0 end-0 mt-5 me-3 p-3 bg-white border border-${notification.type === 'success' ? 'success' : notification.type === 'error' ? 'danger' : notification.type === 'warning' ? 'warning' : 'primary'} rounded shadow-sm`;
+    notificationElement.style.zIndex = '1060';
+    notificationElement.style.maxWidth = '300px';
+    notificationElement.style.animation = 'slideDown 0.3s ease-out';
+    notificationElement.setAttribute('data-notification-id', notification.id);
+    
+    // Contenu en anglais
+    notificationElement.innerHTML = `
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="fw-bold mb-1">${notification.title}</div>
+          <div class="text-muted small">${notification.message}</div>
+        </div>
+        <button type="button" class="btn-close btn-close-sm ms-2" 
+                onclick="window.notificationManager.hide('${notification.id}')"
+                aria-label="Close"></button>
+      </div>
+    `;
+    
+    // Ajouter au body
+    document.body.appendChild(notificationElement);
+    
+    // Stocker la référence
+    this.notifications.push({
+      id: notification.id,
+      element: notificationElement
+    });
+  }
+  
+  hide(notificationId) {
+    const notificationIndex = this.notifications.findIndex(n => n.id === notificationId);
+    if (notificationIndex !== -1) {
+      const notification = this.notifications[notificationIndex];
+      notification.element.style.animation = 'slideUp 0.3s ease-out forwards';
+      
+      setTimeout(() => {
+        if (notification.element.parentNode) {
+          notification.element.parentNode.removeChild(notification.element);
+        }
+        this.notifications.splice(notificationIndex, 1);
+      }, 300);
+    }
+  }
+  
+  hideAll() {
+    this.notifications.forEach(notification => {
+      this.hide(notification.id);
+    });
+    this.notifications = [];
+  }
+  
+  // Méthodes utilitaires pour les types courants
+  success(title, message, options = {}) {
+    this.show({ type: 'success', title, message, ...options });
+  }
+  
+  error(title, message, options = {}) {
+    this.show({ type: 'error', title, message, ...options });
+  }
+  
+  warning(title, message, options = {}) {
+    this.show({ type: 'warning', title, message, ...options });
+  }
+  
+  info(title, message, options = {}) {
+    this.show({ type: 'info', title, message, ...options });
+  }
+}
+
+// 🔥 MODIFICATION : Ajouter les animations CSS uniquement si pas sur account
+if (!isAccountPage) {
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    @keyframes slideUp {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// Fonctions pour récupérer et mettre à jour le solde
 async function fetchAndUpdateBalance() {
   try {
     const res = await fetch('/api/balance', { credentials: 'include' });
@@ -253,7 +299,7 @@ async function fetchAndUpdateBalance() {
       throw new Error('Balance missing in response');
     }
   } catch (error) {
-    console.error('Erreur requête balance:', error);
+    console.error('Balance request error:', error);
   }
 }
 
@@ -264,31 +310,37 @@ function updateGameBalance(newBalance) {
   }
 }
 
-
-// Initialisation
+// 🔥 MODIFICATION : Initialisation uniquement si pas sur account
 document.addEventListener('DOMContentLoaded', () => {
+  if (!isAccountPage && !window.notificationManager) {
     window.notificationManager = new NotificationManager();
+  }
 });
 
-// Fonctions globales pour un usage facile
+// 🔥 MODIFICATION : Fonctions globales pour les notifications (uniquement si pas sur account)
 function showNotification(notification) {
-    const event = new CustomEvent('showNotification', { detail: notification });
-    document.dispatchEvent(event);
+  if (isAccountPage) return; // Ne pas afficher de notifications sur account
+  const event = new CustomEvent('showNotification', { detail: notification });
+  document.dispatchEvent(event);
 }
 
 function showSuccessNotification(title, message, options) {
-    showNotification({ type: 'success', title, message, ...options });
+  if (isAccountPage) return;
+  showNotification({ type: 'success', title, message, ...options });
 }
 
 function showErrorNotification(title, message, options) {
-    showNotification({ type: 'error', title, message, ...options });
+  if (isAccountPage) return;
+  showNotification({ type: 'error', title, message, ...options });
 }
 
 function showWarningNotification(title, message, options) {
-    showNotification({ type: 'warning', title, message, ...options });
+  if (isAccountPage) return;
+  showNotification({ type: 'warning', title, message, ...options });
 }
 
 function showInfoNotification(title, message, options) {
-    showNotification({ type: 'info', title, message, ...options });
+  if (isAccountPage) return;
+  showNotification({ type: 'info', title, message, ...options });
 }
 </script>

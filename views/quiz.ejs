@@ -213,19 +213,15 @@ function selectCount(count) {
   document.getElementById('startQuizBtn').disabled = false;
 }
 
-// 🔥 LANCE LE QUIZ AVEC FILTRE HSK
+// Dans votre fonction startQuiz() de quiz.ejs
 function startQuiz() {
   if (!selectedQuizType || !selectedCount) return;
   
   // Récupère le filtre HSK sélectionné
   const hskFilter = document.getElementById('hskFilter').value;
   
-  let url;
-  if (selectedQuizType === 'pinyin') {
-    url = `/quiz-pinyin?count=${encodeURIComponent(selectedCount)}&hsk=${encodeURIComponent(hskFilter)}`;
-  } else {
-    url = `/quiz-character?count=${encodeURIComponent(selectedCount)}&hsk=${encodeURIComponent(hskFilter)}`;
-  }
+  // Utiliser la nouvelle page unifiée
+  const url = `/quiz-play?type=${encodeURIComponent(selectedQuizType)}&count=${encodeURIComponent(selectedCount)}&hsk=${encodeURIComponent(hskFilter)}`;
   
   // Fermer la modal et rediriger
   const modal = bootstrap.Modal.getInstance(document.getElementById('countModal'));
