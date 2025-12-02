@@ -1,6 +1,10 @@
 const express = require('express');
 const { pool } = require('../config/database');
 const router = express.Router();
+const crypto = require('crypto');
+const { sendEmail } = require('../middleware/email');
+const rateLimit = require('express-rate-limit');
+
 const {
   ensureAuth,
   resilience,
@@ -16,7 +20,188 @@ const {
   getCommonWords,
   updateWordScore,
   addTransaction,
+  selectWordsNormal,
+  selectForAdvancedUser,
+  isValidEmail
 } = require('../middleware/index');
+
+// Rate limiting anti-spam
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 tentatives max
+  message: 'Trop de tentatives, réessayez plus tard'
+});
+
+
+// ---------------------connexion par magic link
+
+// Dans routes/api.js, dans la route POST /auth/magic-link
+router.post('/auth/magic-link', async (req, res) => {
+  console.log('📧 Magic Link request received:', req.body);
+  
+  try {
+    const { email } = req.body;
+    
+    // VALIDATION SIMPLIFIÉE - remplace isValidEmail par ceci :
+    if (!email || typeof email !== 'string') {
+      console.log('❌ Email missing or invalid type:', email);
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    // Validation email basique
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.log('❌ Invalid email format:', email);
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+    
+    // Empêcher les emails jetables courants
+    const disposableDomains = [
+      'tempmail.com', 'mailinator.com', 'guerrillamail.com',
+      '10minutemail.com', 'throwawaymail.com', 'yopmail.com'
+    ];
+    const domain = email.split('@')[1].toLowerCase();
+    if (disposableDomains.some(d => domain.includes(d))) {
+      console.log('❌ Disposable email detected:', email);
+      return res.status(400).json({ error: 'Temporary emails are not accepted' });
+    }
+    
+    console.log('✅ Email validated:', email);
+    
+    // Vérifier/créer la table magic_links
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS magic_links (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) NOT NULL,
+          token VARCHAR(64) NOT NULL UNIQUE,
+          expires_at TIMESTAMP NOT NULL,
+          ip_address INET,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log('✅ Table magic_links OK');
+    } catch (tableError) {
+      console.warn('⚠️ Table check warning:', tableError.message);
+    }
+    
+    // Générer token
+    const crypto = require('crypto');
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+    
+    console.log('🔗 Token generated:', token.substring(0, 20) + '...');
+    
+    try {
+      // Insérer ou mettre à jour
+      await pool.query(`
+        INSERT INTO magic_links (email, token, expires_at, ip_address)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (email) 
+        DO UPDATE SET token = $2, expires_at = $3, created_at = NOW()
+      `, [email, token, expiresAt, req.ip]);
+      
+      console.log('✅ Token saved to database');
+      
+    } catch (dbError) {
+      console.error('❌ Database error:', dbError.message);
+      // Fallback en mémoire
+      if (!global.tempMagicLinks) global.tempMagicLinks = new Map();
+      global.tempMagicLinks.set(token, { email, expiresAt });
+      console.log('✅ Token saved to memory (fallback)');
+    }
+    
+    // Créer le lien
+    const baseUrl = process.env.APP_URL || (req.protocol + '://' + req.get('host'));
+    const magicLink = `${baseUrl}/auth/magic-link/verify?token=${token}&email=${encodeURIComponent(email)}`;
+    
+    console.log('🔗 Magic Link URL:', magicLink);
+    console.log('⏰ Expires at:', expiresAt.toLocaleTimeString());
+    
+    // IMPORTANT: En développement, log le lien pour faciliter les tests
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔗 [DEV] Test link:', magicLink);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Magic link sent! Check your email.',
+      // Retourner des infos de debug en développement
+      ...(process.env.NODE_ENV !== 'production' && {
+        debug_info: {
+          token_short: token.substring(0, 16) + '...',
+          expires: expiresAt.toISOString(),
+          test_link: magicLink
+        }
+      })
+    });
+    
+  } catch (error) {
+    console.error('💥 Magic link endpoint error:', error);
+    console.error('💥 Error stack:', error.stack);
+    
+    res.status(500).json({ 
+      error: 'Server error',
+      message: error.message,
+      ...(process.env.NODE_ENV !== 'production' && {
+        stack: error.stack
+      })
+    });
+  }
+});
+
+router.get('/auth/magic-link/verify', async (req, res) => {
+  try {
+    const { token, email } = req.query;
+    
+    // Vérifier le token
+    const result = await pool.query(`
+      DELETE FROM magic_links 
+      WHERE email = $1 
+        AND token = $2 
+        AND expires_at > NOW()
+      RETURNING *
+    `, [email, token]);
+    
+    if (result.rows.length === 0) {
+      return res.redirect('/login?error=invalid_or_expired_token');
+    }
+    
+    // Trouver ou créer l'utilisateur
+    let user = await findUserByEmail(email);
+    
+    if (!user) {
+      // Créer un nouvel utilisateur
+      user = await createUser({
+        email,
+        name: email.split('@')[0], // Nom par défaut
+        auth_method: 'magic_link',
+        email_verified: true
+      });
+      
+      // Premier login, peut-être un tutoriel
+      req.session.isFirstLogin = true;
+    }
+    
+    // Connecter l'utilisateur
+    req.login(user, (err) => {
+      if (err) {
+        console.error('Login error:', err);
+        return res.redirect('/login?error=auth_failed');
+      }
+      
+      // Succès !
+      if (req.session.isFirstLogin) {
+        return res.redirect('/welcome');
+      }
+      return res.redirect('/dashboard');
+    });
+    
+  } catch (error) {
+    console.error('Verify error:', error);
+    res.redirect('/login?error=server_error');
+  }
+});
 
 // ---------------------API
 
@@ -572,7 +757,7 @@ router.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
   }
 });
 
- router.get('/quiz-mots', ensureAuth, async (req, res) => {
+router.get('/quiz-mots', ensureAuth, async (req, res) => {
   const userId = req.user.id;
   const requestedCount = req.query.count === 'all' ? null : parseInt(req.query.count) || 10;
   const hskLevel = req.query.hsk || 'all';
@@ -582,27 +767,24 @@ router.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
     userId, 
     requestedCount, 
     hskLevel,
-    quizType,
-    fullUrl: req.originalUrl,
-    queryParams: req.query
+    quizType
   });
 
-
   try {
+    // REQUÊTE SIMPLIFIÉE sans last_reviewed
     let query = `
       SELECT mots.*, 
              COALESCE(user_mots.score, 0) as score,
              COALESCE(user_mots.nb_quiz, 0) as nb_quiz
-      FROM user_mots 
-      JOIN mots ON user_mots.mot_id = mots.id
-      WHERE user_mots.user_id = $1
-      AND user_mots.score < 100
+      FROM mots 
+      LEFT JOIN user_mots ON mots.id = user_mots.mot_id AND user_mots.user_id = $1
+      WHERE 1=1
     `;
     
     let params = [userId];
     let paramCount = 1;
 
-    // Filtre HSK corrigé
+    // Filtre HSK
     if (hskLevel !== 'all') {
       if (hskLevel === 'street') {
         query += ` AND mots.hsk IS NULL`;
@@ -613,87 +795,56 @@ router.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
       }
     }
 
-    // 🔥 NOUVEAU : Filtre optionnel pour le mode caractères
-    if (quizType === 'character') {
-      // Optionnel : filtrer les mots trop longs pour les débutants en caractères
-      // Par exemple, limiter à 3 caractères maximum
-      // query += ` AND LENGTH(mots.chinese) <= 3`;
-      
-      // Ou prioriser les mots avec moins de caractères
-      // query += ` ORDER BY LENGTH(mots.chinese) ASC, mots.hsk ASC`;
-    }
-
-    console.log('📝 Query:', query);
+    console.log('📝 Query SQL:', query);
     console.log('🔧 Paramètres:', params);
 
-    const { rows } = await pool.query(query, params);
-    console.log('✅ Résultats DB:', rows.length, 'lignes');
+    const { rows: allWords } = await pool.query(query, params);
+    console.log('✅ Tous les mots trouvés:', allWords.length);
 
-    if (rows.length === 0) {
+    if (allWords.length === 0) {
       console.log('ℹ️ Aucun mot trouvé avec ces critères');
       return res.json([]);
     }
 
-    // La logique de sélection intelligente par score reste identique
-    const motsFaibles = rows.filter(mot => mot.score < 50)
-      .sort((a, b) => a.nb_quiz - b.nb_quiz);
-    const motsMoyens = rows.filter(mot => mot.score >= 50 && mot.score < 80)
-      .sort((a, b) => a.nb_quiz - b.nb_quiz);
-    const motsForts = rows.filter(mot => mot.score >= 80)
-      .sort((a, b) => a.nb_quiz - b.nb_quiz);
-
-    const totalMots = requestedCount || rows.length;
+    // ANALYSE SIMPLE
+    const total = allWords.length;
+    const mastered = allWords.filter(w => w.score >= 90).length;
+    const masteredPercent = (mastered / total) * 100;
+    const avgScore = allWords.reduce((sum, w) => sum + w.score, 0) / total;
     
-    let nbFaibles = Math.ceil(totalMots * 0.7);
-    let nbMoyens = Math.ceil(totalMots * 0.2);
-    let nbForts = Math.ceil(totalMots * 0.1);
+    console.log('📊 Stats:', { total, mastered, masteredPercent, avgScore });
 
-    // Ajustements des proportions...
-    if (motsFaibles.length < nbFaibles) {
-      const deficit = nbFaibles - motsFaibles.length;
-      nbFaibles = motsFaibles.length;
-      const ratio = nbMoyens / (nbMoyens + nbForts);
-      nbMoyens += Math.ceil(deficit * ratio);
-      nbForts += Math.floor(deficit * (1 - ratio));
+    // STRATÉGIE SIMPLIFIÉE
+    let selectedWords = [];
+    const count = requestedCount || 10;
+    
+    if (masteredPercent >= 90 && avgScore >= 90) {
+      // Utilisateur avancé
+      console.log('🎯 Mode: Utilisateur avancé');
+      selectedWords = selectForAdvancedUser(allWords, count);
+    } else {
+      // Mode normal : priorité aux mots faibles
+      console.log('🎯 Mode: Normal');
+      selectedWords = selectWordsNormal(allWords, count);
     }
 
-    if (motsMoyens.length < nbMoyens) {
-      const deficit = nbMoyens - motsMoyens.length;
-      nbMoyens = motsMoyens.length;
-      nbFaibles = Math.min(motsFaibles.length, nbFaibles + deficit);
+    // Mélanger
+    const shuffledWords = shuffleArray(selectedWords);
+    console.log('📈 Résultat final:', shuffledWords.length, 'mots sélectionnés');
+    
+    // Fallback si vide
+    if (shuffledWords.length === 0 && allWords.length > 0) {
+      console.log('⚠️ Fallback: prendre les premiers mots');
+      selectedWords = allWords.slice(0, Math.min(count, allWords.length));
+      shuffledWords = shuffleArray(selectedWords);
     }
 
-    if (motsForts.length < nbForts) {
-      const deficit = nbForts - motsForts.length;
-      nbForts = motsForts.length;
-      nbFaibles = Math.min(motsFaibles.length, nbFaibles + deficit);
-    }
-
-    const selectionFaibles = motsFaibles.slice(0, nbFaibles);
-    const selectionMoyens = motsMoyens.slice(0, nbMoyens);
-    const selectionForts = motsForts.slice(0, nbForts);
-
-    let motsSelectionnes = [...selectionFaibles, ...selectionMoyens, ...selectionForts];
-    motsSelectionnes = shuffleArray(motsSelectionnes);
-
-    console.log('📈 Distribution finale:', {
-      faibles: selectionFaibles.length,
-      moyens: selectionMoyens.length,
-      forts: selectionForts.length,
-      total: motsSelectionnes.length,
-      hsk: hskLevel,
-      type: quizType
-    });
-
-    res.json(motsSelectionnes);
+    res.json(shuffledWords);
 
   } catch (err) {
-    console.error('💥 ERREUR /quiz-mots:');
-    console.error('Message:', err.message);
-    console.error('Stack:', err.stack);
-    
+    console.error('💥 ERREUR /quiz-mots:', err.message);
     res.status(500).json({ 
-      error: 'Erreur serveur',
+      error: 'Erreur serveur', 
       details: err.message
     });
   }

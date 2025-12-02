@@ -1,19 +1,19 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>加油！ - Connexion</title>
+  <title>加油！ - Login</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
   <!-- PWA -->
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#0d6efd"/>
+  <meta name="theme-color" content="#0d6efd" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
-  
+
   <!-- Google One Tap -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  
+
   <style>
     .login-container {
       min-height: 100vh;
@@ -37,12 +37,7 @@
     .btn-social:hover {
       background-color: #0d6efd;
       border-color: #adb5bd;
-    }
-    .btn-facebook {
-      background-color: #f8f9fa;
-      color: #6c757d;
-      cursor: not-allowed;
-      opacity: 0.7;
+      color: white;
     }
     .app-title {
       font-size: 3rem;
@@ -71,6 +66,11 @@
       width: 20px;
       margin-right: 12px;
     }
+    .magic-link-section {
+      margin-top: 2rem;
+      padding-top: 2rem;
+      border-top: 1px solid #dee2e6;
+    }
     @media (max-width: 576px) {
       .login-card {
         margin: 1rem;
@@ -88,256 +88,321 @@
 </head>
 <body>
   
-  <% if (error === 'auth_failed') { %>
-  <div class="alert alert-danger">Erreur d’authentification. Veuillez réessayer.</div>
-  <% } %>
+  <% if (error==='auth_failed' ) { %>
+    <div class="alert alert-danger">Authentication error. Please try again.</div>
+    <% } %>
 
-  <div class="login-container d-flex align-items-center justify-content-center py-4">
-    <div class="container">
-      <div class="row justify-content-center">
-        <div class="col-12 col-md-8 col-lg-6 col-xl-5">
-          <div class="card login-card p-4 p-md-5">
-            <!-- En-tête -->
-            <div class="text-center mb-4">
-              <h1 class="app-title">加油!</h1>
-              <p class="text-muted mb-0">Learn chinese in the real world. Collect your words, test yourself, challenge your friends and much more.</p>
-            </div>
+      <div class="login-container d-flex align-items-center justify-content-center py-4">
+        <div class="container">
+          <div class="row justify-content-center">
+            <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+              <div class="card login-card p-4 p-md-5">
+                <!-- Header -->
+                <div class="text-center mb-4">
+                  <h1 class="app-title">加油!</h1>
+                  <p class="text-muted mb-0">Learn Chinese in the real world. Collect your words, test yourself,
+                    challenge your friends and much more.</p>
+                </div>
 
-            <!-- Boutons de connexion -->
-            <div class="d-grid gap-3">
-              <!-- Bouton Google -->
-              <button onclick="initiateManualAuth()" class="btn btn-social btn-outline-primary d-flex align-items-center justify-content-center">
-                <i class="bi bi-google social-icon"></i>
-                <span>Se connecter avec Google</span>
-              </button>
+                <!-- Login Buttons -->
+                <div class="d-grid gap-3">
+                  <!-- Google Button -->
+                  <button onclick="initiateManualAuth()"
+                    class="btn btn-social btn-outline-primary d-flex align-items-center justify-content-center">
+                    <i class="bi bi-google social-icon"></i>
+                    <span>Continue with Google</span>
+                  </button>
 
-              <!-- Bouton Facebook (désactivé) -->
-              <button class="btn btn-social btn-facebook d-flex align-items-center justify-content-center" disabled>
-                <i class="bi bi-facebook social-icon"></i>
-                <span>Se connecter avec Facebook</span>
-                <small class="badge bg-secondary ms-2">Bientôt</small>
-              </button>
-            </div>
+                  <!-- Facebook Button (disabled) -->
+                  <button class="btn btn-social btn-facebook d-flex align-items-center justify-content-center" disabled>
+                    <i class="bi bi-facebook social-icon"></i>
+                    <span>Continue with Facebook</span>
+                    <small class="badge bg-secondary ms-2">Soon</small>
+                  </button>
+                </div>
 
-            <!-- Google One Tap (caché - utilisé en arrière-plan) -->
-            <div class="d-none">
-              <div id="g_id_onload"
-                   data-client_id="<%= process.env.GOOGLE_CLIENT_ID %>"
-                   data-context="signin"
-                   data-ux_mode="popup"
-                   data-callback="handleGoogleSignIn"
-                   data-auto_prompt="true"
-                   data-cancel_on_tap_outside="false"
-                   data-itp_support="true">
+                <!-- Magic Link Section - Simple -->
+                <div class="magic-link-section">
+                  <div class="mb-3">
+                    <label for="magicEmail" class="form-label">
+                      <i class="bi bi-envelope me-1"></i>
+                      Email address
+                    </label>
+                    <input type="email" 
+                           class="form-control" 
+                           id="magicEmail" 
+                           placeholder="your@email.com" 
+                           required
+                           autocomplete="email">
+                    <div class="form-text">
+                      No password required
+                    </div>
+                  </div>
+
+                  <button type="button" 
+                          class="btn btn-primary w-100" 
+                          onclick="sendMagicLink()"
+                          id="sendMagicLinkBtn">
+                    <i class="bi bi-send me-2"></i>
+                    Send Magic Link
+                  </button>
+
+                  <div id="magicLinkFeedback" class="mt-2" style="display: none;"></div>
+                </div>
+
+                <!-- Google One Tap (hidden - background use) -->
+                <div class="d-none">
+                  <div id="g_id_onload"
+                    data-client_id="<%= GOOGLE_CLIENT_ID || '' %>"
+                    data-context="signin"
+                    data-ux_mode="popup"
+                    data-callback="handleGoogleSignIn"
+                    data-auto_prompt="true"
+                    data-cancel_on_tap_outside="false"
+                    data-itp_support="true">
+                  </div>
+                </div>
+
+                <!-- Connection Status -->
+                <div id="connection-status" class="mt-3" style="display: none;">
+                  <div class="alert alert-info d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    <span id="status-message">Connecting...</span>
+                  </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="text-center mt-4 pt-3 border-top">
+                  <small class="text-muted">
+                    By continuing, you agree to our
+                    <a href="#" class="text-decoration-none">Terms of Service</a>
+                  </small>
+                </div>
               </div>
-            </div>
-
-            <!-- Fallback amélioré (caché par défaut) -->
-            <div id="fallback-auth" class="mt-3" style="display: none;">
-              <div class="alert alert-warning mb-3">
-                <i class="bi bi-exclamation-triangle me-2"></i>
-                <span>Méthode alternative plus stable</span>
-              </div>
-            </div>
-
-            <!-- État de connexion -->
-            <div id="connection-status" class="mt-3" style="display: none;">
-              <div class="alert alert-info d-flex align-items-center">
-                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                <span id="status-message">Connexion en cours...</span>
-              </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="text-center mt-4 pt-3 border-top">
-              <small class="text-muted">
-                En te connectant, tu acceptes nos 
-                <a href="#" class="text-decoration-none">conditions d'utilisation</a>
-              </small>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="/js/global.js"></script>
-  <script>
-    // Variables globales pour la gestion de connexion
-    let authRetryCount = 0;
-    const MAX_RETRIES = 3;
-    let isAuthenticating = false;
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+      <script>
+        // Global variables for connection management
+        let authRetryCount = 0;
+        const MAX_RETRIES = 3;
+        let isAuthenticating = false;
 
-    // Service Worker pour PWA
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js')
-        .then(registration => {
-          console.log('✅ Service Worker enregistré');
-        })
-        .catch(err => {
-          console.warn('⚠️ Service Worker non disponible');
-        });
-    }
+        // ✨ MAGIC LINK FUNCTION
+        async function sendMagicLink() {
+          const email = document.getElementById('magicEmail').value.trim();
+          const btn = document.getElementById('sendMagicLinkBtn');
+          const feedback = document.getElementById('magicLinkFeedback');
 
-    // 🔥 GESTION AMÉLIORÉE DU ONE TAP
-    function handleGoogleSignIn(response) {
-      if (isAuthenticating) {
-        console.log('🔁 Authentification déjà en cours...');
-        return;
-      }
+          // Basic email validation
+          if (!email || !isValidEmail(email)) {
+            showFeedback(feedback, 'Please enter a valid email address', 'danger');
+            return;
+          }
 
-      isAuthenticating = true;
-      showStatus('Connexion en cours...', 'info');
-      
-      console.log('🔐 Tentative de connexion Google One Tap');
+          // Disable button during sending
+          btn.disabled = true;
+          btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Sending...';
 
-      // Tentative avec timeout
-      const authPromise = fetch('/auth/google/one-tap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential: response.credential }),
-        credentials: 'same-origin'
-      });
+          try {
+            const response = await fetch('/auth/magic-link', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ email: email })
+            });
 
-      // Timeout de sécurité
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 10000)
-      );
+            const data = await response.json();
 
-      Promise.race([authPromise, timeoutPromise])
-        .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.json();
-        })
-        .then(data => {
-          if (data.success) {
-            console.log('✅ Connexion réussie, redirection vers:', data.redirect);
-            showStatus('Connexion réussie ! Redirection...', 'success');
-            
-            // Petit délai pour voir le message de succès
+            if (response.ok) {
+              // Success
+              showFeedback(feedback, `
+                <div class="alert alert-success">
+                  <i class="bi bi-check-circle me-2"></i>
+                  <strong>Magic link sent!</strong><br>
+                  <small>Check your email and click the link to sign in.</small>
+                </div>
+              `, 'success');
+
+              // Clear form after success
+              document.getElementById('magicEmail').value = '';
+
+              // Reset button after 5 seconds
+              setTimeout(() => {
+                resetMagicLinkButton(btn);
+                feedback.style.display = 'none';
+              }, 5000);
+
+            } else {
+              // Server error
+              throw new Error(data.error || 'Error sending link');
+            }
+
+          } catch (error) {
+            console.error('❌ Magic Link error:', error);
+
+            let errorMessage = 'Error sending magic link';
+            if (error.message.includes('rate limit')) {
+              errorMessage = 'Too many attempts. Try again in 15 minutes.';
+            } else if (error.message.includes('disposable')) {
+              errorMessage = 'Temporary emails are not accepted.';
+            }
+
+            showFeedback(feedback, errorMessage, 'danger');
+
+            // Re-enable button after error
             setTimeout(() => {
-              window.location.replace(data.redirect || '/dashboard');
-            }, 1000);
-          } else {
-            throw new Error(data.error || 'Erreur inconnue');
+              resetMagicLinkButton(btn);
+            }, 3000);
           }
-        })
-        .catch(err => {
-          console.error('❌ Erreur connexion:', err);
-          handleAuthError(err);
-        })
-        .finally(() => {
-          isAuthenticating = false;
-        });
-    }
-
-    // 🔥 GESTION ROBUSTE DES ERREURS
-    function handleAuthError(error) {
-      authRetryCount++;
-      
-      let message = 'Erreur de connexion';
-      
-      if (error.message.includes('Timeout')) {
-        message = 'Temps de connexion dépassé';
-      } else if (error.message.includes('network') || !navigator.onLine) {
-        message = 'Problème de réseau';
-      } else {
-        message = 'Service temporairement indisponible';
-      }
-
-      showStatus(`${message} (${authRetryCount}/${MAX_RETRIES})`, 'warning');
-
-      if (authRetryCount < MAX_RETRIES) {
-        setTimeout(() => {
-          showStatus('Nouvelle tentative...', 'info');
-          // Réinitialiser One Tap
-          if (window.google && window.google.accounts) {
-            window.google.accounts.id.prompt();
-          }
-        }, 2000);
-      } else {
-        showFallbackAuth();
-      }
-    }
-
-    // 🔥 AUTHENTIFICATION MANUELLE ALTERNATIVE
-    function initiateManualAuth() {
-      showStatus('Redirection vers Google...', 'info');
-      
-      // Utiliser l'URL classique OAuth2 (plus stable)
-      window.location.href = '/auth/google?fallback=true';
-    }
-
-    // 🔥 FALLBACK AUTOMATIQUE
-    function showFallbackAuth() {
-      document.getElementById('fallback-auth').style.display = 'block';
-      showStatus('Utilisez la méthode alternative', 'warning');
-    }
-
-    function showStatus(message, type) {
-      const statusDiv = document.getElementById('connection-status');
-      const messageSpan = document.getElementById('status-message');
-      
-      if (statusDiv && messageSpan) {
-        statusDiv.style.display = 'block';
-        messageSpan.textContent = message;
-        
-        // Mise à jour des classes Bootstrap
-        const alertClass = type === 'success' ? 'alert-success' : 
-                          type === 'warning' ? 'alert-warning' : 
-                          type === 'error' ? 'alert-danger' : 'alert-info';
-        
-        statusDiv.querySelector('.alert').className = `alert ${alertClass} d-flex align-items-center`;
-      }
-    }
-
-    // 🔥 DÉTECTION DE CONNEXION RÉSEAU
-    window.addEventListener('online', () => {
-      console.log('🌐 Connexion rétablie');
-      showStatus('Connexion rétablie', 'success');
-      setTimeout(() => {
-        document.getElementById('connection-status').style.display = 'none';
-      }, 3000);
-    });
-
-    window.addEventListener('offline', () => {
-      console.log('📵 Hors ligne');
-      showStatus('Vous êtes hors ligne', 'warning');
-    });
-
-    // 🔥 FALLBACK SI GOOGLE ONE TAP NE CHARGE PAS
-    setTimeout(() => {
-      if (!window.google) {
-        console.warn('⚠️ Google One Tap non chargé');
-      }
-    }, 5000);
-
-    // 🔥 RE-INITIALISATION PERIODIQUE POUR CONNEXIONS INSTABLES
-    setInterval(() => {
-      if (!isAuthenticating && window.google && window.google.accounts) {
-        // Vérifier si l'utilisateur est toujours sur la page de login
-        if (window.location.pathname === '/login' || window.location.pathname === '/') {
-          console.log('🔄 Réinitialisation One Tap');
-          window.google.accounts.id.prompt();
         }
-      }
-    }, 30000);
 
-    // Détection PWA pour optimisation
-    if (window.matchMedia('(display-mode: standalone').matches) {
-      console.log('📱 Mode PWA détecté - optimisation connexion');
-    }
+        function showFeedback(element, message, type) {
+          element.style.display = 'block';
+          if (typeof message === 'string' && !message.includes('<')) {
+            element.innerHTML = `
+              <div class="alert alert-${type}">
+                <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
+                ${message}
+              </div>
+            `;
+          } else {
+            element.innerHTML = message;
+          }
+        }
 
-    // Ajustement responsive pour les très petits écrans
-    function adjustForSmallScreens() {
-      if (window.innerWidth < 400) {
-        document.querySelector('.login-card').classList.add('p-3');
-      }
-    }
+        function resetMagicLinkButton(btn) {
+          btn.disabled = false;
+          btn.innerHTML = `
+            <i class="bi bi-send me-2"></i>
+            Send Magic Link
+          `;
+        }
 
-    window.addEventListener('resize', adjustForSmallScreens);
-    adjustForSmallScreens();
-  </script>
+        function isValidEmail(email) {
+          const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          return re.test(email);
+        }
+
+        // 🔥 IMPROVED ONE TAP HANDLING
+        function handleGoogleSignIn(response) {
+          if (isAuthenticating) {
+            console.log('🔁 Authentication already in progress...');
+            return;
+          }
+
+          isAuthenticating = true;
+          showStatus('Connecting...', 'info');
+          
+          console.log('🔐 Google One Tap sign-in attempt');
+
+          // Attempt with timeout
+          const authPromise = fetch('/auth/google/one-tap', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential }),
+            credentials: 'same-origin'
+          });
+
+          // Safety timeout
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), 10000)
+          );
+
+          Promise.race([authPromise, timeoutPromise])
+            .then(res => {
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              return res.json();
+            })
+            .then(data => {
+              if (data.success) {
+                console.log('✅ Sign-in successful, redirecting to:', data.redirect);
+                showStatus('Success! Redirecting...', 'success');
+                
+                // Small delay to see success message
+                setTimeout(() => {
+                  window.location.replace(data.redirect || '/dashboard');
+                }, 1000);
+              } else {
+                throw new Error(data.error || 'Unknown error');
+              }
+            })
+            .catch(err => {
+              console.error('❌ Sign-in error:', err);
+              handleAuthError(err);
+            })
+            .finally(() => {
+              isAuthenticating = false;
+            });
+        }
+
+        // 🔥 ROBUST ERROR HANDLING
+        function handleAuthError(error) {
+          authRetryCount++;
+          
+          let message = 'Sign-in error';
+          
+          if (error.message.includes('Timeout')) {
+            message = 'Connection timeout';
+          } else if (error.message.includes('network') || !navigator.onLine) {
+            message = 'Network issue';
+          } else {
+            message = 'Service temporarily unavailable';
+          }
+
+          showStatus(`${message} (${authRetryCount}/${MAX_RETRIES})`, 'warning');
+
+          if (authRetryCount < MAX_RETRIES) {
+            setTimeout(() => {
+              showStatus('Retrying...', 'info');
+              // Reset One Tap
+              if (window.google && window.google.accounts) {
+                window.google.accounts.id.prompt();
+              }
+            }, 2000);
+          }
+        }
+
+        // 🔥 ALTERNATIVE MANUAL AUTHENTICATION
+        function initiateManualAuth() {
+          showStatus('Redirecting to Google...', 'info');
+          
+          // Use classic OAuth2 URL (more stable)
+          window.location.href = '/auth/google?fallback=true';
+        }
+
+        function showStatus(message, type) {
+          const statusDiv = document.getElementById('connection-status');
+          const messageSpan = document.getElementById('status-message');
+          
+          if (statusDiv && messageSpan) {
+            statusDiv.style.display = 'block';
+            messageSpan.textContent = message;
+            
+            // Update Bootstrap classes
+            const alertClass = type === 'success' ? 'alert-success' : 
+                              type === 'warning' ? 'alert-warning' : 
+                              type === 'error' ? 'alert-danger' : 'alert-info';
+            
+            statusDiv.querySelector('.alert').className = `alert ${alertClass} d-flex align-items-center`;
+          }
+        }
+
+        // Enter key for Magic Link
+        document.getElementById('magicEmail').addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            sendMagicLink();
+          }
+        });
+
+        // Auto-focus on email field
+        document.addEventListener('DOMContentLoaded', () => {
+          document.getElementById('magicEmail').focus();
+        });
+      </script>
 </body>
 </html>

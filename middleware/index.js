@@ -46,12 +46,31 @@ function ensureAuth(req, res, next) {
   return res.redirect('/');
 }
 
+// Au début de routes/api.js, après les imports
+function isValidEmail(email) {
+  if (!email || typeof email !== 'string') return false;
+  
+  // Regex email simple mais efficace
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return false;
+  
+  // Rejeter les emails jetables courants
+  const disposableDomains = [
+    'tempmail.com', 'mailinator.com', 'guerrillamail.com',
+    '10minutemail.com', 'throwawaymail.com', 'yopmail.com',
+    'fakeinbox.com', 'temp-mail.org'
+  ];
+  
+  const domain = email.split('@')[1].toLowerCase();
+  return !disposableDomains.some(d => domain.includes(d));
+}
+
 // === MIDDLEWARE DE SESSIONS ===
 
-// Résilience Cloud
+// Résilience Cloud - Middleware pour gérer les sessions
 const resilience = (req, res, next) => {
   console.log('🌐 Session Check:', {
-    id: req.sessionID?.substring(0, 8),
+    id: req.sessionID ? req.sessionID.substring(0, 8) : 'none',
     hasSession: !!req.session,
     hasUser: !!req.user,
     cookies: req.headers.cookie ? 'present' : 'missing'
@@ -62,7 +81,7 @@ const resilience = (req, res, next) => {
     if (req.session && typeof req.session.save === 'function') {
       req.session.save((err) => {
         if (err) {
-          console.error('❌ Erreur sauvegarde session:', err);
+          console.error('❌ Session save error:', err);
         }
         originalEnd.apply(this, args);
       });
@@ -166,6 +185,7 @@ const errorHandler = (err, req, res, next) => {
     ...(process.env.NODE_ENV === 'development' && { error: err.message })
   });
 };
+
 
 // ==================== FONCTIONS UTILITAIRES ====================
 async function generateDuelQuiz(transaction, user1Id, user2Id, duelType, quizType) {
@@ -348,13 +368,58 @@ async function addTransaction(client, userId, amount, type, description = "") {
   }
 }
 
+// === FONCTIONS D'AIDE POUR LE CHOIX DES MOT QUIZ ===
 
+// FONCTION POUR UTILISATEUR AVANCÉ
+function selectForAdvancedUser(words, count) {
+  const masteredWords = words.filter(w => w.score >= 90);
+  const otherWords = words.filter(w => w.score < 90);
+  
+  // 30% de mots maîtrisés (ceux avec le moins de nb_quiz)
+  const reviewCount = Math.min(Math.ceil(count * 0.3), masteredWords.length);
+  
+  const reviewWords = masteredWords
+    .sort((a, b) => (a.nb_quiz || 0) - (b.nb_quiz || 0))
+    .slice(0, reviewCount);
+  
+  // 70% d'autres mots (aléatoire)
+  const remainingCount = count - reviewWords.length;
+  let otherSelected = [];
+  
+  if (otherWords.length > 0 && remainingCount > 0) {
+    const shuffled = shuffleArray([...otherWords]);
+    otherSelected = shuffled.slice(0, remainingCount);
+  } else if (remainingCount > 0) {
+    // Si pas d'autres mots, prendre plus de mots maîtrisés
+    const extraMastered = masteredWords
+      .filter(w => !reviewWords.includes(w))
+      .slice(0, remainingCount);
+    reviewWords.push(...extraMastered);
+  }
+  
+  return [...reviewWords, ...otherSelected];
+}
 
+// FONCTION NORMALE (priorité aux mots faibles)
+function selectWordsNormal(words, count) {
+  // Trie par score (faible d'abord) puis par nb_quiz (moins testé d'abord)
+  const sortedWords = words.sort((a, b) => {
+    // Priorité aux scores bas
+    if (a.score !== b.score) {
+      return a.score - b.score;
+    }
+    // En cas d'égalité, priorité aux moins testés
+    return (a.nb_quiz || 0) - (b.nb_quiz || 0);
+  });
+  
+  return sortedWords.slice(0, Math.min(count, words.length));
+}
 
 // === EXPORT DE TOUS LES MIDDLEWARES ===
 module.exports = {
   // Authentification
   ensureAuth,
+  isValidEmail,
   
   // Sessions
   resilience,
@@ -375,5 +440,9 @@ module.exports = {
   getCommonWords,
   shuffleArray,
   updateWordScore,
-  addTransaction
+  addTransaction,
+
+  // Aide choix mots
+  selectWordsNormal,
+  selectForAdvancedUser,
 };

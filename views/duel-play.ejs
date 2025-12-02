@@ -237,7 +237,6 @@
       }
     }
 
-    // Gestion de la soumission du formulaire
     quizForm.onsubmit = (e) => {
       e.preventDefault();
 
@@ -298,10 +297,6 @@
       }
     };
 
-    // Dans votre page HTML, ajoutez un log pour vérifier l'ID
-console.log('🔍 Duel ID:', duelId);
-console.log('🔍 Quiz data:', quizData);
-
 // Soumission du score au serveur
 async function submitDuelScore(score) {
   console.log('🎯 Soumission score:', { duelId, score });
@@ -341,6 +336,7 @@ async function submitDuelScore(score) {
     alert('Erreur réseau: ' + error.message);
   }
 }
+  
   </script>
 </body>
 </html>

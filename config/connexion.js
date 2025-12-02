@@ -121,7 +121,6 @@ passport.use(new GoogleStrategy({
   }
 ));
 
-
 // === FONCTION POUR CONFIGURER LES ROUTES ===
 function setupAuthRoutes(app) {
   // Initialisation Passport

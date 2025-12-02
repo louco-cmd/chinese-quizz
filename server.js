@@ -50,7 +50,7 @@ app.use(session({
   saveUninitialized: false, // ⬅️ IMPORTANT: false pour la sécurité
   rolling: false, // ⬅️ false pour plus de stabilité
   cookie: {
-    secure: true, // ⬅️ true pour HTTPS
+    secure: false, // ⬅️ true pour HTTPS
     httpOnly: true, // ⬅️ empêcher l'accès JS
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
     sameSite: 'lax',
@@ -341,14 +341,37 @@ app.get('/api/debug-session', (req, res) => {
   });
 });
 
+app.get('/dev/login-as/:id', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    const user = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (!user.rows.length) return res.status(404).send('User not found');
+
+    const u = user.rows[0];
+    req.session.passport = { user: u.id };
+    req.user = u;
+
+    console.log('🔓 DEV LOGIN AS →', u.id, u.name);
+    // Rediriger vers la page d'accueil ou compte
+    return res.redirect('/account');
+  } catch (err) {
+    console.error('Erreur /dev/login-as', err);
+    res.status(500).send('Server error');
+  }
+});
 
 // Pages EJS
-app.get("/", (req, res) => {
-    const error = req.query.error;  // <-- récupère l'erreur depuis la query string
+app.get('/', (req, res) => {
+  const error = req.query.error;
   if (req.user) {
-    res.redirect("dashboard");
+    res.redirect('/dashboard');
   } else {
-    res.render("index", { user: req.user, error});
+    res.render('index', { 
+      user: req.user, 
+      error: error,
+      // Assure-toi de passer le GOOGLE_CLIENT_ID
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID
+    });
   }
 });
 
