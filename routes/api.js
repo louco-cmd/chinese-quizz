@@ -774,11 +774,11 @@ router.get('/quiz-mots', ensureAuth, async (req, res) => {
     // REQUÊTE SIMPLIFIÉE sans last_reviewed
     let query = `
       SELECT mots.*, 
-             COALESCE(user_mots.score, 0) as score,
-             COALESCE(user_mots.nb_quiz, 0) as nb_quiz
-      FROM mots 
-      LEFT JOIN user_mots ON mots.id = user_mots.mot_id AND user_mots.user_id = $1
-      WHERE 1=1
+       COALESCE(user_mots.score, 0) as score,
+       COALESCE(user_mots.nb_quiz, 0) as nb_quiz
+          FROM mots 
+          INNER JOIN user_mots ON mots.id = user_mots.mot_id
+          WHERE user_mots.user_id = $1
     `;
     
     let params = [userId];
