@@ -2,7 +2,6 @@ const express = require('express');
 const { pool } = require('../config/database');
 const router = express.Router();
 const crypto = require('crypto');
-const { sendEmail } = require('../middleware/email');
 const rateLimit = require('express-rate-limit');
 
 const {

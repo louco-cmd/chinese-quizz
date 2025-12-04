@@ -315,9 +315,12 @@ quizForm.onsubmit = (e) => {
 
   const isCorrect = checkAnswer();
   
-  // Record result
+   // Record result - CORRECTION
   if (quizResults[quizIdx]) {
-    quizResults[quizIdx].correct = isCorrect;
+    // 🔥 CORRECTION : Ne mettre à jour 'correct' que sur PREMIÈRE tentative
+    if (!hasSecondChance) {
+      quizResults[quizIdx].correct = isCorrect;  // ← SEULEMENT quand pas de 2ème chance
+    }
     quizResults[quizIdx].attempts = hasSecondChance ? 2 : 1;
   }
 
