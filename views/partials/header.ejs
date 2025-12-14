@@ -344,3 +344,44 @@ function showInfoNotification(title, message, options) {
   showNotification({ type: 'info', title, message, ...options });
 }
 </script>
+
+<script>
+// Enregistrement intelligent du SW
+if ('serviceWorker' in navigator) {
+  // Attendre que la page soit complètement chargée
+  window.addEventListener('load', () => {
+    // Vérifier si on est sur le bon domaine
+    if (window.location.hostname !== 'app.jiayou.fr') return;
+    
+    // Attendre 2 secondes pour laisser le nettoyage agir
+    setTimeout(() => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('SW enregistré:', registration);
+          
+          // Vérifier les mises à jour
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            console.log('Nouveau SW détecté:', newWorker);
+            
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // Nouveau SW prêt, demander à l'utilisateur de recharger
+                if (confirm('Nouvelle version disponible ! Recharger la page ?')) {
+                  window.location.reload();
+                }
+              }
+            });
+          });
+        })
+        .catch(err => {
+          console.log('Échec enregistrement SW:', err);
+          // En cas d'échec, supprimer tout SW existant
+          navigator.serviceWorker.getRegistrations().then(regs => {
+            regs.forEach(reg => reg.unregister());
+          });
+        });
+    }, 2000);
+  });
+}
+</script>
