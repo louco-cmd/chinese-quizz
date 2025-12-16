@@ -1,8 +1,9 @@
 {
   "name": "jiayou",
-  "short_name": "Jiayou", 
+  "short_name": "Jiayou",
   "description": "add oil on your Chinese learning journey!",
-  "start_url": "/",
+  "start_url": "https://app.jiayou.fr/",
+  "scope": "https://app.jiayou.fr/",
   "display": "standalone",
   "display_override": ["window-controls-overlay"],
   "background_color": "#ffffff",
@@ -10,12 +11,12 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "https://app.jiayou.fr/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/icons/icon-512.png", 
+      "src": "https://app.jiayou.fr/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }

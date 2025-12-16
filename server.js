@@ -3,6 +3,7 @@ require('dotenv').config();
 const path = require("path");
 const express = require("express");
 const session = require('express-session');
+const { clerkMiddleware } = require('@clerk/express');
 const { passport, setupAuthRoutes } = require('./config/connexion');
 const {
   ensureAuth,
@@ -63,6 +64,7 @@ app.use(checker);
 app.use(security);
 app.use(reauth);
 app.use(requestLogger);
+app.use(clerkMiddleware())
 app.use("/", apiRoutes);
 app.use(async (req, res, next) => {
   if (req.session && req.session.userId) {

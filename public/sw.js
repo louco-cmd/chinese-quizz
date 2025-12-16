@@ -1,6 +1,6 @@
-// sw.js - VERSION ROBUSTE
-const CACHE_NAME = 'jiayou-v3'; // 🔥 CHANGEZ À CHAQUE DÉPLOIEMENT MAJEUR
-const OFFLINE_URL = '/offline.html'; // Optionnel : page hors ligne
+// sw.js - VERSION CORRIGÉE & SIMPLIFIÉE
+const CACHE_NAME = 'jiayou-v4'; // 🔥 CHANGEZ CE NOM MAINTENANT
+const OFFLINE_URL = '/offline.html';
 
 const urlsToCache = [
   '/',
@@ -8,66 +8,48 @@ const urlsToCache = [
   '/js/global.js',
   '/js/saveQuiz.js',
   '/js/card-functions.js',
-  '/manifest.json'
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png'
 ];
 
 // ========== INSTALL ==========
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v3');
-  
-  // Force l'activation IMMÉDIATE sans attendre
-  self.skipWaiting();
+  console.log('[SW] Installation v4');
+  self.skipWaiting(); // Prend le contrôle ASAP
   
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      console.log('[SW] Mise en cache des ressources');
-      for (const url of urlsToCache) {
-        try {
-          // Utilise cache.put() au lieu de cache.add() pour plus de contrôle
-          const response = await fetch(url, { cache: 'reload' });
-          if (response.ok) {
-            await cache.put(url, response);
-          }
-        } catch (err) {
-          console.warn(`[SW] Impossible de cacher ${url}:`, err);
-        }
-      }
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
+      .catch(err => console.warn('[SW] Cache initial échoué:', err))
   );
 });
 
 // ========== ACTIVATE ==========
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activation v3');
+  console.log('[SW] Activation v4 - Nettoyage');
   
   event.waitUntil(
     Promise.all([
-      // 1. PRENDRE LE CONTRÔLE IMMÉDIATEMENT sur tous les clients
-      clients.claim(),
+      clients.claim(), // Prendre contrôle des pages
       
-      // 2. NETTOYER LES ANCIENS CACHES
-      caches.keys().then((cacheNames) => {
+      // NETTOYER UNIQUEMENT les anciens CACHES (pas le SW lui-même !)
+      caches.keys().then(cacheNames => {
         return Promise.all(
-          cacheNames.map((cacheName) => {
+          cacheNames.map(cacheName => {
             if (cacheName !== CACHE_NAME) {
-              console.log(`[SW] Suppression ancien cache: ${cacheName}`);
+              console.log(`[SW] Suppression cache obsolète: ${cacheName}`);
               return caches.delete(cacheName);
             }
           })
         );
-      }),
-      
-      // 3. SUPPRIMER TOUS LES ANCIENS SERVICE WORKERS
-      // Cette étape est cruciale pour éviter les conflits
-      self.registration.unregister().then(() => {
-        console.log('[SW] Ancien SW désinscrit');
-      }).catch(() => {})
+      })
     ]).then(() => {
-      console.log('[SW] Prêt à fonctionner!');
-      // Envoyer un message à tous les clients pour recharger
-      self.clients.matchAll().then((clients) => {
-        clients.forEach((client) => {
-          client.postMessage({ type: 'SW_UPDATED', version: 'v3' });
+      console.log('[SW] Prêt (v4)');
+      // Notification discrète aux clients
+      self.clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          client.postMessage({ type: 'SW_READY', version: 'v4' });
         });
       });
     })
@@ -77,52 +59,40 @@ self.addEventListener('activate', (event) => {
 // ========== FETCH ==========
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+  const isNav = event.request.mode === 'navigate';
   
-  // 1. Exclusion : ressources externes ou API
-  if (url.hostname === 'cdn.jsdelivr.net' || 
-      url.pathname.startsWith('/api/') || 
-      event.request.method !== 'GET') {
-    return; // Laisser passer sans interception
+  // 1. EXCLUSIONS : ne JAMAIS mettre en cache
+  if (url.pathname.startsWith('/auth/') ||  // Routes d'authentification
+      url.pathname.startsWith('/api/') ||   // Appels API
+      event.request.method !== 'GET' ||
+      url.hostname !== self.location.hostname) { // Ressources externes
+    return; // Laisser passer au réseau
   }
   
-  // 2. Stratégie "Cache d'abord, puis réseau" pour les assets
+  // Pour les navigations (pages) : Réseau d'abord, puis cache
+  if (isNav) {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => caches.match('/')) // En échec, servir la homepage
+        .catch(() => new Response('Hors ligne'))
+    );
+    return;
+  }
+  
+  // Pour les assets (CSS, JS, images) : Cache d'abord, puis réseau
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      // Retourne du cache si disponible
-      if (cachedResponse) {
-        // En parallèle, met à jour le cache avec la version réseau
-        fetch(event.request).then((networkResponse) => {
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, networkResponse);
-          });
-        }).catch(() => {}); // Ignore les erreurs
-        return cachedResponse;
-      }
-      
-      // Sinon, va chercher sur le réseau
-      return fetch(event.request).then((networkResponse) => {
-        // Mettre en cache pour la prochaine fois
-        const responseClone = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseClone);
-        });
-        return networkResponse;
-      }).catch(() => {
-        // Mode hors ligne : retourne la page offline si elle existe
-        if (event.request.mode === 'navigate') {
-          return caches.match(OFFLINE_URL);
+    caches.match(event.request)
+      .then(cached => cached || fetch(event.request))
+      .catch(() => {
+        if (event.request.destination === 'image') {
+          return new Response(''); // Image vide si échec
         }
-        // Pour les autres ressources, retourne une réponse vide
-        return new Response('', { 
-          status: 408, 
-          statusText: 'Hors ligne' 
-        });
-      });
-    })
+        return new Response('Ressource non disponible');
+      })
   );
 });
 
-// ========== COMMUNICATION ==========
+// ========== MESSAGE ==========
 self.addEventListener('message', (event) => {
   if (event.data === 'skipWaiting') {
     self.skipWaiting();

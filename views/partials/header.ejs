@@ -344,43 +344,38 @@ function showInfoNotification(title, message, options) {
   showNotification({ type: 'info', title, message, ...options });
 }
 </script>
+
 <script>
-// Enregistrement intelligent du SW
-if ('serviceWorker' in navigator) {
-  // Attendre que la page soit complètement chargée
-  window.addEventListener('load', () => {
-    // Vérifier si on est sur le bon domaine
-    if (window.location.hostname !== 'app.jiayou.fr') return;
-    
-    // Attendre 2 secondes pour laisser le nettoyage agir
-    setTimeout(() => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(registration => {
-          console.log('SW enregistré:', registration);
-          
-          // Vérifier les mises à jour
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            console.log('Nouveau SW détecté:', newWorker);
-            
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // Nouveau SW prêt, demander à l'utilisateur de recharger
-                if (confirm('Nouvelle version disponible ! Recharger la page ?')) {
-                  window.location.reload();
-                }
-              }
-            });
-          });
-        })
-        .catch(err => {
-          console.log('Échec enregistrement SW:', err);
-          // En cas d'échec, supprimer tout SW existant
-          navigator.serviceWorker.getRegistrations().then(regs => {
-            regs.forEach(reg => reg.unregister());
-          });
+// Enregistrement SIMPLE et ROBUSTE du SW
+if ('serviceWorker' in navigator && window.location.hostname === 'app.jiayou.fr') {
+  
+  // Petit délai pour éviter toute compétition au chargement
+  setTimeout(() => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(registration => {
+        console.log('✅ SW enregistré avec succès.');
+        
+        // Optionnel : Vérifie s'il y a une mise à jour en attente
+        if (registration.waiting) {
+          console.log('🔄 Un nouveau SW est en attente.');
+          // Ici, vous pourriez afficher un bouton "Mettre à jour" discret
+        }
+        
+        // Écoute les messages du SW (comme SW_READY)
+        navigator.serviceWorker.addEventListener('message', event => {
+          if (event.data.type === 'SW_READY') {
+            console.log(`🟢 SW ${event.data.version} est prêt.`);
+          }
         });
-    }, 2000);
-  });
+        
+      })
+      .catch(err => {
+        console.error('❌ Échec de l‘enregistrement SW:', err);
+        // En cas d'erreur grave, on nettoie pour repartir à zéro
+        navigator.serviceWorker.getRegistrations()
+          .then(regs => Promise.all(regs.map(r => r.unregister())))
+          .then(() => console.log('🧹 Anciens SW désinscrits.'));
+      });
+  }, 500); // Délai réduit à 500ms
 }
 </script>
