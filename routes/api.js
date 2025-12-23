@@ -2,7 +2,6 @@ const express = require('express');
 const { pool } = require('../config/database');
 const router = express.Router();
 const crypto = require('crypto');
-const rateLimit = require('express-rate-limit');
 
 const {
   ensureAuth,
@@ -23,184 +22,6 @@ const {
   selectForAdvancedUser,
   isValidEmail
 } = require('../middleware/index');
-
-// Rate limiting anti-spam
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 tentatives max
-  message: 'Trop de tentatives, réessayez plus tard'
-});
-
-
-// ---------------------connexion par magic link
-
-// Dans routes/api.js, dans la route POST /auth/magic-link
-router.post('/auth/magic-link', async (req, res) => {
-  console.log('📧 Magic Link request received:', req.body);
-  
-  try {
-    const { email } = req.body;
-    
-    // VALIDATION SIMPLIFIÉE - remplace isValidEmail par ceci :
-    if (!email || typeof email !== 'string') {
-      console.log('❌ Email missing or invalid type:', email);
-      return res.status(400).json({ error: 'Email is required' });
-    }
-    
-    // Validation email basique
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      console.log('❌ Invalid email format:', email);
-      return res.status(400).json({ error: 'Invalid email format' });
-    }
-    
-    // Empêcher les emails jetables courants
-    const disposableDomains = [
-      'tempmail.com', 'mailinator.com', 'guerrillamail.com',
-      '10minutemail.com', 'throwawaymail.com', 'yopmail.com'
-    ];
-    const domain = email.split('@')[1].toLowerCase();
-    if (disposableDomains.some(d => domain.includes(d))) {
-      console.log('❌ Disposable email detected:', email);
-      return res.status(400).json({ error: 'Temporary emails are not accepted' });
-    }
-    
-    console.log('✅ Email validated:', email);
-    
-    // Vérifier/créer la table magic_links
-    try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS magic_links (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL,
-          token VARCHAR(64) NOT NULL UNIQUE,
-          expires_at TIMESTAMP NOT NULL,
-          ip_address INET,
-          created_at TIMESTAMP DEFAULT NOW()
-        )
-      `);
-      console.log('✅ Table magic_links OK');
-    } catch (tableError) {
-      console.warn('⚠️ Table check warning:', tableError.message);
-    }
-    
-    // Générer token
-    const crypto = require('crypto');
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min
-    
-    console.log('🔗 Token generated:', token.substring(0, 20) + '...');
-    
-    try {
-      // Insérer ou mettre à jour
-      await pool.query(`
-        INSERT INTO magic_links (email, token, expires_at, ip_address)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (email) 
-        DO UPDATE SET token = $2, expires_at = $3, created_at = NOW()
-      `, [email, token, expiresAt, req.ip]);
-      
-      console.log('✅ Token saved to database');
-      
-    } catch (dbError) {
-      console.error('❌ Database error:', dbError.message);
-      // Fallback en mémoire
-      if (!global.tempMagicLinks) global.tempMagicLinks = new Map();
-      global.tempMagicLinks.set(token, { email, expiresAt });
-      console.log('✅ Token saved to memory (fallback)');
-    }
-    
-    // Créer le lien
-    const baseUrl = process.env.APP_URL || (req.protocol + '://' + req.get('host'));
-    const magicLink = `${baseUrl}/auth/magic-link/verify?token=${token}&email=${encodeURIComponent(email)}`;
-    
-    console.log('🔗 Magic Link URL:', magicLink);
-    console.log('⏰ Expires at:', expiresAt.toLocaleTimeString());
-    
-    // IMPORTANT: En développement, log le lien pour faciliter les tests
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('🔗 [DEV] Test link:', magicLink);
-    }
-    
-    res.json({ 
-      success: true, 
-      message: 'Magic link sent! Check your email.',
-      // Retourner des infos de debug en développement
-      ...(process.env.NODE_ENV !== 'production' && {
-        debug_info: {
-          token_short: token.substring(0, 16) + '...',
-          expires: expiresAt.toISOString(),
-          test_link: magicLink
-        }
-      })
-    });
-    
-  } catch (error) {
-    console.error('💥 Magic link endpoint error:', error);
-    console.error('💥 Error stack:', error.stack);
-    
-    res.status(500).json({ 
-      error: 'Server error',
-      message: error.message,
-      ...(process.env.NODE_ENV !== 'production' && {
-        stack: error.stack
-      })
-    });
-  }
-});
-
-router.get('/auth/magic-link/verify', async (req, res) => {
-  try {
-    const { token, email } = req.query;
-    
-    // Vérifier le token
-    const result = await pool.query(`
-      DELETE FROM magic_links 
-      WHERE email = $1 
-        AND token = $2 
-        AND expires_at > NOW()
-      RETURNING *
-    `, [email, token]);
-    
-    if (result.rows.length === 0) {
-      return res.redirect('/login?error=invalid_or_expired_token');
-    }
-    
-    // Trouver ou créer l'utilisateur
-    let user = await findUserByEmail(email);
-    
-    if (!user) {
-      // Créer un nouvel utilisateur
-      user = await createUser({
-        email,
-        name: email.split('@')[0], // Nom par défaut
-        auth_method: 'magic_link',
-        email_verified: true
-      });
-      
-      // Premier login, peut-être un tutoriel
-      req.session.isFirstLogin = true;
-    }
-    
-    // Connecter l'utilisateur
-    req.login(user, (err) => {
-      if (err) {
-        console.error('Login error:', err);
-        return res.redirect('/login?error=auth_failed');
-      }
-      
-      // Succès !
-      if (req.session.isFirstLogin) {
-        return res.redirect('/welcome');
-      }
-      return res.redirect('/dashboard');
-    });
-    
-  } catch (error) {
-    console.error('Verify error:', error);
-    res.redirect('/login?error=server_error');
-  }
-});
 
 // ---------------------API
 
@@ -1576,7 +1397,7 @@ router.get('/api/transactions', ensureAuth, async (req, res) => {
 // Acheter un booster
 router.post('/api/acheter-booster', ensureAuth, async (req, res) => {
   // Déclaration des constantes directement dans la route
-  const BOOSTER_COST = 40;
+  const BOOSTER_COST = 20;
   const BOOSTER_CARD_COUNT = 5;
 
   const userId = req.user.id;

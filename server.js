@@ -3,6 +3,9 @@ require('dotenv').config();
 const path = require("path");
 const express = require("express");
 const session = require('express-session');
+const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const { passport, setupAuthRoutes } = require('./config/connexion');
 const {
   ensureAuth,
@@ -20,6 +23,8 @@ const {
   updateWordScore,
   addTransaction
 } = require('./middleware/index');
+const { sendVerificationEmail } = require('./middleware/mail.service');
+
 const PostgreSQLStore = require('connect-pg-simple')(session);
 const apiRoutes = require('./routes/api');
 const { pool } = require('./config/database');
@@ -29,6 +34,18 @@ const app = express();
 app.set('trust proxy', 1); // Pour les déploiements derrière un proxy (Heroku, Render, etc.)
 console.log("Callback URL utilisée :", process.env.GOOGLE_CALLBACK_URL
 );
+
+function generateToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: {
+    error: 'Too many attempts, try later'
+  }
+});
 
 
 // -------------------- Configuration Express --------------------
@@ -56,6 +73,7 @@ app.use(session({
     sameSite: 'lax',
   }
 }));
+app.use('/auth', authLimiter);
 setupAuthRoutes(app);
 app.use(resilience);
 app.use(repair);
@@ -78,7 +96,7 @@ app.use(async (req, res, next) => {
 });
 
 // Connexion google
-app.get("/auth/google", 
+app.get("/auth/google",
   (req, res, next) => {
     // Sauvegarde l'URL de retour
     if (req.query.returnTo) {
@@ -86,14 +104,14 @@ app.get("/auth/google",
     }
     next();
   },
-  passport.authenticate("google", { 
+  passport.authenticate("google", {
     scope: ["profile", "email"],
     prompt: "select_account" // ← Laisse l'utilisateur choisir son compte
   })
 );
 
 app.get("/auth/google/callback",
-  passport.authenticate("google", { 
+  passport.authenticate("google", {
     failureRedirect: "/?error=auth_failed"
   }),
   (req, res) => {
@@ -106,11 +124,11 @@ app.get("/auth/google/callback",
         console.error('❌ Erreur sauvegarde session:', err);
         return res.redirect('/?error=session_error');
       }
-      
+
       console.log('💾 Session sauvegardée, redirection...');
       const returnTo = req.session.returnTo || '/dashboard';
       delete req.session.returnTo;
-      
+
       res.redirect(returnTo);
     });
   }
@@ -118,15 +136,15 @@ app.get("/auth/google/callback",
 
 app.post("/auth/google/one-tap", async (req, res) => {
   const transaction = await pool.connect();
-  
+
   try {
     const { credential } = req.body;
     console.log('🔐 Google One Tap token reçu');
-    
+
     if (!credential) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Token manquant' 
+      return res.status(400).json({
+        success: false,
+        error: 'Token manquant'
       });
     }
 
@@ -134,7 +152,7 @@ app.post("/auth/google/one-tap", async (req, res) => {
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID
     });
-    
+
     const payload = ticket.getPayload();
     const { sub: googleId, name, email } = payload;
 
@@ -185,10 +203,10 @@ app.post("/auth/google/one-tap", async (req, res) => {
         }
 
         console.log('✅ Session créée avec succès. Balance:', user.balance);
-        res.json({ 
-          success: true, 
+        res.json({
+          success: true,
           redirect: '/dashboard',
-          user: { 
+          user: {
             id: user.id,
             name: user.name,
             email: user.email,
@@ -219,127 +237,175 @@ app.post('/auth/logout', (req, res) => {
   });
 });
 
+// connexion normale
+/* const signupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many signups, try later' }
+}); */
 
-// Cookies
-// Test de durée réelle de session
-app.get('/session-timeout-test', (req, res) => {
-  console.log('=== ⏰ SESSION TIMEOUT TEST ===');
-  console.log('Session ID:', req.sessionID);
-  console.log('Session data:', req.session);
-  
-  if (!req.session.testStart) {
-    req.session.testStart = new Date().toISOString();
-    req.session.accessCount = 0;
-    console.log('🆕 Nouvelle session créée');
-  }
-  
-  req.session.accessCount++;
-  req.session.lastAccess = new Date().toISOString();
-  
-  const sessionAge = Math.floor((new Date() - new Date(req.session.testStart)) / 1000);
-  
-  req.session.save((err) => {
-    if (err) {
-      console.error('❌ Session save error:', err);
-      return res.json({ error: 'Session save failed' });
+app.post('/auth/signup-basic', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email et mot de passe requis' });
     }
-    
-    console.log(`✅ Session sauvegardée (âge: ${sessionAge}s, accès: ${req.session.accessCount})`);
-    
+
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        error: 'Mot de passe : 8 caractères min, 1 majuscule, 1 chiffre'
+      });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+
+    const userRes = await pool.query(
+      `INSERT INTO users (email, password_hash, provider, email_verified, balance)
+       VALUES ($1, $2, 'local', false, 100)
+       RETURNING id, email`,
+      [email, hash]
+    );
+
+    const user = userRes.rows[0];
+
+    // 🔐 token email
+    const token = generateToken();
+
+    await pool.query(
+      `INSERT INTO email_verification_tokens (user_id, token, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '24 hours')`,
+      [user.id, token]
+    );
+
+    // 📧 envoyer mail
+    await sendVerificationEmail(user.email, token);
+
     res.json({
-      sessionID: req.sessionID,
-      sessionAge: sessionAge + ' seconds',
-      accessCount: req.session.accessCount,
-      testStart: req.session.testStart,
-      lastAccess: req.session.lastAccess,
-      user: req.user,
-      isAuthenticated: req.isAuthenticated()
+      success: true,
+      message: 'Verification email sent'
     });
-  });
+
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({ error: 'Email déjà utilisé' });
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
 });
 
-app.get('/force-session-cookie', (req, res) => {
-  console.log('=== 🚀 FORCE SESSION COOKIE ===');
-  
-  // Forcer la régénération du cookie de session
-  req.session.regenerate((err) => {
-    if (err) {
-      console.error('❌ Regenerate error:', err);
-      return res.json({ error: 'Regenerate failed' });
+app.post('/auth/login-basic', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const result = await pool.query(
+      'SELECT id, email, password_hash, email_verified FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
-    
-    console.log('✅ Session régénérée:', req.sessionID);
-    
-    // SET le cookie manuellement
-    res.cookie('jiayou.sid', req.sessionID, {
-      secure: true,
-      httpOnly: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      sameSite: 'lax'
-    });
-    
-    req.session.testValue = 'forced_session';
-    req.session.save((saveErr) => {
-      if (saveErr) {
-        console.error('❌ Session save error:', saveErr);
+
+    const user = result.rows[0];
+
+    if (!user.email_verified) {
+      return res.status(403).json({
+        error: 'Please verify your email first'
+      });
+    }
+
+    if (!user.password_hash) {
+      return res.status(401).json({ error: 'Use Google to sign in' });
+    }
+
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    req.login(user, err => {
+      if (err) {
+        return res.status(500).json({ error: 'Login failed' });
       }
-      
-      console.log('Headers Set-Cookie:', res.getHeaders()['set-cookie']);
-      
+
       res.json({
-        message: 'Session cookie forcé',
-        sessionID: req.sessionID,
-        setCookies: res.getHeaders()['set-cookie']
+        success: true,
+        redirect: '/dashboard'
       });
     });
-  });
-});
 
-app.get('/session-persistence-test', (req, res) => {
-  console.log('=== 🧪 SESSION PERSISTENCE TEST ===');
-  console.log('URL:', req.url);
-  console.log('Session ID:', req.sessionID);
-  console.log('req.user:', req.user);
-  console.log('req.isAuthenticated():', req.isAuthenticated());
-  console.log('Cookies reçus:', req.headers.cookie);
-  
-  // Compter les visites
-  if (!req.session.visitCount) {
-    req.session.visitCount = 1;
-  } else {
-    req.session.visitCount++;
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
-  
-  req.session.lastVisit = new Date().toISOString();
-  
-  req.session.save((err) => {
-    if (err) {
-      console.error('❌ Erreur sauvegarde session:', err);
-    }
-    
-    res.json({
-      sessionID: req.sessionID,
-      visitCount: req.session.visitCount,
-      user: req.user,
-      isAuthenticated: req.isAuthenticated(),
-      cookies: req.headers.cookie
-    });
-  });
 });
 
-app.get('/api/debug-session', (req, res) => {
-  console.log('=== SESSION COMPLETE ===');
-  console.log('Session ID:', req.sessionID);
-  console.log('Session data:', req.session);
-  console.log('========================');
-  
-  res.json({
-    sessionId: req.sessionID,
-    sessionData: req.session,
-    userId: req.session.userId,
-    user: req.session.user
-  });
+app.post('/auth/check-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email required' });
+    }
+
+    const result = await pool.query(
+      'SELECT email, password_hash, provider FROM users WHERE email = $1',
+      [email]
+    );
+
+    // Aucun compte
+    if (result.rows.length === 0) {
+      return res.json({ step: 'signup' });
+    }
+
+    const user = result.rows[0];
+
+    // Compte Google uniquement
+    if (!user.password_hash && user.provider === 'google') {
+      return res.json({ step: 'google_only' });
+    }
+
+    // Compte email + mot de passe
+    return res.json({ step: 'login' });
+
+  } catch (err) {
+    console.error('check-email error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
+
+app.get('/auth/verify-email', async (req, res) => {
+  const { token } = req.query;
+
+  const result = await pool.query(
+    `SELECT * FROM email_verification_tokens
+     WHERE token = $1 AND expires_at > NOW()`,
+    [token]
+  );
+
+  if (result.rows.length === 0) {
+    return res.send('Invalid or expired token');
+  }
+
+  const { user_id } = result.rows[0];
+
+  await pool.query(
+    `UPDATE users SET email_verified = true WHERE id = $1`,
+    [user_id]
+  );
+
+  await pool.query(
+    `DELETE FROM email_verification_tokens WHERE user_id = $1`,
+    [user_id]
+  );
+
+  res.redirect('/?verified=true');
+});
+
+
 
 // Pages EJS
 app.get('/', (req, res) => {
@@ -347,8 +413,8 @@ app.get('/', (req, res) => {
   if (req.user) {
     res.redirect('/dashboard');
   } else {
-    res.render('index', { 
-      user: req.user, 
+    res.render('index', {
+      user: req.user,
       error: error,
       // Assure-toi de passer le GOOGLE_CLIENT_ID
       GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID
@@ -361,7 +427,7 @@ app.get('/index', (req, res) => {
 });
 
 app.get('/dashboard', ensureAuth, async (req, res) => {
-  const userId = req.user.id; 
+  const userId = req.user.id;
 
   try {
     const userRes = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
@@ -459,18 +525,18 @@ app.get('/duel/:id', ensureAuth, async (req, res) => {
     }
 
     const duel = duelResult.rows[0];
-    
+
     console.log('🔍 Duel trouvé:', duel.id);
     console.log('📊 quiz_data brut:', duel.quiz_data);
-    
+
     // Parse les données du quiz - CORRECTION ICI
     let quizData = [];
     if (duel.quiz_data) {
       try {
-        let parsedData = typeof duel.quiz_data === 'string' 
-          ? JSON.parse(duel.quiz_data) 
+        let parsedData = typeof duel.quiz_data === 'string'
+          ? JSON.parse(duel.quiz_data)
           : duel.quiz_data;
-        
+
         // ⬅️ EXTRACTION DES MOTS DEPUIS LA STRUCTURE
         if (parsedData.words && Array.isArray(parsedData.words)) {
           quizData = parsedData.words;
@@ -482,7 +548,7 @@ app.get('/duel/:id', ensureAuth, async (req, res) => {
         } else {
           console.log('❌ Structure inconnue de quiz_data');
         }
-        
+
       } catch (e) {
         console.error('❌ Erreur parsing quiz_data:', e);
       }
@@ -606,13 +672,13 @@ app.get('/leaderboard', ensureAuth, async (req, res) => {
 app.get('/bank', ensureAuth, async (req, res) => {
   try {
     console.log('🏦 Chargement page compte bancaire pour user:', req.user.id);
-    
+
     res.render('bank', {
       user: req.user,
       title: 'Mon Compte - 加油！',
       currentPage: 'bank'
     });
-    
+
   } catch (err) {
     console.error('❌ Erreur chargement page bank:', err);
     res.status(500).render('error', { error: 'Erreur lors du chargement de la page' });
@@ -644,26 +710,26 @@ app.get('/duel-play/:id', ensureAuth, async (req, res) => {
     }
 
     const duel = duelResult.rows[0];
-    
+
     // Vérifier que l'utilisateur peut jouer (n'a pas déjà joué)
     const isChallenger = duel.challenger_id === userId;
     const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
-    
+
     if (userScore !== null) {
       console.log('❌ Utilisateur a déjà joué, redirection vers détail');
       return res.redirect(`/duel/${duelId}`);
     }
 
     console.log('📊 quiz_data brut:', duel.quiz_data);
-    
+
     // Parse les données du quiz
     let quizData = [];
     if (duel.quiz_data) {
       try {
-        let parsedData = typeof duel.quiz_data === 'string' 
-          ? JSON.parse(duel.quiz_data) 
+        let parsedData = typeof duel.quiz_data === 'string'
+          ? JSON.parse(duel.quiz_data)
           : duel.quiz_data;
-        
+
         // Extraction des mots
         if (parsedData.words && Array.isArray(parsedData.words)) {
           quizData = { words: parsedData.words }; // Structure attendue par le frontend
@@ -676,7 +742,7 @@ app.get('/duel-play/:id', ensureAuth, async (req, res) => {
           console.log('❌ Structure inconnue de quiz_data');
           quizData = { words: [] };
         }
-        
+
       } catch (e) {
         console.error('❌ Erreur parsing quiz_data:', e);
         quizData = { words: [] };
@@ -707,7 +773,7 @@ app.get('/store', ensureAuth, async (req, res) => {
       'SELECT balance FROM users WHERE id = $1',
       [req.user.id]
     );
-    
+
     res.render('store', {
       user: {
         ...req.user,

@@ -381,7 +381,7 @@
       <button class="btn btn-success btn-lg" id="confirmAddBtn" onclick="confirmAddExistingWord()">
         <i class="bi bi-check-lg me-2"></i>Capture the word (3 coins)
       </button>
-      <button class="btn btn-outline-secondary" onclick="showNewWordScreen()">
+      <button class="btn btn-outline-secondary"  id="editBeforeAddBtn" onclick="showNewWordScreen()">
         <i class="bi bi-pencil me-2"></i>Edit Before Adding
       </button>
       <button class="btn btn-outline-secondary" onclick="showInputScreen()">
@@ -562,20 +562,36 @@ async function checkIfWordAlreadyCaptured(chineseWord) {
 
 function setConfirmButtonState(alreadyCaptured) {
   const confirmBtn = document.getElementById('confirmAddBtn');
+  const editBtn = document.getElementById('editBeforeAddBtn');
+
   if (!confirmBtn) return;
-  
+
   if (alreadyCaptured) {
+    // 🔒 Mot déjà capturé
     confirmBtn.disabled = true;
     confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Already captured';
     confirmBtn.classList.remove('btn-success');
     confirmBtn.classList.add('btn-secondary');
+
+    // 🚫 Cacher "Edit Before Adding"
+    if (editBtn) {
+      editBtn.style.display = 'none';
+    }
+
   } else {
+    // 🆕 Mot pas encore capturé
     confirmBtn.disabled = false;
     confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
     confirmBtn.classList.remove('btn-secondary');
     confirmBtn.classList.add('btn-success');
+
+    // ✏️ Réafficher "Edit Before Adding"
+    if (editBtn) {
+      editBtn.style.display = 'block';
+    }
   }
 }
+
 
 // 🔥 AJOUTE CETTE FONCTION DANS TON SCRIPT
 function convertirPinyin(texteChinois) {
@@ -655,7 +671,6 @@ async function confirmAddExistingWord() {
     confirmBtn.disabled = true;
   }
 }
-
 
 async function confirmAddNewWord() {
   const pinyin = document.getElementById('newPinyin').value.trim();

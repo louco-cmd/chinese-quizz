@@ -200,7 +200,7 @@ class NotificationManager {
           <div class="text-muted small">${notification.message}</div>
         </div>
         <button type="button" class="btn-close btn-close-sm ms-2" 
-                onclick="window.notificationManager.hide('${notification.id}')"
+                onclick="window.notificationManager.hide(${notification.id})"
                 aria-label="Close"></button>
       </div>
     `;

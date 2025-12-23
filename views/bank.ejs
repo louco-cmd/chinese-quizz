@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,12 +13,14 @@
             box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
             margin-bottom: 1rem;
         }
+
         .balance-card {
             border: 1px solid #dee2e6;
             background: white;
             position: relative;
             overflow: hidden;
         }
+
         .balance-watermark {
             position: absolute;
             top: 20%;
@@ -28,18 +31,22 @@
             opacity: 0.3;
             font-weight: 500;
         }
+
         .transaction-positive {
             border-left: 4px solid #28a745;
         }
+
         .transaction-negative {
             border-left: 4px solid #dc3545;
         }
+
         .balance-amount {
             font-size: 3rem;
             font-weight: 800;
             color: #6c757d;
             line-height: 1;
         }
+
         .balance-symbol {
             font-size: 2rem;
             font-weight: 600;
@@ -48,95 +55,97 @@
         }
     </style>
 </head>
+
 <body class="bg-light">
     <%- include('partials/header') %>
-    <%- include('partials/navbar', {currentPage: 'account'}) %>
+        <%- include('partials/navbar', {currentPage: 'account' }) %>
 
-    <div class="container py-4">
+            <div class="container py-4">
 
-        <!-- Carte Balance -->
-        <div class="card balance-card mb-4">
-            <div class="card-body text-center py-5">
-                <div class="balance-watermark">Balance</div>
-                <div class="d-flex justify-content-center align-items-center">
-                    <span class="balance-amount" id="currentBalance">0</span>
-                    <span class="balance-symbol"> ₵</span>
+                <!-- Carte Balance -->
+                <div class="card balance-card mb-4">
+                    <div class="card-body text-center py-5">
+                        <div class="balance-watermark">Balance</div>
+                        <div class="d-flex justify-content-center align-items-center">
+                            <span class="balance-amount" id="currentBalance">0</span>
+                            <span class="balance-symbol"> ₵</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Liste des Transactions -->
-        <div class="card">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h6 class="mb-0">Historique des transactions</h6>
-                <button class="btn btn-outline-secondary btn-sm" onclick="loadTransactions()">
-                    <i class="bi bi-arrow-clockwise"></i>
-                </button>
-            </div>
-            <div class="card-body p-0">
-                <div id="transactions-list">
-                    <div class="text-center py-4">
-                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                        <p class="mt-2 text-muted small">Chargement...</p>
+                <!-- Liste des Transactions -->
+                <div class="card">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Historique des transactions</h6>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="loadTransactions()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="transactions-list">
+                            <div class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <p class="mt-2 text-muted small">Chargement...</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        let allTransactions = [];
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+            <script>
+                let allTransactions = [];
 
-        // Initialisation
-        document.addEventListener('DOMContentLoaded', function() {
-            loadBalance();
-            loadTransactions();
-        });
+                // Initialisation
+                document.addEventListener('DOMContentLoaded', function () {
+                    loadBalance();
+                    loadTransactions();
+                });
 
-        // Charger le solde
-        async function loadBalance() {
-            try {
-                const response = await fetch('/api/balance');
-                const data = await response.json();
-                document.getElementById('currentBalance').textContent = data.balance.toLocaleString();
-            } catch (error) {
-                console.error('Erreur chargement solde:', error);
-                document.getElementById('currentBalance').textContent = 'Erreur';
-            }
-        }
+                // Charger le solde
+                async function loadBalance() {
+                    try {
+                        const response = await fetch('/api/balance');
+                        const data = await response.json();
+                        document.getElementById('currentBalance').textContent = data.balance.toLocaleString();
+                    } catch (error) {
+                        console.error('Erreur chargement solde:', error);
+                        document.getElementById('currentBalance').textContent = 'Erreur';
+                    }
+                }
 
-        // Charger les transactions
-        async function loadTransactions() {
-            try {
-                showTransactionsLoading(true);
-                const response = await fetch('/api/transactions');
-                const transactions = await response.json();
-                allTransactions = transactions;
-                displayTransactions(transactions);
-            } catch (error) {
-                console.error('Erreur chargement transactions:', error);
-                showTransactionsError();
-            } finally {
-                showTransactionsLoading(false);
-            }
-        }
+                // Charger les transactions
+                async function loadTransactions() {
+                    try {
+                        showTransactionsLoading(true);
+                        const response = await fetch('/api/transactions');
+                        const transactions = await response.json();
+                        allTransactions = transactions;
+                        const currentMonthTransactions = filterCurrentMonthTransactions(transactions);
+                        displayTransactions(currentMonthTransactions);
+                    } catch (error) {
+                        console.error('Erreur chargement transactions:', error);
+                        showTransactionsError();
+                    } finally {
+                        showTransactionsLoading(false);
+                    }
+                }
 
-        // Afficher les transactions
-        function displayTransactions(transactions) {
-            const container = document.getElementById('transactions-list');
+                // Afficher les transactions
+                function displayTransactions(transactions) {
+                    const container = document.getElementById('transactions-list');
 
-            if (transactions.length === 0) {
-                container.innerHTML = `
+                    if (transactions.length === 0) {
+                        container.innerHTML = `
                     <div class="text-center py-4 text-muted">
                         <i class="bi bi-receipt fs-2 opacity-50"></i>
                         <p class="mt-2 small">Aucune transaction</p>
                     </div>
                 `;
-                return;
-            }
+                        return;
+                    }
 
-            container.innerHTML = transactions.map(transaction => `
+                    container.innerHTML = transactions.map(transaction => `
                 <div class="list-item d-flex justify-content-between align-items-center border-bottom p-3 ${transaction.amount > 0 ? 'transaction-positive' : 'transaction-negative'}">
                     <div class="d-flex align-items-center">
                         <div class="avatar me-3">
@@ -159,29 +168,44 @@
                     </div>
                 </div>
             `).join('');
-        }
+                }
 
-        // Fonctions utilitaires
-        function showTransactionsLoading(show) {
-            const container = document.getElementById('transactions-list');
-            if (show) {
-                container.innerHTML = `
+                // Fonctions utilitaires
+                function showTransactionsLoading(show) {
+                    const container = document.getElementById('transactions-list');
+                    if (show) {
+                        container.innerHTML = `
                     <div class="text-center py-4">
                         <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
                         <p class="mt-2 text-muted small">Chargement...</p>
                     </div>
                 `;
-            }
-        }
+                    }
+                }
 
-        function showTransactionsError() {
-            document.getElementById('transactions-list').innerHTML = `
+                function showTransactionsError() {
+                    document.getElementById('transactions-list').innerHTML = `
                 <div class="alert alert-warning m-3 small">
                     <i class="bi bi-exclamation-triangle me-1"></i>
                     Erreur de chargement
                 </div>
             `;
-        }
-    </script>
+                }
+                function filterCurrentMonthTransactions(transactions) {
+                    const now = new Date();
+                    const currentMonth = now.getMonth(); // 0-11
+                    const currentYear = now.getFullYear();
+
+                    return transactions.filter(tx => {
+                        const txDate = new Date(tx.created_at);
+                        return (
+                            txDate.getMonth() === currentMonth &&
+                            txDate.getFullYear() === currentYear
+                        );
+                    });
+                }
+
+            </script>
 </body>
+
 </html>
