@@ -29,9 +29,9 @@ router.get('/account-info', ensureAuth, async (req, res) => {
   // Permet de récupérer les données d'un autre utilisateur si user_id est fourni
   const targetUserId = req.query.user_id || req.user.id;
   const currentUserId = req.user.id;
-  
+
   console.log('🎯 /account-info appelé:', { targetUserId, currentUserId });
-  
+
   try {
     // 1. Récupérer les infos utilisateur COMPLÈTES
     const userInfo = await pool.query(`
@@ -57,7 +57,7 @@ router.get('/account-info', ensureAuth, async (req, res) => {
       JOIN mots ON user_mots.mot_id = mots.id 
       WHERE user_mots.user_id = $1
     `, [targetUserId]);
-    
+
     // 3. Calculer les stats HSK
     const hskStats = {
       HSK1: 0,
@@ -83,13 +83,13 @@ router.get('/account-info', ensureAuth, async (req, res) => {
       FROM quiz_history 
       WHERE user_id = $1
     `, [targetUserId]);
-    
+
     const duelStats = await pool.query(`
       SELECT COUNT(*) as total_duels
       FROM duels 
       WHERE challenger_id = $1 OR opponent_id = $1
     `, [targetUserId]);
-    
+
     // Construire la réponse COMPLÈTE
     const response = {
       name: user.name,
@@ -112,9 +112,9 @@ router.get('/account-info', ensureAuth, async (req, res) => {
       totalQuizzes: response.stats.total_quizzes,
       totalDuels: response.stats.total_duels
     });
-    
+
     res.json(response);
-    
+
   } catch (err) {
     console.error('❌ Erreur /account-info:', err);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -165,7 +165,7 @@ router.get("/api/quiz/history", ensureAuth, async (req, res) => {
     console.log('📊 Route /api/quiz/history routerelée');
     const userId = req.user.id;
     const limit = parseInt(req.query.limit) || 10;
-    
+
     // Récupérer les derniers quiz
     const quizzesResult = await pool.query(
       `SELECT * FROM quiz_history 
@@ -174,7 +174,7 @@ router.get("/api/quiz/history", ensureAuth, async (req, res) => {
        LIMIT $2`,
       [userId, limit]
     );
-    
+
     // Récupérer les stats globales - avec COALESCE pour gérer les valeurs NULL
     const statsResult = await pool.query(`
       SELECT 
@@ -184,14 +184,14 @@ router.get("/api/quiz/history", ensureAuth, async (req, res) => {
       FROM quiz_history 
       WHERE user_id = $1
     `, [userId]);
-    
+
     console.log(`📊 Données trouvées: ${quizzesResult.rows.length} quiz`);
-    
+
     res.json({
       quizzes: quizzesResult.rows,
       stats: statsResult.rows[0]
     });
-    
+
   } catch (err) {
     console.error('❌ Erreur récupération historique quiz:', err);
     res.status(500).json({ error: err.message });
@@ -291,8 +291,8 @@ router.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
     if (coinsEarned > 0) {
       await client.query(
         "INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)",
-        [req.user.id, coinsEarned, 'quiz_reward', 
-         `Quiz ${quiz_type}: ${scoreNum}/${totalNum} correct (${ratio}%) - ${coinsEarned} coins earned`]
+        [req.user.id, coinsEarned, 'quiz_reward',
+        `Quiz ${quiz_type}: ${scoreNum}/${totalNum} correct (${ratio}%) - ${coinsEarned} coins earned`]
       );
 
       await client.query(
@@ -355,12 +355,12 @@ router.get("/mes-mots", ensureAuth, async (req, res) => {
     `, [userId]);
 
     console.log(`📊 ${rows.length} mots avec scores récupérés pour l'utilisateur ${userId}`);
-    
+
     // Log du premier mot pour vérifier
     if (rows.length > 0) {
       console.log('🔍 Exemple mot avec score:', {
         id: rows[0].id,
-        chinese: rows[0].chinese, 
+        chinese: rows[0].chinese,
         score: rows[0].score,
         nb_quiz: rows[0].nb_quiz
       });
@@ -530,7 +530,7 @@ router.put("/update/:id", ensureAuth, async (req, res) => {
   try {
     await pool.query(
       "UPDATE mots SET chinese=$1,pinyin=$2,english=$3,description=$4,hsk=$5 WHERE id=$6",
-      [chinese,pinyin,english,description,hsk,id]
+      [chinese, pinyin, english, description, hsk, id]
     );
     res.json({ success: true });
   } catch (err) {
@@ -568,7 +568,7 @@ router.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
 
     console.log('✅ DEBUG - Résultats:', rows);
     const alreadyExists = rows.length > 0;
-    
+
     res.json({ alreadyExists });
 
   } catch (err) {
@@ -581,116 +581,123 @@ router.get('/quiz-mots', ensureAuth, async (req, res) => {
   const userId = req.user.id;
   const requestedCount = req.query.count === 'all' ? null : parseInt(req.query.count) || 10;
   const hskLevel = req.query.hsk || 'all';
-  const quizType = req.query.type || 'pinyin';
 
-  console.log('🎯 API /quiz-mots appelée avec:', { 
-    userId, 
-    requestedCount, 
-    hskLevel,
-    quizType
-  });
+  console.log('🎯 API /quiz-mots appelée', { userId, requestedCount, hskLevel });
 
   try {
-    // REQUÊTE SIMPLIFIÉE sans last_reviewed
+    // =============================
+    // 1. RÉCUPÉRATION DES MOTS
+    // =============================
     let query = `
-      SELECT mots.*, 
-       COALESCE(user_mots.score, 0) as score,
-       COALESCE(user_mots.nb_quiz, 0) as nb_quiz
-          FROM mots 
-          INNER JOIN user_mots ON mots.id = user_mots.mot_id
-          WHERE user_mots.user_id = $1
+      SELECT 
+        mots.*,
+        COALESCE(user_mots.score, 0) AS score,
+        COALESCE(user_mots.nb_quiz, 0) AS nb_quiz,
+        user_mots.last_seen
+      FROM mots
+      INNER JOIN user_mots ON mots.id = user_mots.mot_id
+      WHERE user_mots.user_id = $1
     `;
-    
-    let params = [userId];
-    let paramCount = 1;
 
-    // Filtre HSK
+    let params = [userId];
+
     if (hskLevel !== 'all') {
       if (hskLevel === 'street') {
         query += ` AND mots.hsk IS NULL`;
       } else {
-        paramCount++;
-        query += ` AND mots.hsk = $${paramCount}`;
+        query += ` AND mots.hsk = $2`;
         params.push(parseInt(hskLevel));
       }
     }
 
-    console.log('📝 Query SQL:', query);
-    console.log('🔧 Paramètres:', params);
-
     const { rows: allWords } = await pool.query(query, params);
-    console.log('✅ Tous les mots trouvés:', allWords.length);
 
-    if (allWords.length === 0) {
-      console.log('ℹ️ Aucun mot trouvé avec ces critères');
+    if (!allWords.length) {
       return res.json([]);
     }
 
-    // ANALYSE SIMPLE
-    const total = allWords.length;
-    const mastered = allWords.filter(w => w.score >= 90).length;
-    const masteredPercent = (mastered / total) * 100;
-    const avgScore = allWords.reduce((sum, w) => sum + w.score, 0) / total;
-    
-    console.log('📊 Stats:', { total, mastered, masteredPercent, avgScore });
+    // =============================
+    // 2. FILTRE TEMPOREL (anti-répétition)
+    // =============================
+    const COOLDOWN_HOURS = 12;
+    const now = new Date();
 
-    // STRATÉGIE SIMPLIFIÉE
-    let selectedWords = [];
+    const availableWords = allWords.filter(w => {
+      if (!w.last_seen) return true;
+      const diffHours = (now - new Date(w.last_seen)) / (1000 * 60 * 60);
+      return diffHours >= COOLDOWN_HOURS;
+    });
+
+    // fallback si trop peu de mots
+    const poolWords = availableWords.length > 0 ? availableWords : allWords;
+
+    // =============================
+    // 3. CLASSEMENT PAR NIVEAU
+    // =============================
+    const weak = poolWords.filter(w => w.score < 40);
+    const medium = poolWords.filter(w => w.score >= 40 && w.score < 75);
+    const strong = poolWords.filter(w => w.score >= 75);
+
     const count = requestedCount || 10;
-    
-    if (masteredPercent >= 90 && avgScore >= 90) {
-      // Utilisateur avancé
-      console.log('🎯 Mode: Utilisateur avancé');
-      selectedWords = selectForAdvancedUser(allWords, count);
-    } else {
-      // Mode normal : priorité aux mots faibles
-      console.log('🎯 Mode: Normal');
-      selectedWords = selectWordsNormal(allWords, count);
+
+    const pick = (arr, n) => shuffleArray(arr).slice(0, n);
+
+    let selected = [
+      ...pick(weak, Math.floor(count * 0.4)),
+      ...pick(medium, Math.floor(count * 0.3)),
+      ...pick(strong, Math.floor(count * 0.2)),
+    ];
+
+    // compléter si manque
+    while (selected.length < count) {
+      const random = shuffleArray(poolWords)[0];
+      if (!selected.find(w => w.id === random.id)) {
+        selected.push(random);
+      }
     }
 
-    // Mélanger
-    const shuffledWords = shuffleArray(selectedWords);
-    console.log('📈 Résultat final:', shuffledWords.length, 'mots sélectionnés');
-    
-    // Fallback si vide
-    if (shuffledWords.length === 0 && allWords.length > 0) {
-      console.log('⚠️ Fallback: prendre les premiers mots');
-      selectedWords = allWords.slice(0, Math.min(count, allWords.length));
-      shuffledWords = shuffleArray(selectedWords);
-    }
+    // Mélange final
+    const finalSelection = shuffleArray(selected);
 
-    res.json(shuffledWords);
+    // =============================
+    // 4. MAJ last_seen
+    // =============================
+    await pool.query(
+      `UPDATE user_mots 
+       SET last_seen = NOW()
+       WHERE user_id = $1 AND mot_id = ANY($2)`,
+      [userId, finalSelection.map(w => w.id)]
+    );
+
+    res.json(finalSelection);
 
   } catch (err) {
-    console.error('💥 ERREUR /quiz-mots:', err.message);
-    res.status(500).json({ 
-      error: 'Erreur serveur', 
-      details: err.message
-    });
+    console.error('💥 ERREUR /quiz-mots:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
 router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
   const client = await pool.connect();
-  
+
   try {
     await client.query('BEGIN');
 
     const { name, tagline, country } = req.body;
-    
+
     if (!name || name.length > 50) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Name is required and must be less than 50 characters' 
+      return res.status(400).json({
+        success: false,
+        message: 'Name is required and must be less than 50 characters'
       });
     }
 
     if (tagline && tagline.length > 100) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Tagline must be less than 100 characters' 
+      return res.status(400).json({
+        success: false,
+        message: 'Tagline must be less than 100 characters'
       });
     }
 
@@ -712,9 +719,9 @@ router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error updating profile:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error updating profile' 
+    res.status(500).json({
+      success: false,
+      message: 'Error updating profile'
     });
   } finally {
     client.release();
@@ -727,7 +734,7 @@ router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
 router.get('/api/duels/leaderboard', ensureAuth, async (req, res) => {
   try {
     console.log('🏆 Chargement classement...');
-    
+
     const result = await pool.query(`
       SELECT 
         u.id,
@@ -762,7 +769,7 @@ router.get('/api/duels/leaderboard', ensureAuth, async (req, res) => {
 
     console.log(`✅ Classement chargé: ${result.rows.length} joueurs`);
     res.json(result.rows);
-    
+
   } catch (err) {
     console.error('❌ Erreur classement:', err);
     res.status(500).json({ error: 'Erreur chargement classement' });
@@ -785,7 +792,7 @@ router.get('/api/duels/search', ensureAuth, async (req, res) => {
 
     console.log(`✅ Résultats recherche: ${result.rows.length} utilisateurs`);
     res.json(result.rows);
-    
+
   } catch (err) {
     console.error('❌ Erreur recherche:', err);
     res.status(500).json({ error: 'Erreur recherche' });
@@ -796,7 +803,7 @@ router.get('/api/duels/search', ensureAuth, async (req, res) => {
 router.get('/api/players/stats', ensureAuth, async (req, res) => {
   try {
     console.log('📊 Chargement stats tous les joueurs');
-    
+
     // TEST : Vérifie d'abord la connexion à la DB
     const testQuery = await pool.query('SELECT NOW() as time');
     console.log('✅ Connexion DB OK:', testQuery.rows[0].time);
@@ -856,15 +863,15 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
         wins: result.rows[0].wins
       });
     }
-    
+
     res.json(result.rows);
-    
+
   } catch (err) {
     console.error('❌ Erreur détaillée stats joueurs:', err);
-    
-    res.status(500).json({ 
+
+    res.status(500).json({
       error: 'Erreur chargement des statistiques joueurs',
-      details: err.message 
+      details: err.message
     });
   }
 });
@@ -873,7 +880,7 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
 router.get('/api/duels/stats', ensureAuth, async (req, res) => {
   try {
     console.log('📊 Chargement stats perso pour:', req.user.id);
-    
+
     const result = await pool.query(`
       SELECT 
         COUNT(*) as total_duels,
@@ -904,7 +911,7 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
     const stats = result.rows[0] || { wins: 0, losses: 0, ratio: 0, total_duels: 0 };
     console.log('✅ Stats perso:', stats);
     res.json(stats);
-    
+
   } catch (err) {
     console.error('❌ Erreur stats perso:', err);
     res.status(500).json({ error: 'Erreur chargement stats' });
@@ -926,7 +933,7 @@ router.post('/api/duels/create', ensureAuth, async (req, res) => {
       'SELECT id, name, balance FROM users WHERE id = $1',
       [opponent_id]
     );
-    
+
     console.log('[Création Duel] Opposant vérifié:', opponentCheck.rows[0]);
 
     if (opponentCheck.rows.length === 0) {
@@ -945,8 +952,8 @@ router.post('/api/duels/create', ensureAuth, async (req, res) => {
 
     if (bet_amount > 0 && opponentBalance < bet_amount) {
       console.log('[Création Duel] Opposant n\'a pas assez pour couvrir le pari');
-      return res.status(400).json({ 
-        error: `${opponentCheck.rows[0].name} n'a pas assez de coins (${opponentBalance}) pour accepter ce pari de ${bet_amount} coins` 
+      return res.status(400).json({
+        error: `${opponentCheck.rows[0].name} n'a pas assez de coins (${opponentBalance}) pour accepter ce pari de ${bet_amount} coins`
       });
     }
 
@@ -976,8 +983,8 @@ router.post('/api/duels/create', ensureAuth, async (req, res) => {
     if (bet_amount > 0 && opponentBalanceLocked.rows[0].balance < bet_amount) {
       console.log('[Création Duel] Opposant n\'a pas assez pour couvrir le pari (après verrouillage)');
       await client.query('ROLLBACK');
-      return res.status(400).json({ 
-        error: `${opponentCheck.rows[0].name} n'a pas assez de coins pour accepter ce pari` 
+      return res.status(400).json({
+        error: `${opponentCheck.rows[0].name} n'a pas assez de coins pour accepter ce pari`
       });
     }
 
@@ -1055,7 +1062,7 @@ router.post('/api/duels/create', ensureAuth, async (req, res) => {
 // 📍 ACCEPTATION DU DUEL (débit de la mise adversaire)
 router.post('/api/duels/:id/accept', ensureAuth, async (req, res) => {
   const client = await pool.connect();
-  
+
   try {
     const duelId = req.params.id;
     const userId = req.user.id;
@@ -1084,10 +1091,10 @@ router.post('/api/duels/:id/accept', ensureAuth, async (req, res) => {
 
     if (userBalance.rows[0].balance < duel.bet_amount) {
       await client.query("ROLLBACK");
-      
+
       // Rembourse challenger
       await addTransaction(duel.challenger_id, duel.bet_amount, "bet_refund", "Mise remboursée");
-      
+
       return res.status(400).json({ error: "Solde insuffisant pour accepter le pari" });
     }
 
@@ -1113,7 +1120,7 @@ router.post('/api/duels/:id/accept', ensureAuth, async (req, res) => {
 router.get('/api/duels/pending', ensureAuth, async (req, res) => {
   try {
     console.log('⏳ Chargement duels en attente pour:', req.user.id);
-    
+
     const result = await pool.query(`
       SELECT 
         d.*,
@@ -1134,7 +1141,7 @@ router.get('/api/duels/pending', ensureAuth, async (req, res) => {
 
     console.log(`✅ ${result.rows.length} duels en attente`);
     res.json(result.rows);
-    
+
   } catch (err) {
     console.error('❌ Erreur duels en attente:', err);
     res.status(500).json({ error: 'Erreur chargement duels' });
@@ -1146,7 +1153,7 @@ router.get('/api/duels/history', ensureAuth, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
     console.log('📜 Chargement historique duels, limit:', limit);
-    
+
     const result = await pool.query(`
       SELECT 
         d.*,
@@ -1168,7 +1175,7 @@ router.get('/api/duels/history', ensureAuth, async (req, res) => {
 
     console.log(`✅ ${result.rows.length} duels dans l'historique`);
     res.json(result.rows);
-    
+
   } catch (err) {
     console.error('❌ Erreur historique:', err);
     res.status(500).json({ error: 'Erreur chargement historique' });
@@ -1180,7 +1187,7 @@ router.get('/api/duels/:id', ensureAuth, async (req, res) => {
   try {
     const duelId = req.params.id;
     console.log('🔍 Détail duel:', duelId);
-    
+
     const result = await pool.query(`
       SELECT 
         d.*,
@@ -1197,7 +1204,7 @@ router.get('/api/duels/:id', ensureAuth, async (req, res) => {
     }
 
     res.json(result.rows[0]);
-    
+
   } catch (err) {
     console.error('❌ Erreur détail duel:', err);
     res.status(500).json({ error: 'Erreur chargement duel' });
@@ -1207,7 +1214,7 @@ router.get('/api/duels/:id', ensureAuth, async (req, res) => {
 // 📍 SOUMETTRE SCORE (CORRIGÉ)
 router.post('/api/duels/:id/submit', ensureAuth, async (req, res) => {
   const client = await pool.connect();
-  
+
   try {
     const duelId = req.params.id;
     const { score } = req.body;
@@ -1233,11 +1240,11 @@ router.post('/api/duels/:id/submit', ensureAuth, async (req, res) => {
     const duel = duelCheck.rows[0];
     const isChallenger = duel.challenger_id === req.user.id;
 
-    console.log('📊 Duel trouvé:', { 
-      duelId: duel.id, 
-      challenger: duel.challenger_id, 
+    console.log('📊 Duel trouvé:', {
+      duelId: duel.id,
+      challenger: duel.challenger_id,
       opponent: duel.opponent_id,
-      isChallenger 
+      isChallenger
     });
 
     // Mettre à jour le score du joueur
@@ -1275,7 +1282,7 @@ router.post('/api/duels/:id/submit', ensureAuth, async (req, res) => {
       // 📌 Crédit du gagnant si pari
       if (winnerId && currentDuel.bet_amount > 0) {
         console.log('💰 Crédit du gagnant:', winnerId, 'Montant:', currentDuel.bet_amount * 2);
-        
+
         await addTransaction(
           client,
           winnerId,
@@ -1283,11 +1290,11 @@ router.post('/api/duels/:id/submit', ensureAuth, async (req, res) => {
           "bet_reward",
           "Gain duel"
         );
-        
+
         console.log('✅ Pari honoré pour le gagnant');
       } else if (currentDuel.bet_amount > 0) {
         console.log('🤝 Match nul - remboursement des paris');
-        
+
         // En cas de match nul, rembourser les deux joueurs
         await addTransaction(
           client,
@@ -1296,7 +1303,7 @@ router.post('/api/duels/:id/submit', ensureAuth, async (req, res) => {
           "bet_refund",
           "Remboursement duel (match nul)"
         );
-        
+
         await addTransaction(
           client,
           currentDuel.opponent_id,
@@ -1314,7 +1321,7 @@ router.post('/api/duels/:id/submit', ensureAuth, async (req, res) => {
           completed_at = CURRENT_TIMESTAMP
         WHERE id = $2
       `, [winnerId, duelId]);
-      
+
       console.log('✅ Duel marqué comme terminé');
     }
 
@@ -1354,7 +1361,7 @@ router.get('/api/balance', ensureAuth, async (req, res) => {
     console.log(`📊 Solde récupéré pour user ${userId} : ${balance}`);
 
     res.json({ balance });
-    console.log('balance is', {balance})
+    console.log('balance is', { balance })
 
   } catch (err) {
     console.error('❌ Erreur /api/balance:', err);
@@ -1385,9 +1392,9 @@ router.get('/api/transactions', ensureAuth, async (req, res) => {
     `, [userId]);
 
     console.log(`✅ ${result.rows.length} transactions récupérées pour l'utilisateur ${userId}`);
-    
+
     res.json(result.rows);
-    
+
   } catch (err) {
     console.error('❌ Erreur chargement transactions:', err);
     res.status(500).json({ error: 'Erreur lors du chargement des transactions' });
@@ -1421,9 +1428,9 @@ router.post('/api/acheter-booster', ensureAuth, async (req, res) => {
 
     if (currentBalance < BOOSTER_COST) {
       await client.query('ROLLBACK');
-      return res.json({ 
-        success: false, 
-        message: `Solde insuffisant. Il vous faut ${BOOSTER_COST} pièces.` 
+      return res.json({
+        success: false,
+        message: `Solde insuffisant. Il vous faut ${BOOSTER_COST} pièces.`
       });
     }
 
@@ -1442,18 +1449,18 @@ router.post('/api/acheter-booster', ensureAuth, async (req, res) => {
     // Si pas assez de nouveaux mots disponibles
     if (randomWords.length < BOOSTER_CARD_COUNT) {
       await client.query('ROLLBACK');
-      return res.json({ 
-        success: false, 
-        message: 'Pas assez de nouveaux mots disponibles à découvrir.' 
+      return res.json({
+        success: false,
+        message: 'Pas assez de nouveaux mots disponibles à découvrir.'
       });
     }
 
     // Débiter l'utilisateur (en utilisant votre fonction addTransaction existante)
     const transactionResult = await addTransaction(
-      client, 
-      userId, 
-      -BOOSTER_COST, 
-      'booster_purchase', 
+      client,
+      userId,
+      -BOOSTER_COST,
+      'booster_purchase',
       `Achat booster de ${BOOSTER_CARD_COUNT} mots`
     );
 

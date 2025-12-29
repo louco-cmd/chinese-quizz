@@ -63,11 +63,11 @@ app.use(session({
   }),
   secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
   name: 'jiayou.sid',
-  resave: false, // ⬅️ IMPORTANT: false pour PostgreSQL
+  resave: true, // ⬅️ IMPORTANT: false pour PostgreSQL
   saveUninitialized: false, // ⬅️ IMPORTANT: false pour la sécurité
   rolling: false, // ⬅️ false pour plus de stabilité
   cookie: {
-    secure: true, // ⬅️ true pour HTTPS
+    secure: false, // ⬅️ true pour HTTPS
     httpOnly: true, // ⬅️ empêcher l'accès JS
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
     sameSite: 'lax',
