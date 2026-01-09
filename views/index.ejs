@@ -76,6 +76,26 @@
       margin-right: 12px;
     }
 
+    .fade-in {
+      animation: fadeIn 0.3s ease-in;
+    }
+
+    .fade-out {
+      animation: fadeOut 0.3s ease-out;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; transform: translateY(0); }
+      to { opacity: 0; transform: translateY(-10px); }
+    }
+
     @media (max-width: 576px) {
       .login-card {
         margin: 1rem;
@@ -112,68 +132,84 @@
                     challenge your friends and much more.</p>
                 </div>
 
-
-
-                <!-- Login Buttons -->
-                <div class="d-grid gap-3">
-                  <!-- Google Button -->
-                  <button onclick="initiateManualAuth()"
-                    class="btn btn-social btn-outline-primary d-flex align-items-center justify-content-center">
-                    <i class="bi bi-google social-icon"></i>
-                    <span>Continue with Google</span>
-                  </button>
-
-                  <!-- Facebook Button (disabled) 
-                  <button class="btn btn-social btn-facebook d-flex align-items-center justify-content-center" disabled>
-                    <i class="bi bi-facebook social-icon"></i>
-                    <span>Continue with Facebook</span>
-                    <small class="badge bg-secondary ms-2">Soon</small>
-                  </button>-->
-
-                  <!-- GitHub Button (si tu l'implémentes) -->
-                  <!--
-                  <button onclick="window.location.href='/auth/github'"
-                    class="btn btn-social btn-outline-dark d-flex align-items-center justify-content-center">
-                    <i class="bi bi-github social-icon"></i>
-                    <span>Continue with GitHub</span>
-                  </button>
-                  -->
-                </div>
-                <div class="divider">
-                  <span class="divider-text">or</span>
-                </div>
-
-                <form id="email-auth-form" class="mt-1">
-                  <input type="email" class="form-control mb-3" placeholder="Email address" required />
-
-                  <input type="password" id="password-field" class="form-control mb-3 d-none" placeholder="Password" />
-                  <small id="password-help" class="text-muted d-none">
-                    Min. 8 caractères, 1 majuscule, 1 chiffre
-                  </small>
-
-                  <button class="btn btn-primary w-100" type="submit">
-                    Continue
-                  </button>
-
-                  <div id="email-auth-error" class="text-danger small mt-2 d-none">
-                    Authentication failed
-                  </div>
-                </form>
-
-
-                <!-- Google One Tap (hidden - background use) -->
-                <div class="d-none">
-                  <div id="g_id_onload" data-client_id="<%= GOOGLE_CLIENT_ID || '' %>" data-context="signin"
-                    data-ux_mode="popup" data-callback="handleGoogleSignIn" data-auto_prompt="false">
+                <!-- Email verification message (hidden by default) -->
+                <div id="verification-message" class="alert alert-info d-none fade-in">
+                  <div class="d-flex align-items-center">
+                    <i class="bi bi-envelope-check me-2 fs-4"></i>
+                    <div>
+                      <strong>Check your email!</strong>
+                      <p class="mb-0">We've sent a verification link to your email address.</p>
+                      <small>You will be redirected to the home page in <span id="countdown">5</span> seconds...</small>
+                    </div>
                   </div>
                 </div>
 
-                <!-- Connection Status -->
-                <div id="connection-status" class="mt-3" style="display: none;">
-                  <div class="alert alert-info d-flex align-items-center">
-                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                    <span id="status-message">Connecting...</span>
+                <!-- Main content -->
+                <div id="main-content">
+                  <!-- Google button section -->
+                  <div id="google-section" class="d-grid gap-3">
+                    <button onclick="initiateManualAuth()"
+                      class="btn btn-social btn-outline-primary d-flex align-items-center justify-content-center">
+                      <i class="bi bi-google social-icon"></i>
+                      <span>Continue with Google</span>
+                    </button>
                   </div>
+                  
+                  <!-- Divider (hidden when Google button is hidden) -->
+                  <div id="divider-section" class="divider">
+                    <span class="divider-text">or</span>
+                  </div>
+
+                  <!-- Email authentication form -->
+                  <form id="email-auth-form" class="mt-1">
+                    <!-- Email input (always visible) -->
+                    <div class="mb-3">
+                      <input type="email" id="email-input" class="form-control" placeholder="Email address" required />
+                    </div>
+
+                    <!-- Password section (hidden initially) -->
+                    <div id="password-section" class="d-none fade-in">
+                      <div class="mb-3">
+                        <input type="password" id="password-field" class="form-control" placeholder="Password" />
+                        <small id="password-help" class="text-muted mt-1 d-block">
+                          Min. 8 characters, 1 uppercase, 1 number
+                        </small>
+                      </div>
+
+                      <!-- Additional info for signup -->
+                      <div id="signup-info" class="d-none fade-in">
+                        <div class="alert alert-light border">
+                          <small class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>
+                            After signing up, you'll receive a verification email to activate your account.
+                          </small>
+                        </div>
+                      </div>
+
+                      <div class="d-flex justify-content-between align-items-center mb-3">
+                        <button type="submit" id="submit-btn" class="btn btn-primary flex-grow-1 me-2">
+                          Continue
+                        </button>
+                        <button type="button" id="cancel-btn" class="btn btn-outline-secondary">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Forgot password link (only for login) -->
+                    <div id="forgot-password-link" class="text-center mt-2 d-none">
+                      <a href="/forgot-password" class="text-decoration-none">Forgot password?</a>
+                    </div>
+
+                    <!-- Continue button for email step -->
+                    <button type="submit" id="email-continue-btn" class="btn btn-primary w-100">
+                      Continue with Email
+                    </button>
+
+                    <div id="email-auth-error" class="text-danger small mt-2 d-none">
+                      Authentication failed
+                    </div>
+                  </form>
                 </div>
 
                 <!-- Footer -->
@@ -191,139 +227,92 @@
 
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
       <script>
-        const passwordHelp = document.getElementById('password-help');
+        // DOM Elements
+        const emailForm = document.getElementById('email-auth-form');
+        const emailInput = document.getElementById('email-input');
+        const passwordSection = document.getElementById('password-section');
+        const passwordField = document.getElementById('password-field');
+        const signupInfo = document.getElementById('signup-info');
+        const forgotPasswordLink = document.getElementById('forgot-password-link');
+        const emailContinueBtn = document.getElementById('email-continue-btn');
+        const submitBtn = document.getElementById('submit-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const emailError = document.getElementById('email-auth-error');
+        const mainContent = document.getElementById('main-content');
+        const verificationMessage = document.getElementById('verification-message');
+        const countdownSpan = document.getElementById('countdown');
+        const googleSection = document.getElementById('google-section');
+        const dividerSection = document.getElementById('divider-section');
 
-        // Global variables for connection management
-        let authRetryCount = 0;
-        const MAX_RETRIES = 3;
-        let isAuthenticating = false;
+        // State
+        let authStep = 'email'; // 'email', 'login', or 'signup'
+        let currentEmail = null;
 
-        // 🔥 IMPROVED ONE TAP HANDLING
-        function handleGoogleSignIn(response) {
-          if (isAuthenticating) {
-            console.log('🔁 Authentication already in progress...');
+        // Reset form to initial state
+        function resetForm() {
+          authStep = 'email';
+          currentEmail = null;
+          passwordSection.classList.add('d-none');
+          signupInfo.classList.add('d-none');
+          forgotPasswordLink.classList.add('d-none');
+          emailContinueBtn.classList.remove('d-none');
+          emailError.classList.add('d-none');
+          passwordField.value = '';
+          emailInput.disabled = false;
+          emailInput.focus();
+          
+          // Show Google button and divider again
+          googleSection.classList.remove('d-none');
+          dividerSection.classList.remove('d-none');
+        }
+
+        // Hide form and show verification message
+        function showVerificationMessage() {
+          // Fade out the form
+          mainContent.classList.add('fade-out');
+          
+          // Wait for fade out animation
+          setTimeout(() => {
+            mainContent.classList.add('d-none');
+            mainContent.classList.remove('fade-out');
+            
+            // Show verification message
+            verificationMessage.classList.remove('d-none');
+            
+            // Start countdown
+            let countdown = 5;
+            countdownSpan.textContent = countdown;
+            
+            const countdownInterval = setInterval(() => {
+              countdown--;
+              countdownSpan.textContent = countdown;
+              
+              if (countdown <= 0) {
+                clearInterval(countdownInterval);
+                // Reset everything and show initial form
+                verificationMessage.classList.add('d-none');
+                mainContent.classList.remove('d-none');
+                resetForm();
+              }
+            }, 1000);
+          }, 300); // Match fade-out animation duration
+        }
+
+        // Handle email form submission
+        emailForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          emailError.classList.add('d-none');
+
+          const email = emailInput.value.trim();
+
+          // Email validation
+          if (!email) {
+            emailError.textContent = 'Please enter your email address';
+            emailError.classList.remove('d-none');
             return;
           }
 
-          isAuthenticating = true;
-          showStatus('Connecting...', 'info');
-
-          console.log('🔐 Google One Tap sign-in attempt');
-
-          // Attempt with timeout
-          const authPromise = fetch('/auth/google/one-tap', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ credential: response.credential }),
-            credentials: 'same-origin'
-          });
-
-          // Safety timeout
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Timeout')), 10000)
-          );
-
-          Promise.race([authPromise, timeoutPromise])
-            .then(res => {
-              if (!res.ok) throw new Error(`HTTP ${res.status}`);
-              return res.json();
-            })
-            .then(data => {
-              if (data.success) {
-                console.log('✅ Sign-in successful, redirecting to:', data.redirect);
-                showStatus('Success! Redirecting...', 'success');
-
-                // Small delay to see success message
-                setTimeout(() => {
-                  window.location.replace(data.redirect || '/dashboard');
-                }, 1000);
-              } else {
-                throw new Error(data.error || 'Unknown error');
-              }
-            })
-            .catch(err => {
-              console.error('❌ Sign-in error:', err);
-              handleAuthError(err);
-            })
-            .finally(() => {
-              isAuthenticating = false;
-            });
-        }
-
-        // 🔥 ROBUST ERROR HANDLING
-        function handleAuthError(error) {
-          authRetryCount++;
-
-          let message = 'Sign-in error';
-
-          if (error.message.includes('Timeout')) {
-            message = 'Connection timeout';
-          } else if (error.message.includes('network') || !navigator.onLine) {
-            message = 'Network issue';
-          } else {
-            message = 'Service temporarily unavailable';
-          }
-
-          showStatus(`${message} (${authRetryCount}/${MAX_RETRIES})`, 'warning');
-
-          if (authRetryCount < MAX_RETRIES) {
-            setTimeout(() => {
-              showStatus('Retrying...', 'info');
-              // Reset One Tap
-              if (window.google && window.google.accounts) {
-                window.google.accounts.id.prompt();
-              }
-            }, 2000);
-          }
-        }
-
-        // 🔥 ALTERNATIVE MANUAL AUTHENTICATION
-        function initiateManualAuth() {
-          showStatus('Redirecting to Google...', 'info');
-
-          // Use classic OAuth2 URL (more stable)
-          window.location.href = '/auth/google?fallback=true';
-        }
-
-        function showStatus(message, type) {
-          const statusDiv = document.getElementById('connection-status');
-          const messageSpan = document.getElementById('status-message');
-
-          if (statusDiv && messageSpan) {
-            statusDiv.style.display = 'block';
-            messageSpan.textContent = message;
-
-            // Update Bootstrap classes
-            const alertClass = type === 'success' ? 'alert-success' :
-              type === 'warning' ? 'alert-warning' :
-                type === 'error' ? 'alert-danger' : 'alert-info';
-
-            statusDiv.querySelector('.alert').className = `alert ${alertClass} d-flex align-items-center`;
-          }
-        }
-
-        // Auto-focus on page load
-        document.addEventListener('DOMContentLoaded', () => {
-          // Focus on first button for keyboard navigation
-          document.querySelector('.btn-social').focus();
-        });
-
-        const emailForm = document.getElementById('email-auth-form');
-        const passwordField = document.getElementById('password-field');
-        const emailError = document.getElementById('email-auth-error');
-
-        let authStep = 'email';
-        let currentEmail = null;
-
-        emailForm.addEventListener('submit', async (e) => {
-          e.preventDefault(); // ⛔ empêche le reload
-          emailError.classList.add('d-none');
-
-          const emailInput = emailForm.querySelector('input[type="email"]');
-          const email = emailInput.value;
-          const password = passwordField.value;
-
-          // STEP 1 — vérifier l’email
+          // STEP 1 — Check email
           if (authStep === 'email') {
             try {
               const res = await fetch('/auth/check-email', {
@@ -336,39 +325,84 @@
               currentEmail = email;
 
               if (data.step === 'login') {
+                // Existing user - show password field for login
                 authStep = 'login';
-                passwordField.classList.remove('d-none');
+                emailInput.disabled = true;
+                emailContinueBtn.classList.add('d-none');
+                passwordSection.classList.remove('d-none');
+                signupInfo.classList.add('d-none');
+                forgotPasswordLink.classList.remove('d-none');
+                passwordField.placeholder = 'Enter your password';
                 passwordField.focus();
-                return;
-              }
-
-              if (data.step === 'signup') {
+                
+                // Update submit button text
+                submitBtn.textContent = 'Sign In';
+                
+                // Hide Google button and divider to focus on login
+                googleSection.classList.add('d-none');
+                dividerSection.classList.add('d-none');
+                
+              } else if (data.step === 'signup') {
+                // New user - show password field for signup
                 authStep = 'signup';
-                passwordField.classList.remove('d-none');
+                emailInput.disabled = true;
+                emailContinueBtn.classList.add('d-none');
+                passwordSection.classList.remove('d-none');
+                signupInfo.classList.remove('d-none');
+                forgotPasswordLink.classList.add('d-none');
                 passwordField.placeholder = 'Create a password';
                 passwordField.focus();
-                return;
-              }
-
-              if (data.step === 'google_only') {
-                emailError.textContent = 'Please sign in with Google for this email.';
+                
+                // Update submit button text
+                submitBtn.textContent = 'Create Account';
+                
+                // Hide Google button and divider to focus on signup
+                googleSection.classList.add('d-none');
+                dividerSection.classList.add('d-none');
+                
+              } else if (data.step === 'google_only') {
+                // Google-only account
+                emailError.textContent = 'This email is associated with a Google account. Please sign in with Google.';
                 emailError.classList.remove('d-none');
-                return;
               }
 
             } catch (err) {
               console.error(err);
-              emailError.textContent = 'Something went wrong';
+              emailError.textContent = 'Something went wrong. Please try again.';
+              emailError.classList.remove('d-none');
+            }
+            return;
+          }
+
+          // STEP 2 — Login or Signup
+          const password = passwordField.value.trim();
+          
+          if (!password) {
+            emailError.textContent = 'Please enter your password';
+            emailError.classList.remove('d-none');
+            return;
+          }
+
+          // Password validation for signup
+          if (authStep === 'signup') {
+            const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+            if (!passwordRegex.test(password)) {
+              emailError.textContent = 'Password: min 8 characters, 1 uppercase, 1 number';
               emailError.classList.remove('d-none');
               return;
             }
           }
-          // STEP 2 — login ou signup
-          const endpoint = authStep === 'login'
-            ? '/auth/login-basic'
+
+          const endpoint = authStep === 'login' 
+            ? '/auth/login-basic' 
             : '/auth/signup-basic';
 
           try {
+            // Show loading state on button
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+            
             const res = await fetch(endpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -380,8 +414,18 @@
 
             const data = await res.json();
 
+            // Restore button state
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+
             if (data.success) {
-              window.location.href = data.redirect || '/dashboard';
+              if (authStep === 'signup') {
+                // For signup, fade out form and show verification message
+                showVerificationMessage();
+              } else {
+                // For login, redirect to dashboard
+                window.location.href = data.redirect || '/dashboard';
+              }
             } else {
               emailError.textContent = data.error || 'Authentication failed';
               emailError.classList.remove('d-none');
@@ -389,11 +433,141 @@
 
           } catch (err) {
             console.error(err);
-            emailError.textContent = 'Erreur serveur, réessaie plus tard';
+            // Restore button state
+            submitBtn.disabled = false;
+            submitBtn.textContent = authStep === 'login' ? 'Sign In' : 'Create Account';
+            emailError.textContent = 'Server error, please try again later';
             emailError.classList.remove('d-none');
           }
         });
 
+        // Cancel button handler
+        cancelBtn.addEventListener('click', resetForm);
+
+        // Allow editing email by clicking on it when disabled
+        emailInput.addEventListener('click', () => {
+          if (emailInput.disabled && authStep !== 'email') {
+            resetForm();
+          }
+        });
+
+        // Restore Google button functionality
+        function initiateManualAuth() {
+          // Show loading state
+          const googleBtn = googleSection.querySelector('button');
+          const originalText = googleBtn.innerHTML;
+          googleBtn.disabled = true;
+          googleBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Redirecting...';
+          
+          // Redirect to Google OAuth
+          window.location.href = '/auth/google';
+        }
+
+        // Alternative: if using popup window for Google auth
+        /*
+        function initiateManualAuth() {
+          const width = 500;
+          const height = 600;
+          const left = (window.innerWidth - width) / 2;
+          const top = (window.innerHeight - height) / 2;
+          
+          const popup = window.open(
+            '/auth/google',
+            'GoogleAuth',
+            `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+          );
+          
+          // Check for popup closure/redirection
+          const checkPopup = setInterval(() => {
+            if (popup.closed) {
+              clearInterval(checkPopup);
+              window.location.reload(); // Reload to update auth state
+            }
+          }, 500);
+        }
+        */
+
+        // Focus on email input on page load
+        document.addEventListener('DOMContentLoaded', () => {
+          emailInput.focus();
+        });
+
+        // Remplacez votre fonction handleGoogleSignIn par ceci :
+        function handleGoogleSignIn(response) {
+          console.log('🔐 Google One Tap response received');
+          
+          // Show loading state
+          showStatus('Signing in with Google...', 'info');
+          
+          // Important: Use absolute URL if needed
+          const backendUrl = window.location.origin;
+          
+          fetch(`${backendUrl}/auth/google/one-tap`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              // Important for CORS
+              'Accept': 'application/json'
+            },
+            credentials: 'include', // ✅ Important for cookies/sessions
+            body: JSON.stringify({ 
+              credential: response.credential,
+              g_csrf_token: response.clientId // Optional CSRF token
+            })
+          })
+          .then(async (res) => {
+            console.log('Response status:', res.status);
+            
+            if (!res.ok) {
+              const text = await res.text();
+              console.error('Response text:', text);
+              throw new Error(`HTTP ${res.status}: ${text}`);
+            }
+            
+            return res.json();
+          })
+          .then(data => {
+            console.log('✅ Google auth success:', data);
+            
+            if (data.success) {
+              showStatus('Success! Redirecting...', 'success');
+              
+              // Small delay to show success message
+              setTimeout(() => {
+                window.location.replace(data.redirect || '/dashboard');
+              }, 1000);
+            } else {
+              throw new Error(data.error || 'Unknown error');
+            }
+          })
+          .catch(err => {
+            console.error('❌ Google One Tap error:', err);
+            showStatus('Authentication failed. Please try again.', 'warning');
+            
+            // Fallback: redirect to traditional Google OAuth
+            setTimeout(() => {
+              window.location.href = '/auth/google';
+            }, 2000);
+          });
+        }
+
+        // Initialize Google One Tap if needed
+        window.onload = function() {
+          if (window.google && window.google.accounts) {
+            google.accounts.id.initialize({
+              client_id: '<%= GOOGLE_CLIENT_ID || "" %>',
+              callback: handleGoogleSignIn,
+              context: 'signin',
+              ux_mode: 'popup',
+              auto_select: false
+            });
+            
+            // Optional: prompt One Tap after a delay
+            setTimeout(() => {
+              google.accounts.id.prompt();
+            }, 1000);
+          }
+        };
       </script>
 </body>
 

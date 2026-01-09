@@ -415,11 +415,34 @@ function selectWordsNormal(words, count) {
   return sortedWords.slice(0, Math.min(count, words.length));
 }
 
+
+// reinitailisation du mot de passe - envoi email
+async function sendPasswordResetEmail(email, token) {
+  const resetLink = `${process.env.APP_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
+  
+  // Utilisez votre système d'email existant
+  return await sendEmail({
+    to: email,
+    subject: 'Réinitialisation de votre mot de passe - Chinese Quiz',
+    html: `
+      <h2>Réinitialisation du mot de passe</h2>
+      <p>Vous avez demandé à réinitialiser votre mot de passe.</p>
+      <p>Cliquez sur le lien ci-dessous pour créer un nouveau mot de passe :</p>
+      <a href="${resetLink}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+        Réinitialiser mon mot de passe
+      </a>
+      <p>Ce lien expirera dans 1 heure.</p>
+      <p>Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.</p>
+    `
+  });
+}
+
 // === EXPORT DE TOUS LES MIDDLEWARES ===
 module.exports = {
   // Authentification
   ensureAuth,
   isValidEmail,
+  sendPasswordResetEmail,
   
   // Sessions
   resilience,

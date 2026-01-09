@@ -16,6 +16,7 @@ const {
   reauth,
   requestLogger,
   errorHandler,
+  sendPasswordResetEmail,
   shuffleArray,
   generateDuelQuiz,
   getRandomUserWords,
@@ -67,7 +68,7 @@ app.use(session({
   saveUninitialized: false, // ⬅️ IMPORTANT: false pour la sécurité
   rolling: false, // ⬅️ false pour plus de stabilité
   cookie: {
-    secure: false, // ⬅️ true pour HTTPS
+    secure: true, // ⬅️ true pour HTTPS
     httpOnly: true, // ⬅️ empêcher l'accès JS
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
     sameSite: 'lax',
@@ -134,105 +135,112 @@ app.get("/auth/google/callback",
   }
 );
 
-app.post("/auth/google/one-tap", async (req, res) => {
-  const transaction = await pool.connect();
-
+// Dans votre server.js ou routes/auth.js
+app.post('/auth/google/one-tap', async (req, res) => {
   try {
+    // ✅ IMPORTANT: Ajoutez ces headers CORS
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    
     const { credential } = req.body;
-    console.log('🔐 Google One Tap token reçu');
-
+    
     if (!credential) {
-      return res.status(400).json({
-        success: false,
-        error: 'Token manquant'
-      });
+      return res.status(400).json({ error: 'No credential provided' });
     }
 
-    const ticket = await Client.verifyIdToken({
+    // Vérifiez le token Google
+    const { OAuth2Client } = require('google-auth-library');
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    
+    const ticket = await client.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID
     });
-
+    
     const payload = ticket.getPayload();
-    const { sub: googleId, name, email } = payload;
-
-    await transaction.query('BEGIN');
-
-    let userRes = await transaction.query(
-      `SELECT id, email, name, provider_id, balance FROM users 
-       WHERE provider_id = $1 OR email = $2 
-       ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END 
-       LIMIT 1`,
-      [googleId, email]
+    
+    // Vérifiez ou créez l'utilisateur dans votre base de données
+    const result = await pool.query(
+      'SELECT id, email FROM users WHERE email = $1',
+      [payload.email]
     );
-
-    let isNewUser = false;
+    
     let user;
-
-    if (userRes.rows.length === 0) {
-      // 🆕 NOUVEL UTILISATEUR - DONNER 100 PIÈCES
-      userRes = await transaction.query(
-        `INSERT INTO users (email, name, provider, provider_id, last_login, balance) 
-         VALUES ($1, $2, 'google', $3, NOW(), 100)  -- ✅ 100 pièces pour les nouveaux
-         RETURNING id, email, name, balance`,
-        [email, name, googleId]
+    
+    if (result.rows.length === 0) {
+      // Créer un nouvel utilisateur
+      const newUser = await pool.query(
+        `INSERT INTO users (email, provider, email_verified, balance)
+         VALUES ($1, 'google', true, 100)
+         RETURNING id, email`,
+        [payload.email]
       );
-      user = userRes.rows[0];
-      isNewUser = true;
-      console.log(`🎉 Nouvel utilisateur One Tap créé avec ${user.balance} pièces`);
+      user = newUser.rows[0];
     } else {
-      user = userRes.rows[0];
-      await transaction.query(
-        'UPDATE users SET last_login = NOW() WHERE id = $1',
-        [user.id]
-      );
+      user = result.rows[0];
     }
-
-    await transaction.query('COMMIT');
-
-    req.login(user, async (err) => {
+    
+    // Connectez l'utilisateur (avec Passport.js si vous l'utilisez)
+    req.login(user, (err) => {
       if (err) {
-        console.error('❌ Erreur login Passport:', err);
-        return res.status(500).json({ success: false, error: 'Erreur authentification' });
+        return res.status(500).json({ error: 'Login failed' });
       }
-
-      req.session.save((err) => {
-        if (err) {
-          console.error('❌ Erreur sauvegarde session:', err);
-          return res.status(500).json({ success: false, error: 'Erreur session' });
-        }
-
-        console.log('✅ Session créée avec succès. Balance:', user.balance);
-        res.json({
-          success: true,
-          redirect: '/dashboard',
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            balance: user.balance,
-            isNewUser: isNewUser
-          }
-        });
+      
+      // ✅ IMPORTANT: Envoyer une réponse JSON valide
+      res.json({
+        success: true,
+        redirect: '/dashboard'
       });
     });
-
+    
   } catch (err) {
-    await transaction.query('ROLLBACK');
-    console.error('❌ Erreur Google One Tap:', err);
-    res.status(500).json({ success: false, error: err.message });
-  } finally {
-    transaction.release();
+    console.error('💥 Google One Tap error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Authentication failed' 
+    });
   }
 });
 
 app.post('/auth/logout', (req, res) => {
+  // Vérifier si l'utilisateur est connecté
+  if (!req.isAuthenticated()) {
+    return res.json({ success: true, message: 'Already logged out' });
+  }
+  
+  console.log(`👋 Déconnexion de l'utilisateur: ${req.user?.email || 'Unknown'}`);
+  
+  // Déconnexion avec Passport
   req.logout((err) => {
     if (err) {
-      console.error('❌ Erreur déconnexion:', err);
+      console.error('❌ Erreur lors de la déconnexion Passport:', err);
+      // On continue quand même pour nettoyer la session
     }
-    req.session.destroy(() => {
-      res.json({ success: true });
+    
+    // Destruction de la session
+    req.session.destroy((destroyErr) => {
+      if (destroyErr) {
+        console.error('❌ Erreur lors de la destruction de session:', destroyErr);
+        // On tente quand même de clear le cookie
+      }
+      
+      // Clear le cookie de session
+      res.clearCookie('connect.sid', {
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+      });
+      
+      // Optionnel: Clear d'autres cookies spécifiques
+      res.clearCookie('user_session');
+      
+      console.log('✅ Déconnexion réussie');
+      res.json({ 
+        success: true, 
+        redirect: '/' 
+      });
     });
   });
 });
@@ -405,6 +413,161 @@ app.get('/auth/verify-email', async (req, res) => {
   res.redirect('/?verified=true');
 });
 
+// Route de reinitialisation mot de passe
+// Route pour demander une réinitialisation
+app.post('/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email requis' });
+    }
+
+    // Vérifier si l'utilisateur existe
+    const userResult = await pool.query(
+      'SELECT id, email FROM users WHERE email = $1 AND provider = $2',
+      [email, 'local']
+    );
+
+    if (userResult.rows.length === 0) {
+      // Pour la sécurité, ne pas révéler si l'email existe ou non
+      return res.json({ 
+        success: true, 
+        message: 'Si votre email est associé à un compte, vous recevrez un lien de réinitialisation' 
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Générer un token unique
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // Supprimer les anciens tokens non utilisés
+    await pool.query(
+      'DELETE FROM password_reset_tokens WHERE user_id = $1 AND (expires_at < NOW() OR used = true)',
+      [user.id]
+    );
+
+    // Créer un nouveau token
+    await pool.query(
+      `INSERT INTO password_reset_tokens (user_id, token, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '1 hour')`,
+      [user.id, token]
+    );
+
+    // Envoyer l'email
+    await sendPasswordResetEmail(user.email, token);
+
+    res.json({ 
+      success: true, 
+      message: 'Si votre email est associé à un compte, vous recevrez un lien de réinitialisation' 
+    });
+
+  } catch (err) {
+    console.error('💥 Erreur forgot-password:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+// Vérifier si le token est valide
+app.get('/auth/verify-reset-token', async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ valid: false, error: 'Token manquant' });
+    }
+
+    const result = await pool.query(
+      `SELECT prt.*, u.email 
+       FROM password_reset_tokens prt
+       JOIN users u ON prt.user_id = u.id
+       WHERE prt.token = $1 
+         AND prt.expires_at > NOW() 
+         AND prt.used = false`,
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ 
+        valid: false, 
+        error: 'Token invalide ou expiré' 
+      });
+    }
+
+    res.json({ 
+      valid: true, 
+      email: result.rows[0].email 
+    });
+
+  } catch (err) {
+    console.error('💥 Erreur verify-reset-token:', err);
+    res.status(500).json({ valid: false, error: 'Erreur serveur' });
+  }
+});
+// Réinitialiser le mot de passe
+app.post('/auth/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ error: 'Token et nouveau mot de passe requis' });
+    }
+
+    // Vérifier les critères du mot de passe
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        error: 'Mot de passe : 8 caractères min, 1 majuscule, 1 chiffre'
+      });
+    }
+
+    // Vérifier le token
+    const tokenResult = await pool.query(
+      `SELECT * FROM password_reset_tokens 
+       WHERE token = $1 
+         AND expires_at > NOW() 
+         AND used = false`,
+      [token]
+    );
+
+    if (tokenResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Token invalide ou expiré' });
+    }
+
+    const resetToken = tokenResult.rows[0];
+    const userId = resetToken.user_id;
+
+    // Hasher le nouveau mot de passe
+    const hash = await bcrypt.hash(newPassword, 10);
+
+    // Mettre à jour le mot de passe
+    await pool.query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2',
+      [hash, userId]
+    );
+
+    // Marquer le token comme utilisé
+    await pool.query(
+      'UPDATE password_reset_tokens SET used = true WHERE id = $1',
+      [resetToken.id]
+    );
+
+    // Supprimer tous les tokens de réinitialisation pour cet utilisateur
+    await pool.query(
+      'DELETE FROM password_reset_tokens WHERE user_id = $1',
+      [userId]
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Mot de passe réinitialisé avec succès' 
+    });
+
+  } catch (err) {
+    console.error('💥 Erreur reset-password:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
 
 
 // Pages EJS
@@ -683,6 +846,19 @@ app.get('/bank', ensureAuth, async (req, res) => {
     console.error('❌ Erreur chargement page bank:', err);
     res.status(500).render('error', { error: 'Erreur lors du chargement de la page' });
   }
+});
+
+// Routes pour les pages
+app.get('/forgot-password', (req, res) => {
+  res.render('forgot-password');
+});
+
+app.get('/auth/reset-password', (req, res) => {
+  const { token } = req.query;
+  if (!token) {
+    return res.redirect('/forgot-password');
+  }
+  res.render('reset-password', { token });
 });
 
 // Route pour JOUER un duel (page de quiz)

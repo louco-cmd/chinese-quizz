@@ -22,22 +22,166 @@
       </div>
     </a>
 
-    <!-- Mon Compte avec pastille de notifications pour les duels -->
-    <div class="position-relative">
-      <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold" 
-         style="gap: 6px; transition: color 0.3s ease; position: relative;">
-        <i class="bi bi-person-square"></i>
-        <!-- Pastille de notifications pour les duels -->
-        <span id="duel-notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary border border-white" 
-              style="display: none; font-size: 0.6rem; padding: 0.25rem 0.4rem; min-width: 1.2rem;">
-          <span id="duel-count">0</span>
-        </span>
-      </a>
+    <!-- Bouton Settings (uniquement sur la page /account) -->
+    <% if (currentPage === 'account') { %>
+      <button type="button" class="btn btn-link p-0 m-0" 
+              onclick="openSettingsDrawer()"
+              style="text-decoration: none; color: white; font-size: 1.5rem;">
+        <i class="bi bi-gear-fill"></i>
+      </button>
+    <% } else { %>
+      <!-- Mon Compte avec pastille de notifications pour les duels -->
+      <div class="position-relative">
+        <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold" 
+           style="gap: 6px; transition: color 0.3s ease; position: relative;">
+          <i class="bi bi-person-square"></i>
+          <!-- Pastille de notifications pour les duels -->
+          <span id="duel-notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary border border-white" 
+                style="display: none; font-size: 0.6rem; padding: 0.25rem 0.4rem; min-width: 1.2rem;">
+            <span id="duel-count">0</span>
+          </span>
+        </a>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Drawer Settings minimal -->
+<div id="settings-drawer" class="settings-drawer">
+  <div class="settings-drawer-backdrop" onclick="closeSettingsDrawer()"></div>
+  <div class="settings-drawer-content">
+    <div class="settings-drawer-header">
+      <h5 class="mb-0">
+        <i class="bi bi-gear-fill me-2"></i>
+        Settings
+      </h5>
+      <button type="button" class="btn-close" onclick="closeSettingsDrawer()"></button>
+    </div>
+    
+    <div class="settings-drawer-body">
+      <!-- Bouton Logout unique -->
+      <div class="d-grid mt-4">
+        <button type="button" class="btn btn-outline-danger btn-lg py-3" onclick="confirmLogout()">
+          <i class="bi bi-box-arrow-right me-2"></i>
+          Logout
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal de confirmation pour logout -->
+<div class="modal fade" id="logoutModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">Confirm Logout</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to logout from your account?</p>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" onclick="performLogout()">Logout</button>
+      </div>
     </div>
   </div>
 </div>
 
 <style>
+/* Styles pour le drawer settings */
+.settings-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1100;
+  display: none;
+}
+
+.settings-drawer.show {
+  display: block;
+}
+
+.settings-drawer-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.settings-drawer-content {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 320px;
+  height: 100%;
+  background-color: white;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+  animation: slideInRight 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-drawer-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f8f9fa;
+}
+
+.settings-drawer-body {
+  padding: 1.5rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.settings-drawer .list-group-item {
+  border-radius: 8px;
+  margin-bottom: 4px;
+  transition: all 0.2s ease;
+}
+
+.settings-drawer .list-group-item:hover {
+  background-color: #f8f9fa;
+  transform: translateX(4px);
+}
+
+.settings-drawer .list-group-item i {
+  width: 20px;
+  text-align: center;
+}
+
+/* Bouton settings dans le header */
+.btn-link:hover i {
+  transform: rotate(30deg);
+  transition: transform 0.3s ease;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
 /* Styles pour la pastille de notifications */
 #duel-notification-badge {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
@@ -52,11 +196,84 @@
 a[href="/account"]:hover {
   color: #cfe2ff !important;
 }
+
+/* Responsive */
+@media (max-width: 576px) {
+  .settings-drawer-content {
+    width: 280px;
+  }
+  
+  .settings-drawer-header {
+    padding: 1rem;
+  }
+  
+  .settings-drawer-body {
+    padding: 1rem;
+  }
+}
 </style>
 
 <script>
 // 🔥 MODIFICATION : Vérifier si on est sur la page account
 const isAccountPage = window.location.pathname === '/account';
+
+// Fonctions pour le drawer settings
+function openSettingsDrawer() {
+  const drawer = document.getElementById('settings-drawer');
+  if (drawer) {
+    drawer.classList.add('show');
+    document.body.style.overflow = 'hidden'; // Empêche le scroll
+  }
+}
+
+function closeSettingsDrawer() {
+  const drawer = document.getElementById('settings-drawer');
+  if (drawer) {
+    drawer.classList.remove('show');
+    document.body.style.overflow = ''; // Rétablit le scroll
+  }
+}
+
+// Confirmation de logout
+function confirmLogout() {
+  closeSettingsDrawer();
+  const modal = new bootstrap.Modal(document.getElementById('logoutModal'));
+  modal.show();
+}
+
+// Logout effectif
+async function performLogout() {
+  try {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('logoutModal'));
+    modal.hide();
+    
+    const response = await fetch('/auth/logout', {
+      method: 'POST',
+      credentials: 'include'
+    });
+    
+    if (response.ok) {
+      // Redirection vers la page d'accueil
+      window.location.href = '/';
+    } else {
+      console.error('Logout failed');
+      // Fallback: redirection quand même
+      window.location.href = '/';
+    }
+  } catch (err) {
+    console.error('Logout error:', err);
+    window.location.href = '/';
+  }
+}
+
+// Fermer le drawer avec la touche Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeSettingsDrawer();
+  }
+});
+
+// Fermer le drawer en cliquant à l'extérieur (déjà géré par le backdrop)
 
 window.addEventListener('load', function() {
   fetchAndUpdateBalance();
