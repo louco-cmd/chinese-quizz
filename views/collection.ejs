@@ -149,8 +149,8 @@ body {
   </script>
 </head>
 <body>
-  <%- include('partials/header') %>
-  <%- include('partials/navbar', {currentPage: 'collection'}) %>
+<%- include('partials/header', {currentPage: 'collection', user: user, balance: balance}) %>
+<%- include('partials/navbar', {currentPage: 'collection', user: user}) %>
 
 <section class="section d-flex flex-column align-items-center mt-4">
   <%- include('partials/voiceOn') %> 

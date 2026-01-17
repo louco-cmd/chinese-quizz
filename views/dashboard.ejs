@@ -313,8 +313,8 @@
 </head>
 <body>
 
-  <%- include('partials/header', {currentPage: 'dashboard'}) %>
-  <%- include('partials/navbar', {currentPage: 'dashboard'}) %>
+<%- include('partials/header', {currentPage: 'dashboard', user: user, balance: balance}) %>
+<%- include('partials/navbar', {currentPage: 'dashboard', user: user}) %>
 
 <!-- ÉCRAN 1 : SAISIE PRINCIPALE -->
 <div class="screen-container">

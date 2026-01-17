@@ -23,6 +23,8 @@ const {
   isValidEmail
 } = require('../middleware/index');
 
+const { withSubscription } = require('../middleware/subscription');
+
 // ---------------------API
 
 router.get('/account-info', ensureAuth, async (req, res) => {
@@ -1492,6 +1494,103 @@ router.post('/api/acheter-booster', ensureAuth, async (req, res) => {
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   } finally {
     client.release();
+  }
+});
+
+
+//freemium model
+// Récupérer les plans
+router.get('/plans', async (req, res) => {
+  try {
+    const plans = await pool.query(`
+      SELECT name, price_monthly, features, limits 
+      FROM subscription_plans 
+      WHERE is_active = true 
+      ORDER BY display_order
+    `);
+    
+    res.json(plans.rows);
+  } catch (err) {
+    console.error('Error fetching plans:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Obtenir l'abonnement actuel
+router.get('/current', withSubscription, (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  
+  res.json(req.user.subscription || {
+    plan_name: 'free',
+    status: 'active',
+    features: { basic_quizzes: true, save_words: true },
+    limits: { max_words: 100, daily_duels: 1 }
+  });
+});
+
+// Lancer l'upgrade
+router.post('/upgrade', withSubscription, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Récupérer le priceId depuis la config
+    const priceId = process.env.STRIPE_PRICE_PREMIUM_MONTHLY;
+    
+    if (!priceId) {
+      return res.status(500).json({ error: 'Stripe configuration missing' });
+    }
+    
+    // Vérifier si déjà premium
+    if (req.user.subscription?.plan_name === 'premium') {
+      return res.status(400).json({ error: 'Already premium' });
+    }
+    
+    const session = await stripeService.createCheckoutSession(userId, priceId);
+    
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Upgrade error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Gérer l'abonnement (portal Stripe)
+router.get('/manage', withSubscription, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    if (req.user.subscription?.plan_name !== 'premium') {
+      return res.status(400).json({ error: 'No premium subscription to manage' });
+    }
+    
+    const portalUrl = await stripeService.createCustomerPortal(userId);
+    
+    res.json({ url: portalUrl });
+  } catch (err) {
+    console.error('Manage subscription error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Webhook Stripe
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  
+  try {
+    const event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+    
+    await stripeService.handleWebhook(event);
+    
+    res.json({ received: true });
+  } catch (err) {
+    console.error('Webhook error:', err);
+    res.status(400).json({ error: err.message });
   }
 });
 

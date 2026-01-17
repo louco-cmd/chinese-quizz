@@ -442,7 +442,7 @@ module.exports = {
   // Authentification
   ensureAuth,
   isValidEmail,
-  sendPasswordResetEmail,
+  //sendPasswordResetEmail,
   
   // Sessions
   resilience,

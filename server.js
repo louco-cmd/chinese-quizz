@@ -16,7 +16,6 @@ const {
   reauth,
   requestLogger,
   errorHandler,
-  sendPasswordResetEmail,
   shuffleArray,
   generateDuelQuiz,
   getRandomUserWords,
@@ -24,7 +23,8 @@ const {
   updateWordScore,
   addTransaction
 } = require('./middleware/index');
-const { sendVerificationEmail } = require('./middleware/mail.service');
+const {sendPasswordResetEmail, sendVerificationEmail } = require('./middleware/mail.service');
+const { withSubscription } = require('./middleware/subscription');
 
 const PostgreSQLStore = require('connect-pg-simple')(session);
 const apiRoutes = require('./routes/api');
@@ -68,7 +68,7 @@ app.use(session({
   saveUninitialized: false, // ⬅️ IMPORTANT: false pour la sécurité
   rolling: false, // ⬅️ false pour plus de stabilité
   cookie: {
-    secure: true, // ⬅️ true pour HTTPS
+    secure: false, // ⬅️ true pour HTTPS
     httpOnly: true, // ⬅️ empêcher l'accès JS
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
     sameSite: 'lax',
@@ -94,6 +94,14 @@ app.use(async (req, res, next) => {
     res.locals.balance = 0;
   }
   next();
+});
+// Ajoutez le middleware globalement ou sur des routes spécifiques
+app.use((req, res, next) => {
+  if (req.isAuthenticated()) {
+    require('./middleware/subscription').withSubscription(req, res, next);
+  } else {
+    next();
+  }
 });
 
 // Connexion google
@@ -568,6 +576,53 @@ app.post('/auth/reset-password', async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
+// Route pour afficher la page de réinitialisation
+app.get('/auth/reset-password', async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.redirect('/forgot-password');
+    }
+
+    // Vérifier si le token est valide
+    const result = await pool.query(
+      `SELECT prt.*, u.email 
+       FROM password_reset_tokens prt
+       JOIN users u ON prt.user_id = u.id
+       WHERE prt.token = $1 
+         AND prt.expires_at > NOW() 
+         AND prt.used = false`,
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      // Token invalide ou expiré
+      return res.render('reset-password', {
+        error: 'Invalid or expired reset link. Please request a new one.',
+        token: null,
+        email: null
+      });
+    }
+
+    const resetToken = result.rows[0];
+    
+    // Rendre la page avec le token et l'email
+    res.render('reset-password', {
+      error: null,
+      token: resetToken.token,
+      email: resetToken.email
+    });
+
+  } catch (err) {
+    console.error('❌ Erreur reset-password page:', err);
+    res.render('reset-password', {
+      error: 'An error occurred. Please try again.',
+      token: null,
+      email: null
+    });
+  }
+});
 
 
 // Pages EJS
@@ -593,16 +648,26 @@ app.get('/dashboard', ensureAuth, async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const userRes = await pool.query('SELECT name FROM users WHERE id = $1', [userId]);
+    const userRes = await pool.query('SELECT name, balance FROM users WHERE id = $1', [userId]);
     const user = userRes.rows[0] || {};
-    const userData = {
-      name: user.name || 'Friend'
-    };
+    
+    // Récupérer le solde
+    const balance = user.balance || 0;
 
-    console.log('📊 Rendering dashboard with:', { userData, currentPage: 'dashboard' });
+    console.log('📊 Rendering dashboard with:', { 
+      userId, 
+      name: user.name, 
+      balance,
+      currentPage: 'dashboard' 
+    });
 
     res.render('dashboard', {
-      userData: userData,
+      user: req.user,        // ← Passez req.user comme "user"
+      userData: {            // ← Gardez pour compatibilité
+        name: user.name || 'Friend',
+        balance: balance
+      },
+      balance: balance,      // ← Passez aussi balance directement
       currentPage: 'dashboard'
     });
 
@@ -627,7 +692,16 @@ app.get('/collection', ensureAuth, async (req, res) => {
     // Réorganiser les mots pour commencer à l'index demandé
     const sortedWords = [...rows.slice(cardIndex), ...rows.slice(0, cardIndex)];
 
+    // Récupérer le solde de l'utilisateur
+    const balanceResult = await pool.query(
+      'SELECT balance FROM users WHERE id = $1',
+      [userId]
+    );
+    const balance = balanceResult.rows[0]?.balance || 0;
+
     res.render('collection', {
+      user: req.user,        // ← AJOUTEZ CE CI
+      balance: balance,      // ← AJOUTEZ CE CI
       words: sortedWords,
       currentPage: 'collection'
     });
@@ -959,6 +1033,71 @@ app.get('/store', ensureAuth, async (req, res) => {
   } catch (error) {
     console.error('Erreur:', error);
     res.status(500).send('Erreur serveur');
+  }
+});
+
+
+// Page de pricing
+app.get('/pricing', withSubscription, async (req, res) => {
+  try {
+    // Récupérer les plans depuis la base
+    const plansResult = await pool.query(
+      'SELECT * FROM subscription_plans WHERE is_active = true ORDER BY display_order'
+    );
+    
+    res.render('pricing', {
+      user: req.user,
+      plans: plansResult.rows,
+      currentPage: 'pricing'
+    });
+  } catch (err) {
+    console.error('Error loading pricing page:', err);
+    res.render('pricing', {
+      user: req.user,
+      plans: [],
+      currentPage: 'pricing'
+    });
+  }
+});
+
+// Page de succès après paiement
+app.get('/subscription/success', withSubscription, async (req, res) => {
+  const { session_id } = req.query;
+  
+  try {
+    // Vérifier si la session Stripe est valide
+    if (session_id) {
+      // Optionnel: vérifier avec Stripe
+      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+      
+      if (session.payment_status === 'paid') {
+        // Récupérer l'abonnement mis à jour
+        const subResult = await pool.query(`
+          SELECT us.*, sp.features, sp.limits
+          FROM user_subscriptions us
+          JOIN subscription_plans sp ON us.plan_name = sp.name
+          WHERE us.user_id = $1 
+          ORDER BY us.created_at DESC
+          LIMIT 1
+        `, [req.user.id]);
+        
+        res.render('subscription-success', {
+          user: req.user,
+          subscription: subResult.rows[0],
+          sessionId: session_id,
+          currentPage: 'account'
+        });
+        return;
+      }
+    }
+    
+    // Fallback: rediriger vers l'account
+    res.redirect('/account');
+    
+  } catch (err) {
+    console.error('Error processing success page:', err);
+    res.redirect('/account');
   }
 });
 
