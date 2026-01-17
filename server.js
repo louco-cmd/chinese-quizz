@@ -68,7 +68,7 @@ app.use(session({
   saveUninitialized: false, // ⬅️ IMPORTANT: false pour la sécurité
   rolling: false, // ⬅️ false pour plus de stabilité
   cookie: {
-    secure: false, // ⬅️ true pour HTTPS
+    secure: true, // ⬅️ true pour HTTPS
     httpOnly: true, // ⬅️ empêcher l'accès JS
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
     sameSite: 'lax',
@@ -252,13 +252,6 @@ app.post('/auth/logout', (req, res) => {
     });
   });
 });
-
-// connexion normale
-/* const signupLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  message: { error: 'Too many signups, try later' }
-}); */
 
 app.post('/auth/signup-basic', async (req, res) => {
   try {
@@ -1035,7 +1028,6 @@ app.get('/store', ensureAuth, async (req, res) => {
     res.status(500).send('Erreur serveur');
   }
 });
-
 
 // Page de pricing
 app.get('/pricing', withSubscription, async (req, res) => {
