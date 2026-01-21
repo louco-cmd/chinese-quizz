@@ -507,11 +507,11 @@ async function searchAndAddWord() {
   
   currentChinese = chinese;
   disableSubmitButton();
-  showStatus('Searching...', 'info');
+  showStatus('Searching...', 'info'); // Message simple
 
   try {
     const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`, {
-      signal: currentRequestController.signal // 🔥 Lier l'annulation
+      signal: currentRequestController.signal
     });
     
     // Réinitialiser le controller après succès
@@ -523,10 +523,12 @@ async function searchAndAddWord() {
       existingWordData = data.mot;
       displayExistingWord(data.mot);
       showScreen('existingWordScreen');
+      clearStatus(); // Nettoyer le message "Searching..."
     } else {
       existingWordData = null;
       displayNewWordForm();
       showScreen('newWordScreen');
+      clearStatus(); // Nettoyer le message "Searching..."
     }
   } catch (err) {
     if (err.name === 'AbortError') {
@@ -636,39 +638,28 @@ async function confirmAddExistingWord() {
   // Reset avant chaque tentative
   const errorDiv = document.getElementById('existingWordError');
   const confirmBtn = document.getElementById('confirmAddBtn');
+  const title = document.getElementById('existingWordTitle');
+  
   errorDiv.style.display = 'none';
   errorDiv.textContent = '';
-  confirmBtn.disabled = false;
-
+  confirmBtn.disabled = true; // Désactiver pendant la requête
+  
+  // Changer l'état du bouton
+  confirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding...';
+  showStatus('Adding word...', 'info'); // Message simple, pas de toaster
+  
   try {
-    const res = await fetch('/ajouter', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(existingWordData)
-    });
-    const data = await res.json();
-
-    if (data.success) {
-      showSuccessAnimation();
-      setTimeout(resetForm, 1500);
-    } else {
-      // Affiche le message d’erreur dans la popup
-      errorDiv.textContent = `${data.message}`;
-      errorDiv.style.display = 'block';
-
-      // Désactive le bouton Confirm pour éviter de re-soumettre
-      confirmBtn.disabled = true;
-
-      // Optionnel : change le style du titre pour indiquer une erreur
-      const title = document.getElementById('existingWordTitle');
-      title.classList.remove('text-success');
-      title.classList.add('text-danger');
-      title.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i> Word not added`;
-    }
+    await addWord(
+      existingWordData.chinese,
+      existingWordData.pinyin,
+      existingWordData.english
+    );
+    // Pas besoin de showStatus ici, addWord() gère les messages
   } catch(err) {
     errorDiv.textContent = '❌ Server error. Please try again later.';
     errorDiv.style.display = 'block';
-    confirmBtn.disabled = true;
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
   }
 }
 
@@ -678,20 +669,19 @@ async function confirmAddNewWord() {
   const description = document.getElementById('newDescription').value.trim();
 
   if (!english) {
-    alert('English translation required');
+    // Utiliser showStatus au lieu de alert()
+    showStatus('English translation required', 'error');
     return;
   }
 
-  const payload = {
-    chinese: currentChinese,
-    pinyin: pinyin,
-    english: english,
-    description: description
-  };
+  // Désactiver le bouton pendant l'ajout
+  const addBtn = document.querySelector('#newWordScreen .btn-success');
+  const originalText = addBtn.innerHTML;
+  addBtn.disabled = true;
+  addBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding...';
+  showStatus('Adding word...', 'info'); // Message simple
 
   try {
-    let message = '';
-
     // 🔥 ÉTAPE 1: Mise à jour base générale si nécessaire
     if (existingWordData && existingWordData.id) {
       const hasBeenModified = 
@@ -704,37 +694,26 @@ async function confirmAddNewWord() {
         await fetch(`/update/${existingWordData.id}`, {
           method: 'PUT',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            chinese: currentChinese,
+            pinyin: pinyin,
+            english: english,
+            description: description
+          })
         });
-        message = 'Word updated and ';
       }
     }
 
-    // 🔥 ÉTAPE 2: Ajout base personnelle
-    showStatus(`${message ? 'Adding to collection...' : 'Adding word...'}`, 'info');
+    // 🔥 ÉTAPE 2: Ajout à la collection personnelle
+    await addWord(currentChinese, pinyin, english);
     
-    const addRes = await fetch('/ajouter', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
-    });
-
-    const data = await addRes.json();
-
-    if (data.success) {
-      showStatus(`✅ ${message}added to your collection!`, 'success');
-      showSuccessAnimation();
-      setTimeout(resetForm, 1500);
-    } else {
-      showStatus(`❌ ${data.message}`, 'error');
-    }
-
   } catch(err) {
-    console.error('❌ Erreur:', err);
-    showStatus('❌ Operation failed: ' + err.message, 'error');
+    // Réactiver le bouton en cas d'erreur
+    addBtn.disabled = false;
+    addBtn.innerHTML = originalText;
+    showStatus('Operation failed: ' + err.message, 'error');
   }
 }
-
 
 // Animation de succès
 function showSuccessAnimation() {
@@ -827,12 +806,29 @@ function showNewWordScreen() {
 }
 
 function showStatus(message, type) {
+  // Utiliser votre système existant (statusMessage div)
   statusMessage.textContent = message;
-  statusMessage.className = 'status-message';
   
-  if (type === 'success') statusMessage.style.color = '#d4edda';
-  if (type === 'error') statusMessage.style.color = '#ffe5e5';
-  if (type === 'info') statusMessage.style.color = '#cfe2ff';
+  // Appliquer les couleurs appropriées
+  if (type === 'success') {
+    statusMessage.style.color = '#d4edda';
+    statusMessage.style.textShadow = '0 1px 2px rgba(0,0,0,0.1)';
+  } else if (type === 'error') {
+    statusMessage.style.color = '#ffe5e5';
+    statusMessage.style.textShadow = '0 1px 2px rgba(0,0,0,0.1)';
+  } else if (type === 'info') {
+    statusMessage.style.color = '#cfe2ff';
+    statusMessage.style.textShadow = '0 1px 2px rgba(0,0,0,0.1)';
+  }
+  
+  // Auto-clear après 3 secondes seulement pour les messages non-permanents
+  if (type !== 'permanent') {
+    setTimeout(() => {
+      if (statusMessage.textContent === message) {
+        statusMessage.textContent = '';
+      }
+    }, 3000);
+  }
 }
 
 function clearStatus() {
@@ -853,6 +849,222 @@ function enableSubmitButton() {
 window.addEventListener('load', () => {
   chineseInput.focus();
 });
+
+// VOS FONCTIONS AJOUTÉES
+async function addWord(chinese, pinyin, english) {
+  try {
+    const response = await fetch('/ajouter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chinese, pinyin, english })
+    });
+    
+    const data = await response.json();
+    console.log('📥 Response:', { status: response.status, data });
+    
+    // Vérifiez les deux conditions
+    if (response.ok && data.success) {
+      // VRAI succès
+      showSuccess('Word added! -3 coins');
+      showSuccessAnimation();
+      setTimeout(resetForm, 1500);
+    } else {
+      // Échec
+      if (data.limitReached) {
+        // Popup de limite
+        showLimitReachedPopup(data);
+      } else if (data.message?.includes('balance')) {
+        showError('Not enough coins (3 required)');
+      } else if (data.message?.includes('already')) {
+        showError('You already have this word');
+      } else {
+        showError(data.error || data.message || `Error ${response.status}`);
+      }
+    }
+  } catch (err) {
+    console.error('Error:', err);
+    showError('Network error');
+  }
+}
+
+// Popup pour limite atteinte - Bootstrap corrigée
+function showLimitReachedPopup(data) {
+  // Vérifier si une modal existe déjà
+  const existingModal = document.getElementById('limitModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+  
+  // Modal Bootstrap avec centrage mobile
+  const modalHTML = `
+    <div class="modal fade" id="limitModal" tabindex="-1" data-bs-backdrop="static">
+      <div class="modal-dialog modal-dialog-centered m-0" style="
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100%;
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 20px;
+      ">
+        <div class="modal-content" style="
+          border-radius: 12px;
+          border: 1px solid rgba(0,0,0,0.08);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+          width: 100%;
+          max-width: 340px;
+          margin: auto;
+        ">
+          <!-- Header simple -->
+          <div class="modal-header border-0 pb-3 pt-4">
+            <h5 class="modal-title w-100 text-center" style="
+              font-size: 1.1rem;
+              font-weight: 600;
+              color: #1D1D1F;
+              letter-spacing: -0.1px;
+            ">
+              Collection Limit
+            </h5>
+            <button type="button" class="btn-close position-absolute" 
+                    data-bs-dismiss="modal"
+                    style="right: 20px; top: 20px; opacity: 0.5">
+            </button>
+          </div>
+          
+          <!-- Message simple -->
+          <div class="modal-body px-4 py-2 text-center">
+            <p class="mb-0" style="
+              font-size: 0.94rem;
+              color: #515154;
+              line-height: 1.5;
+            ">
+              Your collection has reached the maximum size.<br>
+              Free users can store up to <strong>${data.max}</strong> words.
+            </p>
+          </div>
+          
+          <!-- Boutons simples -->
+          <div class="modal-footer border-0 pt-3 pb-4 px-4">
+            <div class="w-100 d-grid gap-2">
+              <!-- Bouton Upgrade -->
+              <a href="/pricing" 
+                 class="btn btn-primary py-2 px-3" 
+                 onclick="document.getElementById('limitModal')?.remove()"
+                 style="
+                   border-radius: 10px;
+                   font-weight: 500;
+                   border: none;
+                 ">
+                Upgrade to Premium
+              </a>
+              
+              <!-- Bouton Continue -->
+              <button type="button" 
+                      class="btn btn-outline-secondary py-2 px-3" 
+                      data-bs-dismiss="modal"
+                      style="
+                        border-radius: 10px;
+                        font-weight: 500;
+                        border-width: 1.5px;
+                      ">
+                Continue with Free
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Créer et afficher le modal
+  const modalContainer = document.createElement('div');
+  modalContainer.innerHTML = modalHTML;
+  document.body.appendChild(modalContainer);
+  
+  // Initialiser Bootstrap Modal
+  const modalElement = document.getElementById('limitModal');
+  const modal = new bootstrap.Modal(modalElement, {
+    backdrop: 'static',
+    keyboard: false
+  });
+  
+  // Forcer le redimensionnement après affichage
+  modalElement.addEventListener('shown.bs.modal', () => {
+    // Réappliquer les styles pour le centrage
+    const dialog = modalElement.querySelector('.modal-dialog');
+    if (dialog) {
+      dialog.style.margin = 'auto';
+      dialog.style.display = 'flex';
+      dialog.style.alignItems = 'center';
+      dialog.style.justifyContent = 'center';
+    }
+  });
+  
+  modal.show();
+  
+  // Nettoyer après fermeture
+  modalElement.addEventListener('hidden.bs.modal', () => {
+    modalContainer.remove();
+  });
+}
+
+// Fonction pour fermer la modal
+function hideLimitModal() {
+  const modal = bootstrap.Modal.getInstance(document.getElementById('limitModal'));
+  if (modal) {
+    modal.hide();
+  }
+}
+// Fonction pour fermer la modal
+function hideLimitModal() {
+  const modal = bootstrap.Modal.getInstance(document.getElementById('limitModal'));
+  if (modal) {
+    modal.hide();
+  }
+}
+// Fonction pour fermer la modal depuis le lien
+function hideLimitModal() {
+  const modal = bootstrap.Modal.getInstance(document.getElementById('limitModal'));
+  if (modal) {
+    modal.hide();
+  }
+}
+
+// Fonctions utilitaires simples - version sans toasters
+function showSuccess(message) {
+  // Option 1: Utiliser le statusMessage
+  showStatus(message, 'success');
+  
+  // Option 2: Log seulement
+  console.log('✅', message);
+}
+
+function showError(message) {
+  // Option 1: Utiliser le statusMessage
+  showStatus(message, 'error');
+  
+  // Option 2: Log seulement
+  console.error('❌', message);
+}
+
+function clearAllMessages() {
+  // Nettoyer le statusMessage principal
+  clearStatus();
+  
+  // Nettoyer les messages d'erreur spécifiques
+  const errorDiv = document.getElementById('existingWordError');
+  if (errorDiv) {
+    errorDiv.style.display = 'none';
+    errorDiv.textContent = '';
+  }
+  
+  // Nettoyer les champs d'entrée si nécessaire
+  const errorMessageDiv = document.getElementById('errorMessage');
+  if (errorMessageDiv) {
+    errorMessageDiv.textContent = '';
+  }
+}
 
 </script>
 </body>

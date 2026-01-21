@@ -2,6 +2,8 @@ const express = require('express');
 const { pool } = require('../config/database');
 const router = express.Router();
 const crypto = require('crypto');
+require('dotenv').config();
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const {
   ensureAuth,
@@ -23,7 +25,8 @@ const {
   isValidEmail
 } = require('../middleware/index');
 
-const { withSubscription } = require('../middleware/subscription');
+const { withSubscription,checkLimit,canPlayDuel,requireFeature,canAddWord, canTakeQuiz } = require('../middleware/subscription');
+
 
 // ---------------------API
 
@@ -388,108 +391,128 @@ router.post("/verifier", ensureAuth, async (req, res) => {
   }
 });
 
-router.post("/ajouter", ensureAuth, async (req, res) => {
-  const { chinese, pinyin, english, description, hsk } = req.body;
-  const userId = req.user.id;
+router.post("/ajouter", 
+  ensureAuth,
+  canAddWord,      // ← Vérifie le nombre TOTAL de mots
+  async (req, res) => {  // UN SEUL handler
+    // VÉRIFIER SI LA LIMITE EST ATTEINTE
+    console.log('🎯 /ajouter route handler called');
+    console.log('🔍 req.limitReached:', req.limitReached);
+    console.log('🔍 req.limitData:', req.limitData);
+    if (req.limitReached) {
+      console.log('🚫 Returning limit reached response');
 
-  const COST = 3; // coût de l'action
-
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    // 0. Récupérer et verrouiller le solde utilisateur
-    const { rows: userRows } = await client.query(
-      "SELECT balance FROM users WHERE id=$1 FOR UPDATE",
-      [userId]
-    );
-
-    if (userRows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.json({ success: false, message: "Utilisateur introuvable." });
-    }
-
-    const currentBalance = userRows[0].balance;
-
-    if (currentBalance < COST) {
-      await client.query("ROLLBACK");
       return res.json({
         success: false,
-        message: "unsufiscient balance (3 coins requierd)"
+        limitReached: true,
+        current: req.limitData.current,
+        max: req.limitData.max,
+        message: `Word limit reached (${req.limitData.current}/${req.limitData.max})`
       });
     }
 
-    // 1. Vérifier si le mot existe dans la table globale
-    let { rows } = await client.query(
-      "SELECT id FROM mots WHERE chinese=$1",
-      [chinese]
-    );
+    const { chinese, pinyin, english, description, hsk } = req.body;
+    const userId = req.user.id;
 
-    let motId;
+    const COST = 3;
+    const client = await pool.connect();
 
-    if (rows.length > 0) {
-      motId = rows[0].id;
-    } else {
-      const insertRes = await client.query(
-        `INSERT INTO mots (chinese,pinyin,english,description,hsk)
-         VALUES ($1,$2,$3,$4,$5)
-         RETURNING id`,
-        [chinese, pinyin, english, description, hsk]
+    try {
+      await client.query("BEGIN");
+
+      // Vérifier solde
+      const { rows: userRows } = await client.query(
+        "SELECT balance FROM users WHERE id=$1 FOR UPDATE",
+        [userId]
       );
-      motId = insertRes.rows[0].id;
-    }
 
-    // 2. Vérifier si l’utilisateur possède déjà le mot
-    const { rows: userMotRows } = await client.query(
-      "SELECT 1 FROM user_mots WHERE user_id=$1 AND mot_id=$2",
-      [userId, motId]
-    );
+      if (userRows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.json({ success: false, message: "User not found." });
+      }
 
-    if (userMotRows.length > 0) {
-      await client.query("ROLLBACK");
-      return res.json({
-        success: false,
-        message: "You already captured this word"
+      const currentBalance = userRows[0].balance;
+
+      if (currentBalance < COST) {
+        await client.query("ROLLBACK");
+        return res.json({
+          success: false,
+          message: "Insufficient balance (3 coins required)"
+        });
+      }
+
+      // Vérifier si le mot existe
+      let { rows } = await client.query(
+        "SELECT id FROM mots WHERE chinese=$1",
+        [chinese]
+      );
+
+      let motId;
+
+      if (rows.length > 0) {
+        motId = rows[0].id;
+      } else {
+        const insertRes = await client.query(
+          `INSERT INTO mots (chinese,pinyin,english,description,hsk)
+           VALUES ($1,$2,$3,$4,$5)
+           RETURNING id`,
+          [chinese, pinyin, english, description, hsk]
+        );
+        motId = insertRes.rows[0].id;
+      }
+
+      // Vérifier si déjà possédé
+      const { rows: userMotRows } = await client.query(
+        "SELECT 1 FROM user_mots WHERE user_id=$1 AND mot_id=$2",
+        [userId, motId]
+      );
+
+      if (userMotRows.length > 0) {
+        await client.query("ROLLBACK");
+        return res.json({
+          success: false,
+          message: "You already captured this word"
+        });
+      }
+
+      // Débiter
+      await client.query(
+        "UPDATE users SET balance = balance - $1 WHERE id = $2",
+        [COST, userId]
+      );
+
+      // Transaction
+      await client.query(
+        `INSERT INTO transactions (user_id, amount, type, description)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, -COST, "capture_word", `Captured word ${chinese}`]
+      );
+
+      // Associer le mot
+      await client.query(
+        "INSERT INTO user_mots (user_id, mot_id) VALUES ($1,$2)",
+        [userId, motId]
+      );
+
+      await client.query("COMMIT");
+
+      res.json({
+        success: true,
+        motId,
+        newBalance: currentBalance - COST,
+        message: "Word added successfully. 3 coins deducted.",
+        wordCount: req.user.currentWordCount + 1  // Nouveau total
       });
+
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("Error adding word:", err);
+      res.status(500).json({ success: false, message: "Internal server error." });
+    } finally {
+      client.release();
     }
-
-    // 3. Débiter l'utilisateur
-    await client.query(
-      "UPDATE users SET balance = balance - $1 WHERE id = $2",
-      [COST, userId]
-    );
-
-    // 4. Enregistrer la transaction
-    await client.query(
-      `INSERT INTO transactions (user_id, amount, type, description)
-       VALUES ($1, $2, $3, $4)`,
-      [userId, -COST, "capture_word", `Captured word ${chinese}`]
-    );
-
-    // 5. Associer le mot à l'utilisateur
-    await client.query(
-      "INSERT INTO user_mots (user_id, mot_id) VALUES ($1,$2)",
-      [userId, motId]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({
-      success: true,
-      motId,
-      newBalance: currentBalance - COST,
-      message: "Word added successfully. 3 coins deducted."
-    });
-
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("Erreur ajout:", err);
-    res.status(500).json({ success: false, message: "Internal server error." });
-  } finally {
-    client.release();
   }
-});
+);
 
 router.post("/mes-mots/delete", ensureAuth, async (req, res) => {
   const userId = req.user.id; // L'id de l'utilisateur connecté
@@ -579,7 +602,7 @@ router.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
   }
 });
 
-router.get('/quiz-mots', ensureAuth, async (req, res) => {
+router.get('/quiz-mots', ensureAuth, checkLimit, canTakeQuiz, async (req, res) => {
   const userId = req.user.id;
   const requestedCount = req.query.count === 'all' ? null : parseInt(req.query.count) || 10;
   const hskLevel = req.query.hsk || 'all';
@@ -921,7 +944,7 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
 });
 
 // 📍 CRÉATION D'UN DUEL AVEC PARI
-router.post('/api/duels/create', ensureAuth, async (req, res) => {
+router.post('/api/duels/create', ensureAuth, checkLimit, canPlayDuel, async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -1036,6 +1059,20 @@ router.post('/api/duels/create', ensureAuth, async (req, res) => {
       JSON.stringify(quizData),
       bet_amount
     ]);
+
+    // ✅ CORRECTION : Incrémenter l'usage AVANT le commit, avec client.query
+    if (req.user.subscription?.plan_name !== 'premium') {
+      const today = new Date().toISOString().split('T')[0];
+      
+      await client.query(`
+        INSERT INTO user_usage (user_id, date, duels_played)
+        VALUES ($1, $2, 1)
+        ON CONFLICT (user_id, date) 
+        DO UPDATE SET duels_played = user_usage.duels_played + 1
+      `, [req.user.id, today]);
+      
+      console.log(`📊 Duel compté pour l'utilisateur ${req.user.id}`);
+    }
 
     await client.query('COMMIT');
     console.log('[Création Duel] Transaction commitée');
@@ -1496,103 +1533,5 @@ router.post('/api/acheter-booster', ensureAuth, async (req, res) => {
     client.release();
   }
 });
-
-
-//freemium model
-// Récupérer les plans
-router.get('/plans', async (req, res) => {
-  try {
-    const plans = await pool.query(`
-      SELECT name, price_monthly, features, limits 
-      FROM subscription_plans 
-      WHERE is_active = true 
-      ORDER BY display_order
-    `);
-    
-    res.json(plans.rows);
-  } catch (err) {
-    console.error('Error fetching plans:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Obtenir l'abonnement actuel
-router.get('/current', withSubscription, (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-  
-  res.json(req.user.subscription || {
-    plan_name: 'free',
-    status: 'active',
-    features: { basic_quizzes: true, save_words: true },
-    limits: { max_words: 100, daily_duels: 1 }
-  });
-});
-
-// Lancer l'upgrade
-router.post('/upgrade', withSubscription, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    // Récupérer le priceId depuis la config
-    const priceId = process.env.STRIPE_PRICE_PREMIUM_MONTHLY;
-    
-    if (!priceId) {
-      return res.status(500).json({ error: 'Stripe configuration missing' });
-    }
-    
-    // Vérifier si déjà premium
-    if (req.user.subscription?.plan_name === 'premium') {
-      return res.status(400).json({ error: 'Already premium' });
-    }
-    
-    const session = await stripeService.createCheckoutSession(userId, priceId);
-    
-    res.json({ url: session.url });
-  } catch (err) {
-    console.error('Upgrade error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Gérer l'abonnement (portal Stripe)
-router.get('/manage', withSubscription, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    
-    if (req.user.subscription?.plan_name !== 'premium') {
-      return res.status(400).json({ error: 'No premium subscription to manage' });
-    }
-    
-    const portalUrl = await stripeService.createCustomerPortal(userId);
-    
-    res.json({ url: portalUrl });
-  } catch (err) {
-    console.error('Manage subscription error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Webhook Stripe
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  
-  try {
-    const event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-    
-    await stripeService.handleWebhook(event);
-    
-    res.json({ received: true });
-  } catch (err) {
-    console.error('Webhook error:', err);
-    res.status(400).json({ error: err.message });
-  }
-});
-
 
 module.exports = router;

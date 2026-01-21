@@ -23,8 +23,10 @@ const {
   updateWordScore,
   addTransaction
 } = require('./middleware/index');
-const {sendPasswordResetEmail, sendVerificationEmail } = require('./middleware/mail.service');
+const { sendPasswordResetEmail, sendVerificationEmail } = require('./middleware/mail.service');
 const { withSubscription } = require('./middleware/subscription');
+require('dotenv').config();
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const PostgreSQLStore = require('connect-pg-simple')(session);
 const apiRoutes = require('./routes/api');
@@ -150,9 +152,9 @@ app.post('/auth/google/one-tap', async (req, res) => {
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    
+
     const { credential } = req.body;
-    
+
     if (!credential) {
       return res.status(400).json({ error: 'No credential provided' });
     }
@@ -160,22 +162,22 @@ app.post('/auth/google/one-tap', async (req, res) => {
     // Vérifiez le token Google
     const { OAuth2Client } = require('google-auth-library');
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    
+
     const ticket = await client.verifyIdToken({
       idToken: credential,
       audience: process.env.GOOGLE_CLIENT_ID
     });
-    
+
     const payload = ticket.getPayload();
-    
+
     // Vérifiez ou créez l'utilisateur dans votre base de données
     const result = await pool.query(
       'SELECT id, email FROM users WHERE email = $1',
       [payload.email]
     );
-    
+
     let user;
-    
+
     if (result.rows.length === 0) {
       // Créer un nouvel utilisateur
       const newUser = await pool.query(
@@ -188,25 +190,25 @@ app.post('/auth/google/one-tap', async (req, res) => {
     } else {
       user = result.rows[0];
     }
-    
+
     // Connectez l'utilisateur (avec Passport.js si vous l'utilisez)
     req.login(user, (err) => {
       if (err) {
         return res.status(500).json({ error: 'Login failed' });
       }
-      
+
       // ✅ IMPORTANT: Envoyer une réponse JSON valide
       res.json({
         success: true,
         redirect: '/dashboard'
       });
     });
-    
+
   } catch (err) {
     console.error('💥 Google One Tap error:', err);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Authentication failed' 
+    res.status(500).json({
+      success: false,
+      error: 'Authentication failed'
     });
   }
 });
@@ -216,23 +218,23 @@ app.post('/auth/logout', (req, res) => {
   if (!req.isAuthenticated()) {
     return res.json({ success: true, message: 'Already logged out' });
   }
-  
+
   console.log(`👋 Déconnexion de l'utilisateur: ${req.user?.email || 'Unknown'}`);
-  
+
   // Déconnexion avec Passport
   req.logout((err) => {
     if (err) {
       console.error('❌ Erreur lors de la déconnexion Passport:', err);
       // On continue quand même pour nettoyer la session
     }
-    
+
     // Destruction de la session
     req.session.destroy((destroyErr) => {
       if (destroyErr) {
         console.error('❌ Erreur lors de la destruction de session:', destroyErr);
         // On tente quand même de clear le cookie
       }
-      
+
       // Clear le cookie de session
       res.clearCookie('connect.sid', {
         path: '/',
@@ -240,14 +242,14 @@ app.post('/auth/logout', (req, res) => {
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax'
       });
-      
+
       // Optionnel: Clear d'autres cookies spécifiques
       res.clearCookie('user_session');
-      
+
       console.log('✅ Déconnexion réussie');
-      res.json({ 
-        success: true, 
-        redirect: '/' 
+      res.json({
+        success: true,
+        redirect: '/'
       });
     });
   });
@@ -432,9 +434,9 @@ app.post('/auth/forgot-password', async (req, res) => {
 
     if (userResult.rows.length === 0) {
       // Pour la sécurité, ne pas révéler si l'email existe ou non
-      return res.json({ 
-        success: true, 
-        message: 'Si votre email est associé à un compte, vous recevrez un lien de réinitialisation' 
+      return res.json({
+        success: true,
+        message: 'Si votre email est associé à un compte, vous recevrez un lien de réinitialisation'
       });
     }
 
@@ -459,9 +461,9 @@ app.post('/auth/forgot-password', async (req, res) => {
     // Envoyer l'email
     await sendPasswordResetEmail(user.email, token);
 
-    res.json({ 
-      success: true, 
-      message: 'Si votre email est associé à un compte, vous recevrez un lien de réinitialisation' 
+    res.json({
+      success: true,
+      message: 'Si votre email est associé à un compte, vous recevrez un lien de réinitialisation'
     });
 
   } catch (err) {
@@ -489,15 +491,15 @@ app.get('/auth/verify-reset-token', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.json({ 
-        valid: false, 
-        error: 'Token invalide ou expiré' 
+      return res.json({
+        valid: false,
+        error: 'Token invalide ou expiré'
       });
     }
 
-    res.json({ 
-      valid: true, 
-      email: result.rows[0].email 
+    res.json({
+      valid: true,
+      email: result.rows[0].email
     });
 
   } catch (err) {
@@ -559,9 +561,9 @@ app.post('/auth/reset-password', async (req, res) => {
       [userId]
     );
 
-    res.json({ 
-      success: true, 
-      message: 'Mot de passe réinitialisé avec succès' 
+    res.json({
+      success: true,
+      message: 'Mot de passe réinitialisé avec succès'
     });
 
   } catch (err) {
@@ -599,7 +601,7 @@ app.get('/auth/reset-password', async (req, res) => {
     }
 
     const resetToken = result.rows[0];
-    
+
     // Rendre la page avec le token et l'email
     res.render('reset-password', {
       error: null,
@@ -643,15 +645,15 @@ app.get('/dashboard', ensureAuth, async (req, res) => {
   try {
     const userRes = await pool.query('SELECT name, balance FROM users WHERE id = $1', [userId]);
     const user = userRes.rows[0] || {};
-    
+
     // Récupérer le solde
     const balance = user.balance || 0;
 
-    console.log('📊 Rendering dashboard with:', { 
-      userId, 
-      name: user.name, 
+    console.log('📊 Rendering dashboard with:', {
+      userId,
+      name: user.name,
       balance,
-      currentPage: 'dashboard' 
+      currentPage: 'dashboard'
     });
 
     res.render('dashboard', {
@@ -725,8 +727,60 @@ app.get('/quiz-play', ensureAuth, (req, res) => {
   });
 });
 
-app.get('/duels', ensureAuth, (req, res) => {
+app.get('/duels', ensureAuth, async (req, res) => {
+  let players = [];
+  try {
+    console.log('📄 Chargement page classement SIMPLIFIÉ');
+    const results = await pool.query(`
+  SELECT 
+    u.id,
+    u.name,
+    u.email,
+    u.country,
+    u.tagline,
+    um.word_count as total_words,
+    COUNT(CASE WHEN d.status = 'completed' AND (
+      (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+      (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+    ) THEN 1 END) as wins,
+    COUNT(CASE WHEN d.status = 'completed' AND (
+      (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
+      (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
+    ) THEN 1 END) as losses,
+    CASE 
+      WHEN COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END) > 0 THEN
+        ROUND(
+          (COUNT(CASE WHEN d.status = 'completed' AND (
+            (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+            (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+          ) THEN 1 END) * 100.0) / 
+          COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END)
+        , 1)
+      ELSE 0
+    END as ratio
+  FROM users u
+  LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
+  LEFT JOIN (
+    SELECT user_id, COUNT(*) as word_count 
+    FROM user_mots 
+    GROUP BY user_id
+  ) um ON um.user_id = u.id
+  WHERE u.name IS NOT NULL
+  GROUP BY u.id, u.name, u.email, u.country, u.tagline, um.word_count
+  ORDER BY wins DESC, ratio DESC, u.name
+  LIMIT 10
+`);
+  players = results.rows;
+    console.log(`✅ ${players.rows.length} joueurs chargés (version simple)`);
+
+  } catch (err) {
+    console.error('❌ Erreur simple page classement:', err.message);
+  }
+
   res.render('duels', {
+    user: req.user,
+    players: players,  // ← LES DONNÉES
+    currentUserId: req.user.id,
     currentPage: 'duels',
     user: req.user
   });
@@ -887,16 +941,62 @@ app.get('/user/:id', ensureAuth, async (req, res) => {
 });
 
 app.get('/leaderboard', ensureAuth, async (req, res) => {
+  let players = [];
   try {
-    console.log('📄 Chargement page classement pour:', req.user.name);
-    res.render('leaderboard', {  // ← SUPPRIME 'players/'
-      user: req.user,
-      title: 'Classement des Joueurs - Jiayou'
-    });
+    console.log('📄 Chargement page classement SIMPLIFIÉ');
+    // REQUÊTE ULTRA SIMPLE POUR COMMENCER
+    const results = await pool.query(`
+  SELECT 
+    u.id,
+    u.name,
+    u.email,
+    u.country,
+    u.tagline,
+    um.word_count as total_words,
+    COUNT(CASE WHEN d.status = 'completed' AND (
+      (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+      (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+    ) THEN 1 END) as wins,
+    COUNT(CASE WHEN d.status = 'completed' AND (
+      (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
+      (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
+    ) THEN 1 END) as losses,
+    CASE 
+      WHEN COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END) > 0 THEN
+        ROUND(
+          (COUNT(CASE WHEN d.status = 'completed' AND (
+            (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+            (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+          ) THEN 1 END) * 100.0) / 
+          COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END)
+        , 1)
+      ELSE 0
+    END as ratio
+  FROM users u
+  LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
+  LEFT JOIN (
+    SELECT user_id, COUNT(*) as word_count 
+    FROM user_mots 
+    GROUP BY user_id
+  ) um ON um.user_id = u.id
+  WHERE u.name IS NOT NULL
+  GROUP BY u.id, u.name, u.email, u.country, u.tagline, um.word_count
+  ORDER BY wins DESC, ratio DESC, u.name
+  LIMIT 100
+`);
+players = results.rows;
+    console.log(`✅ ${players.rows.length} joueurs chargés (version simple)`);
+
   } catch (err) {
-    console.error('❌ Erreur page classement:', err);
-    res.status(500).render('error', { error: 'Erreur chargement page' });
+    console.error('❌ Erreur simple page classement:', err.message);
   }
+  res.render('leaderboard', {
+    user: req.user,
+    players: players,  // ← LES DONNÉES
+    currentUserId: req.user.id,
+    currentPage: 'leaderboard',
+    title: 'Classement des Joueurs - Jiayou'
+  });
 });
 
 app.get('/bank', ensureAuth, async (req, res) => {
@@ -1036,7 +1136,7 @@ app.get('/pricing', withSubscription, async (req, res) => {
     const plansResult = await pool.query(
       'SELECT * FROM subscription_plans WHERE is_active = true ORDER BY display_order'
     );
-    
+
     res.render('pricing', {
       user: req.user,
       plans: plansResult.rows,
@@ -1055,14 +1155,14 @@ app.get('/pricing', withSubscription, async (req, res) => {
 // Page de succès après paiement
 app.get('/subscription/success', withSubscription, async (req, res) => {
   const { session_id } = req.query;
-  
+
   try {
     // Vérifier si la session Stripe est valide
     if (session_id) {
       // Optionnel: vérifier avec Stripe
       const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
       const session = await stripe.checkout.sessions.retrieve(session_id);
-      
+
       if (session.payment_status === 'paid') {
         // Récupérer l'abonnement mis à jour
         const subResult = await pool.query(`
@@ -1073,7 +1173,7 @@ app.get('/subscription/success', withSubscription, async (req, res) => {
           ORDER BY us.created_at DESC
           LIMIT 1
         `, [req.user.id]);
-        
+
         res.render('subscription-success', {
           user: req.user,
           subscription: subResult.rows[0],
@@ -1083,15 +1183,44 @@ app.get('/subscription/success', withSubscription, async (req, res) => {
         return;
       }
     }
-    
+
     // Fallback: rediriger vers l'account
     res.redirect('/account');
-    
+
   } catch (err) {
     console.error('Error processing success page:', err);
     res.redirect('/account');
   }
 });
+
+app.post('/api/subscription/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    console.log('🎯 Webhook received!');
+
+    try {
+      const event = stripe.webhooks.constructEvent(
+        req.body,
+        req.headers['stripe-signature'],
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+
+      console.log('✅ Event type:', event.type);
+
+      // Répondre vite à Stripe
+      res.json({ received: true });
+
+      // Traiter l'événement en arrière-plan
+      if (event.type === 'checkout.session.completed') {
+        console.log('💰 Payment succeeded!');
+        // ... votre logique ici
+      }
+
+    } catch (err) {
+      console.error('❌ Webhook error:', err.message);
+      res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+  });
 
 app.use(errorHandler);
 

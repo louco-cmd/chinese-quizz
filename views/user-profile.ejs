@@ -1,9 +1,12 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= profileUser.name %> - 加油！</title>
+    <title>
+        <%= profileUser.name %> - 加油！
+    </title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="/css/accountandduels.css" rel="stylesheet">
@@ -12,220 +15,231 @@
         .progress-container {
             margin: 1rem 0;
         }
+
         .progress {
             border-radius: 4px;
             overflow: hidden;
-            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
         }
+
         .progress-bar {
             transition: width 0.6s ease;
         }
     </style>
 </head>
+
 <body class="bg-light" data-profile-user-id="<%= profileUser.id %>">
     <%- include('partials/header') %>
-    <%- include('partials/navbar', {currentPage: 'duels'}) %>
+        <%- include('partials/navbar', {currentPage: 'duels' }) %>
 
-    <div class="container py-4">
-        <!-- Header -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <button onclick="window.history.back()" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left"></i> Back
-            </button>
-            <% if (!isOwnProfile) { %>
-                <button class="btn btn-primary btn-sm" onclick="openDuelModal(<%= profileUser.id %>, '<%= profileUser.name %>')">
-                    <i class="bi bi-sword me-1"></i> Challenge
-                </button>
-            <% } %>
-        </div>
-
-        <!-- Version avec seulement le drapeau à côté du nom -->
-        <div class="card mb-4">
-          <div class="card-body">
-            <div class="row align-items-center">
-              <div class="col-auto">
-                <div class="avatar" style="width: 48px; height: 48px;">
-                  <i class="bi bi-person-fill"></i>
-                </div>
-              </div>
-              <div class="col">
-                <!-- Nom avec drapeau -->
-                <div class="mb-0 d-flex align-items-center">
-                  <div class="fw-bold text-dark me-2" id="userNameDisplay"><%= profileUser.name %></div>
-                  <span class="flag-icon fs-6" id="userFlagDisplay">
-                    <% if (profileUser.country) { %>
-                      <!-- Le drapeau sera géré par JavaScript -->
-                    <% } else { %>
-                      🏳️
-                    <% } %>
-                  </span>
-                </div>
-                
-                <!-- Phrase d'accroche seulement -->
-                <div class="mb-4">
-                  <p class="text-muted small mb-0" id="userTaglineDisplay">
-                    <i class="bi bi-quote me-1"></i>
-                    <span id="taglineText">
-                      <% if (profileUser.tagline) { %>
-                        <%= profileUser.tagline %>
-                      <% } else { %>
-                        No tagline yet
-                      <% } %>
-                    </span>
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Stats globales -->
-            <div class="row text-center mb-4">
-              <div class="col-4">
-                <div class="h5 mb-1" id="totalWords">-</div>
-                <div class="text-muted small">Words</div>
-              </div>
-              <div class="col-4">
-                <div class="h5 mb-1" id="totalQuizzes">-</div>
-                <div class="text-muted small">Quizzes</div>
-              </div>
-              <div class="col-4">
-                <div class="h5 mb-1" id="totalDuels">-</div>
-                <div class="text-muted small">Duels</div>
-              </div>
-            </div>
-            
-            <!-- Jauge de progression -->
-            <div class="progress-container">
-              <div class="progress" style="height: 8px;">
-                <div class="progress-bar bg-primary" id="masteredBar" role="progressbar" style="width: 0%"></div>
-                <div class="progress-bar bg-info" id="learningBar" role="progressbar" style="width: 0%"></div>
-                <div class="progress-bar bg-warning" id="mediumBar" role="progressbar" style="width: 0%"></div>
-                <div class="progress-bar bg-secondary" id="newBar" role="progressbar" style="width: 0%"></div>
-              </div>
-              <div class="text-center text-muted mt-2" style="font-size: 0.8rem;">
-                <span id="masteryText">0% mastered words</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Statistiques des mots -->
-        <div class="card">
-          <div class="card-header">
-            <h6 class="mb-0 d-flex align-items-center">
-              <i class="bi bi-bar-chart me-2"></i>
-              Words statistics
-            </h6>
-          </div>
-          <div class="card-body">
-            <ul id="hskStats" class="list-group list-group-flush">
-                <div class="text-center py-4">
-                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                    <p class="mt-2 text-muted small">Loading statistics...</p>
-                </div>
-            </ul>
-          </div>
-        </div>
-    </div>
-
-    <!-- Modal Défi -->
-    <div class="modal fade" id="duelModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h6 class="modal-title">challenge <span id="opponentName"></span></h6>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="duelForm">
-                        <input type="hidden" id="opponentId">
-                        
-                        <div class="mb-3">
-                            <label class="form-label small fw-medium">Duel type</label>
-                            <select class="form-select" id="duelType" required>
-                                <option value="classic">Classic (20 words)</option>
-                                <option value="match_aa">Match AA (10 words in commom)</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="betAmount" class="form-label">Mise (coins)</label>
-                            <input type="number" id="betAmount" class="form-control" min="0" value="0">
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="createDuel()">
-                        Send a duel 
+            <div class="container py-4">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <button onclick="window.history.back()" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left"></i> Back
                     </button>
+                    <% if (!isOwnProfile) { %>
+                        <button class="btn btn-primary btn-sm"
+                            onclick="openDuelModal(<%= profileUser.id %>, '<%= profileUser.name %>')">
+                            <i class="bi bi-sword me-1"></i> Challenge
+                        </button>
+                        <% } %>
+                </div>
+
+                <!-- Version avec seulement le drapeau à côté du nom -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <div class="avatar" style="width: 48px; height: 48px;">
+                                    <i class="bi bi-person-fill"></i>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <!-- Nom avec drapeau -->
+                                <div class="mb-0 d-flex align-items-center">
+                                    <div class="fw-bold text-dark me-2" id="userNameDisplay">
+                                        <%= profileUser.name %>
+                                    </div>
+                                    <span class="flag-icon fs-6" id="userFlagDisplay">
+                                        <% if (profileUser.country) { %>
+                                            <!-- Le drapeau sera géré par JavaScript -->
+                                            <% } else { %>
+                                                🏳️
+                                                <% } %>
+                                    </span>
+                                </div>
+
+                                <!-- Phrase d'accroche seulement -->
+                                <div class="mb-4">
+                                    <p class="text-muted small mb-0" id="userTaglineDisplay">
+                                        <i class="bi bi-quote me-1"></i>
+                                        <span id="taglineText">
+                                            <% if (profileUser.tagline) { %>
+                                                <%= profileUser.tagline %>
+                                                    <% } else { %>
+                                                        No tagline yet
+                                                        <% } %>
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stats globales -->
+                        <div class="row text-center mb-4">
+                            <div class="col-4">
+                                <div class="h5 mb-1" id="totalWords">-</div>
+                                <div class="text-muted small">Words</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="h5 mb-1" id="totalQuizzes">-</div>
+                                <div class="text-muted small">Quizzes</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="h5 mb-1" id="totalDuels">-</div>
+                                <div class="text-muted small">Duels</div>
+                            </div>
+                        </div>
+
+                        <!-- Jauge de progression -->
+                        <div class="progress-container">
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-primary" id="masteredBar" role="progressbar"
+                                    style="width: 0%"></div>
+                                <div class="progress-bar bg-info" id="learningBar" role="progressbar" style="width: 0%">
+                                </div>
+                                <div class="progress-bar bg-warning" id="mediumBar" role="progressbar"
+                                    style="width: 0%"></div>
+                                <div class="progress-bar bg-secondary" id="newBar" role="progressbar" style="width: 0%">
+                                </div>
+                            </div>
+                            <div class="text-center text-muted mt-2" style="font-size: 0.8rem;">
+                                <span id="masteryText">0% mastered words</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistiques des mots -->
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0 d-flex align-items-center">
+                            <i class="bi bi-bar-chart me-2"></i>
+                            Words statistics
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <ul id="hskStats" class="list-group list-group-flush">
+                            <div class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                <p class="mt-2 text-muted small">Loading statistics...</p>
+                            </div>
+                        </ul>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        let currentOpponent = null;
+            <!-- Modal Défi -->
+            <div class="modal fade" id="duelModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h6 class="modal-title">challenge <span id="opponentName"></span></h6>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="duelForm">
+                                <input type="hidden" id="opponentId">
 
-        // Initialisation
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeUserProfile();
-            loadPerformanceStats();
-            loadHskStats();
-        });
+                                <div class="mb-3">
+                                    <label class="form-label small fw-medium">Duel type</label>
+                                    <select class="form-select" id="duelType" required>
+                                        <option value="classic">Classic (20 words)</option>
+                                        <option value="match_aa">Match AA (10 words in commom)</option>
+                                    </select>
+                                </div>
 
-        // Initialisation du profil utilisateur avec les données EJS
-        function initializeUserProfile() {
-            const flagDisplay = document.getElementById('userFlagDisplay');
+                                <div class="mb-3">
+                                    <label for="betAmount" class="form-label">Mise (coins)</label>
+                                    <input type="number" id="betAmount" class="form-control" min="0" value="0">
+                                </div>
+                            </form>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary"
+                                data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" onclick="createDuel()">
+                                Send a duel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+            <script>
+                let currentOpponent = null;
+
+                // Initialisation
+                document.addEventListener('DOMContentLoaded', function () {
+                    initializeUserProfile();
+                    loadPerformanceStats();
+                    loadHskStats();
+                });
+
+                // Initialisation du profil utilisateur avec les données EJS
+                function initializeUserProfile() {
+                    const flagDisplay = document.getElementById('userFlagDisplay');
             <% if (profileUser.country) { %>
-                flagDisplay.textContent = getFlagEmoji('<%= profileUser.country %>');
-                flagDisplay.title = '<%= profileUser.country %>';
+                        flagDisplay.textContent = getFlagEmoji('<%= profileUser.country %>');
+                        flagDisplay.title = '<%= profileUser.country %>';
             <% } else { %>
-                flagDisplay.textContent = '🏳️';
+                        flagDisplay.textContent = '🏳️';
             <% } %>
         }
 
-        // Fonction utilitaire pour obtenir l'emoji drapeau
-        function getFlagEmoji(countryCode) {
-            if (!countryCode) return '🏳️';
-            const codePoints = countryCode
-                .toUpperCase()
-                .split('')
-                .map(char => 127397 + char.charCodeAt());
-            return String.fromCodePoint(...codePoints);
-        }
+                // Fonction utilitaire pour obtenir l'emoji drapeau
+                function getFlagEmoji(countryCode) {
+                    if (!countryCode) return '🏳️';
+                    const codePoints = countryCode
+                        .toUpperCase()
+                        .split('')
+                        .map(char => 127397 + char.charCodeAt());
+                    return String.fromCodePoint(...codePoints);
+                }
 
-        // Chargement des statistiques HSK
-        function loadHskStats() {
-            const container = document.getElementById('hskStats');
+                // Chargement des statistiques HSK
+                function loadHskStats() {
+                    const container = document.getElementById('hskStats');
             
             <% if (hskStats && hskStats.length > 0) { %>
                 const hskStats = [
                     <% hskStats.forEach((stat, index) => { %>
-                        { level: "<%= stat.level %>", count: <%= stat.count %> }<%= index < hskStats.length - 1 ? ',' : '' %>
+                        { level: "<%= stat.level %>", count: <%= stat.count %> } <%= index < hskStats.length - 1 ? ',' : '' %>
                     <% }); %>
                 ];
-                
-                console.log('📊 Statistiques HSK chargées:', hskStats);
-                
-                // Trier les niveaux HSK dans l'ordre logique
-                const sortedStats = hskStats.sort((a, b) => {
-                    const getLevelNumber = (level) => {
-                        if (level === 'Street') return 0;
-                        const match = level.match(/HSK (\d+)/);
-                        return match ? parseInt(match[1]) : 99;
-                    };
-                    return getLevelNumber(a.level) - getLevelNumber(b.level);
-                });
 
-                container.innerHTML = sortedStats.map(stat => `
+                        console.log('📊 Statistiques HSK chargées:', hskStats);
+
+                        // Trier les niveaux HSK dans l'ordre logique
+                        const sortedStats = hskStats.sort((a, b) => {
+                            const getLevelNumber = (level) => {
+                                if (level === 'Street') return 0;
+                                const match = level.match(/HSK (\d+)/);
+                                return match ? parseInt(match[1]) : 99;
+                            };
+                            return getLevelNumber(a.level) - getLevelNumber(b.level);
+                        });
+
+                        container.innerHTML = sortedStats.map(stat => `
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <span class="fw-medium">${stat.level}</span>
                         <span class="badge bg-primary rounded-pill">${stat.count} words</span>
                     </li>
                 `).join('');
             <% } else { %>
-                container.innerHTML = `
+                        container.innerHTML = `
                     <div class="text-center py-4 text-muted">
                         <i class="bi bi-bar-chart fs-2 opacity-50"></i>
                         <p class="mt-2 small">No words learned yet</p>
@@ -234,138 +248,258 @@
             <% } %>
         }
 
-        // Chargement des performances
-        async function loadPerformanceStats() {
-            try {
-                const response = await fetch(`/account-info?user_id=<%= profileUser.id %>`);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                console.log('Performance data received:', data);
-                
-                // Mise à jour des totaux
-                document.getElementById('totalWords').textContent = data.wordCount || 0;
-                document.getElementById('totalQuizzes').textContent = data.stats?.total_quizzes || 0;
-                document.getElementById('totalDuels').textContent = data.stats?.total_duels || 0;
-                
-                const words = data.user_mots || [];
-                console.log('Words found:', words.length);
-                
-                if (words.length === 0) {
-                    console.log('No words found');
-                    document.getElementById('masteryText').textContent = 'No words';
-                    return;
-                }
-                
-                // Compte le nombre de mots dans chaque catégorie
-                const mastered = words.filter(w => w.score >= 90).length;
-                const learning = words.filter(w => w.score >= 60 && w.score < 90).length;
-                const medium = words.filter(w => w.score >= 30 && w.score < 60).length;
-                const new_words = words.filter(w => w.score < 30).length;
-                
-                console.log('Score distribution:', { mastered, learning, medium, new_words });
-                
-                // Calculer les pourcentages
-                const total = words.length;
-                const bars = {
-                    masteredBar: (mastered / total) * 100,
-                    learningBar: (learning / total) * 100,
-                    mediumBar: (medium / total) * 100,
-                    newBar: (new_words / total) * 100
-                };
-                
-                console.log('Percentages:', bars);
-                
-                // Mettre à jour les barres
-                Object.entries(bars).forEach(([id, percentage]) => {
-                    const bar = document.getElementById(id);
-                    if (bar) {
-                        bar.style.width = `${percentage}%`;
-                        console.log(`Setting ${id} width to ${percentage}%`);
-                        bar.title = `${Math.round(percentage)}%`;
-                    } else {
-                        console.warn(`Bar element ${id} not found`);
-                    }
-                });
-                
-                const masteredPercentage = Math.round((mastered / total) * 100);
-                document.getElementById('masteryText').textContent = `${masteredPercentage}% mastered words`;
-                
-            } catch (error) {
-                console.error('Erreur chargement performances:', error);
-                displayPerformanceError();
-            }
-        }
+                // Chargement des performances
+                async function loadPerformanceStats() {
+                    try {
+                        const response = await fetch(`/account-info?user_id=<%= profileUser.id %>`);
 
-        function displayPerformanceError() {
-            const container = document.querySelector('.card-body');
-            if (container) {
-                container.innerHTML = `
+                        if (!response.ok) {
+                            throw new Error(`HTTP error: ${response.status}`);
+                        }
+
+                        const data = await response.json();
+
+                        console.log('Performance data received:', data);
+
+                        // Mise à jour des totaux
+                        document.getElementById('totalWords').textContent = data.wordCount || 0;
+                        document.getElementById('totalQuizzes').textContent = data.stats?.total_quizzes || 0;
+                        document.getElementById('totalDuels').textContent = data.stats?.total_duels || 0;
+
+                        const words = data.user_mots || [];
+                        console.log('Words found:', words.length);
+
+                        if (words.length === 0) {
+                            console.log('No words found');
+                            document.getElementById('masteryText').textContent = 'No words';
+                            return;
+                        }
+
+                        // Compte le nombre de mots dans chaque catégorie
+                        const mastered = words.filter(w => w.score >= 90).length;
+                        const learning = words.filter(w => w.score >= 60 && w.score < 90).length;
+                        const medium = words.filter(w => w.score >= 30 && w.score < 60).length;
+                        const new_words = words.filter(w => w.score < 30).length;
+
+                        console.log('Score distribution:', { mastered, learning, medium, new_words });
+
+                        // Calculer les pourcentages
+                        const total = words.length;
+                        const bars = {
+                            masteredBar: (mastered / total) * 100,
+                            learningBar: (learning / total) * 100,
+                            mediumBar: (medium / total) * 100,
+                            newBar: (new_words / total) * 100
+                        };
+
+                        console.log('Percentages:', bars);
+
+                        // Mettre à jour les barres
+                        Object.entries(bars).forEach(([id, percentage]) => {
+                            const bar = document.getElementById(id);
+                            if (bar) {
+                                bar.style.width = `${percentage}%`;
+                                console.log(`Setting ${id} width to ${percentage}%`);
+                                bar.title = `${Math.round(percentage)}%`;
+                            } else {
+                                console.warn(`Bar element ${id} not found`);
+                            }
+                        });
+
+                        const masteredPercentage = Math.round((mastered / total) * 100);
+                        document.getElementById('masteryText').textContent = `${masteredPercentage}% mastered words`;
+
+                    } catch (error) {
+                        console.error('Erreur chargement performances:', error);
+                        displayPerformanceError();
+                    }
+                }
+
+                function displayPerformanceError() {
+                    const container = document.querySelector('.card-body');
+                    if (container) {
+                        container.innerHTML = `
                     <div class="alert alert-warning small mb-0">
                         <i class="bi bi-exclamation-triangle me-2"></i>
                         Unable to load performance data
                     </div>
                 `;
-            }
-        }
-
-        // Fonctions pour les duels
-        function openDuelModal(opponentId, opponentName) {
-            currentOpponent = opponentId;
-            document.getElementById('opponentName').textContent = opponentName;
-            document.getElementById('opponentId').value = opponentId;
-            new bootstrap.Modal(document.getElementById('duelModal')).show();
-        }
-
-        async function createDuel() {
-            const duelType = document.getElementById('duelType').value;
-            const betAmount = parseInt(document.getElementById('betAmount').value) || 0;
-
-            console.log('🚀 Lancement création duel', { currentOpponent, duelType, betAmount });
-
-            try {
-                const response = await fetch('/api/duels/create', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        opponent_id: currentOpponent,
-                        duel_type: duelType,
-                        quiz_type: 'pinyin',
-                        bet_amount: betAmount
-                    })
-                });
-
-                console.log('⏳ Réponse reçue, status:', response.status);
-
-                const result = await response.json();
-                console.log('🔥 JSON récupéré:', result);
-
-                if (result.success) {
-                    console.log('✅ Duel créé avec succès, fermeture modal');
-                    bootstrap.Modal.getInstance(document.getElementById('duelModal')).hide();
-                    showAlert('Défi lancé !', 'success');
-                } else {
-                    console.warn('⚠️ Erreur dans création duel:', result.error);
-                    showAlert(result.error, 'danger');
+                    }
                 }
-            } catch (error) {
-                console.error('❌ Erreur réseau ou fetch:', error);
-                showAlert('Erreur réseau', 'danger');
-            }
-        }
 
-        function showAlert(message, type) {
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-            alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 250px;';
-            alert.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-            document.body.appendChild(alert);
-            setTimeout(() => alert.remove(), 4000);
-        }
-    </script>
+                // Fonctions pour les duels
+                function openDuelModal(opponentId, opponentName) {
+                    currentOpponent = opponentId;
+                    document.getElementById('opponentName').textContent = opponentName;
+                    document.getElementById('opponentId').value = opponentId;
+                    new bootstrap.Modal(document.getElementById('duelModal')).show();
+                }
+
+                async function createDuel() {
+                    const duelType = document.getElementById('duelType').value;
+                    const betAmount = parseInt(document.getElementById('betAmount').value) || 0;
+
+                    console.log('🚀 Lancement création duel', { currentOpponent, duelType, betAmount });
+
+                    // Désactiver le bouton pendant la requête
+                    const sendBtn = document.querySelector('#duelModal .btn-primary');
+                    const originalText = sendBtn.innerHTML;
+                    sendBtn.disabled = true;
+                    sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Sending...';
+
+                    try {
+                        const response = await fetch('/api/duels/create', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                opponent_id: currentOpponent,
+                                duel_type: duelType,
+                                quiz_type: 'pinyin',
+                                bet_amount: betAmount
+                            })
+                        });
+
+                        console.log('⏳ Réponse reçue, status:', response.status);
+                        const result = await response.json();
+                        console.log('🔥 JSON récupéré:', result);
+
+                        if (result.success) {
+                            console.log('✅ Duel créé avec succès, fermeture modal');
+                            bootstrap.Modal.getInstance(document.getElementById('duelModal')).hide();
+                            showAlert('Duel launched!', 'success');
+                        } else {
+                            console.warn('⚠️ Erreur dans création duel:', result.error);
+
+                            // ⚠️ DÉTECTION DE LA LIMITE
+                            if (response.status === 403) {
+                                // POPUP pour la limite
+                                showDuelLimitPopup({
+                                    current: result.current || 1,
+                                    max: result.max || 1,
+                                    error: result.error || 'Daily duel limit reached'
+                                });
+                            } else if (result.error?.includes('coins') || result.error?.includes('balance')) {
+                                showAlert('Not enough coins!', 'danger');
+                            } else if (result.error?.includes('already') || result.error?.includes('pending')) {
+                                showAlert('You already have a pending duel with this opponent', 'warning');
+                            } else {
+                                showAlert(result.error || 'Error creating duel', 'danger');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('❌ Erreur réseau ou fetch:', error);
+                        showAlert('Network error', 'danger');
+                    } finally {
+                        // Réactiver le bouton
+                        sendBtn.disabled = false;
+                        sendBtn.innerHTML = originalText;
+                    }
+                }
+                // Popup pour limite de duel
+                function showDuelLimitPopup(data) {
+                    console.log('🎯 Creating duel limit popup with:', data);
+
+                    // Supprimer toute popup existante
+                    document.querySelectorAll('.duel-limit-popup').forEach(el => el.remove());
+
+                    // Créer l'overlay
+                    const overlay = document.createElement('div');
+                    overlay.className = 'duel-limit-popup';
+                    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.4);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    `;
+
+                    // Créer la modal
+                    const modal = document.createElement('div');
+                    modal.style.cssText = `
+        background: white;
+        border-radius: 12px;
+        padding: 28px 24px 24px;
+        width: 100%;
+        max-width: 340px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    `;
+
+                    // Valeurs par défaut si data est incomplet
+                    const current = data.current || 1;
+                    const max = data.max || 1;
+
+                    modal.innerHTML = `
+        <div style="text-align: center; margin-bottom: 16px; font-size: 1.1rem; font-weight: 600; color: #000;">
+            Daily Duel Limit
+        </div>
+        
+        <div style="text-align: center; color: #666; font-size: 0.94rem; line-height: 1.5; margin-bottom: 28px;">
+            You've already played <strong>${current}</strong> duel today.<br>
+            Free users are limited to ${max} duel per day.
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <a href="/pricing" 
+               onclick="this.closest('.duel-limit-popup')?.remove()"
+               style="
+                 display: block;
+                 text-align: center;
+                 background: #007AFF;
+                 color: white;
+                 padding: 12px;
+                 border-radius: 10px;
+                 text-decoration: none;
+                 font-weight: 500;
+                 border: none;
+                 font-size: 0.95rem;
+               ">
+                <i class="bi bi-lightning-charge me-2"></i>
+                Unlimited Duels with Premium
+            </a>
+            
+            <button onclick="this.closest('.duel-limit-popup')?.remove()"
+                    style="
+                      background: transparent;
+                      border: 1.5px solid #D1D1D6;
+                      color: #000;
+                      padding: 12px;
+                      border-radius: 10px;
+                      font-weight: 500;
+                      font-size: 0.95rem;
+                      cursor: pointer;
+                    ">
+                OK
+            </button>
+        </div>
+    `;
+
+                    // Fermer en cliquant sur l'overlay
+                    overlay.addEventListener('click', (e) => {
+                        if (e.target === overlay) {
+                            overlay.remove();
+                        }
+                    });
+
+                    // Ajouter au DOM
+                    overlay.appendChild(modal);
+                    document.body.appendChild(overlay);
+                }
+
+                function showAlert(message, type) {
+                    const alert = document.createElement('div');
+                    alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+                    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 250px;';
+                    alert.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+                    document.body.appendChild(alert);
+                    setTimeout(() => alert.remove(), 4000);
+                }
+            </script>
 </body>
+
 </html>

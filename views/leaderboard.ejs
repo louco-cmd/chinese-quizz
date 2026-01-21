@@ -1,325 +1,316 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Classement - 加油！</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="/css/accountandduels.css" rel="stylesheet">
-    <style>
-        .player-card-mobile {
-            display: none;
-        }
-        
-        .rank-badge {
-            width: 32px;
-            height: 32px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 0.8rem;
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            color: #495057;
-        }
-        
-        .rank-1 .rank-badge {
-            background-color: #fff3cd;
-            border-color: #ffeaa7;
-            color: #856404;
-        }
-        
-        .rank-2 .rank-badge {
-            background-color: #e2e3e5;
-            border-color: #d6d8db;
-            color: #383d41;
-        }
-        
-        .rank-3 .rank-badge {
-            background-color: #f8d7da;
-            border-color: #f1b0b7;
-            color: #721c24;
-        }
-        
-        .stats-number {
-            font-weight: 600;
-            font-size: 0.9rem;
-            text-align: right;
-            min-width: 70px;
-            max-width: 100px;
-        }
-        
-        .stats-number.words { color: #0d6efd; }
-        .stats-number.wins { color: #198754; }
-        .stats-number.losses { color: #dc3545; }
-        .stats-number.ratio { color: #fd7e14; }
-        
-        .player-row:hover {
-            background-color: #f8f9fa;
-        }
-        
-        /* Alignement parfait desktop */
-        .table-header {
-            display: none;
-        }
-        /* Ajoutez dans la section <style> */
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leaderboard - 加油！</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/css/accountandduels.css" rel="stylesheet">
+  <style>
+    .player-card-mobile {
+      display: none;
+    }
 
-        .player-info .text-truncate {
-            max-width: 200px;
-            display: block;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+    .rank-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.8rem;
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      color: #495057;
+    }
 
-        /* Sur mobile */
-        @media (max-width: 768px) {
-            .player-card-mobile .text-truncate {
-                max-width: 150px;
-            }
-        }
-        
-        @media (min-width: 769px) {
-            .table-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 1px solid #dee2e6;
-                padding: 12px 24px;
-                background-color: #f8f9fa;
-                font-size: 0.875rem;
-                font-weight: 600;
-                color: #6c757d;
-            }
-            
-            .header-player { 
-                flex: 2; 
-                text-align: left;
-            }
-            
-            .header-stat { 
-                flex: 1; 
-                text-align: right;
-                min-width: 70px;
-                max-width: 100px;
-            }
-            
-            .table-row {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 1px solid #dee2e6;
-                padding: 16px 24px;
-                cursor: pointer;
-                transition: background-color 0.2s;
-            }
-            
-            .player-info { 
-                flex: 2;
-                text-align: left;
-            }
-            
-            .stat-item { 
-                flex: 1;
-                text-align: right;
-                min-width: 70px;
-                max-width: 100px;
-            }
-            
-            .player-card-mobile {
-                display: none;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .table-header, .table-row {
-                display: none;
-            }
-            
-            .player-card-mobile {
-                display: block;
-            }
-            
-            .search-container {
-                width: 100% !important;
-                margin-top: 10px;
-            }
-            
-            .card-header {
-                flex-direction: column;
-                align-items: start !important;
-            }
-            
-            .card-header h6 {
-                margin-bottom: 10px;
-            }
-            
-            .mobile-stats {
-                background-color: #f8f9fa;
-                border-radius: 6px;
-                padding: 8px;
-            }
-            
-            .mobile-stat {
-                text-align: center;
-                padding: 4px;
-            }
-            
-            .mobile-stat .value {
-                font-weight: 600;
-                font-size: 1.1rem;
-                display: block;
-            }
-            
-            .mobile-stat .label {
-                font-size: 0.75rem;
-                color: #6c757d;
-            }
-        }
-    </style>
+    .rank-1 .rank-badge {
+      background-color: #fff3cd;
+      border-color: #ffeaa7;
+      color: #856404;
+    }
+
+    .rank-2 .rank-badge {
+      background-color: #e2e3e5;
+      border-color: #d6d8db;
+      color: #383d41;
+    }
+
+    .rank-3 .rank-badge {
+      background-color: #f8d7da;
+      border-color: #f1b0b7;
+      color: #721c24;
+    }
+
+    .stats-number {
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-align: right;
+      min-width: 70px;
+      max-width: 100px;
+    }
+
+    .stats-number.words {
+      color: #0d6efd;
+    }
+
+    .stats-number.wins {
+      color: #198754;
+    }
+
+    .stats-number.losses {
+      color: #dc3545;
+    }
+
+    .stats-number.ratio {
+      color: #fd7e14;
+    }
+
+    .player-row:hover {
+      background-color: #f8f9fa;
+    }
+
+    /* Alignement parfait desktop */
+    .table-header {
+      display: none;
+    }
+
+    /* Ajoutez dans la section <style> */
+
+    .player-info .text-truncate {
+      max-width: 200px;
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Sur mobile */
+    @media (max-width: 768px) {
+      .player-card-mobile .text-truncate {
+        max-width: 150px;
+      }
+    }
+
+    @media (min-width: 769px) {
+      .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #dee2e6;
+        padding: 12px 24px;
+        background-color: #f8f9fa;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #6c757d;
+      }
+
+      .header-player {
+        flex: 2;
+        text-align: left;
+      }
+
+      .header-stat {
+        flex: 1;
+        text-align: right;
+        min-width: 70px;
+        max-width: 100px;
+      }
+
+      .table-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #dee2e6;
+        padding: 16px 24px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .player-info {
+        flex: 2;
+        text-align: left;
+      }
+
+      .stat-item {
+        flex: 1;
+        text-align: right;
+        min-width: 70px;
+        max-width: 100px;
+      }
+
+      .player-card-mobile {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+
+      .table-header,
+      .table-row {
+        display: none;
+      }
+
+      .player-card-mobile {
+        display: block;
+      }
+
+      .search-container {
+        width: 100% !important;
+        margin-top: 10px;
+      }
+
+      .card-header {
+        flex-direction: column;
+        align-items: start !important;
+      }
+
+      .card-header h6 {
+        margin-bottom: 10px;
+      }
+
+      .mobile-stats {
+        background-color: #f8f9fa;
+        border-radius: 6px;
+        padding: 8px;
+      }
+
+      .mobile-stat {
+        text-align: center;
+        padding: 4px;
+      }
+
+      .mobile-stat .value {
+        font-weight: 600;
+        font-size: 1.1rem;
+        display: block;
+      }
+
+      .mobile-stat .label {
+        font-size: 0.75rem;
+        color: #6c757d;
+      }
+    }
+  </style>
 </head>
+
 <body>
-    <%- include('partials/header', {currentPage: 'duels'}) %>
-    <%- include('partials/navbar', {currentPage: 'duels'}) %>
+  <%- include('partials/header', {currentPage: 'leaderboard' }) %>
+  <%- include('partials/navbar', {currentPage: 'leaderboard' }) %>
 
-    <!-- Main Content -->
-    <div class="container py-3 py-md-4">
-        <div class="row g-3 g-md-4">
-            <div class="col-12">
-                <!-- En-tête Classement -->
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-white border-bottom d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
-                        <h6 class="mb-0 d-flex align-items-center text-dark">
-                            <i class="bi bi-trophy me-2"></i>
-                            Player ranking
-                        </h6>
-                        <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2 w-100 w-md-auto">
-                            <div class="input-group input-group-sm search-container" style="width: 100%; max-width: 300px;">
-                                <input type="text" 
-                                       id="player-search" 
-                                       class="form-control border" 
-                                       placeholder="Rechercher un joueur..."
-                                       oninput="filterPlayers()">
-                                <span class="input-group-text bg-white border">
-                                    <i class="bi bi-search text-muted"></i>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body p-0">
-                        <!-- En-tête du tableau (Desktop) -->
-                        <div class="table-header d-none d-md-flex">
-                            <div class="header-player">Player</div>
-                            <div class="header-stat">Words</div>
-                            <div class="header-stat">Victories</div>
-                            <div class="header-stat">Defeat</div>
-                            <div class="header-stat">Ratio</div>
-                        </div>
-
-                        <!-- Liste des joueurs -->
-                        <div id="leaderboard-container">
-                            <div class="text-center py-4 py-md-5">
-                                <div class="spinner-border text-primary" role="status"></div>
-                                <p class="mt-2 text-muted small">Ranking loading...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+  <!-- Main Content -->
+  <div class="container py-3 py-md-4">
+    <div class="row g-3 g-md-4">
+      <div class="col-12">
+        <% if (players && players.length> 0) { %>
+        <%- include('partials/ranking', { players: players, currentUserId: user.id, rankingLimit:
+                                20, showFullRankingLink: false, rankingTitle: 'Player Ranking' }) %>
+        <% } else { %>
+        <div class="alert alert-warning">
+          <p><strong>Debug Info:</strong></p>
+          <p>Players variable type: <%= typeof players %>
+          </p>
+          <p>Players count: <%= players ? players.length : 0 %>
+          </p>
         </div>
+        <% } %>
+      </div>
     </div>
+  </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-      <script>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
     let allPlayers = [];
     let originalRanks = new Map();
     const currentUserId = <%= user.id %>;
 
     // ✅ DÉCLARER getFlagEmoji EN PREMIER
     function getFlagEmoji(countryCode) {
-        if (!countryCode || countryCode.trim() === '') {
-            return '';
-        }
-        
-        try {
-            const codePoints = countryCode.toUpperCase().trim().split('').map(char => 
-                127397 + char.charCodeAt()
-            );
-            return String.fromCodePoint(...codePoints);
-        } catch (error) {
-            console.warn('Error generating flag emoji:', error);
-            return '';
-        }
+      if (!countryCode || countryCode.trim() === '') {
+        return '';
+      }
+
+      try {
+        const codePoints = countryCode.toUpperCase().trim().split('').map(char =>
+          127397 + char.charCodeAt()
+        );
+        return String.fromCodePoint(...codePoints);
+      } catch (error) {
+        console.warn('Error generating flag emoji:', error);
+        return '';
+      }
     }
 
     // Fonction helper pour échapper le HTML
     function escapeHtml(unsafe) {
-        if (!unsafe) return '';
-        return unsafe
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+      if (!unsafe) return '';
+      return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
     }
 
     // Initialisation
     document.addEventListener('DOMContentLoaded', function() {
-        loadLeaderboard();
+      loadLeaderboard();
     });
 
     // Charger le classement
     async function loadLeaderboard() {
-        try {
-            const container = document.getElementById('leaderboard-container');
-            if (!container) return;
-            
-            container.innerHTML = `
+      try {
+        const container = document.getElementById('leaderboard-container');
+        if (!container) return;
+
+        container.innerHTML = `
                 <div class="text-center py-4 py-md-5">
                     <div class="spinner-border text-primary" role="status"></div>
                     <p class="mt-2 text-muted small">Chargement du classement...</p>
                 </div>
             `;
 
-            const response = await fetch('/api/players/stats');
-            
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP: ${response.status}`);
-            }
-            
-            const players = await response.json();
-            
-            // DEBUG
-            console.log('👥 Données joueurs reçues:', players.length, 'joueurs');
-            if (players.length > 0) {
-                console.log('🔍 Premier joueur:', {
-                    name: players[0].name,
-                    tagline: players[0].tagline,
-                    country: players[0].country,
-                    flag: getFlagEmoji(players[0].country) // Test immédiat
-                });
-            }
-            
-            if (!Array.isArray(players)) {
-                throw new Error('Format de données invalide');
-            }
-            
-            allPlayers = players;
-            originalRanks.clear();
-            players.forEach((player, index) => {
-                originalRanks.set(player.id, index + 1);
-            });
-            
-            displayPlayers(players);
-            
-        } catch (error) {
-            console.error('Erreur classement:', error);
-            const container = document.getElementById('leaderboard-container');
-            if (container) {
-                container.innerHTML = `
+        const response = await fetch('/api/players/stats');
+
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+
+        const players = await response.json();
+
+        // DEBUG
+        console.log('👥 Données joueurs reçues:', players.length, 'joueurs');
+        if (players.length > 0) {
+          console.log('🔍 Premier joueur:', {
+            name: players[0].name,
+            tagline: players[0].tagline,
+            country: players[0].country,
+            flag: getFlagEmoji(players[0].country) // Test immédiat
+          });
+        }
+
+        if (!Array.isArray(players)) {
+          throw new Error('Format de données invalide');
+        }
+
+        allPlayers = players;
+        originalRanks.clear();
+        players.forEach((player, index) => {
+          originalRanks.set(player.id, index + 1);
+        });
+
+        displayPlayers(players);
+
+      } catch (error) {
+        console.error('Erreur classement:', error);
+        const container = document.getElementById('leaderboard-container');
+        if (container) {
+          container.innerHTML = `
                     <div class="text-center py-4 text-muted">
                         <i class="bi bi-exclamation-triangle"></i>
                         <p class="mt-2 small">Erreur de chargement</p>
@@ -328,30 +319,30 @@
                         </button>
                     </div>
                 `;
-            }
         }
+      }
     }
 
     // Afficher les joueurs
     function displayPlayers(players) {
-        const container = document.getElementById('leaderboard-container');
-        const isFiltered = players.length !== allPlayers.length;
-        
-        container.innerHTML = players.map((player, index) => {
-            const originalRank = originalRanks.get(player.id);
-            const displayRank = isFiltered ? originalRank : (index + 1);
-            const isCurrentUser = player.id === currentUserId;
-            
-            // Helper pour le drapeau
-            const countryFlag = player.country && player.country.trim() !== '' ? 
-                getFlagEmoji(player.country) : '';
-            
-            // Helper pour la catch phrase
-            const catchPhrase = player.tagline && player.tagline.trim() !== '' ? 
-                escapeHtml(player.tagline) : '';
-            
-            // Version Desktop
-            const desktopRow = `
+      const container = document.getElementById('leaderboard-container');
+      const isFiltered = players.length !== allPlayers.length;
+
+      container.innerHTML = players.map((player, index) => {
+        const originalRank = originalRanks.get(player.id);
+        const displayRank = isFiltered ? originalRank : (index + 1);
+        const isCurrentUser = player.id === currentUserId;
+
+        // Helper pour le drapeau
+        const countryFlag = player.country && player.country.trim() !== '' ?
+          getFlagEmoji(player.country) : '';
+
+        // Helper pour la catch phrase
+        const catchPhrase = player.tagline && player.tagline.trim() !== '' ?
+          escapeHtml(player.tagline) : '';
+
+        // Version Desktop
+        const desktopRow = `
                 <div class="table-row d-none d-md-flex rank-${displayRank <= 3 ? displayRank : ''}"
                      onclick="viewUserProfile(${player.id})"
                      onmouseover="this.style.backgroundColor='#f8f9fa'"
@@ -394,9 +385,9 @@
                     </div>
                 </div>
             `;
-            
-            // Version Mobile
-            const mobileCard = `
+
+        // Version Mobile
+        const mobileCard = `
                 <div class="player-card-mobile border-bottom p-3 player-row rank-${displayRank <= 3 ? displayRank : ''}"
                      onclick="viewUserProfile(${player.id})"
                      style="cursor: pointer; transition: background-color 0.2s;">
@@ -441,43 +432,44 @@
                     </div>
                 </div>
             `;
-            
-            return desktopRow + mobileCard;
-        }).join('');
+
+        return desktopRow + mobileCard;
+      }).join('');
     }
 
     // Filtrer les joueurs
     function filterPlayers() {
-        const searchTerm = document.getElementById('player-search').value.toLowerCase().trim();
-        
-        if (!searchTerm) {
-            displayPlayers(allPlayers);
-            return;
-        }
+      const searchTerm = document.getElementById('player-search').value.toLowerCase().trim();
 
-        const filteredPlayers = allPlayers.filter(player => 
-            player.name.toLowerCase().includes(searchTerm) ||
-            (player.email && player.email.toLowerCase().includes(searchTerm))
-        );
+      if (!searchTerm) {
+        displayPlayers(allPlayers);
+        return;
+      }
 
-        filteredPlayers.sort((a, b) => {
-            const rankA = originalRanks.get(a.id);
-            const rankB = originalRanks.get(b.id);
-            return rankA - rankB;
-        });
+      const filteredPlayers = allPlayers.filter(player =>
+        player.name.toLowerCase().includes(searchTerm) ||
+        (player.email && player.email.toLowerCase().includes(searchTerm))
+      );
 
-        displayPlayers(filteredPlayers);
+      filteredPlayers.sort((a, b) => {
+        const rankA = originalRanks.get(a.id);
+        const rankB = originalRanks.get(b.id);
+        return rankA - rankB;
+      });
+
+      displayPlayers(filteredPlayers);
     }
 
     // Voir le profil d'un joueur
     function viewUserProfile(userId) {
-        window.location.href = `/user/${userId}`;
+      window.location.href = `/user/${userId}`;
     }
 
     // Auto-refresh
     setInterval(() => {
-        loadLeaderboard();
+      loadLeaderboard();
     }, 120000);
-</script>
+  </script>
 </body>
+
 </html>

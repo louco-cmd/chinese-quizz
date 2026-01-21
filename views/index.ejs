@@ -463,30 +463,6 @@
           window.location.href = '/auth/google';
         }
 
-        // Alternative: if using popup window for Google auth
-        /*
-        function initiateManualAuth() {
-          const width = 500;
-          const height = 600;
-          const left = (window.innerWidth - width) / 2;
-          const top = (window.innerHeight - height) / 2;
-          
-          const popup = window.open(
-            '/auth/google',
-            'GoogleAuth',
-            `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-          );
-          
-          // Check for popup closure/redirection
-          const checkPopup = setInterval(() => {
-            if (popup.closed) {
-              clearInterval(checkPopup);
-              window.location.reload(); // Reload to update auth state
-            }
-          }, 500);
-        }
-        */
-
         // Focus on email input on page load
         document.addEventListener('DOMContentLoaded', () => {
           emailInput.focus();
@@ -568,6 +544,7 @@
             }, 1000);
           }
         };
+
       </script>
 </body>
 

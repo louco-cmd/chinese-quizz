@@ -1,0 +1,268 @@
+<!-- views/partials/ranking.ejs -->
+<% 
+  var rankingLimit = rankingLimit || 20;
+  var showFullRankingLink = showFullRankingLink || false;
+  var rankingTitle = rankingTitle || 'Player ranking';
+  var players = players || [];
+  var currentUserId = currentUserId || 0;
+  var componentId = 'ranking-' + Math.floor(Math.random() * 10000);
+%>
+
+<div id="<%= componentId %>">
+  <div class="card">
+    <div class="card-header">
+      <h6 class="mb-0 d-flex align-items-center text-dark">
+        <i class="bi bi-trophy me-2"></i>
+        <%= rankingTitle %>
+      </h6>
+      
+      <!-- Barre de recherche 
+      <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-2 w-100 w-md-auto">
+        <div class="input-group input-group-sm" style="width: 100%; max-width: 300px;">
+          <input type="text" 
+                 id="search-input-<%= componentId %>" 
+                 class="form-control border" 
+                 placeholder="Search player..."
+                 aria-label="Search player"
+                 onkeyup="filterRanking('<%= componentId %>')">
+          <button class="input-group-text bg-white border" onclick="filterRanking('<%= componentId %>')">
+            <i class="bi bi-search text-muted"></i>
+          </button>
+        </div>
+      </div>-->
+    </div>
+    
+    <div class="card-body p-0">
+      <!-- En-tête desktop -->
+      <div class="table-header d-none d-md-flex">
+        <div class="header-player">Player</div>
+        <div class="header-stat">Words</div>
+        <div class="header-stat">Wins</div>
+        <div class="header-stat">Losses</div>
+        <div class="header-stat">Ratio</div>
+      </div>
+      
+      <!-- Contenu -->
+      <div id="content-<%= componentId %>">
+        <% if (players.length === 0) { %>
+          <div class="text-center py-4 text-muted">
+            <i class="bi bi-trophy fs-2 opacity-50"></i>
+            <p class="mt-2 small">No players found</p>
+          </div>
+        <% } else { %>
+          <% for (var i = 0; i < Math.min(players.length, rankingLimit); i++) { 
+            var player = players[i];
+            var rank = i + 1;
+            var isCurrentUser = player.id == currentUserId;
+            
+            // Gérer les valeurs nulles
+            var playerName = player.name || 'Unknown Player';
+            var playerTagline = player.tagline || '';
+            var playerCountry = player.country || '';
+            var totalWords = player.total_words || 0;
+            var wins = player.wins || 0;
+            var losses = player.losses || 0;
+            var ratio = player.ratio || player.win_ratio || 0;
+            
+            // Pour la recherche
+            var nameLower = playerName.toLowerCase();
+            var taglineLower = playerTagline.toLowerCase();
+          %>
+            <!-- Desktop -->
+            <div class="table-row d-none d-md-flex rank-<%= rank <= 3 ? rank : '' %> player-item"
+                 data-name="<%= nameLower %>"
+                 data-tagline="<%= taglineLower %>"
+                 onclick="window.location.href='/user/<%= player.id %>'"
+                 onmouseover="this.style.backgroundColor='#f8f9fa'"
+                 onmouseout="this.style.backgroundColor=''">
+              
+              <div class="player-info d-flex align-items-center">
+                <div class="rank-badge me-3"><%= rank %></div>
+                <div class="flex-grow-1">
+                  <div class="fw-medium text-dark d-flex align-items-center gap-2 mb-1">
+                    <%= playerName %>
+                    <% if (playerCountry && playerCountry.trim() !== '') { 
+                      // Fonction pour générer l'emoji drapeau
+                      var countryFlag = '';
+                      if (playerCountry.trim() !== '') {
+                        try {
+                          var codePoints = [];
+                          var upperCode = playerCountry.toUpperCase().trim();
+                          for (var j = 0; j < upperCode.length; j++) {
+                            codePoints.push(127397 + upperCode.charCodeAt(j));
+                          }
+                          for (var k = 0; k < codePoints.length; k++) {
+                            countryFlag += String.fromCodePoint ? String.fromCodePoint(codePoints[k]) : '';
+                          }
+                        } catch (e) {}
+                      }
+                    %>
+                      <span class="fs-6"><%= countryFlag %></span>
+                    <% } %>
+                    <% if (isCurrentUser) { %>
+                      <span class="badge bg-primary ms-2">You</span>
+                    <% } %>
+                  </div>
+                  <% if (playerTagline) { %>
+                    <div class="text-muted small text-truncate" style="max-width: 200px;">
+                      <i class="bi bi-quote me-1 opacity-50"></i><%= playerTagline %>
+                    </div>
+                  <% } %>
+                </div>
+              </div>
+
+              <div class="stat-item stats-number words"><%= totalWords %></div>
+              <div class="stat-item stats-number wins"><%= wins %></div>
+              <div class="stat-item stats-number losses"><%= losses %></div>
+              <div class="stat-item stats-number ratio"><%= ratio %>%</div>
+            </div>
+            
+            <!-- Mobile -->
+            <div class="player-card-mobile border-bottom p-3 player-row rank-<%= rank <= 3 ? rank : '' %> player-item"
+                 data-name="<%= nameLower %>"
+                 data-tagline="<%= taglineLower %>"
+                 onclick="window.location.href='/user/<%= player.id %>'"
+                 style="cursor: pointer;">
+              
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="d-flex align-items-center flex-grow-1">
+                  <div class="rank-badge me-3"><%= rank %></div>
+                  <div class="flex-grow-1">
+                    <div class="fw-medium text-dark d-flex align-items-center gap-2 mb-1">
+                      <%= playerName %>
+                      <% if (playerCountry && playerCountry.trim() !== '') { 
+                        var countryFlag = '';
+                        if (playerCountry.trim() !== '') {
+                          try {
+                            var codePoints = [];
+                            var upperCode = playerCountry.toUpperCase().trim();
+                            for (var j = 0; j < upperCode.length; j++) {
+                              codePoints.push(127397 + upperCode.charCodeAt(j));
+                            }
+                            for (var k = 0; k < codePoints.length; k++) {
+                              countryFlag += String.fromCodePoint ? String.fromCodePoint(codePoints[k]) : '';
+                            }
+                          } catch (e) {}
+                        }
+                      %>
+                        <span class="fs-6"><%= countryFlag %></span>
+                      <% } %>
+                      <% if (isCurrentUser) { %>
+                        <span class="badge bg-primary ms-1">You</span>
+                      <% } %>
+                    </div>
+                    <% if (playerTagline) { %>
+                      <div class="text-muted small text-truncate">
+                        <i class="bi bi-quote me-1 opacity-50"></i><%= playerTagline %>
+                      </div>
+                    <% } %>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="row g-0 mobile-stats">
+                <div class="col-3 mobile-stat">
+                  <span class="value words"><%= totalWords %></span>
+                  <span class="label">Words</span>
+                </div>
+                <div class="col-3 mobile-stat">
+                  <span class="value wins"><%= wins %></span>
+                  <span class="label">Wins</span>
+                </div>
+                <div class="col-3 mobile-stat">
+                  <span class="value losses"><%= losses %></span>
+                  <span class="label">Losses</span>
+                </div>
+                <div class="col-3 mobile-stat">
+                  <span class="value ratio"><%= ratio %>%</span>
+                  <span class="label">Ratio</span>
+                </div>
+              </div>
+            </div>
+          <% } %>
+        <% } %>
+      </div>
+      
+      <!-- Pagination simple -->
+      <% if (players.length > rankingLimit) { %>
+        <div class="pagination-container text-center py-3">
+          <div class="text-muted small">
+            Showing <%= Math.min(players.length, rankingLimit) %> of <%= players.length %> players
+          </div>
+          <% if (showFullRankingLink) { %>
+            <a href="/leaderboard" class="btn btn-outline-primary btn-sm mt-2">
+              <i class="bi bi-trophy-fill me-1"></i>
+              See full ranking
+            </a>
+          <% } %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Fonction de recherche
+function filterRanking(componentId) {
+    var searchInput = document.getElementById('search-input-' + componentId);
+    if (!searchInput) return;
+    
+    var searchTerm = searchInput.value.toLowerCase().trim();
+    var playerItems = document.querySelectorAll('#' + componentId + ' .player-item');
+    
+    if (!searchTerm) {
+      // Afficher tous les joueurs
+      playerItems.forEach(function(item) {
+        item.style.display = '';
+      });
+      return;
+    }
+    
+    // Filtrer les joueurs
+    var hasResults = false;
+    playerItems.forEach(function(item) {
+      var name = item.getAttribute('data-name') || '';
+      var tagline = item.getAttribute('data-tagline') || '';
+      
+      var match = name.includes(searchTerm) || tagline.includes(searchTerm);
+      
+      if (match) {
+        item.style.display = '';
+        hasResults = true;
+      } else {
+        item.style.display = 'none';
+      }
+    });
+    
+    // Afficher un message si aucun résultat
+    var container = document.querySelector('#' + componentId + ' #content-' + componentId);
+    if (!container) return;
+    
+    var noResultsMsg = container.querySelector('.no-results-message');
+    if (!hasResults) {
+      if (!noResultsMsg) {
+        var msg = document.createElement('div');
+        msg.className = 'text-center py-4 text-muted no-results-message';
+        msg.innerHTML = '<i class="bi bi-search fs-2 opacity-50"></i><p class="mt-2 small">No players match your search</p>';
+        container.appendChild(msg);
+      }
+    } else if (noResultsMsg) {
+      noResultsMsg.remove();
+    }
+  }
+  
+  // Initialiser la recherche
+  setTimeout(function() {
+    var componentId = '<%= componentId %>';
+    var searchInput = document.getElementById('search-input-' + componentId);
+    if (searchInput) {
+      // Vider la recherche au chargement
+      searchInput.value = '';
+      
+      // Ajouter l'événement
+      searchInput.addEventListener('keyup', function() {
+        filterRanking(componentId);
+      });
+    }
+  }, 100);
+</script>

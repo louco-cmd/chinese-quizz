@@ -113,28 +113,44 @@ exports.checkLimit = async (req, res, next) => {
   }
 };
 
-// Vérification spécifique pour l'ajout de mots
-exports.canAddWord = (req, res, next) => {
-  const plan = req.user.subscription?.plan_name || 'free';
-  
-  if (plan === 'premium') {
-    return next(); // Illimité pour premium
+exports.canAddWord = async (req, res, next) => {
+  try {
+    const user = req.user;
+    
+    if (!user) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Not authenticated" 
+      });
+    }
+    
+    const { rows } = await pool.query(
+      "SELECT COUNT(*) as count FROM user_mots WHERE user_id = $1",
+      [user.id]
+    );
+    
+    const currentCount = parseInt(rows[0].count);
+    const maxWords = user.is_premium ? 10000 : 10000;
+    
+    req.user.currentWordCount = currentCount;
+    
+    if (currentCount >= maxWords) {
+      // ⚠️ Utilisez un statut d'erreur (400, 403, 429...)
+      return res.status(403).json({  // <-- CHANGEMENT ICI
+        success: false,
+        limitReached: true,
+        current: currentCount,
+        max: maxWords,
+        message: `Word limit reached (${currentCount}/${maxWords})`
+      });
+    }
+    
+    next();
+  } catch (error) {
+    console.error('Error in canAddWord middleware:', error);
+    next(error);
   }
-  
-  const current = req.user.usage?.words_added || 0;
-  const max = req.user.usageLimits?.max_words || 100;
-  
-  if (current >= max) {
-    return res.status(403).json({
-      error: 'Word limit reached! Upgrade to Premium for unlimited words.',
-      current,
-      max,
-      upgradeRequired: true
-    });
-  }
-  
-  next();
-};
+}; 
 
 // Vérification pour les duels
 exports.canPlayDuel = (req, res, next) => {
@@ -157,4 +173,49 @@ exports.canPlayDuel = (req, res, next) => {
   }
   
   next();
+};
+
+// Vérification pour les quiz
+exports.canTakeQuiz = async (req, res, next) => {
+  const plan = req.user.subscription?.plan_name || 'free';
+  
+  if (plan === 'premium') {
+    return next();
+  }
+  
+  try {
+    const userId = req.user.id;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Récupérer l'usage d'aujourd'hui
+    const usageResult = await pool.query(
+      'SELECT quizzes_taken FROM user_usage WHERE user_id = $1 AND date = $2',
+      [userId, today]
+    );
+    
+    let quizzesTakenToday = 0;
+    
+    if (usageResult.rows.length > 0) {
+      quizzesTakenToday = usageResult.rows[0].quizzes_taken || 0;
+    }
+    
+    const maxQuizzes = req.user.usageLimits?.daily_quizzes || 100; // Par défaut 5 quiz/jour
+    
+    if (quizzesTakenToday >= maxQuizzes) {
+      return res.status(403).json({
+        success: false,
+        limitReached: true,
+        type: 'quiz',
+        current: quizzesTakenToday,
+        max: maxQuizzes,
+        message: `Daily quiz limit reached! You've taken ${quizzesTakenToday}/${maxQuizzes} quizzes today. Upgrade to Premium for unlimited quizzes.`
+      });
+    }
+    
+    next();
+  } catch (error) {
+    console.error('Error checking quiz limit:', error);
+    // En cas d'erreur, permettre de continuer (meilleure UX)
+    next();
+  }
 };

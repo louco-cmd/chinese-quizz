@@ -215,13 +215,13 @@
                                 </p>
                                 <button 
                                     id="buyBoosterMobile" 
-                                    class="btn btn-primary w-100 <%= user.balance < 40 ? 'disabled' : '' %>"
-                                    <%= user.balance < 40 ? 'disabled' : '' %>
+                                    class="btn btn-primary w-100 <%= user.balance < 20 ? 'disabled' : '' %>"
+                                    <%= user.balance < 20 ? 'disabled' : '' %>
                                 >
                                     <i class="bi bi-cart3 me-2"></i>
-                                    Buy (40₵)
+                                    Buy (20₵)
                                 </button>
-                                <% if (user.balance < 40) { %>
+                                <% if (user.balance < 20) { %>
                                     <p class="text-danger small mt-2 mb-0">
                                         <i class="bi bi-exclamation-triangle me-1"></i>
                                         Insufficient balance
@@ -377,11 +377,11 @@
         const buyButton = document.getElementById('buyBooster');
         const buyButtonMobile = document.getElementById('buyBoosterMobile');
         
-        buyButton.disabled = currentBalance < 40;
-        buyButtonMobile.disabled = currentBalance < 40;
+        buyButton.disabled = currentBalance < 20;
+        buyButtonMobile.disabled = currentBalance < 20;
         
-        buyButton.innerHTML = '<i class="bi bi-cart3 me-2"></i>Buy (40₵)';
-        buyButtonMobile.innerHTML = '<i class="bi bi-cart3 me-2"></i>Buy (40₵)';
+        buyButton.innerHTML = '<i class="bi bi-cart3 me-2"></i>Buy (20₵)';
+        buyButtonMobile.innerHTML = '<i class="bi bi-cart3 me-2"></i>Buy (20₵)';
     }
     
     // Start cards reveal

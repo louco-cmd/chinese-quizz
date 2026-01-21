@@ -1,5 +1,5 @@
 // sw.js - VERSION CORRIGÉE & SIMPLIFIÉE
-const CACHE_NAME = 'jiayou-v4'; // 🔥 CHANGEZ CE NOM MAINTENANT
+const CACHE_NAME = 'jiayou-v4.1'; // 🔥 CHANGEZ CE NOM MAINTENANT
 const OFFLINE_URL = '/offline.html';
 
 const urlsToCache = [
