@@ -669,7 +669,6 @@ async function confirmAddNewWord() {
   const description = document.getElementById('newDescription').value.trim();
 
   if (!english) {
-    // Utiliser showStatus au lieu de alert()
     showStatus('English translation required', 'error');
     return;
   }
@@ -679,7 +678,7 @@ async function confirmAddNewWord() {
   const originalText = addBtn.innerHTML;
   addBtn.disabled = true;
   addBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding...';
-  showStatus('Adding word...', 'info'); // Message simple
+  showStatus('Adding word...', 'info');
 
   try {
     // 🔥 ÉTAPE 1: Mise à jour base générale si nécessaire
@@ -707,11 +706,26 @@ async function confirmAddNewWord() {
     // 🔥 ÉTAPE 2: Ajout à la collection personnelle
     await addWord(currentChinese, pinyin, english);
     
+    // SUCCÈS: réinitialiser avec un délai
+    setTimeout(() => {
+      resetForm();
+      console.log('✅ Formulaire réinitialisé après succès');
+    }, 1500);
+    
   } catch(err) {
-    // Réactiver le bouton en cas d'erreur
+    console.error('❌ Erreur dans confirmAddNewWord:', err);
+    
+    // ÉCHEC: réactiver le bouton et appeler resetForm() proprement
+    enableSubmitButton();
     addBtn.disabled = false;
     addBtn.innerHTML = originalText;
     showStatus('Operation failed: ' + err.message, 'error');
+    
+    // Réactiver aussi le bouton principal de recherche
+    enableSubmitButton();
+    
+    // Restaurer l'écran actuel (ne pas retourner à l'input)
+    showScreen('newWordScreen');
   }
 }
 
@@ -733,8 +747,32 @@ function resetForm() {
   currentChinese = '';
   existingWordData = null;
   clearStatus();
-  enableSubmitButton();
+  
+  // Réactiver TOUS les boutons
+  resetAllButtons();
+  
   chineseInput.focus();
+}
+
+function resetAllButtons() {
+  // Réactiver le bouton de soumission principal
+  enableSubmitButton();
+  
+  // Réactiver le bouton "confirmAddBtn" dans l'écran existingWordScreen
+  const confirmBtn = document.getElementById('confirmAddBtn');
+  if (confirmBtn) {
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
+    confirmBtn.classList.remove('btn-secondary');
+    confirmBtn.classList.add('btn-success');
+  }
+  
+  // Réactiver le bouton dans newWordScreen
+  const newWordBtn = document.querySelector('#newWordScreen .btn-success');
+  if (newWordBtn) {
+    newWordBtn.disabled = false;
+    newWordBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Add to my collection (3₵ coins)';
+  }
 }
 
 function showScreen(screenId) {
@@ -867,23 +905,35 @@ async function addWord(chinese, pinyin, english) {
       // VRAI succès
       showSuccess('Word added! -3 coins');
       showSuccessAnimation();
+      
+      // Réactiver le bouton AVANT de réinitialiser
+      enableSubmitButton();
       setTimeout(resetForm, 1500);
     } else {
-      // Échec
+      // Échec - TOUJOURS réactiver le bouton en cas d'erreur
+      enableSubmitButton();
+      
       if (data.limitReached) {
         // Popup de limite
         showLimitReachedPopup(data);
       } else if (data.message?.includes('balance')) {
         showError('Not enough coins (3 required)');
+        setTimeout(resetForm, 1500);
       } else if (data.message?.includes('already')) {
         showError('You already have this word');
+        setTimeout(resetForm, 1500);
       } else {
         showError(data.error || data.message || `Error ${response.status}`);
+        setTimeout(resetForm, 1500);
       }
     }
   } catch (err) {
     console.error('Error:', err);
     showError('Network error');
+    
+    // IMPORTANT: Réactiver le bouton en cas d'erreur réseau
+    enableSubmitButton();
+    setTimeout(resetForm, 1500);
   }
 }
 
@@ -1010,20 +1060,6 @@ function showLimitReachedPopup(data) {
 }
 
 // Fonction pour fermer la modal
-function hideLimitModal() {
-  const modal = bootstrap.Modal.getInstance(document.getElementById('limitModal'));
-  if (modal) {
-    modal.hide();
-  }
-}
-// Fonction pour fermer la modal
-function hideLimitModal() {
-  const modal = bootstrap.Modal.getInstance(document.getElementById('limitModal'));
-  if (modal) {
-    modal.hide();
-  }
-}
-// Fonction pour fermer la modal depuis le lien
 function hideLimitModal() {
   const modal = bootstrap.Modal.getInstance(document.getElementById('limitModal'));
   if (modal) {
