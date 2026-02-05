@@ -102,13 +102,42 @@ exports.checkLimit = async (req, res, next) => {
       usage = { words_added: 0, duels_played: 0, quizzes_taken: 0 };
     }
     
-    // Stocker dans la requête pour usage ultérieur
+    // CORRECTION ICI : S'assurer que subscription existe
+    if (!req.user.subscription) {
+      // Charger l'abonnement si manquant
+      const subResult = await pool.query(
+        'SELECT * FROM subscription_plans WHERE name = $1',
+        ['free']
+      );
+      
+      req.user.subscription = {
+        plan_name: 'free',
+        status: 'active',
+        features: subResult.rows[0]?.features || {},
+        limits: subResult.rows[0]?.limits || {}
+      };
+    }
+    
+    // CORRECTION : Utiliser l'opérateur de chaînage optionnel
     req.user.usage = usage;
-    req.user.usageLimits = req.user.subscription.limits || {};
+    req.user.usageLimits = req.user.subscription?.limits || {
+      // Valeurs par défaut
+      daily_words: 100,
+      daily_duels: 1,
+      daily_quizzes: 100,
+      max_words: 10000
+    };
     
     next();
   } catch (err) {
     console.error('Usage limit error:', err);
+    // Fournir des valeurs par défaut en cas d'erreur
+    req.user.usageLimits = {
+      daily_words: 100,
+      daily_duels: 1,
+      daily_quizzes: 100,
+      max_words: 10000
+    };
     next();
   }
 };
