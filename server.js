@@ -31,8 +31,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const PostgreSQLStore = require('connect-pg-simple')(session);
 const apiRoutes = require('./routes/api');
 const { pool } = require('./config/database');
-
-
+const { listenerCount } = require('process');
 const app = express();
 app.set('trust proxy', 1); // Pour les déploiements derrière un proxy (Heroku, Render, etc.)
 console.log("Callback URL utilisée :", process.env.GOOGLE_CALLBACK_URL
@@ -52,7 +51,24 @@ const authLimiter = rateLimit({
 
 
 // -------------------- Configuration Express --------------------
-app.use(express.json());
+app.use((req, res, next) => {
+  if (req.originalUrl === '/webhook') {
+    // Pour le webhook, ne PAS parser le JSON
+    next();
+  } else {
+    // Pour toutes les autres routes, parser normalement
+    express.json()(req, res, next);
+  }
+});
+// MIDDLEWARE GLOBAL pour capturer le body RAW
+app.use('/webhook', express.raw({
+  type: 'application/json',
+  verify: (req, res, buf) => {
+    // Sauvegarder le body brut pour la vérification
+    req.rawBody = buf.toString();
+  }
+}));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
@@ -67,10 +83,10 @@ app.use(session({
   secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
   name: 'jiayou.sid',
   resave: true, // ⬅️ IMPORTANT: false pour PostgreSQL
-  saveUninitialized: false, // ⬅️ IMPORTANT: false pour la sécurité
+  saveUninitialized: true, // ⬅️ IMPORTANT: false pour la sécurité
   rolling: false, // ⬅️ false pour plus de stabilité
   cookie: {
-    secure: true, // ⬅️ true pour HTTPS
+    secure: false, // ⬅️ true pour HTTPS
     httpOnly: true, // ⬅️ empêcher l'accès JS
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
     sameSite: 'lax',
@@ -84,27 +100,144 @@ app.use(checker);
 app.use(security);
 app.use(reauth);
 app.use(requestLogger);
-app.use("/", apiRoutes);
 app.use(async (req, res, next) => {
-  if (req.session && req.session.userId) {
-    try {
-      res.locals.balance = await getUserBalance(req.session.userId);
-    } catch {
-      res.locals.balance = 0;
+  if (!req.isAuthenticated()) {
+    res.locals.balance = 0;
+    res.locals.isPremium = false;
+    return next();
+  }
+
+  try {
+    // Vérifier l'abonnement avec notre logique d'interprétation
+    const subResult = await pool.query(`
+      SELECT 
+        plan_name,
+        status,
+        stripe_status,
+        cancel_at_period_end,
+        current_period_end
+      FROM user_subscriptions 
+      WHERE user_id = $1
+    `, [req.user.id]);
+
+    if (subResult.rows.length === 0) {
+      res.locals.isPremium = false;
+    } else {
+      const sub = subResult.rows[0];
+      const now = new Date();
+
+      // NOTRE LOGIQUE D'INTERPRÉTATION
+      let isPremium = false;
+
+      if (sub.plan_name === 'premium' && sub.status === 'active') {
+        // Vérifier si la période est expirée
+        if (sub.current_period_end && new Date(sub.current_period_end) < now) {
+          // Période expirée, mettre à jour
+          await pool.query(`
+            UPDATE user_subscriptions 
+            SET plan_name = 'free', status = 'expired', updated_at = NOW()
+            WHERE user_id = $1
+          `, [req.user.id]);
+          isPremium = false;
+        } else {
+          // Vérifier si annulé à la fin de la période
+          if (sub.cancel_at_period_end === true) {
+            console.log(`⚠️ User ${req.user.id}: Premium mais annulé à la fin`);
+          }
+          isPremium = true;
+        }
+      }
+
+      res.locals.isPremium = isPremium;
     }
-  } else {
+
+    // Solde
+    const balanceResult = await pool.query(
+      'SELECT balance FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    res.locals.balance = balanceResult.rows[0]?.balance || 0;
+
+  } catch (err) {
+    console.error('Erreur vérification abonnement:', err);
+    res.locals.isPremium = false;
     res.locals.balance = 0;
   }
+
   next();
 });
-// Ajoutez le middleware globalement ou sur des routes spécifiques
-app.use((req, res, next) => {
-  if (req.isAuthenticated()) {
-    require('./middleware/subscription').withSubscription(req, res, next);
-  } else {
-    next();
+// Dans tes middlewares existants, remplace la partie complexe par:
+app.use(async (req, res, next) => {
+  if (!req.isAuthenticated()) {
+    res.locals.balance = 0;
+    res.locals.isPremium = false;
+    return next();
   }
+
+  try {
+    // Vérifier l'abonnement
+    const subResult = await pool.query(`
+      SELECT 
+        stripe_status,
+        cancel_at_period_end,
+        current_period_end
+      FROM user_subscriptions 
+      WHERE user_id = $1
+    `, [req.user.id]);
+
+    let isPremium = false;
+
+    if (subResult.rows.length === 0) {
+      // Pas d'abonnement = free
+      isPremium = false;
+    } else {
+      const sub = subResult.rows[0];
+      const now = new Date();
+
+      // LOGIQUE SIMPLE :
+      // Premium si stripe_status = 'active' ET période pas expirée
+      if (sub.stripe_status === 'active') {
+        if (sub.current_period_end && new Date(sub.current_period_end) < now) {
+          // Période expirée, mettre à jour le statut
+          await pool.query(`
+            UPDATE user_subscriptions 
+            SET stripe_status = 'expired', updated_at = NOW()
+            WHERE user_id = $1
+          `, [req.user.id]);
+          isPremium = false;
+        } else {
+          isPremium = true;
+        }
+      } else {
+        isPremium = false;
+      }
+    }
+
+    // METTRE À JOUR req.user.planName (IMPORTANT !)
+    req.user.planName = isPremium ? 'premium' : 'free';
+
+    // Mettre à jour les variables locales
+    res.locals.isPremium = isPremium;
+    res.locals.user = req.user; // S'assurer que user est dans locals
+
+    // Récupérer le solde
+    const balanceResult = await pool.query(
+      'SELECT balance FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    res.locals.balance = balanceResult.rows[0]?.balance || 0;
+
+  } catch (err) {
+    console.error('Erreur vérification abonnement:', err);
+    res.locals.isPremium = false;
+    res.locals.balance = 0;
+    req.user.planName = 'free'; // Valeur par défaut en cas d'erreur
+  }
+
+  next();
 });
+app.use("/", apiRoutes);
+
 
 // Connexion google
 app.get("/auth/google",
@@ -620,6 +753,7 @@ app.get('/auth/reset-password', async (req, res) => {
 });
 
 
+
 // Pages EJS
 app.get('/', (req, res) => {
   const error = req.query.error;
@@ -770,7 +904,7 @@ app.get('/duels', ensureAuth, async (req, res) => {
   ORDER BY wins DESC, ratio DESC, u.name
   LIMIT 10
 `);
-  players = results.rows;
+    players = results.rows;
     console.log(`✅ ${players.rows.length} joueurs chargés (version simple)`);
 
   } catch (err) {
@@ -984,7 +1118,7 @@ app.get('/leaderboard', ensureAuth, async (req, res) => {
   ORDER BY wins DESC, ratio DESC, u.name
   LIMIT 100
 `);
-players = results.rows;
+    players = results.rows;
     console.log(`✅ ${players.rows.length} joueurs chargés (version simple)`);
 
   } catch (err) {
@@ -1130,102 +1264,778 @@ app.get('/store', ensureAuth, async (req, res) => {
 });
 
 // Page de pricing
-app.get('/pricing', withSubscription, async (req, res) => {
+app.get('/pricing', ensureAuth, async (req, res) => {
   try {
     // Récupérer les plans depuis la base
     const plansResult = await pool.query(
       'SELECT * FROM subscription_plans WHERE is_active = true ORDER BY display_order'
     );
 
+    // Récupérer l'abonnement actuel de l'utilisateur
+    const subResult = await pool.query(`
+      SELECT 
+        stripe_status,
+        stripe_customer_id,
+        stripe_subscription_id,
+        current_period_end,
+        cancel_at_period_end,
+        updated_at
+      FROM user_subscriptions 
+      WHERE user_id = $1
+    `, [req.user.id]);
+
+    const userSubscription = subResult.rows[0] || null;
+
+    // ⚠️ LOGIQUE CORRIGÉE : Utiliser la même logique que withSubscription
+    let isPremium = false;
+    let hasInactiveSubscription = false;
+    let subscriptionStatus = 'none';
+
+    if (userSubscription) {
+      subscriptionStatus = userSubscription.stripe_status;
+
+      // Si le statut Stripe est 'active', alors premium = true
+      if (userSubscription.stripe_status === 'active') {
+        isPremium = true;
+        hasInactiveSubscription = false;
+      } else {
+        // Tous les autres statuts sont inactifs
+        isPremium = false;
+        hasInactiveSubscription = true;
+      }
+    }
+
+    // Récupérer le solde
+    const balanceResult = await pool.query(
+      'SELECT balance FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    const balance = balanceResult.rows[0]?.balance || 0;
+
     res.render('pricing', {
       user: req.user,
       plans: plansResult.rows,
-      currentPage: 'pricing'
+      currentPage: 'pricing',
+      isPremium: isPremium,
+      hasInactiveSubscription: hasInactiveSubscription,
+      subscriptionStatus: subscriptionStatus,
+      userSubscription: userSubscription,
+      balance: balance
     });
   } catch (err) {
     console.error('Error loading pricing page:', err);
     res.render('pricing', {
       user: req.user,
       plans: [],
-      currentPage: 'pricing'
+      currentPage: 'pricing',
+      isPremium: false,
+      hasInactiveSubscription: false,
+      subscriptionStatus: 'none',
+      userSubscription: null,
+      balance: 0
     });
   }
 });
 
-// Page de succès après paiement
-app.get('/subscription/success', withSubscription, async (req, res) => {
-  const { session_id } = req.query;
-
+app.get('/subscribe', ensureAuth, async (req, res) => {
   try {
-    // Vérifier si la session Stripe est valide
-    if (session_id) {
-      // Optionnel: vérifier avec Stripe
-      const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-      const session = await stripe.checkout.sessions.retrieve(session_id);
+    const { plan } = req.query;
 
-      if (session.payment_status === 'paid') {
-        // Récupérer l'abonnement mis à jour
-        const subResult = await pool.query(`
-          SELECT us.*, sp.features, sp.limits
-          FROM user_subscriptions us
-          JOIN subscription_plans sp ON us.plan_name = sp.name
-          WHERE us.user_id = $1 
-          ORDER BY us.created_at DESC
-          LIMIT 1
-        `, [req.user.id]);
-
-        res.render('subscription-success', {
-          user: req.user,
-          subscription: subResult.rows[0],
-          sessionId: session_id,
-          currentPage: 'account'
-        });
-        return;
-      }
+    if (!plan) {
+      return res.redirect('/pricing');
     }
 
-    // Fallback: rediriger vers l'account
-    res.redirect('/account');
+    // Vérifier que BASE_URL est défini
+    if (!process.env.BASE_URL) {
+      console.error('❌ BASE_URL non défini dans .env');
+      return res.status(500).send('Configuration serveur manquante');
+    }
 
-  } catch (err) {
-    console.error('Error processing success page:', err);
-    res.redirect('/account');
+    // S'assurer que BASE_URL a un schéma
+    let baseUrl = process.env.BASE_URL;
+    if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+      baseUrl = `http://${baseUrl}`; // Par défaut http
+      console.warn(`⚠️  BASE_URL sans schéma, ajouté automatiquement: ${baseUrl}`);
+    }
+
+    let priceID;
+    switch (plan.toLowerCase()) {
+      case 'premium':
+        priceID = process.env.STRIPE_PRICE_PREMIUM;
+        break;
+      default:
+        return res.redirect('/pricing');
+    }
+
+    // Vérifier que priceID est défini
+    if (!priceID) {
+      console.error('❌ STRIPE_PRICE_PREMIUM non défini dans .env');
+      return res.status(500).send('Configuration Stripe manquante');
+    }
+
+    console.log(`🎯 Création de session pour ${req.user.email}, plan: ${plan}`);
+    console.log(`🌐 Base URL: ${baseUrl}`);
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      line_items: [
+        {
+          price: priceID,
+          quantity: 1
+        }
+      ],
+      success_url: `${baseUrl}/welcome-jiayou-premium?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/pricing`,
+      customer_email: req.user.email,
+      metadata: {
+        userId: req.user.id.toString(),
+        planName: plan
+      }
+    });
+
+    console.log('✅ Stripe session created:', session.id);
+    console.log('🔗 URL de checkout:', session.url);
+
+    // REDIRIGER vers l'URL de checkout !!!
+    res.redirect(session.url);
+
+  } catch (error) {
+    console.error('❌ Erreur lors de la création de la session Stripe:', error.message);
+    console.error('Stack:', error.stack);
+
+    // Gestion d'erreur plus détaillée
+    if (error.type === 'StripeInvalidRequestError') {
+      return res.status(400).send(`
+        <h1>Erreur de configuration Stripe</h1>
+        <p>${error.message}</p>
+        <p>Vérifiez que vos clés Stripe et price_id sont corrects.</p>
+        <a href="/pricing">Retour aux tarifs</a>
+      `);
+    }
+
+    res.status(500).send(`
+      <h1>Erreur interne</h1>
+      <p>${error.message}</p>
+      <a href="/pricing">Retour aux tarifs</a>
+    `);
   }
 });
 
-app.post('/api/subscription/webhook',
-  express.raw({ type: 'application/json' }),
-  async (req, res) => {
-    console.log('🎯 Webhook received!');
+// Route pour créer une session de portail client Stripe
+app.post('/create-portal-session', ensureAuth, async (req, res) => {
+  try {
+    // Trouver le customer_id de l'utilisateur
+    const subResult = await pool.query(
+      'SELECT stripe_customer_id FROM user_subscriptions WHERE user_id = $1 LIMIT 1',
+      [req.user.id]
+    );
 
+    if (subResult.rows.length === 0 || !subResult.rows[0].stripe_customer_id) {
+      return res.status(400).json({ error: 'No subscription found' });
+    }
+
+    const customerId = subResult.rows[0].stripe_customer_id;
+
+    // Créer la session du portail
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${process.env.BASE_URL}/account`,
+    });
+
+    res.json({ url: portalSession.url });
+  } catch (error) {
+    console.error('Error creating portal session:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Page de succès après paiement
+app.get('/welcome-jiayou-premium', ensureAuth, async (req, res) => {
+  const { session_id } = req.query;
+
+  try {
+    // DEBUG
+    console.log(`🎯 Page de bienvenue pour user ${req.user.id}, session: ${session_id || 'none'}`);
+
+    // Vérifier si l'utilisateur a déjà un abonnement premium
+    const existingSub = await pool.query(`
+      SELECT * FROM user_subscriptions 
+      WHERE user_id = $1 
+      AND plan_name = 'premium'
+      AND status = 'active'
+      LIMIT 1
+    `, [req.user.id]);
+
+    // Si pas d'abonnement mais on a une session Stripe, vérifier Stripe
+    if (existingSub.rows.length === 0 && session_id) {
+      try {
+        const session = await stripe.checkout.sessions.retrieve(session_id);
+
+        if (session.payment_status === 'paid' && session.subscription) {
+          // Le paiement est OK, créer l'abonnement en base
+          console.log(`💰 Paiement confirmé, création abonnement pour user ${req.user.id}`);
+
+          await pool.query(`
+            INSERT INTO user_subscriptions (
+              user_id,
+              plan_name,
+              status,
+              stripe_customer_id,
+              stripe_subscription_id,
+              metadata,
+              created_at,
+              updated_at
+            ) VALUES ($1, 'premium', 'active', $2, $3, $4, NOW(), NOW())
+            ON CONFLICT (user_id) 
+            DO UPDATE SET
+              plan_name = 'premium',
+              status = 'active',
+              stripe_customer_id = EXCLUDED.stripe_customer_id,
+              stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+              metadata = EXCLUDED.metadata,
+              updated_at = NOW()
+          `, [
+            req.user.id,
+            session.customer,
+            session.subscription,
+            JSON.stringify({
+              created_via: 'welcome_page',
+              session_id: session_id,
+              payment_date: new Date().toISOString()
+            })
+          ]);
+        }
+      } catch (stripeError) {
+        console.error('Erreur Stripe:', stripeError.message);
+        // Continuer quand même
+      }
+    }
+
+    // Récupérer l'abonnement (peut avoir été créé juste au-dessus)
+    const finalSub = await pool.query(`
+      SELECT * FROM user_subscriptions 
+      WHERE user_id = $1 
+      AND plan_name = 'premium'
+      LIMIT 1
+    `, [req.user.id]);
+
+    // Toujours afficher la page de bienvenue, même sans abonnement en base
+    // (le webhook peut arriver plus tard)
+    res.render('welcome-jiayou-premium', {
+      user: req.user,
+      subscription: finalSub.rows[0] || null,
+      sessionId: session_id,
+      currentPage: 'account',
+      isPremium: finalSub.rows.length > 0
+    });
+
+  } catch (error) {
+    console.error('Error processing welcome page:', error);
+
+    // Fallback: afficher la page quand même
+    res.render('welcome-jiayou-premium', {
+      user: req.user,
+      subscription: null,
+      currentPage: 'account',
+      isPremium: false
+    });
+  }
+});
+
+app.get('/check-subscription-dates', ensureAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Vérifier l'abonnement en base
+    const subResult = await pool.query(`
+      SELECT 
+        id,
+        plan_name,
+        status,
+        current_period_start,
+        current_period_end,
+        stripe_subscription_id,
+        created_at,
+        updated_at,
+        metadata
+      FROM user_subscriptions 
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+    `, [userId]);
+
+    if (subResult.rows.length === 0) {
+      return res.json({ message: 'Aucun abonnement trouvé' });
+    }
+
+    const subscription = subResult.rows[0];
+
+    // Vérifier Stripe
+    let stripeData = null;
+    if (subscription.stripe_subscription_id) {
+      try {
+        const stripeSub = await stripe.subscriptions.retrieve(
+          subscription.stripe_subscription_id
+        );
+        stripeData = {
+          id: stripeSub.id,
+          status: stripeSub.status,
+          current_period_start: new Date(stripeSub.current_period_start * 1000),
+          current_period_end: new Date(stripeSub.current_period_end * 1000),
+          cancel_at_period_end: stripeSub.cancel_at_period_end
+        };
+      } catch (stripeError) {
+        stripeData = { error: stripeError.message };
+      }
+    }
+
+    res.json({
+      database: subscription,
+      stripe: stripeData,
+      comparison: stripeData ? {
+        dates_match:
+          subscription.current_period_start?.getTime() === stripeData.current_period_start?.getTime() &&
+          subscription.current_period_end?.getTime() === stripeData.current_period_end?.getTime(),
+        status_match: subscription.status === stripeData.status
+      } : null
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/webhook',
+  async (req, res) => {
+    console.log('=== WEBHOOK REÇU ===');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body length:', req.body.length);
+
+    const sig = req.headers['stripe-signature'];
+
+    if (!sig) {
+      console.error('❌ Pas de signature Stripe');
+      return res.status(400).send('No Stripe signature');
+    }
+
+    let event;
     try {
-      const event = stripe.webhooks.constructEvent(
+      // Log le body pour vérification
+      console.log('📝 Body (preview):', req.body.toString().substring(0, 500));
+
+      event = stripe.webhooks.constructEvent(
         req.body,
-        req.headers['stripe-signature'],
+        sig,
         process.env.STRIPE_WEBHOOK_SECRET
       );
 
-      console.log('✅ Event type:', event.type);
-
-      // Répondre vite à Stripe
-      res.json({ received: true });
-
-      // Traiter l'événement en arrière-plan
-      if (event.type === 'checkout.session.completed') {
-        console.log('💰 Payment succeeded!');
-        // ... votre logique ici
-      }
+      console.log(`✅ Signature OK: ${event.type} (${event.id})`);
+      console.log('📦 Event data:', JSON.stringify(event.data.object, null, 2));
 
     } catch (err) {
-      console.error('❌ Webhook error:', err.message);
-      res.status(400).send(`Webhook Error: ${err.message}`);
+      console.error('❌ Erreur signature:', err.message);
+      console.error('🔍 Erreur complète:', err);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
     }
-  });
+
+    // Traitement de l'événement
+    try {
+      console.log(`🎯 Traitement: ${event.type}`);
+
+      switch (event.type) {
+        case 'checkout.session.completed':
+          console.log('💳 Détails checkout:', {
+            customer: event.data.object.customer,
+            subscription: event.data.object.subscription,
+            metadata: event.data.object.metadata
+          });
+          await handleCheckoutSessionCompleted(event.data.object);
+          break;
+
+        case 'customer.subscription.created':
+          console.log('🆕 Subscription created:', event.data.object.id);
+          await handleSubscriptionEvent(event.data.object, event.type);
+          break;
+
+        case 'customer.subscription.updated':
+          console.log('🔄 Subscription updated details:', {
+            id: event.data.object.id,
+            status: event.data.object.status,
+            cancel_at_period_end: event.data.object.cancel_at_period_end,
+            current_period_end: event.data.object.current_period_end
+          });
+          await handleSubscriptionEvent(event.data.object, event.type);
+          break;
+
+        case 'customer.subscription.deleted':
+          console.log('🗑️ Subscription deleted:', event.data.object.id);
+          await handleSubscriptionEvent(event.data.object, event.type);
+          break;
+
+        // ... autres cas ...
+      }
+
+      console.log('=== WEBHOOK RÉUSSI ===');
+      res.json({ received: true });
+
+    } catch (error) {
+      console.error('💥 Erreur traitement:', error);
+      console.error('Stack:', error.stack);
+      res.status(500).json({ error: 'Internal error' });
+    }
+  }
+);
+
+
+async function handleCheckoutSessionCompleted(session) {
+  try {
+    console.log('💳 Checkout complété:', session.id);
+
+    // Récupérer l'email du client
+    const customerEmail = session.customer_email || session.customer_details?.email;
+
+    if (!customerEmail) {
+      console.error('❌ Pas d\'email client dans la session');
+      return;
+    }
+
+    console.log('📧 Email client:', customerEmail);
+
+    // Trouver l'utilisateur
+    const userResult = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [customerEmail]
+    );
+
+    if (userResult.rows.length === 0) {
+      console.error('❌ Utilisateur non trouvé:', customerEmail);
+      return;
+    }
+
+    const userId = userResult.rows[0].id;
+    console.log('👤 User ID:', userId);
+
+    // Récupérer la subscription depuis Stripe pour avoir les dates
+    if (session.subscription) {
+      try {
+        const subscription = await stripe.subscriptions.retrieve(session.subscription);
+        await handleSubscriptionEvent(subscription, 'checkout.session.completed');
+      } catch (err) {
+        console.error('Erreur récupération subscription:', err.message);
+
+        // Fallback: créer une ligne de base sans les dates
+        await pool.query(`
+          INSERT INTO user_subscriptions (
+            user_id,
+            plan_name,
+            status,
+            stripe_status,
+            stripe_customer_id,
+            stripe_subscription_id,
+            created_at,
+            updated_at
+          ) VALUES ($1, 'premium', 'active', 'active', $2, $3, NOW(), NOW())
+          ON CONFLICT (user_id) 
+          DO UPDATE SET
+            plan_name = 'premium',
+            status = 'active',
+            stripe_status = 'active',
+            stripe_customer_id = EXCLUDED.stripe_customer_id,
+            stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+            updated_at = NOW()
+        `, [
+          userId,
+          session.customer,
+          session.subscription
+        ]);
+
+        console.log('✅ Abonnement créé (fallback) pour user', userId);
+      }
+    } else {
+      console.error('❌ Pas de subscription_id dans la session');
+    }
+
+  } catch (error) {
+    console.error('❌ Erreur handleCheckoutSessionCompleted:', error);
+  }
+}
+
+// ==========================================
+// 📝 HANDLER SUBSCRIPTION - VERSION SIMPLIFIÉE
+// ==========================================
+async function handleSubscriptionEvent(subscription, eventType) {
+  console.log(`🔔 ${eventType.toUpperCase()} - ID: ${subscription.id}`);
+
+  try {
+    // 1. EXTRAIRE LES DATES
+    let periodEnd = null;
+    let periodStart = null;
+
+    if (subscription.items?.data?.length > 0) {
+      const firstItem = subscription.items.data[0];
+      periodEnd = firstItem.current_period_end;
+      periodStart = firstItem.current_period_start;
+    }
+
+    if (!periodEnd && subscription.current_period_end) {
+      periodEnd = subscription.current_period_end;
+    }
+    if (!periodStart && subscription.current_period_start) {
+      periodStart = subscription.current_period_start;
+    }
+
+    const periodEndDate = periodEnd ? new Date(periodEnd * 1000) : null;
+    const periodStartDate = periodStart ? new Date(periodStart * 1000) : null;
+
+    // Extraire cancel_at (date programmée) et canceled_at (date effective)
+    const cancelAt = subscription.cancel_at; // Date d'annulation programmée
+    const canceledAt = subscription.canceled_at || subscription.ended_at; // Date d'annulation effective
+
+    const cancelAtDate = cancelAt ? new Date(cancelAt * 1000) : null;
+    const canceledAtDate = canceledAt ? new Date(canceledAt * 1000) : null;
+
+    // 2. TROUVER L'UTILISATEUR
+    let userId = null;
+    let result = await pool.query(
+      `SELECT user_id FROM user_subscriptions WHERE stripe_customer_id = $1`,
+      [subscription.customer]
+    );
+
+    if (result.rows.length === 0) {
+      // Si pas trouvé, chercher par email Stripe
+      let email = subscription.customer_email || subscription.customer_details?.email;
+      if (!email && subscription.customer) {
+        // Récupérer le customer Stripe pour avoir l'email
+        try {
+          const customer = await stripe.customers.retrieve(subscription.customer);
+          email = customer.email;
+        } catch (e) {
+          console.error('❌ Impossible de récupérer le customer Stripe:', e.message);
+        }
+      }
+      if (email) {
+        const userRes = await pool.query(
+          'SELECT id FROM users WHERE email = $1',
+          [email]
+        );
+        if (userRes.rows.length > 0) {
+          userId = userRes.rows[0].id;
+        }
+      }
+      if (!userId) {
+        console.log('❌ User non trouvé pour customer:', subscription.customer);
+        return false;
+      }
+    } else {
+      userId = result.rows[0].user_id;
+    }
+
+    console.log('👤 User trouvé:', userId);
+
+    // 3. LOGIQUE D'INTERPRÉTATION
+    const stripeStatus = subscription.status;
+    const cancelAtPeriodEnd =
+      (subscription.cancel_at_period_end === true) ||
+      (
+        typeof subscription.cancel_at === 'number' &&
+        subscription.cancel_at > Math.floor(Date.now() / 1000)
+      );
+    console.log('📊 Analyse annulation:', {
+      stripe_status: stripeStatus,
+      cancel_at_period_end: cancelAtPeriodEnd,
+      cancel_at: cancelAtDate?.toISOString(),
+      canceled_at: canceledAtDate?.toISOString()
+    });
+
+    // 4. DÉTERMINER LE PLAN
+    let planName = 'free';
+    let ourStatus = stripeStatus;
+
+    if (stripeStatus === 'active') {
+      planName = 'premium';
+      ourStatus = 'active';
+
+      if (cancelAtPeriodEnd) {
+        console.log(`⚠️ Annulation programmée pour la fin de la période`);
+      }
+    } else {
+      planName = 'free';
+      console.log(`🔴 Abonnement terminé (${stripeStatus})`);
+    }
+
+    // 5. MISE À JOUR DE LA BASE AVEC LES BONS NOMS DE COLONNES
+    // -> Utiliser RETURNING pour contrôler la mise à jour, et fallback INSERT si besoin
+    const updateQuery = `
+      UPDATE user_subscriptions 
+      SET 
+        plan_name = $1,
+        status = $2,
+        stripe_status = $3,
+        current_period_start = $4,
+        current_period_end = $5,
+        cancel_at_period_end = $6,
+        canceled_at = $7,
+        stripe_subscription_id = $8,
+        updated_at = NOW()
+      WHERE user_id = $9
+      RETURNING id, stripe_status, status, plan_name
+    `;
+    const updateParams = [
+      planName,
+      ourStatus,
+      ourStatus,
+      periodStartDate,
+      periodEndDate,
+      cancelAtPeriodEnd,
+      canceledAtDate,
+      subscription.id,
+      userId
+    ];
+
+    const updateResult = await pool.query(updateQuery, updateParams);
+
+    if (updateResult.rowCount === 0) {
+      console.log('⚠️ Aucun enregistrement mis à jour (user_id mismatch?). Tentative d\'INSERT / upsert.');
+      // Tentative d'INSERT si la ligne n'existe pas pour l'user_id
+      const insertQuery = `
+        INSERT INTO user_subscriptions (
+          user_id,
+          plan_name,
+          status,
+          stripe_status,
+          current_period_start,
+          current_period_end,
+          cancel_at_period_end,
+          canceled_at,
+          stripe_subscription_id,
+          stripe_customer_id,
+          created_at,
+          updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),NOW())
+        ON CONFLICT (user_id) DO UPDATE SET
+          plan_name = EXCLUDED.plan_name,
+          status = EXCLUDED.status,
+          stripe_status = EXCLUDED.stripe_status,
+          current_period_start = EXCLUDED.current_period_start,
+          current_period_end = EXCLUDED.current_period_end,
+          cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+          canceled_at = EXCLUDED.canceled_at,
+          stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+          stripe_customer_id = EXCLUDED.stripe_customer_id,
+          updated_at = NOW()
+        RETURNING id, stripe_status, status, plan_name
+      `;
+      const insertParams = [
+        userId,
+        planName,
+        ourStatus,
+        ourStatus,
+        periodStartDate,
+        periodEndDate,
+        cancelAtPeriodEnd,
+        canceledAtDate,
+        subscription.id,
+        subscription.customer
+      ];
+      const insertResult = await pool.query(insertQuery, insertParams);
+      console.log('✅ Insert/Upsert result:', insertResult.rows[0]);
+    } else {
+      console.log('✅ Base mise à jour (UPDATE):', updateResult.rows[0]);
+    }
+
+    return true;
+
+  } catch (error) {
+    console.error('💥 ERREUR handleSubscriptionEvent:');
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
+    throw error;
+  }
+}
+
+async function expireFinishedSubscriptions() {
+  try {
+    console.log('🕐 Vérification des abonnements à expirer...');
+
+    const result = await pool.query(`
+      UPDATE user_subscriptions
+      SET 
+        plan_name = 'free',
+        status = 'expired',
+        stripe_status = 'expired',
+        updated_at = NOW()
+      WHERE 
+        plan_name = 'premium'
+        AND status = 'active_canceling'
+        AND current_period_end < NOW()
+      RETURNING user_id, current_period_end, stripe_subscription_id
+    `);
+
+    if (result.rows.length > 0) {
+      console.log(`⏰ ${result.rows.length} abonnement(s) expiré(s):`, result.rows);
+    } else {
+      console.log('✅ Aucun abonnement à expirer');
+    }
+  } catch (error) {
+    console.error('❌ Erreur expireFinishedSubscriptions:', error);
+  }
+}
+
+// Exécuter toutes les heures
+setInterval(expireFinishedSubscriptions, 60 * 60 * 1000);
+
+// ==========================================
+// 🔄 SYNCHRONISATION STRIPE
+// ==========================================
+async function syncStripeSubscriptions() {
+  try {
+    console.log('🔄 Synchronisation des abonnements Stripe...');
+
+    const dbSubs = await pool.query(`
+      SELECT stripe_subscription_id, user_id, stripe_status
+      FROM user_subscriptions 
+      WHERE stripe_subscription_id IS NOT NULL 
+      AND status NOT IN ('canceled', 'expired')
+    `);
+
+    console.log(`📊 ${dbSubs.rows.length} abonnements à vérifier`);
+
+    for (const sub of dbSubs.rows) {
+      try {
+        const stripeSub = await stripe.subscriptions.retrieve(
+          sub.stripe_subscription_id,
+          { expand: ['latest_invoice'] }
+        );
+
+        if (sub.stripe_status !== stripeSub.status) {
+          console.log(`🔄 Mise à jour nécessaire pour ${sub.stripe_subscription_id}`);
+          await handleSubscriptionEvent(stripeSub, 'sync');
+        }
+      } catch (stripeError) {
+        if (stripeError.type === 'StripeInvalidRequestError') {
+          console.log(`❌ Abonnement ${sub.stripe_subscription_id} non trouvé chez Stripe`);
+          await pool.query(`
+            UPDATE user_subscriptions 
+            SET status = 'canceled', plan_name = 'free', updated_at = NOW()
+            WHERE stripe_subscription_id = $1
+          `, [sub.stripe_subscription_id]);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erreur syncStripeSubscriptions:', error);
+  }
+}
+
+// Exécuter toutes les heures
+setInterval(syncStripeSubscriptions, 60 * 60 * 1000);
+
+
 
 app.use(errorHandler);
 
-
-
-// -------------------- Lancer serveur --------------------
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🔗 Webhook endpoint: http://localhost:${PORT}/webhook`);
+});

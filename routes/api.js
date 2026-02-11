@@ -24,8 +24,7 @@ const {
   selectForAdvancedUser,
   isValidEmail
 } = require('../middleware/index');
-
-const { withSubscription,checkLimit,canPlayDuel,requireFeature,canAddWord, canTakeQuiz } = require('../middleware/subscription');
+const { withSubscription, canPlayDuel, canAddWord, canTakeQuiz } = require('../middleware/subscription');
 
 
 // ---------------------API
@@ -391,10 +390,18 @@ router.post("/verifier", ensureAuth, async (req, res) => {
   }
 });
 
-router.post("/ajouter", 
+router.post("/ajouter",
   ensureAuth,
+  withSubscription,
   canAddWord,      // ← Vérifie le nombre TOTAL de mots
   async (req, res) => {  // UN SEUL handler
+    // AJOUTEZ CES LOGS POUR DÉBOGUER
+    console.log('🔍 DEBUG canAddWord - user object:', {
+      id: req.user.id,
+      isPremium: req.user.isPremium,
+      planName: req.user.planName,
+      subscription: req.user.subscription
+    });
     // VÉRIFIER SI LA LIMITE EST ATTEINTE
     console.log('🎯 /ajouter route handler called');
     console.log('🔍 req.limitReached:', req.limitReached);
@@ -602,103 +609,303 @@ router.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
   }
 });
 
-router.get('/quiz-mots', ensureAuth, checkLimit, canTakeQuiz, async (req, res) => {
+router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, res) => {
   const userId = req.user.id;
-  const requestedCount = req.query.count === 'all' ? null : parseInt(req.query.count) || 10;
+  const requestedCount = parseInt(req.query.count) || 10;
   const hskLevel = req.query.hsk || 'all';
 
   console.log('🎯 API /quiz-mots appelée', { userId, requestedCount, hskLevel });
 
   try {
     // =============================
-    // 1. RÉCUPÉRATION DES MOTS
+    // 1. COMPTAGE TOTAL (sans filtre temporel)
     // =============================
-    let query = `
-      SELECT 
-        mots.*,
-        COALESCE(user_mots.score, 0) AS score,
-        COALESCE(user_mots.nb_quiz, 0) AS nb_quiz,
-        user_mots.last_seen
-      FROM mots
-      INNER JOIN user_mots ON mots.id = user_mots.mot_id
-      WHERE user_mots.user_id = $1
+    let countQuery = `
+      SELECT COUNT(*) as total_count
+      FROM user_mots um
+      INNER JOIN mots m ON um.mot_id = m.id
+      WHERE um.user_id = $1
     `;
-
-    let params = [userId];
-
+    
+    let countParams = [userId];
+    
     if (hskLevel !== 'all') {
       if (hskLevel === 'street') {
-        query += ` AND mots.hsk IS NULL`;
+        countQuery += ` AND m.hsk IS NULL`;
       } else {
-        query += ` AND mots.hsk = $2`;
-        params.push(parseInt(hskLevel));
+        countQuery += ` AND m.hsk = $2`;
+        countParams.push(parseInt(hskLevel));
       }
     }
 
-    const { rows: allWords } = await pool.query(query, params);
+    const countResult = await pool.query(countQuery, countParams);
+    const totalInCollection = parseInt(countResult.rows[0].total_count);
+    
+    console.log(`📊 Total mots dans la collection (HSK ${hskLevel}): ${totalInCollection}`);
 
-    if (!allWords.length) {
-      return res.json([]);
+    // =============================
+    // 2. VÉRIFICATION INITIALE (sur le total)
+    // =============================
+    if (totalInCollection < requestedCount) {
+      console.log(`❌ Pas assez de mots dans la collection: ${totalInCollection} < ${requestedCount}`);
+      return res.status(400).json({ 
+        success: false,
+        error: 'not_enough_words_in_collection',
+        message: `Vous avez ${totalInCollection} mots dans votre collection.`,
+        requested: requestedCount,
+        available: totalInCollection,
+        hskLevel: hskLevel,
+        suggestion: `Ajoutez ${requestedCount - totalInCollection} mots supplémentaires.`
+      });
     }
 
     // =============================
-    // 2. FILTRE TEMPOREL (anti-répétition)
+    // 3. RÉCUPÉRATION DES MOTS
+    // =============================
+    const fetchLimit = Math.min(totalInCollection, requestedCount * 3);
+    
+    let wordsQuery = `
+      SELECT 
+        m.*,
+        COALESCE(um.score, 0) AS score,
+        COALESCE(um.nb_quiz, 0) AS nb_quiz,
+        um.last_seen
+      FROM user_mots um
+      INNER JOIN mots m ON um.mot_id = m.id
+      WHERE um.user_id = $1
+    `;
+    
+    let wordsParams = [userId];
+    let paramIndex = 2;
+
+    if (hskLevel !== 'all') {
+      if (hskLevel === 'street') {
+        wordsQuery += ` AND m.hsk IS NULL`;
+      } else {
+        wordsQuery += ` AND m.hsk = $${paramIndex}`;
+        wordsParams.push(parseInt(hskLevel));
+        paramIndex++;
+      }
+    }
+
+    // IMPORTANT: Ajouter un tri pour prioriser les mots "froids"
+    wordsQuery += `
+      ORDER BY 
+        CASE 
+          WHEN um.last_seen IS NULL THEN 1
+          WHEN EXTRACT(EPOCH FROM (NOW() - um.last_seen)) > 12 * 3600 THEN 2
+          ELSE 3 
+        END,
+        um.score ASC,  -- Priorité aux mots faibles
+        RANDOM()
+      LIMIT $${paramIndex}
+    `;
+    wordsParams.push(fetchLimit);
+
+    console.log('📋 SQL Query (optimisé):', wordsQuery);
+    console.log('📋 Query params:', wordsParams);
+
+    const { rows: allWords } = await pool.query(wordsQuery, wordsParams);
+    console.log(`📥 Mots récupérés: ${allWords.length}`);
+
+    // =============================
+    // 4. FILTRE TEMPOREL INTELLIGENT
     // =============================
     const COOLDOWN_HOURS = 12;
     const now = new Date();
-
+    
+    // Appliquer le filtre normalement
     const availableWords = allWords.filter(w => {
       if (!w.last_seen) return true;
       const diffHours = (now - new Date(w.last_seen)) / (1000 * 60 * 60);
       return diffHours >= COOLDOWN_HOURS;
     });
 
-    // fallback si trop peu de mots
-    const poolWords = availableWords.length > 0 ? availableWords : allWords;
+    console.log(`⏰ Après filtre temporel (${COOLDOWN_HOURS}h): ${availableWords.length}/${allWords.length}`);
 
     // =============================
-    // 3. CLASSEMENT PAR NIVEAU
+    // 5. DÉCISION INTELLIGENTE : BYPASS SI NÉCESSAIRE
     // =============================
-    const weak = poolWords.filter(w => w.score < 40);
-    const medium = poolWords.filter(w => w.score >= 40 && w.score < 75);
-    const strong = poolWords.filter(w => w.score >= 75);
-
-    const count = requestedCount || 10;
-
-    const pick = (arr, n) => shuffleArray(arr).slice(0, n);
-
-    let selected = [
-      ...pick(weak, Math.floor(count * 0.4)),
-      ...pick(medium, Math.floor(count * 0.3)),
-      ...pick(strong, Math.floor(count * 0.2)),
-    ];
-
-    // compléter si manque
-    while (selected.length < count) {
-      const random = shuffleArray(poolWords)[0];
-      if (!selected.find(w => w.id === random.id)) {
-        selected.push(random);
-      }
+    let finalPool;
+    let bypassedCooldown = false;
+    
+    if (availableWords.length >= requestedCount) {
+      // Cas idéal : assez de mots après filtre
+      finalPool = availableWords;
+      console.log(`✅ Suffisamment de mots frais (${availableWords.length})`);
+    } else if (availableWords.length >= requestedCount * 0.5) {
+      // Cas acceptable : au moins 50% des mots demandés sont frais
+      // On complète avec des mots "chauds" mais en priorisant les plus anciens
+      finalPool = availableWords;
+      const needed = requestedCount - availableWords.length;
+      
+      // Prendre les mots les plus "froids" parmi ceux en cooldown
+      const cooldownWords = allWords.filter(w => {
+        if (!w.last_seen) return false;
+        const diffHours = (now - new Date(w.last_seen)) / (1000 * 60 * 60);
+        return diffHours < COOLDOWN_HOURS;
+      });
+      
+      // Trier par ancienneté (les plus anciens d'abord)
+      cooldownWords.sort((a, b) => {
+        const aHours = a.last_seen ? (now - new Date(a.last_seen)) / (1000 * 60 * 60) : 0;
+        const bHours = b.last_seen ? (now - new Date(b.last_seen)) / (1000 * 60 * 60) : 0;
+        return aHours - bHours; // Croissant = plus ancien d'abord
+      });
+      
+      finalPool.push(...cooldownWords.slice(0, needed));
+      bypassedCooldown = true;
+      console.log(`⚠️ Complété avec ${needed} mots en cooldown`);
+    } else {
+      // Cas critique : pas assez de mots frais
+      // On ignore complètement le filtre temporel
+      finalPool = allWords;
+      bypassedCooldown = true;
+      console.log(`🔄 BYPASS: Filtrer temporel ignoré (seulement ${availableWords.length} mots frais)`);
     }
 
-    // Mélange final
-    const finalSelection = shuffleArray(selected);
+    console.log(`📦 Pool final: ${finalPool.length} mots`);
 
     // =============================
-    // 4. MAJ last_seen
+    // 6. VÉRIFICATION FINALE (garantie)
     // =============================
-    await pool.query(
-      `UPDATE user_mots 
-       SET last_seen = NOW()
-       WHERE user_id = $1 AND mot_id = ANY($2)`,
-      [userId, finalSelection.map(w => w.id)]
-    );
+    if (finalPool.length < requestedCount) {
+      // Ce cas ne devrait jamais arriver grâce aux vérifications précédentes
+      console.log(`💥 ERREUR LOGIQUE: ${finalPool.length} < ${requestedCount} après tous les fallbacks`);
+      
+      // On prend ce qu'on a, mais on prévient l'utilisateur
+      const actualCount = Math.min(finalPool.length, requestedCount);
+      
+      return res.json({
+        success: true,
+        words: finalPool.slice(0, actualCount),
+        warning: `Quiz limité à ${actualCount} mots sur ${requestedCount} demandés`,
+        bypassedCooldown: bypassedCooldown,
+        stats: {
+          requested: requestedCount,
+          delivered: actualCount,
+          freshWords: availableWords.length,
+          totalInPool: finalPool.length
+        }
+      });
+    }
 
-    res.json(finalSelection);
+    // =============================
+    // 7. SÉLECTION STRATÉGIQUE
+    // =============================
+    // Classer par niveau de maîtrise
+    const weak = finalPool.filter(w => w.score < 40);
+    const medium = finalPool.filter(w => w.score >= 40 && w.score < 75);
+    const strong = finalPool.filter(w => w.score >= 75);
+
+    console.log(`📈 Répartition: faible=${weak.length}, moyen=${medium.length}, fort=${strong.length}`);
+
+    // Fonction de sélection simple (sans shuffleArray si ça plante)
+    const pickRandom = (arr, n) => {
+      if (arr.length === 0 || n <= 0) return [];
+      // Version simple sans Fisher-Yates
+      const shuffled = [...arr].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, Math.min(n, shuffled.length));
+    };
+
+    let selected = [];
+    
+    // Calculer les quotas en fonction des disponibilités réelles
+    const totalInPool = weak.length + medium.length + strong.length;
+    
+    if (totalInPool > 0) {
+      // Proportion de chaque catégorie
+      const weakRatio = weak.length / totalInPool;
+      const mediumRatio = medium.length / totalInPool;
+      const strongRatio = strong.length / totalInPool;
+      
+      // Allouer en fonction des proportions
+      let weakCount = Math.floor(requestedCount * weakRatio);
+      let mediumCount = Math.floor(requestedCount * mediumRatio);
+      let strongCount = Math.floor(requestedCount * strongRatio);
+      
+      // Ajuster pour arriver au compte exact
+      let totalSelected = weakCount + mediumCount + strongCount;
+      let remaining = requestedCount - totalSelected;
+      
+      // Distribuer le reste
+      while (remaining > 0) {
+        if (weakCount < weak.length) weakCount++;
+        else if (mediumCount < medium.length) mediumCount++;
+        else if (strongCount < strong.length) strongCount++;
+        else break;
+        remaining--;
+        totalSelected++;
+      }
+      
+      // Prendre les mots
+      selected = [
+        ...pickRandom(weak, weakCount),
+        ...pickRandom(medium, mediumCount),
+        ...pickRandom(strong, strongCount),
+      ];
+    }
+
+    // Compléter si nécessaire
+    if (selected.length < requestedCount) {
+      const remainingWords = finalPool.filter(w => !selected.find(s => s.id === w.id));
+      const needed = requestedCount - selected.length;
+      const extra = pickRandom(remainingWords, needed);
+      selected.push(...extra);
+    }
+
+    // Tronquer au nombre exact
+    selected = selected.slice(0, requestedCount);
+
+    console.log(`✅ ${selected.length} mots sélectionnés pour le quiz`);
+
+    // =============================
+    // 8. MAJ last_seen
+    // =============================
+    if (selected.length > 0) {
+      await pool.query(
+        `UPDATE user_mots 
+         SET last_seen = NOW()
+         WHERE user_id = $1 AND mot_id = ANY($2)`,
+        [userId, selected.map(w => w.id)]
+      );
+      console.log(`🔄 last_seen mis à jour pour ${selected.length} mots`);
+    }
+
+    // =============================
+    // 9. RÉPONSE
+    // =============================
+    const response = {
+      success: true,
+      words: selected,
+      count: selected.length,
+      requestedCount: requestedCount,
+      hskLevel: hskLevel,
+      bypassedCooldown: bypassedCooldown,
+      stats: {
+        totalInCollection: totalInCollection,
+        freshWords: availableWords.length,
+        distribution: {
+          weak: selected.filter(w => w.score < 40).length,
+          medium: selected.filter(w => w.score >= 40 && w.score < 75).length,
+          strong: selected.filter(w => w.score >= 75).length
+        }
+      }
+    };
+
+    if (bypassedCooldown) {
+      response.warning = "Certains mots ont été réutilisés avant la fin du délai de repos";
+    }
+
+    res.json(response);
 
   } catch (err) {
     console.error('💥 ERREUR /quiz-mots:', err);
-    res.status(500).json({ error: 'Erreur serveur' });
+    res.status(500).json({ 
+      success: false,
+      error: 'server_error',
+      message: 'Erreur serveur lors de la préparation du quiz'
+    });
   }
 });
 
@@ -944,7 +1151,7 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
 });
 
 // 📍 CRÉATION D'UN DUEL AVEC PARI
-router.post('/api/duels/create', ensureAuth, checkLimit, canPlayDuel, async (req, res) => {
+router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, async (req, res) => {
   const client = await pool.connect();
 
   try {
@@ -1063,14 +1270,14 @@ router.post('/api/duels/create', ensureAuth, checkLimit, canPlayDuel, async (req
     // ✅ CORRECTION : Incrémenter l'usage AVANT le commit, avec client.query
     if (req.user.subscription?.plan_name !== 'premium') {
       const today = new Date().toISOString().split('T')[0];
-      
+
       await client.query(`
         INSERT INTO user_usage (user_id, date, duels_played)
         VALUES ($1, $2, 1)
         ON CONFLICT (user_id, date) 
         DO UPDATE SET duels_played = user_usage.duels_played + 1
       `, [req.user.id, today]);
-      
+
       console.log(`📊 Duel compté pour l'utilisateur ${req.user.id}`);
     }
 

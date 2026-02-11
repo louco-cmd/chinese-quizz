@@ -198,7 +198,13 @@
 </head>
 
 <body>
-  <%- include('partials/header', {currentPage: 'leaderboard' }) %>
+   <% // Variables locales sécurisées 
+    const currentUser = locals.user || null; 
+    const userPlan = currentUser && currentUser.subscription ? currentUser.subscription.plan_name : 'free'; 
+    const isPremium = userPlan === 'premium'; 
+    const currentBalance = locals.balance || 0; 
+  %>
+  <%- include('partials/header', {currentPage: 'leaderboard', user: currentUser, balance: currentBalance }) %>
   <%- include('partials/navbar', {currentPage: 'leaderboard' }) %>
 
   <!-- Main Content -->

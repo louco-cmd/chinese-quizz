@@ -1,21 +1,32 @@
-<div class="d-flex justify-content-between align-items-center position-relative bg-primary text-white p-3"
-     style="<%= currentPage === 'dashboard' ? 'background-color: transparent !important; color: inherit !important; padding: 0;' : '' %>">
-  
+<div class="d-flex justify-content-between align-items-center position-relative bg-primary text-white p-3" style="<%= currentPage === 'dashboard' ? 'background-color: transparent !important; color: inherit !important; padding: 0;' : '' %>">
+
   <% if (currentPage !== 'dashboard') { %>
-    <!-- Logo/Titre (disparaît sur dashboard) -->
+  <!-- Logo/Titre avec badge -->
+  <div class="d-flex align-items-center gap-2">
     <span class="fs-3 fw-bold user-select-all" style="cursor: pointer;" onclick="window.location='/dashboard'">
       加油！
     </span>
+
+    <!-- Badge Free/Premium -->
+    <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border 
+               <%= isPremium ? 'text-primary border-primary' : 'text-secondary border-secondary' %>">
+      <%= isPremium ? 'PREMIUM' : 'FREE' %>
+    </span>
+  </div>
   <% } else { %>
-    <!-- Spacer invisible pour garder l'espace du logo -->
-    <div style="width: 3rem;"></div>
+  <!-- Sur le dashboard : badge seul -->
+  <div class="d-flex align-items-center">
+    <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border 
+               <%= user.planName === 'premium' ? 'text-primary border-primary' : 'text-secondary border-secondary' %>">
+      <%= user.planName === 'premium' ? 'PREMIUM' : 'FREE' %>
+    </span>
+  </div>
   <% } %>
-  
+
   <div class="d-flex align-items-center gap-3">
     <!-- Solde compact, aligné horizontalement -->
     <a href="/bank" title="View account details" class="text-decoration-none">
-      <div title="Your balance" class="d-flex align-items-center px-2 py-1 bg-white bg-opacity-10 rounded-pill text-white" 
-           style="min-width: fit-content; gap: 8px; user-select: none; transition: all 0.2s ease; cursor: pointer;">
+      <div title="Your balance" class="d-flex align-items-center px-2 py-1 bg-white bg-opacity-10 rounded-pill text-white" style="min-width: fit-content; gap: 8px; user-select: none; transition: all 0.2s ease; cursor: pointer;">
         <i class="fa-solid fa-coins fs-5"></i>
         <small class="text-white fw-semibold" style="font-size: 0.75rem;">balance :</small>
         <span id="game-balance" class="fw-bold fs-6"><%= Number(balance) + '₵' %></span>
@@ -24,24 +35,20 @@
 
     <!-- Bouton Settings (uniquement sur la page /account) -->
     <% if (currentPage === 'account') { %>
-      <button type="button" class="btn btn-link p-0 m-0" 
-              onclick="openSettingsDrawer()"
-              style="text-decoration: none; color: white; font-size: 1.5rem;">
-        <i class="bi bi-gear-fill"></i>
-      </button>
+    <button type="button" class="btn btn-link p-0 m-0" onclick="openSettingsDrawer()" style="text-decoration: none; color: white; font-size: 1.5rem;">
+      <i class="bi bi-gear-fill"></i>
+    </button>
     <% } else { %>
-      <!-- Mon Compte avec pastille de notifications pour les duels -->
-      <div class="position-relative">
-        <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold" 
-           style="gap: 6px; transition: color 0.3s ease; position: relative;">
-          <i class="bi bi-person-square"></i>
-          <!-- Pastille de notifications pour les duels -->
-          <span id="duel-notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary border border-white" 
-                style="display: none; font-size: 0.6rem; padding: 0.25rem 0.4rem; min-width: 1.2rem;">
-            <span id="duel-count">0</span>
-          </span>
-        </a>
-      </div>
+    <!-- Mon Compte avec pastille de notifications pour les duels -->
+    <div class="position-relative">
+      <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold" style="gap: 6px; transition: color 0.3s ease; position: relative;">
+        <i class="bi bi-person-square"></i>
+        <!-- Pastille de notifications pour les duels -->
+        <span id="duel-notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary border border-white" style="display: none; font-size: 0.6rem; padding: 0.25rem 0.4rem; min-width: 1.2rem;">
+          <span id="duel-count">0</span>
+        </span>
+      </a>
+    </div>
     <% } %>
   </div>
 </div>
@@ -54,24 +61,37 @@
       <h5 class="mb-0">Settings</h5>
       <button type="button" class="btn-close" onclick="closeSettingsDrawer()"></button>
     </div>
-    
+
     <div class="settings-drawer-body p-3">
-      <% if (user && user.subscription && user.subscription.plan_name !== 'premium') { %>
-        <div class="mb-3">
-          <a href="/pricing" class="btn btn-primary w-100" onclick="closeSettingsDrawer()">
-            Upgrade to Premium
-          </a>
-        </div>
+
+      <!-- Bouton Upgrade/Manage -->
+      <% if (user.planName !== 'premium') { %>
+      <div class="mb-3">
+        <a href="/pricing" class="btn btn-primary w-100" onclick="closeSettingsDrawer()">
+          <i class="bi bi-arrow-up-circle me-2"></i>
+          Upgrade to Premium
+        </a>
+      </div>
+      <% } else { %>
+      <div class="mb-3">
+        <a href="/pricing" class="btn btn-outline-primary w-100" onclick="closeSettingsDrawer()">
+          <i class="bi bi-gear me-2"></i>
+          Manage Subscription
+        </a>
+      </div>
       <% } %>
-      
+
+      <!-- Section Logout -->
       <div class="mb-3">
         <button type="button" class="btn btn-outline-danger w-100" onclick="confirmLogout()">
+          <i class="bi bi-box-arrow-right me-2"></i>
           Logout
         </button>
       </div>
-      
+
       <div class="mt-4 pt-3 border-top">
         <a href="/legal" class="text-muted small" onclick="closeSettingsDrawer()">
+          <i class="bi bi-info-circle me-1"></i>
           Legal mentions
         </a>
       </div>
@@ -100,326 +120,384 @@
 </div>
 
 <style>
-/* Styles pour le drawer settings */
-.settings-drawer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1100;
-  display: none;
-}
+  /* Styles pour le drawer settings */
+  .settings-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1100;
+    display: none;
+  }
 
-.settings-drawer.show {
-  display: block;
-}
+  .settings-drawer.show {
+    display: block;
+  }
 
-.settings-drawer-backdrop {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  animation: fadeIn 0.2s ease-out;
-}
+  .settings-drawer-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.2s ease-out;
+  }
 
-.settings-drawer-content {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 320px;
-  height: 100%;
-  background-color: white;
-  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-  animation: slideInRight 0.3s ease-out;
-  display: flex;
-  flex-direction: column;
-}
-
-.settings-drawer-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid #e9ecef;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #f8f9fa;
-}
-
-.settings-drawer-body {
-  padding: 1.5rem;
-  flex: 1;
-  overflow-y: auto;
-}
-
-.settings-drawer .list-group-item {
-  border-radius: 8px;
-  margin-bottom: 4px;
-  transition: all 0.2s ease;
-}
-
-.settings-drawer .list-group-item:hover {
-  background-color: #f8f9fa;
-  transform: translateX(4px);
-}
-
-.settings-drawer .list-group-item i {
-  width: 20px;
-  text-align: center;
-}
-
-/* Bouton settings dans le header */
-.btn-link:hover i {
-  transform: rotate(30deg);
-  transition: transform 0.3s ease;
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideInRight {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
-}
-
-@keyframes slideOutRight {
-  from { transform: translateX(0); }
-  to { transform: translateX(100%); }
-}
-
-/* Styles pour la pastille de notifications */
-#duel-notification-badge {
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s ease;
-}
-
-#duel-notification-badge:hover {
-  transform: scale(1.1);
-}
-
-/* Style pour le hover du lien compte */
-a[href="/account"]:hover {
-  color: #cfe2ff !important;
-}
-
-/* Responsive */
-@media (max-width: 576px) {
   .settings-drawer-content {
-    width: 280px;
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 320px;
+    height: 100%;
+    background-color: white;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    animation: slideInRight 0.3s ease-out;
+    display: flex;
+    flex-direction: column;
   }
-  
+
   .settings-drawer-header {
-    padding: 1rem;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f8f9fa;
   }
-  
+
   .settings-drawer-body {
-    padding: 1rem;
+    padding: 1.5rem;
+    flex: 1;
+    overflow-y: auto;
   }
-}
+
+  .settings-drawer .list-group-item {
+    border-radius: 8px;
+    margin-bottom: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .settings-drawer .list-group-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(4px);
+  }
+
+  .settings-drawer .list-group-item i {
+    width: 20px;
+    text-align: center;
+  }
+
+  /* Bouton settings dans le header */
+  .btn-link:hover i {
+    transform: rotate(30deg);
+    transition: transform 0.3s ease;
+  }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+    }
+
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slideOutRight {
+    from {
+      transform: translateX(0);
+    }
+
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  /* Styles pour les badges de plan */
+  .plan-badge {
+    border-radius: 12px !important;
+    transition: all 0.3s ease;
+    cursor: default;
+  }
+
+  .plan-badge:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  }
+
+  .trial-badge {
+    border-radius: 10px !important;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.8;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  /* Styles pour la pastille de notifications */
+  #duel-notification-badge {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease;
+  }
+
+  #duel-notification-badge:hover {
+    transform: scale(1.1);
+  }
+
+  /* Style pour le hover du lien compte */
+  a[href="/account"]:hover {
+    color: #cfe2ff !important;
+  }
+
+  /* Responsive */
+  @media (max-width: 576px) {
+    .settings-drawer-content {
+      width: 280px;
+    }
+
+    .settings-drawer-header {
+      padding: 1rem;
+    }
+
+    .settings-drawer-body {
+      padding: 1rem;
+    }
+
+    /* Ajustement des badges sur mobile */
+    .plan-badge,
+    .trial-badge {
+      font-size: 0.6rem !important;
+      padding: 0.2rem 0.4rem !important;
+    }
+
+    .plan-badge i,
+    .trial-badge i {
+      font-size: 0.5rem !important;
+    }
+  }
 </style>
 
 <script>
-// 🔥 MODIFICATION : Vérifier si on est sur la page account
-const isAccountPage = window.location.pathname === '/account';
+  // 🔥 MODIFICATION : Vérifier si on est sur la page account
+  const isAccountPage = window.location.pathname === '/account';
 
-// Fonctions pour le drawer settings
-function openSettingsDrawer() {
-  const drawer = document.getElementById('settings-drawer');
-  if (drawer) {
-    drawer.classList.add('show');
-    document.body.style.overflow = 'hidden'; // Empêche le scroll
-  }
-}
-
-function closeSettingsDrawer() {
-  const drawer = document.getElementById('settings-drawer');
-  if (drawer) {
-    drawer.classList.remove('show');
-    document.body.style.overflow = ''; // Rétablit le scroll
-  }
-}
-
-// Confirmation de logout
-function confirmLogout() {
-  closeSettingsDrawer();
-  const modal = new bootstrap.Modal(document.getElementById('logoutModal'));
-  modal.show();
-}
-
-// Logout effectif
-async function performLogout() {
-  try {
-    const modal = bootstrap.Modal.getInstance(document.getElementById('logoutModal'));
-    modal.hide();
-    
-    const response = await fetch('/auth/logout', {
-      method: 'POST',
-      credentials: 'include'
-    });
-    
-    if (response.ok) {
-      // Redirection vers la page d'accueil
-      window.location.href = '/';
-    } else {
-      console.error('Logout failed');
-      // Fallback: redirection quand même
-      window.location.href = '/';
+  // Fonctions pour le drawer settings
+  function openSettingsDrawer() {
+    const drawer = document.getElementById('settings-drawer');
+    if (drawer) {
+      drawer.classList.add('show');
+      document.body.style.overflow = 'hidden'; // Empêche le scroll
     }
-  } catch (err) {
-    console.error('Logout error:', err);
-    window.location.href = '/';
   }
-}
 
-// Fermer le drawer avec la touche Escape
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
+  function closeSettingsDrawer() {
+    const drawer = document.getElementById('settings-drawer');
+    if (drawer) {
+      drawer.classList.remove('show');
+      document.body.style.overflow = ''; // Rétablit le scroll
+    }
+  }
+
+  // Confirmation de logout
+  function confirmLogout() {
     closeSettingsDrawer();
+    const modal = new bootstrap.Modal(document.getElementById('logoutModal'));
+    modal.show();
   }
-});
 
-// Fermer le drawer en cliquant à l'extérieur (déjà géré par le backdrop)
+  // Logout effectif
+  async function performLogout() {
+    try {
+      const modal = bootstrap.Modal.getInstance(document.getElementById('logoutModal'));
+      modal.hide();
 
-window.addEventListener('load', function() {
-  fetchAndUpdateBalance();
-  if (!isAccountPage) {
-    loadPendingDuels(); // Charger les duels en attente uniquement si PAS sur account
-  }
-});
-
-// Stockage local pour suivre si la notification a déjà été affichée aujourd'hui
-function shouldShowDuelNotification() {
-  const lastNotificationDate = localStorage.getItem('lastDuelNotificationDate');
-  if (!lastNotificationDate) return true;
-  
-  const today = new Date().toDateString();
-  const lastDate = new Date(lastNotificationDate).toDateString();
-  
-  return today !== lastDate;
-}
-
-function markDuelNotificationShown() {
-  localStorage.setItem('lastDuelNotificationDate', new Date().toISOString());
-}
-
-// Fonction pour charger les duels en attente
-async function loadPendingDuels() {
-  // Ne pas exécuter sur la page account
-  if (isAccountPage) return;
-  
-  try {
-    const response = await fetch('/api/duels/pending');
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    
-    const duels = await response.json();
-    updateDuelNotification(duels.length);
-    
-    // Afficher une notification discrète UNE FOIS par jour maximum
-    if (duels.length > 0 && shouldShowDuelNotification()) {
-      console.log(`🎯 ${duels.length} pending duel(s)`);
-      
-      let message = '';
-      if (duels.length === 1) {
-        message = 'You have a pending duel';
-      } else {
-        message = `You have ${duels.length} pending duels`;
-      }
-      
-      // Afficher une notification discrète
-      showInfoNotification('Pending duel', message, {
-        duration: 20000 // 4 secondes
+      const response = await fetch('/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
       });
-      
-      // Marquer comme affiché pour aujourd'hui
-      markDuelNotificationShown();
+
+      if (response.ok) {
+        // Redirection vers la page d'accueil
+        window.location.href = '/';
+      } else {
+        console.error('Logout failed');
+        // Fallback: redirection quand même
+        window.location.href = '/';
+      }
+    } catch (err) {
+      console.error('Logout error:', err);
+      window.location.href = '/';
     }
-    
-  } catch (error) {
-    console.error('Error loading duels:', error);
-    // En cas d'erreur, cacher la pastille
+  }
+
+  // Fermer le drawer avec la touche Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeSettingsDrawer();
+    }
+  });
+
+  // Fermer le drawer en cliquant à l'extérieur (déjà géré par le backdrop)
+
+  window.addEventListener('load', function() {
+    fetchAndUpdateBalance();
+    if (!isAccountPage) {
+      loadPendingDuels(); // Charger les duels en attente uniquement si PAS sur account
+    }
+  });
+
+  // Stockage local pour suivre si la notification a déjà été affichée aujourd'hui
+  function shouldShowDuelNotification() {
+    const lastNotificationDate = localStorage.getItem('lastDuelNotificationDate');
+    if (!lastNotificationDate) return true;
+
+    const today = new Date().toDateString();
+    const lastDate = new Date(lastNotificationDate).toDateString();
+
+    return today !== lastDate;
+  }
+
+  function markDuelNotificationShown() {
+    localStorage.setItem('lastDuelNotificationDate', new Date().toISOString());
+  }
+
+  // Fonction pour charger les duels en attente
+  async function loadPendingDuels() {
+    // Ne pas exécuter sur la page account
+    if (isAccountPage) return;
+
+    try {
+      const response = await fetch('/api/duels/pending');
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const duels = await response.json();
+      updateDuelNotification(duels.length);
+
+      // Afficher une notification discrète UNE FOIS par jour maximum
+      if (duels.length > 0 && shouldShowDuelNotification()) {
+        console.log(`🎯 ${duels.length} pending duel(s)`);
+
+        let message = '';
+        if (duels.length === 1) {
+          message = 'You have a pending duel';
+        } else {
+          message = `You have ${duels.length} pending duels`;
+        }
+
+        // Afficher une notification discrète
+        showInfoNotification('Pending duel', message, {
+          duration: 20000 // 4 secondes
+        });
+
+        // Marquer comme affiché pour aujourd'hui
+        markDuelNotificationShown();
+      }
+
+    } catch (error) {
+      console.error('Error loading duels:', error);
+      // En cas d'erreur, cacher la pastille
+      const badge = document.getElementById('duel-notification-badge');
+      if (badge) {
+        badge.style.display = 'none';
+      }
+    }
+  }
+
+  // 🔥 MODIFICATION : Fonction simplifiée qui ne touche qu'aux éléments du header
+  function updateDuelNotification(count) {
+    // Ne rien faire si on est sur la page account
+    if (isAccountPage) return;
+
     const badge = document.getElementById('duel-notification-badge');
-    if (badge) {
+    const countElement = document.getElementById('duel-count');
+
+    if (!badge || !countElement) return;
+
+    if (count > 0) {
+      countElement.textContent = count > 9 ? '9+' : count;
+      badge.style.display = 'block';
+    } else {
       badge.style.display = 'none';
     }
   }
-}
 
-// 🔥 MODIFICATION : Fonction simplifiée qui ne touche qu'aux éléments du header
-function updateDuelNotification(count) {
-  // Ne rien faire si on est sur la page account
-  if (isAccountPage) return;
-  
-  const badge = document.getElementById('duel-notification-badge');
-  const countElement = document.getElementById('duel-count');
-  
-  if (!badge || !countElement) return;
-  
-  if (count > 0) {
-    countElement.textContent = count > 9 ? '9+' : count;
-    badge.style.display = 'block';
-  } else {
-    badge.style.display = 'none';
-  }
-}
+  // 🔥 MODIFICATION : Gestionnaire de notifications uniquement pour les pages hors account
+  class NotificationManager {
+    constructor() {
+      // Ne pas initialiser sur la page account
+      if (isAccountPage) return;
 
-// 🔥 MODIFICATION : Gestionnaire de notifications uniquement pour les pages hors account
-class NotificationManager {
-  constructor() {
-    // Ne pas initialiser sur la page account
-    if (isAccountPage) return;
-    
-    this.notifications = [];
-    this.maxNotifications = 1; // Une seule notification à la fois
-    this.init();
-  }
-  
-  init() {
-    document.addEventListener('showNotification', (e) => {
-      this.show(e.detail);
-    });
-  }
-  
-  show(notification) {
-    // Créer un élément de notification simple
-    const notificationData = {
-      id: Date.now() + Math.random(),
-      type: notification.type || 'info',
-      title: notification.title,
-      message: notification.message,
-      duration: notification.duration || 4000
-    };
-    
-    // Supprimer toute notification existante
-    this.hideAll();
-    
-    // Créer et afficher la nouvelle notification
-    this.createNotificationElement(notificationData);
-    
-    // Auto-hide si une durée est spécifiée
-    if (notificationData.duration > 0) {
-      setTimeout(() => {
-        this.hide(notificationData.id);
-      }, notificationData.duration);
+      this.notifications = [];
+      this.maxNotifications = 1; // Une seule notification à la fois
+      this.init();
     }
-  }
-  
-  createNotificationElement(notification) {
-    // Créer l'élément
-    const notificationElement = document.createElement('div');
-    notificationElement.className = `position-fixed top-0 end-0 mt-5 me-3 p-3 bg-white border border-${notification.type === 'success' ? 'success' : notification.type === 'error' ? 'danger' : notification.type === 'warning' ? 'warning' : 'primary'} rounded shadow-sm`;
-    notificationElement.style.zIndex = '1060';
-    notificationElement.style.maxWidth = '300px';
-    notificationElement.style.animation = 'slideDown 0.3s ease-out';
-    notificationElement.setAttribute('data-notification-id', notification.id);
-    
-    // Contenu en anglais
-    notificationElement.innerHTML = `
+
+    init() {
+      document.addEventListener('showNotification', (e) => {
+        this.show(e.detail);
+      });
+    }
+
+    show(notification) {
+      // Créer un élément de notification simple
+      const notificationData = {
+        id: Date.now() + Math.random(),
+        type: notification.type || 'info',
+        title: notification.title,
+        message: notification.message,
+        duration: notification.duration || 4000
+      };
+
+      // Supprimer toute notification existante
+      this.hideAll();
+
+      // Créer et afficher la nouvelle notification
+      this.createNotificationElement(notificationData);
+
+      // Auto-hide si une durée est spécifiée
+      if (notificationData.duration > 0) {
+        setTimeout(() => {
+          this.hide(notificationData.id);
+        }, notificationData.duration);
+      }
+    }
+
+    createNotificationElement(notification) {
+      // Créer l'élément
+      const notificationElement = document.createElement('div');
+      notificationElement.className = `position-fixed top-0 end-0 mt-5 me-3 p-3 bg-white border border-${notification.type === 'success' ? 'success' : notification.type === 'error' ? 'danger' : notification.type === 'warning' ? 'warning' : 'primary'} rounded shadow-sm`;
+      notificationElement.style.zIndex = '1060';
+      notificationElement.style.maxWidth = '300px';
+      notificationElement.style.animation = 'slideDown 0.3s ease-out';
+      notificationElement.setAttribute('data-notification-id', notification.id);
+
+      // Contenu en anglais
+      notificationElement.innerHTML = `
       <div class="d-flex justify-content-between align-items-start">
         <div>
           <div class="fw-bold mb-1">${notification.title}</div>
@@ -430,61 +508,81 @@ class NotificationManager {
                 aria-label="Close"></button>
       </div>
     `;
-    
-    // Ajouter au body
-    document.body.appendChild(notificationElement);
-    
-    // Stocker la référence
-    this.notifications.push({
-      id: notification.id,
-      element: notificationElement
-    });
-  }
-  
-  hide(notificationId) {
-    const notificationIndex = this.notifications.findIndex(n => n.id === notificationId);
-    if (notificationIndex !== -1) {
-      const notification = this.notifications[notificationIndex];
-      notification.element.style.animation = 'slideUp 0.3s ease-out forwards';
-      
-      setTimeout(() => {
-        if (notification.element.parentNode) {
-          notification.element.parentNode.removeChild(notification.element);
-        }
-        this.notifications.splice(notificationIndex, 1);
-      }, 300);
+
+      // Ajouter au body
+      document.body.appendChild(notificationElement);
+
+      // Stocker la référence
+      this.notifications.push({
+        id: notification.id,
+        element: notificationElement
+      });
+    }
+
+    hide(notificationId) {
+      const notificationIndex = this.notifications.findIndex(n => n.id === notificationId);
+      if (notificationIndex !== -1) {
+        const notification = this.notifications[notificationIndex];
+        notification.element.style.animation = 'slideUp 0.3s ease-out forwards';
+
+        setTimeout(() => {
+          if (notification.element.parentNode) {
+            notification.element.parentNode.removeChild(notification.element);
+          }
+          this.notifications.splice(notificationIndex, 1);
+        }, 300);
+      }
+    }
+
+    hideAll() {
+      this.notifications.forEach(notification => {
+        this.hide(notification.id);
+      });
+      this.notifications = [];
+    }
+
+    // Méthodes utilitaires pour les types courants
+    success(title, message, options = {}) {
+      this.show({
+        type: 'success',
+        title,
+        message,
+        ...options
+      });
+    }
+
+    error(title, message, options = {}) {
+      this.show({
+        type: 'error',
+        title,
+        message,
+        ...options
+      });
+    }
+
+    warning(title, message, options = {}) {
+      this.show({
+        type: 'warning',
+        title,
+        message,
+        ...options
+      });
+    }
+
+    info(title, message, options = {}) {
+      this.show({
+        type: 'info',
+        title,
+        message,
+        ...options
+      });
     }
   }
-  
-  hideAll() {
-    this.notifications.forEach(notification => {
-      this.hide(notification.id);
-    });
-    this.notifications = [];
-  }
-  
-  // Méthodes utilitaires pour les types courants
-  success(title, message, options = {}) {
-    this.show({ type: 'success', title, message, ...options });
-  }
-  
-  error(title, message, options = {}) {
-    this.show({ type: 'error', title, message, ...options });
-  }
-  
-  warning(title, message, options = {}) {
-    this.show({ type: 'warning', title, message, ...options });
-  }
-  
-  info(title, message, options = {}) {
-    this.show({ type: 'info', title, message, ...options });
-  }
-}
 
-// 🔥 MODIFICATION : Ajouter les animations CSS uniquement si pas sur account
-if (!isAccountPage) {
-  const style = document.createElement('style');
-  style.textContent = `
+  // 🔥 MODIFICATION : Ajouter les animations CSS uniquement si pas sur account
+  if (!isAccountPage) {
+    const style = document.createElement('style');
+    style.textContent = `
     @keyframes slideDown {
       from {
         opacity: 0;
@@ -507,101 +605,125 @@ if (!isAccountPage) {
       }
     }
   `;
-  document.head.appendChild(style);
-}
+    document.head.appendChild(style);
+  }
 
-// Fonctions pour récupérer et mettre à jour le solde
-async function fetchAndUpdateBalance() {
-  try {
-    const res = await fetch('/api/balance', { credentials: 'include' });
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`HTTP ${res.status}: ${errorText}`);
+  // Fonctions pour récupérer et mettre à jour le solde
+  async function fetchAndUpdateBalance() {
+    try {
+      const res = await fetch('/api/balance', {
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`HTTP ${res.status}: ${errorText}`);
+      }
+      const data = await res.json();
+      if (data.balance !== undefined) {
+        updateGameBalance(data.balance);
+      } else {
+        throw new Error('Balance missing in response');
+      }
+    } catch (error) {
+      console.error('Balance request error:', error);
     }
-    const data = await res.json();
-    if (data.balance !== undefined) {
-      updateGameBalance(data.balance);
-    } else {
-      throw new Error('Balance missing in response');
+  }
+
+  function updateGameBalance(newBalance) {
+    const balanceEl = document.getElementById('game-balance');
+    if (balanceEl) {
+      balanceEl.textContent = newBalance + '₵';
     }
-  } catch (error) {
-    console.error('Balance request error:', error);
   }
-}
 
-function updateGameBalance(newBalance) {
-  const balanceEl = document.getElementById('game-balance');
-  if (balanceEl) {
-    balanceEl.textContent = newBalance + '₵';
+  // 🔥 MODIFICATION : Initialisation uniquement si pas sur account
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!isAccountPage && !window.notificationManager) {
+      window.notificationManager = new NotificationManager();
+    }
+  });
+
+  // 🔥 MODIFICATION : Fonctions globales pour les notifications (uniquement si pas sur account)
+  function showNotification(notification) {
+    if (isAccountPage) return; // Ne pas afficher de notifications sur account
+    const event = new CustomEvent('showNotification', {
+      detail: notification
+    });
+    document.dispatchEvent(event);
   }
-}
 
-// 🔥 MODIFICATION : Initialisation uniquement si pas sur account
-document.addEventListener('DOMContentLoaded', () => {
-  if (!isAccountPage && !window.notificationManager) {
-    window.notificationManager = new NotificationManager();
+  function showSuccessNotification(title, message, options) {
+    if (isAccountPage) return;
+    showNotification({
+      type: 'success',
+      title,
+      message,
+      ...options
+    });
   }
-});
 
-// 🔥 MODIFICATION : Fonctions globales pour les notifications (uniquement si pas sur account)
-function showNotification(notification) {
-  if (isAccountPage) return; // Ne pas afficher de notifications sur account
-  const event = new CustomEvent('showNotification', { detail: notification });
-  document.dispatchEvent(event);
-}
+  function showErrorNotification(title, message, options) {
+    if (isAccountPage) return;
+    showNotification({
+      type: 'error',
+      title,
+      message,
+      ...options
+    });
+  }
 
-function showSuccessNotification(title, message, options) {
-  if (isAccountPage) return;
-  showNotification({ type: 'success', title, message, ...options });
-}
+  function showWarningNotification(title, message, options) {
+    if (isAccountPage) return;
+    showNotification({
+      type: 'warning',
+      title,
+      message,
+      ...options
+    });
+  }
 
-function showErrorNotification(title, message, options) {
-  if (isAccountPage) return;
-  showNotification({ type: 'error', title, message, ...options });
-}
-
-function showWarningNotification(title, message, options) {
-  if (isAccountPage) return;
-  showNotification({ type: 'warning', title, message, ...options });
-}
-
-function showInfoNotification(title, message, options) {
-  if (isAccountPage) return;
-  showNotification({ type: 'info', title, message, ...options });
-}
+  function showInfoNotification(title, message, options) {
+    if (isAccountPage) return;
+    showNotification({
+      type: 'info',
+      title,
+      message,
+      ...options
+    });
+  }
 </script>
 
 <script>
-// Enregistrement SIMPLE et ROBUSTE du SW
-if ('serviceWorker' in navigator && window.location.hostname === 'app.jiayou.fr') {
-  
-  // Petit délai pour éviter toute compétition au chargement
-  setTimeout(() => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(registration => {
-        console.log('✅ SW enregistré avec succès.');
-        
-        // Optionnel : Vérifie s'il y a une mise à jour en attente
-        if (registration.waiting) {
-          console.log('🔄 Un nouveau SW est en attente.');
-          // Ici, vous pourriez afficher un bouton "Mettre à jour" discret
-        }
-        
-        // Écoute les messages du SW (comme SW_READY)
-        navigator.serviceWorker.addEventListener('message', event => {
-          if (event.data.type === 'SW_READY') {
-            console.log(`🟢 SW ${event.data.version} est prêt.`);
+  // Enregistrement SIMPLE et ROBUSTE du SW
+  if ('serviceWorker' in navigator && window.location.hostname === 'app.jiayou.fr') {
+
+    // Petit délai pour éviter toute compétition au chargement
+    setTimeout(() => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('✅ SW enregistré avec succès.');
+
+          // Optionnel : Vérifie s'il y a une mise à jour en attente
+          if (registration.waiting) {
+            console.log('🔄 Un nouveau SW est en attente.');
+            // Ici, vous pourriez afficher un bouton "Mettre à jour" discret
           }
+
+          // Écoute les messages du SW (comme SW_READY)
+          navigator.serviceWorker.addEventListener('message', event => {
+            if (event.data.type === 'SW_READY') {
+              console.log(`🟢 SW ${event.data.version} est prêt.`);
+            }
+          });
+
+        })
+        .catch(err => {
+          console.error('❌ Échec de l‘enregistrement SW:', err);
+          // En cas d'erreur grave, on nettoie pour repartir à zéro
+          navigator.serviceWorker.getRegistrations()
+            .then(regs => Promise.all(regs.map(r => r.unregister())))
+            .then(() => console.log('🧹 Anciens SW désinscrits.'));
         });
-        
-      })
-      .catch(err => {
-        console.error('❌ Échec de l‘enregistrement SW:', err);
-        // En cas d'erreur grave, on nettoie pour repartir à zéro
-        navigator.serviceWorker.getRegistrations()
-          .then(regs => Promise.all(regs.map(r => r.unregister())))
-          .then(() => console.log('🧹 Anciens SW désinscrits.'));
-      });
-  }, 500); // Délai réduit à 500ms
-}
+    }, 500); // Délai réduit à 500ms
+  }
 </script>
