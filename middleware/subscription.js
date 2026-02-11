@@ -1,250 +1,274 @@
 // middleware/subscription.js
 const { pool } = require('../config/database');
 
-// Middleware principal qui enrichit req.user avec subscription info
 exports.withSubscription = async (req, res, next) => {
   if (!req.isAuthenticated()) {
     return next();
   }
-  
+
   try {
     const userId = req.user.id;
-    
-    // Récupérer l'abonnement actif
-    const subResult = await pool.query(`
-      SELECT us.*, sp.features, sp.limits
-      FROM user_subscriptions us
-      LEFT JOIN subscription_plans sp ON us.plan_name = sp.name
-      WHERE us.user_id = $1 
-        AND us.status = 'active'
-        AND (us.current_period_end IS NULL OR us.current_period_end > NOW())
-      LIMIT 1
+
+    console.log(`🔍 [SUBSCRIPTION] Vérification abonnement pour user: ${userId}`);
+
+    // Récupérer l'abonnement
+    const subscriptionResult = await pool.query(`
+      SELECT 
+        status,
+        cancel_at_period_end,
+        current_period_end,
+        stripe_subscription_id,
+        updated_at
+      FROM user_subscriptions 
+      WHERE user_id = $1
     `, [userId]);
-    
-    let subscription;
-    
-    if (subResult.rows.length > 0) {
-      subscription = {
-        ...subResult.rows[0],
-        features: subResult.rows[0].features || {},
-        limits: subResult.rows[0].limits || {}
-      };
-    } else {
-      // Plan gratuit par défaut
-      const freePlan = await pool.query(
-        'SELECT features, limits FROM subscription_plans WHERE name = $1',
-        ['free']
-      );
-      
-      subscription = {
-        plan_name: 'free',
-        status: 'active',
-        features: freePlan.rows[0]?.features || {},
-        limits: freePlan.rows[0]?.limits || {}
-      };
-    }
-    
-    req.user.subscription = subscription;
-    next();
-  } catch (err) {
-    console.error('Subscription middleware error:', err);
-    req.user.subscription = { plan_name: 'free', status: 'active' };
-    next();
-  }
-};
 
-// Middleware pour vérifier une feature
-exports.requireFeature = (feature) => {
-  return (req, res, next) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-    
-    const hasFeature = req.user.subscription?.features?.[feature];
-    
-    if (!hasFeature) {
-      return res.status(403).json({
-        error: `This feature requires Premium subscription`,
-        requiredPlan: 'premium',
-        upgradeUrl: '/pricing'
-      });
-    }
-    
-    next();
-  };
-};
+    let currentSubscription = subscriptionResult.rows[0];
 
-// Middleware pour vérifier une limite
-exports.checkLimit = async (req, res, next) => {
-  if (!req.isAuthenticated()) {
-    return next();
-  }
-  
-  try {
-    const userId = req.user.id;
-    const plan = req.user.subscription?.plan_name || 'free';
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Récupérer l'utilisation d'aujourd'hui
-    const usageResult = await pool.query(
-      'SELECT * FROM user_usage WHERE user_id = $1 AND date = $2',
-      [userId, today]
-    );
-    
-    let usage = usageResult.rows[0];
-    
-    if (!usage) {
-      // Créer une entrée pour aujourd'hui
-      await pool.query(
-        'INSERT INTO user_usage (user_id, date) VALUES ($1, $2)',
-        [userId, today]
-      );
-      usage = { words_added: 0, duels_played: 0, quizzes_taken: 0 };
-    }
-    
-    // CORRECTION ICI : S'assurer que subscription existe
-    if (!req.user.subscription) {
-      // Charger l'abonnement si manquant
-      const subResult = await pool.query(
-        'SELECT * FROM subscription_plans WHERE name = $1',
-        ['free']
-      );
-      
+    if (!currentSubscription) {
+      console.log(`🔍 [SUBSCRIPTION] Aucun abonnement - user ${userId} = FREE`);
+      req.user.isPremium = false;
+      req.user.planName = 'free';
       req.user.subscription = {
         plan_name: 'free',
-        status: 'active',
-        features: subResult.rows[0]?.features || {},
-        limits: subResult.rows[0]?.limits || {}
+        status: 'free',
+        isValid: true
       };
+    } else {
+      const now = new Date();
+      const periodEnd = currentSubscription.current_period_end ?
+        new Date(currentSubscription.current_period_end) : null;
+
+      let isPremium = false;
+      let isValid = true;
+
+      if (currentSubscription.status === 'active') {
+        // Logique SIMPLIFIÉE: Si stripe_status est 'active', c'est premium
+        isPremium = true;
+        isValid = true;
+
+        console.log(`✅ [SUBSCRIPTION] Statut 'active' - User ${userId} est Premium`);
+      } else {
+        // Statut non actif (canceled, past_due, etc.)
+        isValid = false;
+        isPremium = false;
+      }
+
+      console.log(`🔍 [SUBSCRIPTION] User ${userId}:`, {
+        stripe_status: currentSubscription.status,
+        cancel_at_period_end: currentSubscription.cancel_at_period_end,
+        periodEnd: periodEnd?.toISOString(),
+        isPremium: isPremium,
+        isValid: isValid
+      });
+
+      req.user.isPremium = isPremium;
+      req.user.planName = isPremium ? 'premium' : 'free';
+      req.user.subscription = {
+        plan_name: isPremium ? 'premium' : 'free',
+        status: currentSubscription.status,
+        stripe_status: currentSubscription.status,
+        cancel_at_period_end: currentSubscription.cancel_at_period_end,
+        current_period_end: currentSubscription.current_period_end,
+        isValid: isValid
+      };
+
+      // ⚠️ SUPPRIMEZ CE BLOC - Ne marquez pas automatiquement comme expiré
+      // C'est Stripe qui doit gérer ça via les webhooks
+      /*
+      if (currentSubscription.stripe_status === 'active' && periodEnd && periodEnd < now) {
+        console.log(`🧹 [SUBSCRIPTION] Nettoyage abonnement expiré pour user ${userId}`);
+        await pool.query(`
+          UPDATE user_subscriptions 
+          SET stripe_status = 'expired', updated_at = NOW()
+          WHERE user_id = $1
+        `, [userId]);
+      }
+      */
     }
-    
-    // CORRECTION : Utiliser l'opérateur de chaînage optionnel
-    req.user.usage = usage;
-    req.user.usageLimits = req.user.subscription?.limits || {
-      // Valeurs par défaut
-      daily_words: 100,
-      daily_duels: 1,
-      daily_quizzes: 100,
-      max_words: 10000
-    };
-    
+
+    console.log(`✅ [SUBSCRIPTION] Résultat pour ${userId}: Premium=${req.user.isPremium}, Plan=${req.user.planName}`);
     next();
+
   } catch (err) {
-    console.error('Usage limit error:', err);
-    // Fournir des valeurs par défaut en cas d'erreur
-    req.user.usageLimits = {
-      daily_words: 100,
-      daily_duels: 1,
-      daily_quizzes: 100,
-      max_words: 10000
+    console.error('❌ [SUBSCRIPTION] Erreur:', err);
+    // Fallback sûr
+    req.user.isPremium = false;
+    req.user.planName = 'free';
+    req.user.subscription = {
+      plan_name: 'free',
+      status: 'active',
+      isValid: true
     };
     next();
   }
 };
 
+// Supprime la fonction checkIfSubscriptionIsValid (plus utilisée)
+
+// MIDDLEWARE canAddWord - VERSION SIMPLIFIÉE
 exports.canAddWord = async (req, res, next) => {
   try {
     const user = req.user;
-    
+
     if (!user) {
-      return res.status(401).json({ 
-        success: false, 
-        message: "Not authenticated" 
+      return res.status(401).json({
+        success: false,
+        message: "Non authentifié"
       });
     }
-    
+
+    // DEBUG CRITIQUE
+    console.log('🔍 [canAddWord] DEBUG:', {
+      userId: user.id,
+      email: user.email,
+      isPremium: user.isPremium, // ← Utilise isPremium directement
+      planName: user.planName,
+      subscription: user.subscription
+    });
+
+    // Vérifier les limites
     const { rows } = await pool.query(
       "SELECT COUNT(*) as count FROM user_mots WHERE user_id = $1",
       [user.id]
     );
-    
+
     const currentCount = parseInt(rows[0].count);
-    const maxWords = user.is_premium ? 10000 : 10000;
-    
-    req.user.currentWordCount = currentCount;
-    
+    const maxWords = user.isPremium ? 100000 : 100; // ← Limites simples
+
+    console.log(`🔍 [canAddWord] Limite: ${currentCount}/${maxWords} (Premium: ${user.isPremium})`);
+
     if (currentCount >= maxWords) {
-      // ⚠️ Utilisez un statut d'erreur (400, 403, 429...)
-      return res.status(403).json({  // <-- CHANGEMENT ICI
+      return res.status(403).json({
         success: false,
         limitReached: true,
         current: currentCount,
         max: maxWords,
-        message: `Word limit reached (${currentCount}/${maxWords})`
+        message: `Limite de mots atteinte (${currentCount}/${maxWords})`,
+        upgradeRequired: !user.isPremium
       });
     }
-    
+
+    req.user.currentWordCount = currentCount;
     next();
+
   } catch (error) {
-    console.error('Error in canAddWord middleware:', error);
+    console.error('❌ Erreur canAddWord:', error);
     next(error);
   }
-}; 
-
-// Vérification pour les duels
-exports.canPlayDuel = (req, res, next) => {
-  const plan = req.user.subscription?.plan_name || 'free';
-  
-  if (plan === 'premium') {
-    return next();
-  }
-  
-  const current = req.user.usage?.duels_played || 0;
-  const max = req.user.usageLimits?.daily_duels || 1;
-  
-  if (current >= max) {
-    return res.status(403).json({
-      error: 'Daily duel limit reached! Upgrade to Premium for unlimited duels.',
-      current,
-      max,
-      upgradeRequired: true
-    });
-  }
-  
-  next();
 };
 
-// Vérification pour les quiz
-exports.canTakeQuiz = async (req, res, next) => {
-  const plan = req.user.subscription?.plan_name || 'free';
-  
-  if (plan === 'premium') {
-    return next();
-  }
-  
+// Vérification pour les duels - VERSION SIMPLIFIÉE
+exports.canPlayDuel = async (req, res, next) => {
   try {
-    const userId = req.user.id;
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Récupérer l'usage d'aujourd'hui
-    const usageResult = await pool.query(
-      'SELECT quizzes_taken FROM user_usage WHERE user_id = $1 AND date = $2',
-      [userId, today]
-    );
-    
-    let quizzesTakenToday = 0;
-    
-    if (usageResult.rows.length > 0) {
-      quizzesTakenToday = usageResult.rows[0].quizzes_taken || 0;
+    const user = req.user;
+
+    if (!user) {
+      return res.status(401).json({ error: 'Authentication required' });
     }
-    
-    const maxQuizzes = req.user.usageLimits?.daily_quizzes || 100; // Par défaut 5 quiz/jour
-    
-    if (quizzesTakenToday >= maxQuizzes) {
+
+    // Si premium, pas de limite
+    if (user.isPremium) {
+      return next();
+    }
+
+    // Pour les free users, limite simple
+    const today = new Date().toISOString().split('T')[0];
+    const result = await pool.query(
+      `SELECT COUNT(*) as count FROM duels 
+       WHERE (challenger_id = $1 OR opponent_id = $1) 
+       AND created_at::date = $2`,
+      [user.id, today]
+    );
+
+    const duelsToday = parseInt(result.rows[0].count);
+    const maxDuels = 1; // 1 duel par jour pour free
+
+    if (duelsToday >= maxDuels) {
+      return res.status(403).json({
+        error: 'Daily duel limit reached!',
+        message: `Free users can play only ${maxDuels} duel per day. Upgrade to Premium for unlimited duels.`,
+        current: duelsToday,
+        max: maxDuels,
+        upgradeRequired: true
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Error checking duel limit:', error);
+    next(error);
+  }
+};
+
+exports.canTakeQuiz = async (req, res, next) => {
+  try {
+    const user = req.user;
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+
+    if (user.isPremium) return next();
+
+    const today = new Date().toISOString().split('T')[0];
+    const result = await pool.query(
+      `SELECT COUNT(*) as count 
+       FROM quiz_history 
+       WHERE user_id = $1 AND date_completed::date = $2`,
+      [user.id, today]
+    );
+
+    const quizzesToday = parseInt(result.rows[0].count);
+    const maxQuizzes = 2;
+
+    if (quizzesToday >= maxQuizzes) {
       return res.status(403).json({
         success: false,
         limitReached: true,
         type: 'quiz',
-        current: quizzesTakenToday,
+        current: quizzesToday,
         max: maxQuizzes,
-        message: `Daily quiz limit reached! You've taken ${quizzesTakenToday}/${maxQuizzes} quizzes today. Upgrade to Premium for unlimited quizzes.`
+        message: `Daily quiz limit reached! Free users can take only ${maxQuizzes} quizzes per day.`,
+        upgradeRequired: true
       });
     }
-    
+
     next();
   } catch (error) {
-    console.error('Error checking quiz limit:', error);
-    // En cas d'erreur, permettre de continuer (meilleure UX)
-    next();
+    console.error('❌ Erreur canTakeQuiz:', error);
+    next(error);
   }
+};
+
+// Middleware pour vérifier une fonctionnalité spécifique
+exports.requireFeature = (feature) => {
+  return async (req, res, next) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Logique simple: si premium, toutes les fonctionnalités sont disponibles
+    if (req.user.isPremium) {
+      return next();
+    }
+
+    // Liste des fonctionnalités premium
+    const premiumFeatures = {
+      'unlimited_words': true,
+      'unlimited_duels': true,
+      'unlimited_quizzes': true,
+      'offline_mode': true,
+      'no_ads': true,
+      'advanced_analytics': true
+    };
+
+    if (premiumFeatures[feature]) {
+      return res.status(403).json({
+        error: `This feature requires Premium subscription`,
+        requiredPlan: 'premium',
+        feature: feature,
+        upgradeUrl: '/pricing'
+      });
+    }
+
+    next();
+  };
 };
