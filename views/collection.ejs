@@ -149,12 +149,6 @@ body {
   </script>
 </head>
 <body>
-   <% // Variables locales sécurisées 
-    const currentUser = locals.user || null; 
-    const userPlan = currentUser && currentUser.subscription ? currentUser.subscription.plan_name : 'free'; 
-    const isPremium = userPlan === 'premium'; 
-    const currentBalance = locals.balance || 0; 
-  %>
 <%- include('partials/header', {currentPage: 'collection', user: user, balance: balance}) %>
 <%- include('partials/navbar', {currentPage: 'collection', user: user}) %>
 

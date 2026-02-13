@@ -308,8 +308,13 @@
 
     <div class="col-12 col-lg-8 mobile-order-2 gap-2">
         <% if (players && players.length> 0) { %>
-        <%- include('partials/ranking', { players: players, currentUserId: user.id, rankingLimit:
-                          20, showFullRankingLink: false, rankingTitle: 'Player Ranking' }) %>
+        <%- include('partials/ranking', { 
+            players: players, 
+            currentUserId: user.id, 
+            rankingLimit: 20, 
+            showFullRankingLink: false, 
+            rankingTitle: 'Player Ranking ' + new Date().getFullYear() 
+          }) %>
         <% } else { %>
         <div class="alert alert-warning">
           <p><strong>Debug Info:</strong></p>

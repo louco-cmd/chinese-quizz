@@ -1166,16 +1166,16 @@ router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, asyn
       [opponent_id]
     );
 
-    console.log('[Création Duel] Opposant vérifié:', opponentCheck.rows[0]);
+    console.log('[Création Duel] Verified oponnent:', opponentCheck.rows[0]);
 
     if (opponentCheck.rows.length === 0) {
       console.log('[Création Duel] Opposant non trouvé');
-      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+      return res.status(404).json({ error: 'Unfound user' });
     }
 
     if (opponent_id === challengerId) {
       console.log('[Création Duel] Tentative de duel contre soi-même');
-      return res.status(400).json({ error: 'Vous ne pouvez pas vous défier vous-même' });
+      return res.status(400).json({ error: 'Really ? against yourself ? are you sick or what ?' });
     }
 
     // ✅ VÉRIFICATION DU SOLDE OPPOSANT AVANT TRANSACTION
@@ -1185,7 +1185,7 @@ router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, asyn
     if (bet_amount > 0 && opponentBalance < bet_amount) {
       console.log('[Création Duel] Opposant n\'a pas assez pour couvrir le pari');
       return res.status(400).json({
-        error: `${opponentCheck.rows[0].name} n'a pas assez de coins (${opponentBalance}) pour accepter ce pari de ${bet_amount} coins`
+        error: `${opponentCheck.rows[0].name} doesn't have enough coins to accept the duel.`
       });
     }
 
@@ -1202,7 +1202,7 @@ router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, asyn
     if (challengerBalance.rows[0].balance < bet_amount) {
       console.log('[Création Duel] Solde insuffisant pour pari');
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: "Solde insuffisant pour parier" });
+      return res.status(400).json({ error: "insufissant founds to bet" });
     }
 
     // ✅ VÉRIFICATION DOUBLE du solde opposant (avec verrouillage)
@@ -1216,30 +1216,30 @@ router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, asyn
       console.log('[Création Duel] Opposant n\'a pas assez pour couvrir le pari (après verrouillage)');
       await client.query('ROLLBACK');
       return res.status(400).json({
-        error: `${opponentCheck.rows[0].name} n'a pas assez de coins pour accepter ce pari`
+        error: `${opponentCheck.rows[0].name} has no enought coins to bet`
       });
     }
 
     // Débit challenger (blocage mise)
     console.log('[Création Duel] Débit du challenger');
-    const debitChallenger = await addTransaction(client, challengerId, -bet_amount, "bet", "Mise duel");
+    const debitChallenger = await addTransaction(client, challengerId, -bet_amount, "bet", "Duel bet");
     console.log('[Création Duel] Résultat débit challenger:', debitChallenger);
 
     if (!debitChallenger) {
       console.log('[Création Duel] Échec débit challenger');
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Échec de la transaction challenger' });
+      return res.status(400).json({ error: 'Challenger transaction failed' });
     }
 
     // ✅ DÉBIT OPPOSANT (NOUVEAU) - Blocage de sa mise aussi
     console.log('[Création Duel] Débit de l\'opposant');
-    const debitOpponent = await addTransaction(client, opponent_id, -bet_amount, "bet", "Mise duel");
+    const debitOpponent = await addTransaction(client, opponent_id, -bet_amount, "bet", "Duel bet");
     console.log('[Création Duel] Résultat débit opposant:', debitOpponent);
 
     if (!debitOpponent) {
       console.log('[Création Duel] Échec débit opposant');
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Échec de la transaction opposant' });
+      return res.status(400).json({ error: 'Opponent transaction failed' });
     }
 
     // Génération quiz
@@ -1287,7 +1287,7 @@ router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, asyn
     res.json({
       success: true,
       duel: duelResult.rows[0],
-      message: `Défi lancé avec un pari de ${bet_amount} coins !`
+      message: `Duel successfully sent for ${bet_amount} coins !`
     });
 
   } catch (err) {
@@ -1298,7 +1298,7 @@ router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, asyn
     } catch (rollbackErr) {
       console.error('❌ Erreur rollback:', rollbackErr);
     }
-    res.status(500).json({ error: 'Erreur serveur' });
+    res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
     console.log('[Création Duel] Connexion client libérée');

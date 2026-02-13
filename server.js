@@ -83,10 +83,10 @@ app.use(session({
   secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
   name: 'jiayou.sid',
   resave: true, // ⬅️ IMPORTANT: false pour PostgreSQL
-  saveUninitialized: true, // ⬅️ IMPORTANT: false pour la sécurité
+  saveUninitialized: false, // ⬅️ IMPORTANT: false pour la sécurité
   rolling: false, // ⬅️ false pour plus de stabilité
   cookie: {
-    secure: false, // ⬅️ true pour HTTPS
+    secure: true, // ⬅️ true pour HTTPS
     httpOnly: true, // ⬅️ empêcher l'accès JS
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
     sameSite: 'lax',
@@ -752,8 +752,6 @@ app.get('/auth/reset-password', async (req, res) => {
   }
 });
 
-
-
 // Pages EJS
 app.get('/', (req, res) => {
   const error = req.query.error;
@@ -773,15 +771,20 @@ app.get('/index', (req, res) => {
   res.redirect('/');
 });
 
+app.get('/tutorial', (req, res) => {
+  res.render('tutorial', { user: req.user, balance: req.user?.balance });
+});
+
 app.get('/dashboard', ensureAuth, async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const userRes = await pool.query('SELECT name, balance FROM users WHERE id = $1', [userId]);
+    const userRes = await pool.query('SELECT name, balance, last_login FROM users WHERE id = $1', [userId]);
     const user = userRes.rows[0] || {};
 
     // Récupérer le solde
     const balance = user.balance || 0;
+
 
     console.log('📊 Rendering dashboard with:', {
       userId,
@@ -794,7 +797,8 @@ app.get('/dashboard', ensureAuth, async (req, res) => {
       user: req.user,        // ← Passez req.user comme "user"
       userData: {            // ← Gardez pour compatibilité
         name: user.name || 'Friend',
-        balance: balance
+        balance: balance,
+        lastLogin: user.last_login
       },
       balance: balance,      // ← Passez aussi balance directement
       currentPage: 'dashboard'
@@ -866,43 +870,51 @@ app.get('/duels', ensureAuth, async (req, res) => {
   try {
     console.log('📄 Chargement page classement SIMPLIFIÉ');
     const results = await pool.query(`
-  SELECT 
-    u.id,
-    u.name,
-    u.email,
-    u.country,
-    u.tagline,
-    um.word_count as total_words,
-    COUNT(CASE WHEN d.status = 'completed' AND (
-      (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
-      (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
-    ) THEN 1 END) as wins,
-    COUNT(CASE WHEN d.status = 'completed' AND (
-      (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
-      (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
-    ) THEN 1 END) as losses,
-    CASE 
-      WHEN COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END) > 0 THEN
-        ROUND(
-          (COUNT(CASE WHEN d.status = 'completed' AND (
+        SELECT 
+        u.id,
+        u.name,
+        u.email,
+        u.country,
+        u.tagline,
+        COALESCE(um.word_count, 0) AS total_words,   -- évite NULL
+        COUNT(CASE WHEN d.status = 'completed' AND (
             (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
             (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
-          ) THEN 1 END) * 100.0) / 
-          COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END)
-        , 1)
-      ELSE 0
-    END as ratio
-  FROM users u
-  LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
-  LEFT JOIN (
-    SELECT user_id, COUNT(*) as word_count 
-    FROM user_mots 
-    GROUP BY user_id
-  ) um ON um.user_id = u.id
-  WHERE u.name IS NOT NULL
-  GROUP BY u.id, u.name, u.email, u.country, u.tagline, um.word_count
-  ORDER BY wins DESC, ratio DESC, u.name
-  LIMIT 10
+        ) THEN 1 END) AS wins,
+        COUNT(CASE WHEN d.status = 'completed' AND (
+            (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
+            (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
+        ) THEN 1 END) AS losses,
+        CASE 
+            WHEN COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END) > 0 THEN
+                ROUND(
+                    (COUNT(CASE WHEN d.status = 'completed' AND (
+                        (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+                        (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+                    ) THEN 1 END) * 100.0) / 
+                    COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END)
+                , 1)
+            ELSE 0
+        END AS ratio
+    FROM users u
+    LEFT JOIN duels d 
+        ON (d.challenger_id = u.id OR d.opponent_id = u.id)
+        AND d.status = 'completed'
+        -- 🔽 Filtre sur l'année en cours (adaptez le nom de la colonne si nécessaire)
+        AND EXTRACT(YEAR FROM d.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+    LEFT JOIN (
+        SELECT user_id, COUNT(*) AS word_count 
+        FROM user_mots 
+        GROUP BY user_id
+    ) um ON um.user_id = u.id
+    WHERE u.name IS NOT NULL
+    GROUP BY u.id, u.name, u.email, u.country, u.tagline, um.word_count
+    ORDER BY 
+        wins DESC, 
+        total_words DESC, 
+        ratio DESC, 
+        u.name
+    LIMIT 10;
 `);
     players = results.rows;
     console.log(`✅ ${players.rows.length} joueurs chargés (version simple)`);
@@ -1080,43 +1092,51 @@ app.get('/leaderboard', ensureAuth, async (req, res) => {
     console.log('📄 Chargement page classement SIMPLIFIÉ');
     // REQUÊTE ULTRA SIMPLE POUR COMMENCER
     const results = await pool.query(`
-  SELECT 
-    u.id,
-    u.name,
-    u.email,
-    u.country,
-    u.tagline,
-    um.word_count as total_words,
-    COUNT(CASE WHEN d.status = 'completed' AND (
-      (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
-      (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
-    ) THEN 1 END) as wins,
-    COUNT(CASE WHEN d.status = 'completed' AND (
-      (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
-      (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
-    ) THEN 1 END) as losses,
-    CASE 
-      WHEN COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END) > 0 THEN
-        ROUND(
-          (COUNT(CASE WHEN d.status = 'completed' AND (
-            (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
-            (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
-          ) THEN 1 END) * 100.0) / 
-          COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END)
-        , 1)
-      ELSE 0
-    END as ratio
-  FROM users u
-  LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
-  LEFT JOIN (
-    SELECT user_id, COUNT(*) as word_count 
-    FROM user_mots 
-    GROUP BY user_id
-  ) um ON um.user_id = u.id
-  WHERE u.name IS NOT NULL
-  GROUP BY u.id, u.name, u.email, u.country, u.tagline, um.word_count
-  ORDER BY wins DESC, ratio DESC, u.name
-  LIMIT 100
+              SELECT 
+          u.id,
+          u.name,
+          u.email,
+          u.country,
+          u.tagline,
+          COALESCE(um.word_count, 0) AS total_words,   -- évite NULL
+          COUNT(CASE WHEN d.status = 'completed' AND (
+              (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+              (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+          ) THEN 1 END) AS wins,
+          COUNT(CASE WHEN d.status = 'completed' AND (
+              (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
+              (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
+          ) THEN 1 END) AS losses,
+          CASE 
+              WHEN COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END) > 0 THEN
+                  ROUND(
+                      (COUNT(CASE WHEN d.status = 'completed' AND (
+                          (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+                          (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+                      ) THEN 1 END) * 100.0) / 
+                      COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END)
+                  , 1)
+              ELSE 0
+          END AS ratio
+      FROM users u
+      LEFT JOIN duels d 
+          ON (d.challenger_id = u.id OR d.opponent_id = u.id)
+          AND d.status = 'completed'
+          -- 🔽 Filtre sur l'année en cours (adaptez le nom de la colonne si nécessaire)
+          AND EXTRACT(YEAR FROM d.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+      LEFT JOIN (
+          SELECT user_id, COUNT(*) AS word_count 
+          FROM user_mots 
+          GROUP BY user_id
+      ) um ON um.user_id = u.id
+      WHERE u.name IS NOT NULL
+      GROUP BY u.id, u.name, u.email, u.country, u.tagline, um.word_count
+      ORDER BY 
+          wins DESC, 
+          total_words DESC, 
+          ratio DESC, 
+          u.name
+      LIMIT 100;
 `);
     players = results.rows;
     console.log(`✅ ${players.rows.length} joueurs chargés (version simple)`);

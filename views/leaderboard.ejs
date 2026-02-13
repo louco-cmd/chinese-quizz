@@ -212,8 +212,13 @@
     <div class="row g-3 g-md-4">
       <div class="col-12">
         <% if (players && players.length> 0) { %>
-        <%- include('partials/ranking', { players: players, currentUserId: user.id, rankingLimit:
-                                20, showFullRankingLink: false, rankingTitle: 'Player Ranking' }) %>
+        <%- include('partials/ranking', { 
+            players: players, 
+            currentUserId: user.id, 
+            rankingLimit: 20, 
+            showFullRankingLink: false, 
+            rankingTitle: 'Player Ranking ' + new Date().getFullYear() 
+          }) %>
         <% } else { %>
         <div class="alert alert-warning">
           <p><strong>Debug Info:</strong></p>
