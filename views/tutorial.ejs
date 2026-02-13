@@ -44,6 +44,8 @@
       align-items: center;
       justify-content: center;
       padding: 24px;
+      box-sizing: border-box;
+
     }
 
     /* --------------------------------------------
@@ -300,7 +302,15 @@
 -------------------------------------------- */
     @media (max-width: 768px) {
 
-      /* Points de progression : horizontaux en bas */
+      /* Slides alignées en haut, padding-top réduit */
+      .slide {
+        align-items: flex-start;
+        padding-top: 80px;
+        /* espace juste sous le logo */
+        /* padding-right et padding-bottom conservés depuis la règle de base (24px) */
+      }
+
+      /* Points en bas, horizontaux */
       .progress-dots {
         top: auto;
         bottom: 110px;
@@ -335,10 +345,9 @@
         font-size: 1.8rem;
       }
 
-      /* Boutons d'action */
+      /* Bouton d'action à droite (Skip) – au-dessus des flèches */
       .action-btn-container {
         bottom: 100px;
-        /* au-dessus des flèches */
         right: 16px;
       }
 
@@ -359,16 +368,6 @@
       .skip-short {
         display: inline;
       }
-
-      .action-btn-container {
-        bottom: 25px;
-      }
-
-      .slide {
-        align-items: flex-start;
-        padding-top: 100px;
-        /* ajuste selon le rendu souhaité */
-      }
     }
 
     @media (max-width: 480px) {
@@ -387,15 +386,6 @@
       .progress-dots {
         bottom: 100px;
       }
-
-      .action-btn-container {
-        bottom: 25px;
-      }
-      .slide {
-        align-items: flex-start;
-        padding-top: 100px;
-        /* ajuste selon le rendu souhaité */
-      }
     }
 
     @media (max-width: 360px) {
@@ -408,15 +398,6 @@
       .btn-action {
         padding: 8px 18px;
         font-size: 0.9rem;
-      }
-
-      .action-btn-container {
-        bottom: 25px;
-      }
-      .slide {
-        align-items: flex-start;
-        padding-top: 100px;
-        /* ajuste selon le rendu souhaité */
       }
     }
   </style>
