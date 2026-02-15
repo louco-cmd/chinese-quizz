@@ -626,9 +626,9 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
       INNER JOIN mots m ON um.mot_id = m.id
       WHERE um.user_id = $1
     `;
-    
+
     let countParams = [userId];
-    
+
     if (hskLevel !== 'all') {
       if (hskLevel === 'street') {
         countQuery += ` AND m.hsk IS NULL`;
@@ -640,7 +640,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
 
     const countResult = await pool.query(countQuery, countParams);
     const totalInCollection = parseInt(countResult.rows[0].total_count);
-    
+
     console.log(`📊 Total mots dans la collection (HSK ${hskLevel}): ${totalInCollection}`);
 
     // =============================
@@ -648,7 +648,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     // =============================
     if (totalInCollection < requestedCount) {
       console.log(`❌ Pas assez de mots dans la collection: ${totalInCollection} < ${requestedCount}`);
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
         error: 'not_enough_words_in_collection',
         message: `Vous avez ${totalInCollection} mots dans votre collection.`,
@@ -663,7 +663,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     // 3. RÉCUPÉRATION DES MOTS
     // =============================
     const fetchLimit = Math.min(totalInCollection, requestedCount * 3);
-    
+
     let wordsQuery = `
       SELECT 
         m.*,
@@ -674,7 +674,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
       INNER JOIN mots m ON um.mot_id = m.id
       WHERE um.user_id = $1
     `;
-    
+
     let wordsParams = [userId];
     let paramIndex = 2;
 
@@ -713,7 +713,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     // =============================
     const COOLDOWN_HOURS = 12;
     const now = new Date();
-    
+
     // Appliquer le filtre normalement
     const availableWords = allWords.filter(w => {
       if (!w.last_seen) return true;
@@ -728,7 +728,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     // =============================
     let finalPool;
     let bypassedCooldown = false;
-    
+
     if (availableWords.length >= requestedCount) {
       // Cas idéal : assez de mots après filtre
       finalPool = availableWords;
@@ -738,21 +738,21 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
       // On complète avec des mots "chauds" mais en priorisant les plus anciens
       finalPool = availableWords;
       const needed = requestedCount - availableWords.length;
-      
+
       // Prendre les mots les plus "froids" parmi ceux en cooldown
       const cooldownWords = allWords.filter(w => {
         if (!w.last_seen) return false;
         const diffHours = (now - new Date(w.last_seen)) / (1000 * 60 * 60);
         return diffHours < COOLDOWN_HOURS;
       });
-      
+
       // Trier par ancienneté (les plus anciens d'abord)
       cooldownWords.sort((a, b) => {
         const aHours = a.last_seen ? (now - new Date(a.last_seen)) / (1000 * 60 * 60) : 0;
         const bHours = b.last_seen ? (now - new Date(b.last_seen)) / (1000 * 60 * 60) : 0;
         return aHours - bHours; // Croissant = plus ancien d'abord
       });
-      
+
       finalPool.push(...cooldownWords.slice(0, needed));
       bypassedCooldown = true;
       console.log(`⚠️ Complété avec ${needed} mots en cooldown`);
@@ -772,10 +772,10 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     if (finalPool.length < requestedCount) {
       // Ce cas ne devrait jamais arriver grâce aux vérifications précédentes
       console.log(`💥 ERREUR LOGIQUE: ${finalPool.length} < ${requestedCount} après tous les fallbacks`);
-      
+
       // On prend ce qu'on a, mais on prévient l'utilisateur
       const actualCount = Math.min(finalPool.length, requestedCount);
-      
+
       return res.json({
         success: true,
         words: finalPool.slice(0, actualCount),
@@ -809,25 +809,25 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     };
 
     let selected = [];
-    
+
     // Calculer les quotas en fonction des disponibilités réelles
     const totalInPool = weak.length + medium.length + strong.length;
-    
+
     if (totalInPool > 0) {
       // Proportion de chaque catégorie
       const weakRatio = weak.length / totalInPool;
       const mediumRatio = medium.length / totalInPool;
       const strongRatio = strong.length / totalInPool;
-      
+
       // Allouer en fonction des proportions
       let weakCount = Math.floor(requestedCount * weakRatio);
       let mediumCount = Math.floor(requestedCount * mediumRatio);
       let strongCount = Math.floor(requestedCount * strongRatio);
-      
+
       // Ajuster pour arriver au compte exact
       let totalSelected = weakCount + mediumCount + strongCount;
       let remaining = requestedCount - totalSelected;
-      
+
       // Distribuer le reste
       while (remaining > 0) {
         if (weakCount < weak.length) weakCount++;
@@ -837,7 +837,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
         remaining--;
         totalSelected++;
       }
-      
+
       // Prendre les mots
       selected = [
         ...pickRandom(weak, weakCount),
@@ -901,7 +901,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
 
   } catch (err) {
     console.error('💥 ERREUR /quiz-mots:', err);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'server_error',
       message: 'Erreur serveur lors de la préparation du quiz'
@@ -1155,10 +1155,17 @@ router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, asyn
   const client = await pool.connect();
 
   try {
-    const { opponent_id, duel_type = 'classic', quiz_type = 'pinyin', bet_amount = 0 } = req.body;
+    // 🆕 Récupération de word_count avec valeur par défaut 20
+    const {
+      opponent_id,
+      duel_type = 'classic',
+      word_count = 20,          // ← AJOUT
+      quiz_type = 'pinyin',
+      bet_amount = 0
+    } = req.body;
     const challengerId = req.user.id;
 
-    console.log('🎯 Création duel avec pari:', { challengerId, opponent_id, duel_type, bet_amount });
+    console.log('🎯 Création duel avec pari:', { challengerId, opponent_id, duel_type, word_count, bet_amount });
 
     // Vérif opposant AVANT la transaction
     const opponentCheck = await client.query(
@@ -1242,10 +1249,10 @@ router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, asyn
       return res.status(400).json({ error: 'Opponent transaction failed' });
     }
 
-    // Génération quiz
-    console.log('[Création Duel] Génération quiz');
-    const quizData = await generateDuelQuiz(client, challengerId, opponent_id, duel_type, quiz_type);
-
+    // Génération quiz - on passe maintenant word_count
+    console.log('[Création Duel] Génération quiz avec word_count =', word_count);
+    const quizData = await generateDuelQuiz(client, challengerId, opponent_id, duel_type, quiz_type, word_count);
+    
     if (!quizData) {
       console.log('[Création Duel] Quiz non généré');
       await client.query('ROLLBACK');
@@ -1253,18 +1260,21 @@ router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, asyn
     }
 
     console.log('[Création Duel] Insertion duel en base');
+    // 🆕 Ajout de word_count dans l'INSERT
     const duelResult = await client.query(`
       INSERT INTO duels 
-      (challenger_id, opponent_id, duel_type, quiz_type, quiz_data, bet_amount, status)
-      VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+      (challenger_id, opponent_id, duel_type, word_count, quiz_type, quiz_data, bet_amount, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *
     `, [
       challengerId,
       opponent_id,
       duel_type,
+      word_count,          // ← AJOUT
       quiz_type,
       JSON.stringify(quizData),
-      bet_amount
+      bet_amount,
+      'pending'
     ]);
 
     // ✅ CORRECTION : Incrémenter l'usage AVANT le commit, avec client.query

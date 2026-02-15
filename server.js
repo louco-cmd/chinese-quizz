@@ -86,7 +86,7 @@ app.use(session({
   saveUninitialized: true, // ⬅️ IMPORTANT: false pour la sécurité
   rolling: false, // ⬅️ false pour plus de stabilité
   cookie: {
-    secure: false, // ⬅️ true pour HTTPS
+    secure: true, // ⬅️ true pour HTTPS
     httpOnly: true, // ⬅️ empêcher l'accès JS
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
     sameSite: 'lax',
@@ -751,8 +751,6 @@ app.get('/auth/reset-password', async (req, res) => {
     });
   }
 });
-
-
 
 // Pages EJS
 app.get('/', (req, res) => {

@@ -1,86 +1,91 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Duel - 加油！</title>
+  <title>Duel - 加油!</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
-    .quiz-container {
-      max-width: 600px;
-      margin: 0 auto;
+    .syllable-input {
+      min-width: 100px;
+      text-align: center;
     }
-    .chinese-char {
-      font-size: 3rem;
+
+    .chinese-character {
+      cursor: help;
+    }
+
+    .card-custom-bg {
+      background: #FFF4F2;
+      border: 1px solid #FDA297;
     }
   </style>
 </head>
+
 <body>
   <%- include('partials/header') %>
   <%- include('partials/navbar', {currentPage: 'duels'}) %>
 
   <div class="container my-4">
-    <div class="card">
-      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-        <h4 class="mb-0">
-          ⚔️ Duel contre 
-          <strong>
-            <%= duel.challenger_id === user.id ? duel.opponent_name : duel.challenger_name %>
-          </strong>
-        </h4>
-        <div class="badge bg-light text-dark">
-          <%= duel.duel_type === 'classic' ? '🏆 Classique' : '⚔️ Match AA' %>
+    <!-- Quiz container (same as quiz page) -->
+    <div class="quiz-container p-4 bg-light rounded shadow-sm col-12 col-md-10 col-lg-8 mx-auto">
+      
+      <!-- Duel header - full width, light gray, minimal -->
+      <div class="bg-light border-bottom py-2 mb-4">
+        <div class="container d-flex justify-content-between align-items-center">
+          <span class="fw-semibold text-secondary">⚔️ Duel vs <span class="text-dark"><%= duel.challenger_id === user.id ? duel.opponent_name : duel.challenger_name %></span></span>
+          <span class="badge bg-white text-dark border"><%= duel.duel_type === 'classic' ? 'Classic' : 'AA Match' %></span>
         </div>
       </div>
-      
-      <div class="card-body">
-        <!-- Container du Quiz (même structure que quiz-pinyin) -->
-        <div class="quiz-container p-4 bg-light rounded shadow-sm col-12 col-md-10 col-lg-6 mx-auto">
 
-          <!-- Question -->
-          <div id="quizQuestion" class="mb-3 fw-bold fs-5 text-center"></div>
+      <!-- Question -->
+      <div id="quizQuestion" class="mb-4 fw-bold fs-3 text-center"></div>
 
-          <!-- Résultat AU DESSUS des champs -->
-          <div id="quizResult" class="mb-3 text-center fs-4 fw-bold"></div>
-          
-          <!-- Caractère chinois (optionnel) -->
-          <div id="chineseCharacter" class="mb-3 text-center" style="display: none;">
-            <div class="chinese-char fs-1 fw-bold text-dark mb-2"></div>
-            <div class="pinyin-display fs-5 text-muted"></div>
-          </div>
+      <!-- Result alert -->
+      <div id="quizResult" class="alert mb-4 text-center" style="display: none;"></div>
 
-          <!-- Formulaire du quiz -->
-          <form id="quizForm" class="p-4 bg-light rounded gap-4 d-flex flex-column">
-            <div id="quizFields" class="d-flex flex-row gap-2 justify-content-center"></div>
+      <!-- Form -->
+      <form id="quizForm" class="p-4 bg-white rounded gap-4 d-flex flex-column">
+        <div id="quizFields" class="d-flex flex-wrap justify-content-center gap-2 mb-3"></div>
 
-            <!-- Boutons - seulement "Soumettre" -->
-            <div class="d-flex flex-column gap-2">
-              <button type="submit" id="checkBtn" class="btn btn-primary w-100">Soumettre</button>
-            </div>
-          </form>
-
-          <!-- Score -->
-          <div id="quizScore" class="mb-3 fw-bold text-center">✅ 0 | ❌ 0</div>
-          
-          <!-- Progression -->
-          <div class="progress mb-3">
-            <div id="progressBar" class="progress-bar" style="width: 0%">0%</div>
-          </div>
+        <!-- Single button -->
+        <div class="d-flex flex-column gap-2">
+          <button type="submit" id="checkBtn" class="btn btn-primary w-100 btn-lg">
+            <i class="bi bi-send-check me-2"></i>Submit
+          </button>
         </div>
+      </form>
+
+      <!-- Score and progress -->
+      <div class="row mt-4">
+        <div class="col-12 col-md-6">
+          <div id="quizScore" class="fw-bold text-center fs-5">✅ 0 | ❌ 0</div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div id="quizProgress" class="text-muted fw-medium text-center">Question 1/<%= quizData.words.length %></div>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="progress mt-3">
+        <div id="progressBar" class="progress-bar" style="width: 0%">0%</div>
       </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="/js/saveQuiz.js"></script>
-  <script src="/js/global.js"></script> 
+  <script src="/js/global.js"></script>
+  <script src="/js/tts-chinese.js"></script>
+  <script src="/js/card-function.js"></script>
   <script>
-    // Données du duel
+    // Duel data
     const duelId = <%= duel.id %>;
     const quizData = <%- JSON.stringify(quizData) %>;
-    
-    // Variables du quiz (même logique que quiz-pinyin)
+
+    // Quiz variables
     let quizWords = quizData.words || [];
     let quizIdx = 0;
     let quizInputs = [];
@@ -88,32 +93,102 @@
     let wrongCount = 0;
     let currentWord = null;
     let hasSecondChance = false;
+    let quizEnded = false;
 
+    window.quizWords = quizWords;
+
+    // DOM elements
     const quizQuestion = document.getElementById('quizQuestion');
     const quizFields = document.getElementById('quizFields');
     const checkBtn = document.getElementById('checkBtn');
     const quizResult = document.getElementById('quizResult');
     const quizForm = document.getElementById('quizForm');
     const quizScore = document.getElementById('quizScore');
-    const chineseCharacter = document.getElementById('chineseCharacter');
-    const chineseChar = chineseCharacter.querySelector('.chinese-char');
-    const pinyinDisplay = chineseCharacter.querySelector('.pinyin-display');
+    const quizProgress = document.getElementById('quizProgress');
     const progressBar = document.getElementById('progressBar');
 
-    // Démarrer le quiz
+    // Helper to show character card (uses external function if available, otherwise fallback)
+    const showCharacterCard = (() => {
+      // If the global function from card-function.js exists, use it
+      if (typeof window.showCharacterCard === 'function') {
+        return window.showCharacterCard;
+      }
+      // Otherwise provide a simple fallback
+      return function(word) {
+        const card = document.createElement('div');
+        card.className = 'card card-custom-bg rounded-4 shadow-sm p-3 mb-3 mx-auto';
+        card.style.cssText = 'width: 280px; max-width: 100%; background: #FFF4F2; border: 1px solid #FDA297;';
+        card.id = 'character-card-feedback';
+
+        const hskLevelDisplay = word.hsk || 'Street';
+        const chineseFontSizeClass = word.chinese && word.chinese.length >= 3 ? 'fs-2' : 'fs-1';
+
+        card.innerHTML = `
+          <div class="card-body text-center p-0">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge bg-secondary">HSK ${hskLevelDisplay}</span>
+              <button class="btn btn-sm btn-outline-primary btn-audio" 
+                      data-text="${word.chinese}"
+                      title="Listen pronunciation">
+                <i class="bi bi-volume-up"></i>
+              </button>
+            </div>
+            <div class="bg-white border rounded-3 p-3">
+              <div class="${chineseFontSizeClass} text-dark chinese-clickable" 
+                   data-word-id="${word.id}"
+                   data-chinese-text="${word.chinese}"
+                   style="min-height: 60px; display: flex; align-items: center; justify-content: center;">
+                ${word.chinese}
+              </div>
+            </div>
+            <div class="mt-2 text-muted small">${word.pinyin}</div>
+          </div>
+        `;
+
+        quizForm.parentNode.insertBefore(card, quizForm);
+
+        const audioBtn = card.querySelector('.btn-audio');
+        if (audioBtn) {
+          audioBtn.addEventListener('click', function() {
+            const text = this.getAttribute('data-text');
+            if (window.textToSpeech) {
+              window.textToSpeech(text, 'zh-CN');
+            } else if ('speechSynthesis' in window) {
+              const utterance = new SpeechSynthesisUtterance(text);
+              utterance.lang = 'zh-CN';
+              utterance.rate = 0.8;
+              speechSynthesis.speak(utterance);
+            }
+          });
+        }
+
+        if (window.transformChineseCharacters) {
+          const chineseContainer = card.querySelector('.chinese-clickable');
+          if (chineseContainer && word.chinese) {
+            window.transformChineseCharacters(word.chinese, chineseContainer);
+          }
+        }
+      };
+    })();
+
+    function hideCharacterCard() {
+      const card = document.getElementById('character-card-feedback');
+      if (card) card.remove();
+    }
+
+    // Init
     document.addEventListener('DOMContentLoaded', function() {
       if (quizWords.length === 0) {
-        quizQuestion.textContent = '❌ Erreur: Aucun mot dans ce duel';
+        quizQuestion.textContent = '❌ Error: no words in this duel';
         checkBtn.style.display = 'none';
         return;
       }
-
       shuffleArray(quizWords);
       startQuiz();
     });
 
     function shuffleArray(arr) {
-      for(let i = arr.length - 1; i > 0; i--){
+      for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [arr[i], arr[j]] = [arr[j], arr[i]];
       }
@@ -124,54 +199,68 @@
       correctCount = 0;
       wrongCount = 0;
       hasSecondChance = false;
+      quizEnded = false;
       updateScore();
       updateProgress();
-      checkBtn.style.display = 'inline-block';
+      enableSubmitButton();
       showQuizWord();
     }
 
     function showQuizWord() {
-      console.log('🔍 DEBUG showQuizWord:'); // 🔥 NOUVEAU LOG
-      console.log('  quizIdx:', quizIdx);
-      console.log('  quizWords.length:', quizWords.length);
-      console.log('  Condition quizIdx >= quizWords.length:', quizIdx >= quizWords.length);
-
       quizFields.innerHTML = '';
       quizInputs = [];
-      quizResult.textContent = '';
+      quizResult.style.display = 'none';
       hasSecondChance = false;
-      chineseCharacter.style.display = 'none';
+      hideCharacterCard();
+      enableSubmitButton();
 
-      if (quizIdx > quizWords.length - 1) {
+      if (quizIdx >= quizWords.length) {
         endQuiz();
         return;
       }
-      
-      enableSubmitButton();
-      
+
       currentWord = quizWords[quizIdx];
-      quizQuestion.textContent = `How to say "${currentWord.english}" in pinyin ?`;
+      updateProgress();
+      showPinyinQuestion();
 
-      const answer = currentWord.pinyin; 
-      const answerParts = answer.split(' ');
+      if (quizInputs.length > 0) quizInputs[0].focus();
+    }
 
-      answerParts.forEach((part, i) => {
+    function showPinyinQuestion() {
+      quizQuestion.textContent = `How to say "${currentWord.english}" in pinyin?`;
+
+      const syllables = currentWord.pinyin.split(' ');
+      syllables.forEach((syllable, index) => {
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'd-flex flex-column align-items-center';
+
         const inp = document.createElement('input');
         inp.type = 'text';
-        inp.maxLength = part.length;
-        inp.placeholder = part.length + ' caractères';
-        inp.className = 'form-control text-center flex-fill';
+        inp.className = 'form-control syllable-input mb-1';
+        inp.placeholder = `${syllable.length} letters`;
+        inp.maxLength = syllable.length;
+
         inp.addEventListener('input', (e) => {
-          if (e.target.value.length >= e.target.maxLength && quizInputs[i+1]){
-            quizInputs[i+1].focus();
+          if (e.target.value.length >= e.target.maxLength && quizInputs[index + 1]) {
+            quizInputs[index + 1].focus();
           }
         });
-        quizFields.appendChild(inp);
+
+        inputGroup.appendChild(inp);
+        quizFields.appendChild(inputGroup);
         quizInputs.push(inp);
       });
+    }
 
-      quizInputs[0].focus();
-      updateProgress();
+    function updateProgress() {
+      quizProgress.textContent = `Question ${quizIdx + 1}/${quizWords.length}`;
+      const progress = (quizIdx / quizWords.length) * 100;
+      progressBar.style.width = `${progress}%`;
+      progressBar.textContent = `${Math.round(progress)}%`;
+    }
+
+    function updateScore() {
+      quizScore.textContent = `✅ ${correctCount} | ❌ ${wrongCount}`;
     }
 
     function normalizePinyin(str) {
@@ -183,160 +272,131 @@
         .trim();
     }
 
-    function updateScore() {
-      quizScore.textContent = `✅ ${correctCount} | ❌ ${wrongCount}`;
-    }
-
-    function updateProgress() {
-      const progress = ((quizIdx) / quizWords.length) * 100;
-      progressBar.style.width = `${progress}%`;
-      progressBar.textContent = `${Math.round(progress)}%`;
-    }
-
-    function endQuiz() {
-      quizQuestion.textContent = '🎉 Duel terminé !';
-      quizResult.textContent = `Score final: ${correctCount}/${quizWords.length}`;
-      quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
-      checkBtn.style.display = 'none';
-      quizFields.innerHTML = '';
-      progressBar.style.width = '100%';
-      progressBar.textContent = '100%';
-      
-      // Soumettre le score au serveur
-      submitDuelScore(correctCount);
-    }
-
     function disableSubmitButton() {
-      const submitBtn = document.getElementById('checkBtn');
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Chargement...';
-      submitBtn.classList.add('disabled');
+      checkBtn.disabled = true;
+      checkBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Loading...';
+      checkBtn.classList.add('disabled');
     }
 
     function enableSubmitButton() {
-      const submitBtn = document.getElementById('checkBtn');
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = 'Soumettre';
-      submitBtn.classList.remove('disabled');
-    }
-
-    function showChineseCharacter() {
-      if (currentWord.chinese) {
-        chineseChar.textContent = currentWord.chinese;
-        pinyinDisplay.textContent = currentWord.pinyin;
-        chineseCharacter.style.display = 'block';
-        
-        chineseCharacter.style.opacity = '0';
-        chineseCharacter.style.transform = 'translateY(-10px)';
-        
-        setTimeout(() => {
-          chineseCharacter.style.transition = 'all 0.3s ease';
-          chineseCharacter.style.opacity = '1';
-          chineseCharacter.style.transform = 'translateY(0)';
-        }, 100);
-      }
+      checkBtn.disabled = false;
+      checkBtn.innerHTML = '<i class="bi bi-send-check me-2"></i>Submit';
+      checkBtn.classList.remove('disabled');
     }
 
     quizForm.onsubmit = (e) => {
       e.preventDefault();
-
       disableSubmitButton();
 
-      const userAnswer = normalizePinyin(
-        quizInputs.map(inp => inp.value).join("")
-      );
-
+      const userAnswer = normalizePinyin(quizInputs.map(inp => inp.value).join(""));
       const correctAnswer = normalizePinyin(currentWord.pinyin);
 
       if (userAnswer === correctAnswer) {
-        quizResult.textContent = "✅ Correct !";
-        quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
-        
+        quizResult.textContent = "✅ Correct!";
+        quizResult.className = "alert alert-success";
+        quizResult.style.display = 'block';
+
         if (!hasSecondChance) {
           correctCount++;
         }
-        
         updateScore();
-        quizIdx++;
-        console.log('  ✅ Après 2e chance - quizIdx:', quizIdx); // 🔥 LOG
 
+        quizIdx++;
         setTimeout(() => {
-          enableSubmitButton();
-          showQuizWord();
-        }, 1500);
-        
+          if (!quizEnded) {
+            hideCharacterCard();
+            showQuizWord();
+          }
+        }, 1200);
       } else {
         if (!hasSecondChance) {
           wrongCount++;
           updateScore();
-          
-          quizResult.textContent = `❌ Faux ! Correct : ${currentWord.pinyin}`;
-          quizResult.className = "mb-3 text-center text-danger fw-bold fs-4";
+
+          showCharacterCard(currentWord);
+
           hasSecondChance = true;
-          
+
           quizInputs.forEach(input => {
             input.value = '';
             input.style.border = '2px solid #dc3545';
             input.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
           });
           quizInputs[0].focus();
-          
+
+          quizResult.textContent = "Oups, try again";
+          quizResult.className = "alert alert-danger";
+          quizResult.style.display = 'block';
+
           enableSubmitButton();
-          
         } else {
-          quizResult.textContent = `✅ Bien ! Correct : ${currentWord.pinyin}`;
-          quizResult.className = "mb-3 text-center text-success fw-bold fs-4";
-          
+          quizResult.textContent = `The correct answer was: ${currentWord.pinyin}`;
+          quizResult.className = "alert alert-warning";
+          quizResult.style.display = 'block';
+
           quizIdx++;
-          
           setTimeout(() => {
-            enableSubmitButton();
-            showQuizWord();
-          }, 1500);
+            if (!quizEnded) {
+              hideCharacterCard();
+              showQuizWord();
+            }
+          }, 1200);
         }
       }
     };
 
-// Soumission du score au serveur
-async function submitDuelScore(score) {
-  console.log('🎯 Soumission score:', { duelId, score });
-  
-  try {
-    const response = await fetch(`/api/duels/${duelId}/submit`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        score: score
-      })
-    });
+    function endQuiz() {
+      quizEnded = true;
+      hideCharacterCard();
 
-    console.log('📨 Réponse serveur:', response.status);
-    
-    const result = await response.json();
-    console.log('📊 Résultat:', result);
-    
-    if (result.success) {
-      if (result.duel_completed) {
-        console.log('🎉 Duel terminé, redirection...');
-        setTimeout(() => {
-          window.location.href = '/duels?message=duel_completed';
-        }, 2000);
-      } else {
-        console.log('⏳ En attente adversaire...');
-        setTimeout(() => {
-          window.location.href = '/duels?message=score_submitted';
-        }, 2000);
-      }
-    } else {
-      console.error('❌ Erreur serveur:', result.error);
-      alert('Erreur: ' + result.error);
+      quizQuestion.textContent = '🎉 Duel finished!';
+      quizResult.textContent = `Final score: ${correctCount}/${quizWords.length}`;
+      quizResult.className = "alert alert-success text-center fs-4";
+      quizResult.style.display = 'block';
+      checkBtn.style.display = 'none';
+      quizFields.innerHTML = '';
+      progressBar.style.width = '100%';
+      progressBar.textContent = '100%';
+
+      submitDuelScore(correctCount);
     }
-  } catch (error) {
-    console.error('❌ Erreur réseau:', error);
-    alert('Erreur réseau: ' + error.message);
-  }
-}
-  
+
+    async function submitDuelScore(score) {
+      console.log('🎯 Submitting score:', {
+        duelId,
+        score
+      });
+      try {
+        const response = await fetch(`/api/duels/${duelId}/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            score
+          })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          if (result.duel_completed) {
+            setTimeout(() => {
+              window.location.href = '/duels?message=duel_completed';
+            }, 2000);
+          } else {
+            setTimeout(() => {
+              window.location.href = '/duels?message=score_submitted';
+            }, 2000);
+          }
+        } else {
+          alert('Error: ' + result.error);
+        }
+      } catch (error) {
+        console.error('❌ Network error:', error);
+        alert('Network error: ' + error.message);
+      }
+    }
   </script>
 </body>
+
 </html>

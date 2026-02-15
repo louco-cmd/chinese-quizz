@@ -188,39 +188,44 @@ const errorHandler = (err, req, res, next) => {
 
 
 // ==================== FONCTIONS UTILITAIRES ====================
-async function generateDuelQuiz(transaction, user1Id, user2Id, duelType, quizType) {
+async function generateDuelQuiz(transaction, user1Id, user2Id, duelType, quizType, wordCount) {
   try {
-    console.log('🎲 Génération quiz duel:', { duelType, quizType });
+    console.log('🎲 Génération quiz duel:', { duelType, quizType, wordCount });
     
     let wordIds = [];
-    const wordCount = duelType === 'classic' ? 20 : 10;
 
     if (duelType === 'classic') {
-      // 10 mots user1 + 10 mots user2
-      const user1Words = await getRandomUserWords(transaction, user1Id, 10);
-      const user2Words = await getRandomUserWords(transaction, user2Id, 10);
+      // Répartition équilibrée : floor(wordCount/2) pour user1, reste pour user2
+      const count1 = Math.floor(wordCount / 2);
+      const count2 = wordCount - count1;
+
+      const user1Words = await getRandomUserWords(transaction, user1Id, count1);
+      const user2Words = await getRandomUserWords(transaction, user2Id, count2);
       
-      if (user1Words.length < 10 || user2Words.length < 10) {
-        console.warn('⚠️ Pas assez de mots pour un duel classique');
+      if (user1Words.length < count1 || user2Words.length < count2) {
+        console.warn(`⚠️ Pas assez de mots pour un duel classique: besoin ${count1}/${count2}, dispo ${user1Words.length}/${user2Words.length}`);
         return null;
       }
       
       wordIds = [...user1Words, ...user2Words];
       
     } else if (duelType === 'match_aa') {
-      // 10 mots en commun
-      wordIds = await getCommonWords(transaction, user1Id, user2Id, 10);
+      // wordCount mots communs aux deux joueurs
+      wordIds = await getCommonWords(transaction, user1Id, user2Id, wordCount);
       
-      if (wordIds.length < 10) {
-        console.warn('⚠️ Pas assez de mots communs pour un match AA');
+      if (wordIds.length < wordCount) {
+        console.warn(`⚠️ Pas assez de mots communs pour un match AA: besoin ${wordCount}, dispo ${wordIds.length}`);
         return null;
       }
+    } else {
+      // Autres types de duel (non gérés)
+      return null;
     }
 
-    // Mélanger les mots
+    // Mélanger les mots pour éviter un ordre prévisible
     wordIds = shuffleArray(wordIds);
 
-    // Récupérer les infos complètes des mots
+    // Récupérer les informations complètes des mots
     const wordsResult = await transaction.query(`
       SELECT id, chinese, pinyin, english, description, hsk
       FROM mots 
@@ -244,31 +249,26 @@ async function generateDuelQuiz(transaction, user1Id, user2Id, duelType, quizTyp
   }
 }
 
-async function getRandomUserWords(transaction, userId, limit) {
+async function getRandomUserWords(transaction, userId, count) {
   const result = await transaction.query(`
-    SELECT mots.id 
-    FROM mots 
-    JOIN user_mots ON mots.id = user_mots.mot_id 
-    WHERE user_mots.user_id = $1 
-    ORDER BY RANDOM() 
+    SELECT mot_id FROM user_mots
+    WHERE user_id = $1
+    ORDER BY RANDOM()
     LIMIT $2
-  `, [userId, limit]);
-  
-  return result.rows.map(row => row.id);
+  `, [userId, count]);
+  return result.rows.map(row => row.mot_id);
 }
 
-async function getCommonWords(transaction, user1Id, user2Id, limit) {
+async function getCommonWords(transaction, user1Id, user2Id, count) {
   const result = await transaction.query(`
-    SELECT m1.id 
+    SELECT um1.mot_id
     FROM user_mots um1
     JOIN user_mots um2 ON um1.mot_id = um2.mot_id
-    JOIN mots m1 ON um1.mot_id = m1.id
     WHERE um1.user_id = $1 AND um2.user_id = $2
     ORDER BY RANDOM()
     LIMIT $3
-  `, [user1Id, user2Id, limit]);
-  
-  return result.rows.map(row => row.id);
+  `, [user1Id, user2Id, count]);
+  return result.rows.map(row => row.mot_id);
 }
 
 function shuffleArray(array) {
