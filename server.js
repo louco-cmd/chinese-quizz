@@ -1,5 +1,7 @@
 require('dotenv').config();
+const { Resend } = require('resend');
 
+const resend = new Resend(process.env.SMTP_PASSWORD);
 const path = require("path");
 const express = require("express");
 const session = require('express-session');
@@ -41,6 +43,7 @@ function generateToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -77,19 +80,19 @@ app.use(session({
     pool: pool,
     tableName: 'session',
     createTableIfMissing: true,
-    pruneSessionInterval: false, // Désactiver le nettoyage auto
-    ttl: 7 * 24 * 60 * 60 // 7 jours en secondes
+    pruneSessionInterval: false,
+    ttl: 7 * 24 * 60 * 60
   }),
-  secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
+  secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   name: 'jiayou.sid',
-  resave: true, // ⬅️ IMPORTANT: false pour PostgreSQL
-  saveUninitialized: true, // ⬅️ IMPORTANT: false pour la sécurité
-  rolling: false, // ⬅️ false pour plus de stabilité
+  resave: false,
+  saveUninitialized: false,
+  rolling: false,
   cookie: {
-    secure: true, // ⬅️ true pour HTTPS
-    httpOnly: true, // ⬅️ empêcher l'accès JS
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 1 semaine
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
     sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000
   }
 }));
 app.use('/auth', authLimiter);
@@ -455,6 +458,68 @@ app.post('/auth/signup-basic', async (req, res) => {
   }
 });
 
+app.post('/auth/login-basic', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    console.log('📥 Tentative login pour', email);
+
+    const result = await pool.query(
+      'SELECT id, email, password_hash, email_verified FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      console.log('❌ Utilisateur non trouvé');
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const user = result.rows[0];
+    console.log('✅ Utilisateur trouvé:', user.id);
+
+    if (!user.email_verified) {
+      console.log('⛔ Email non vérifié');
+      return res.status(403).json({ error: 'Please verify your email first' });
+    }
+
+    if (!user.password_hash) {
+      console.log('⛔ Compte Google uniquement');
+      return res.status(401).json({ error: 'Use Google to sign in' });
+    }
+
+    const match = await bcrypt.compare(password, user.password_hash);
+    if (!match) {
+      console.log('❌ Mot de passe incorrect');
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    console.log('🔐 Appel de req.login...');
+    req.login(user, (err) => {
+      if (err) {
+        console.error('❌ Erreur req.login:', err);
+        return res.status(500).json({ error: 'Login failed' });
+      }
+
+      console.log('✅ req.login réussi, utilisateur attaché. SessionID:', req.sessionID);
+      // Vérifier que l'utilisateur est bien dans la session
+      console.log('🔍 req.user après login:', req.user ? req.user.id : 'absent');
+
+      // Forcer la sauvegarde de la session
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('❌ Erreur sauvegarde session:', saveErr);
+        } else {
+          console.log('💾 Session sauvegardée');
+        }
+        res.json({ success: true, redirect: '/dashboard' });
+      });
+    });
+
+  } catch (err) {
+    console.error('💥 Erreur login:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 app.post('/auth/check-email', async (req, res) => {
   try {
     const { email } = req.body;
@@ -572,6 +637,7 @@ app.post('/auth/forgot-password', async (req, res) => {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
+
 // Vérifier si le token est valide
 app.get('/auth/verify-reset-token', async (req, res) => {
   try {
@@ -742,6 +808,13 @@ app.get('/index', (req, res) => {
 
 app.get('/tutorial', (req, res) => {
   res.render('tutorial', { user: req.user, balance: req.user?.balance });
+});
+
+app.get('/legal', (req, res) => {
+  res.render('legal', {
+    title: 'Legal Mentions - 加油！',
+    currentPage: 'legal' // pour éventuellement adapter le header
+  });
 });
 
 app.get('/dashboard', ensureAuth, async (req, res) => {
@@ -1138,7 +1211,6 @@ app.get('/bank', ensureAuth, async (req, res) => {
   }
 });
 
-// Routes pour les pages
 app.get('/forgot-password', (req, res) => {
   res.render('forgot-password');
 });

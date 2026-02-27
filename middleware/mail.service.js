@@ -1,136 +1,78 @@
 // utils/email.js
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Configuration du transporteur
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
-  },
-  connectionTimeout: 15000, // 15 secondes
-  greetingTimeout: 15000,
-  socketTimeout: 20000,
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('❌ Erreur de configuration SMTP :', error);
-  } else {
-    console.log('✅ Serveur SMTP prêt');
-  }
-});
-
-// Fonction d'envoi d'email générique
-async function sendEmail({ to, subject, html, text }) {
+// Fonction d'envoi générique avec Resend
+async function sendEmail({ to, subject, html }) {
   try {
-    const info = await transporter.sendMail({
-      from: `"Chinese Quiz" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
-      to,
-      subject,
-      html,
-      text: text || html.replace(/<[^>]*>/g, ''),
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL, // ex: contact@jiayou.fr
+      to: to,
+      subject: subject,
+      html: html,
     });
 
-    console.log(`📧 Email envoyé à ${to}: ${info.messageId}`);
-    return info;
-  } catch (error) {
-    console.error('💥 Erreur envoi email:', error);
-
-    // En mode développement, log le contenu sans échouer
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📧 [DEV MODE] Email content:');
-      console.log('To:', to);
-      console.log('Subject:', subject);
-      console.log('HTML:', html);
-      return { messageId: 'dev-mode' };
+    if (error) {
+      console.error('💥 Erreur Resend:', error);
+      throw error;
     }
 
+    console.log(`📧 Email envoyé à ${to}: ${data.id}`);
+    return data;
+  } catch (error) {
+    console.error('💥 Erreur envoi email:', error);
+    // En développement, on peut logger sans échouer
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📧 [DEV MODE] Email content:', { to, subject, html });
+      return { id: 'dev-mode' };
+    }
     throw error;
   }
 }
 
-// Fonction pour l'envoi d'email de réinitialisation
+// Email de réinitialisation (adaptez le contenu à votre marque)
 async function sendPasswordResetEmail(email, token) {
-  const resetLink = `${process.env.APP_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
-
-  return await sendEmail({
+  const resetLink = `${process.env.APP_URL || 'https://app.jiayou.fr'}/auth/reset-password?token=${token}`;
+  return sendEmail({
     to: email,
-    subject: 'Réinitialisation de votre mot de passe - Chinese Quiz',
+    subject: 'Réinitialisation de votre mot de passe - Jiayou',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">Réinitialisation du mot de passe</h2>
         <p>Bonjour,</p>
-        <p>Vous avez demandé à réinitialiser votre mot de passe pour votre compte Chinese Quiz.</p>
-        <p>Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe :</p>
+        <p>Vous avez demandé à réinitialiser votre mot de passe.</p>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${resetLink}" 
-             style="background-color: #4CAF50; 
-                    color: white; 
-                    padding: 12px 24px; 
-                    text-decoration: none; 
-                    border-radius: 5px; 
-                    font-weight: bold;
-                    display: inline-block;">
-            Réinitialiser mon mot de passe
-          </a>
+          <a href="${resetLink}" style="background-color:#4CAF50;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;">Réinitialiser</a>
         </div>
-        <p>Ou copiez-collez ce lien dans votre navigateur :</p>
-        <p style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all;">
-          ${resetLink}
-        </p>
-        <p><strong>Ce lien expirera dans 1 heure.</strong></p>
-        <p>Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet email.</p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #666; font-size: 12px;">
-          Cet email a été envoyé automatiquement. Merci de ne pas y répondre.
-        </p>
+        <p>Ce lien expirera dans 1 heure.</p>
+        <p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
       </div>
     `
   });
 }
 
-// Fonction pour l'envoi d'email de vérification (version anglaise)
+// Email de vérification (version anglaise, adaptez)
 async function sendVerificationEmail(email, token) {
   const verifyLink = `https://app.jiayou.fr/auth/verify-email?token=${token}`;
-
-  return await sendEmail({
+  return sendEmail({
     to: email,
     subject: 'Verify your email - Jiayou',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">Welcome to Jiayou!</h2>
-        <p>Thank you for signing up. Please verify your email address by clicking the button below:</p>
+        <p>Please verify your email by clicking the button below:</p>
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${verifyLink}" 
-             style="background-color: #007bff; 
-                    color: white; 
-                    padding: 12px 24px; 
-                    text-decoration: none; 
-                    border-radius: 5px; 
-                    font-weight: bold;
-                    display: inline-block;">
-            Verify my email
-          </a>
+          <a href="${verifyLink}" style="background-color:#007bff;color:white;padding:12px 24px;text-decoration:none;border-radius:5px;">Verify</a>
         </div>
-        <p>Or copy and paste this link into your browser:</p>
-        <p style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all;">
-          ${verifyLink}
-        </p>
-        <p><strong>This link will expire in 24 hours.</strong></p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-        <p style="color: #666; font-size: 12px;">
-          If you didn't sign up for this account, please ignore this email.
-        </p>
+        <p>This link expires in 24 hours.</p>
       </div>
     `
   });
 }
 
 module.exports = {
-  sendEmail,
   sendPasswordResetEmail,
   sendVerificationEmail,
+  resend // si nécessaire ailleurs
 };
