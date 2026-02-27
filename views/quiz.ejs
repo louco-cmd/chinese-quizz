@@ -75,6 +75,98 @@
       border-color: #0d6efd;
       background-color: #e3f2fd;
     }
+
+    /* Popup de confirmation */
+    .confirm-popup {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    }
+
+    .confirm-popup-content {
+      background: white;
+      padding: 32px;
+      border-radius: 20px;
+      max-width: 440px;
+      width: 90%;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      animation: fadeInScale 0.2s ease;
+    }
+
+    /* Style pour les sliders double */
+    #hsk-min,
+    #hsk-max {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      pointer-events: none;
+    }
+
+    #hsk-min::-webkit-slider-thumb,
+    #hsk-max::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 22px;
+      height: 22px;
+      background: white;
+      border: 2px solid #007bff;
+      border-radius: 50%;
+      cursor: pointer;
+      pointer-events: auto;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      margin-top: -8px;
+      /* ajuste le centrage */
+    }
+
+    #hsk-min::-moz-range-thumb,
+    #hsk-max::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+      background: white;
+      border: 2px solid #007bff;
+      border-radius: 50%;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    /* Style par défaut des cartes (non sélectionnées) */
+    .word-count-inner {
+      border: 2px solid #e0e0e0;
+      border-radius: 18px;
+      padding: 16px 4px;
+      text-align: center;
+      background-color: #f9f9f9;
+      transition: all 0.2s;
+    }
+
+    /* Style pour la carte sélectionnée (appliqué via la classe .selected sur le parent) */
+    .word-count-card.selected .word-count-inner {
+      border-color: #007bff;
+      background-color: #e7f1ff;
+    }
+
+    /* Même chose pour la difficulté */
+    .difficulty-inner {
+      border: 2px solid #e0e0e0;
+      border-radius: 18px;
+      padding: 16px 4px;
+      text-align: center;
+      background-color: #f9f9f9;
+      transition: all 0.2s;
+    }
+
+    .difficulty-card.selected .difficulty-inner {
+      border-color: #007bff;
+      background-color: #e7f1ff;
+    }
   </style>
 </head>
 
@@ -118,56 +210,138 @@
         </div>
       </section>
 
-      <!-- 🔥 MODAL POUR CHOISIR LE NOMBRE DE MOTS ET FILTRE HSK -->
-      <div class="modal fade" id="countModal" tabindex="-1">
-        <div class="modal-dialog modal-large">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title" id="modalTitle">Amount of words</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <!-- MODAL DE CONFIGURATION DU QUIZ (avec slider double HSK) -->
+      <div class="confirm-popup" id="countModal" style="display: none;">
+        <div class="confirm-popup-content" style="max-width: 520px; padding: 32px;">
+          <!-- En-tête -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h5 style="font-weight: 600; font-size: 1.4rem; margin: 0;">Quiz settings</h5>
+            <button type="button" class="btn-close" onclick="closeCountModal()" style="font-size: 1rem;"></button>
+          </div>
+          <!-- Plage HSK avec graduation intégrant Street comme 7e niveau -->
+          <div style="margin-bottom: 28px;">
+            <div style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 10px; letter-spacing: 0.5px;">
+              HSK LEVEL RANGE
             </div>
-            <div class="modal-body">
-              <!-- FILTRE HSK AJOUTÉ ICI -->
-              <div class="mb-4">
-                <label class="form-label fw-medium">Filter by HSK level</label>
-                <select class="form-select" id="hskFilter">
-                  <option value="all">All levels</option>
-                  <option value="1">HSK 1</option>
-                  <option value="2">HSK 2</option>
-                  <option value="3">HSK 3</option>
-                  <option value="4">HSK 4</option>
-                  <option value="5">HSK 5</option>
-                  <option value="6">HSK 6</option>
-                  <option value="street">Street Chinese</option>
-                </select>
+
+            <!-- Statut de sélection (bleu) -->
+            <div id="hsk-selection-status"
+              style="font-size: 0.95rem; font-weight: 500; margin-bottom: 16px; color: #0d6efd;">
+              All levels HSK (1–6)
+            </div>
+
+            <!-- Conteneur de la jauge avec graduation espacée -->
+            <div style="position: relative; height: 50px; margin-top: 10px;">
+              <!-- Barre de fond -->
+              <div style="position: relative; height: 6px; background: #e0e0e0; border-radius: 3px; margin: 0 10px;">
+                <div id="hsk-range-fill"
+                  style="position: absolute; height: 6px; background: #007bff; border-radius: 3px; left: 0%; right: 0%;">
+                </div>
               </div>
 
-              <div class="d-grid gap-2">
-                <div class="count-option p-3 rounded text-center" data-count="10" onclick="selectCount(10)">
-                  <i class="bi bi-1-circle me-2"></i><strong>10 words</strong>
-                  <small class="d-block text-muted">Fast</small>
-                </div>
-                <div class="count-option p-3 rounded text-center" data-count="20" onclick="selectCount(20)">
-                  <i class="bi bi-2-circle me-2"></i><strong>20 words</strong>
-                  <small class="d-block text-muted">Standard</small>
-                </div>
-                <div class="count-option p-3 rounded text-center" data-count="30" onclick="selectCount(30)">
-                  <i class="bi bi-3-circle me-2"></i><strong>30 words</strong>
-                  <small class="d-block text-muted">Serious</small>
-                </div>
-                <div class="count-option p-3 rounded text-center" data-count="all" onclick="selectCount(100)">
-                  <i class="bi bi-infinity me-2"></i><strong>100 words</strong>
-                  <small class="d-block text-muted">Are you crazy ma ?</small>
-                </div>
+              <!-- Graduations : 1 à 6 + Street (espacées) -->
+              <div
+                style="position: relative; width: calc(100% - 20px); margin: 8px 10px 0 10px; display: flex; justify-content: space-between; font-size: 0.75rem; color: #666;">
+                <span>1</span>
+                <span>2</span>
+                <span>3</span>
+                <span>4</span>
+                <span>5</span>
+                <span>6</span>
+                <span>Street</span>
               </div>
+
+              <!-- Curseurs (range 1–7) -->
+              <input type="range" id="hsk-min" min="1" max="7" value="1" step="1"
+                style="position: absolute; top: 0; width: 100%; height: 6px; background: none; pointer-events: none; -webkit-appearance: none; z-index: 2;">
+              <input type="range" id="hsk-max" min="1" max="7" value="6" step="1"
+                style="position: absolute; top: 0; width: 100%; height: 6px; background: none; pointer-events: none; -webkit-appearance: none; z-index: 2;">
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">cancel</button>
-              <button type="button" class="btn btn-primary" id="startQuizBtn" onclick="startQuiz()" disabled>
-                <i class="bi bi-rocket-takeoff me-2"></i>Start the quiz
-              </button>
+
+            <!-- Note : Street est inclus quand le curseur max est sur 7 -->
+            <div style="font-size: 0.7rem; color: #888; margin-top: 8px; text-align: right;">
+              <i class="bi bi-info-circle"></i> Street = Unclassified
             </div>
           </div>
+
+          <div style="margin-bottom: 28px;">
+            <div style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 12px; letter-spacing: 0.5px;">
+              NUMBER OF WORDS
+            </div>
+            <div style="display: flex; gap: 12px;">
+              <label class="word-count-card" style="flex: 1; cursor: pointer;">
+                <input type="radio" name="wordCount" value="10" style="display: none;">
+                <div class="word-count-inner">
+                  <div style="font-weight: 700; font-size: 1.4rem;">10</div>
+                  <div style="font-size: 0.75rem; color: #666;">fast</div>
+                </div>
+              </label>
+              <label class="word-count-card" style="flex: 1; cursor: pointer;">
+                <input type="radio" name="wordCount" value="20" checked style="display: none;">
+                <div class="word-count-inner">
+                  <div style="font-weight: 700; font-size: 1.4rem;">20</div>
+                  <div style="font-size: 0.75rem; color: #666;">standard</div>
+                </div>
+              </label>
+              <label class="word-count-card" style="flex: 1; cursor: pointer;">
+                <input type="radio" name="wordCount" value="30" style="display: none;">
+                <div class="word-count-inner">
+                  <div style="font-weight: 700; font-size: 1.4rem;">30</div>
+                  <div style="font-size: 0.75rem; color: #666;">serious</div>
+                </div>
+              </label>
+              <label class="word-count-card" style="flex: 1; cursor: pointer;">
+                <input type="radio" name="wordCount" value="100" style="display: none;">
+                <div class="word-count-inner">
+                  <div style="font-weight: 700; font-size: 1.4rem;">100</div>
+                  <div style="font-size: 0.75rem; color: #666;">crazy</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Difficulté (révision, équilibré, découverte) -->
+          <div style="margin-bottom: 32px;">
+            <div style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 12px; letter-spacing: 0.5px;">
+              DIFFICULTY
+            </div>
+            <div style="display: flex; gap: 12px;">
+              <label class="difficulty-card" style="flex: 1; cursor: pointer;">
+                <input type="radio" name="difficulty" value="revision" style="display: none;">
+                <div class="difficulty-inner">
+                  <div style="font-weight: 700; font-size: 1.1rem;">Revision</div>
+                  <div style="font-size: 0.75rem; color: #666;">80% mastered</div>
+                </div>
+              </label>
+              <label class="difficulty-card" style="flex: 1; cursor: pointer;">
+                <input type="radio" name="difficulty" value="balanced" checked style="display: none;">
+                <div class="difficulty-inner">
+                  <div style="font-weight: 700; font-size: 1.1rem;">Balanced</div>
+                  <div style="font-size: 0.75rem; color: #666;">50% mastered</div>
+                </div>
+              </label>
+              <label class="difficulty-card" style="flex: 1; cursor: pointer;">
+                <input type="radio" name="difficulty" value="discovery" style="display: none;">
+                <div class="difficulty-inner">
+                  <div style="font-weight: 700; font-size: 1.1rem;">Discovery</div>
+                  <div style="font-size: 0.75rem; color: #666;">10% mastered</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Boutons d'action -->
+          <div style="display: flex; gap: 12px;">
+            <button type="button" class="btn btn-outline-secondary" onclick="closeCountModal()"
+              style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; border: 2px solid #e0e0e0;">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="startQuiz()" id="startQuizBtn"
+              style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; background: linear-gradient(135deg, #007bff, #0056b3); border: none;">
+              <i class="bi bi-rocket-takeoff me-2"></i>Start quiz
+            </button>
+          </div>
+          <!-- Zone d'erreur éventuelle -->
+          <div id="quizPopupError" class="alert alert-danger"
+            style="display: none; margin-top: 20px; padding: 10px; border-radius: 10px; font-size: 0.9rem;"></div>
         </div>
       </div>
 
@@ -175,108 +349,242 @@
       <script src="/js/global.js"></script>
       <script>
         let selectedQuizType = null;
-        let selectedCount = null;
+        let selectedCount = 20; // Valeur par défaut
+        let selectedDifficulty = 'balanced'; // Valeur par défaut
 
-        // 🔥 OUVRE LA MODAL POUR CHOISIR LE NOMBRE
-        function openCountModal(quizType) {
-          selectedQuizType = quizType;
-          selectedCount = null;
+        // Met à jour la barre bleue et le statut (Street = niveau 7)
+        function updateHSKRange() {
+          const min = parseInt(document.getElementById('hsk-min').value, 10);
+          const max = parseInt(document.getElementById('hsk-max').value, 10);
+          const totalSteps = 6; // de 1 à 7 → 6 intervalles
 
-          // Mettre à jour le titre de la modal
-          const modalTitle = document.getElementById('modalTitle');
-          modalTitle.textContent = `Quiz ${quizType === 'pinyin' ? 'Pinyin' : 'Caractères'} - Nombre de mots`;
+          const minPercent = ((min - 1) / totalSteps) * 100;
+          const maxPercent = ((max - 1) / totalSteps) * 100;
+          const fill = document.getElementById('hsk-range-fill');
+          fill.style.left = minPercent + '%';
+          fill.style.right = (100 - maxPercent) + '%';
 
-          // Réinitialiser la sélection
-          document.querySelectorAll('.count-option').forEach(option => {
-            option.classList.remove('selected');
-          });
-
-          // Désactiver le bouton de démarrage
-          document.getElementById('startQuizBtn').disabled = true;
-
-          // Afficher la modal
-          const modal = new bootstrap.Modal(document.getElementById('countModal'));
-          modal.show();
+          let status = '';
+          if (min === 1 && max === 6) {
+            status = 'Tous les niveaux HSK (1–6)';
+          } else if (min === 1 && max === 7) {
+            status = 'Tous les niveaux HSK + Street';
+          } else if (max === 7) {
+            status = `HSK ${min}–6 + Street`;
+          } else if (min === max) {
+            status = `HSK ${min} uniquement`;
+          } else {
+            status = `HSK ${min}–${max}`;
+          }
+          document.getElementById('hsk-selection-status').textContent = status;
         }
 
-        // 🔥 SÉLECTIONNE UN NOMBRE
-        function selectCount(count) {
-          selectedCount = count;
+        // Initialise la sélection du nombre de mots
+        function initWordCountSelection() {
+          document.querySelectorAll('.word-count-card').forEach(card => {
+            card.addEventListener('click', function (e) {
+              // Empêcher la propagation si nécessaire (optionnel)
+              // e.stopPropagation();
+              const radio = this.querySelector('input[type="radio"]');
+              if (!radio) return;
 
-          // Mettre à jour l'UI
-          document.querySelectorAll('.count-option').forEach(option => {
-            option.classList.remove('selected');
-            if (option.getAttribute('data-count') == count) {
-              option.classList.add('selected');
+              radio.checked = true;
+              selectedCount = parseInt(radio.value, 10);
+
+              // Met à jour la classe selected
+              document.querySelectorAll('.word-count-card').forEach(c => c.classList.remove('selected'));
+              this.classList.add('selected');
+
+              // Active le bouton Start (au cas où)
+              document.getElementById('startQuizBtn').disabled = false;
+              console.log('Nombre sélectionné :', selectedCount);
+            });
+          });
+        }
+
+        // Initialise la sélection de la difficulté
+        function initDifficultySelection() {
+          document.querySelectorAll('.difficulty-card').forEach(card => {
+            card.addEventListener('click', function (e) {
+              const radio = this.querySelector('input[type="radio"]');
+              if (!radio) return;
+
+              radio.checked = true;
+              selectedDifficulty = radio.value;
+
+              // Met à jour la classe selected
+              document.querySelectorAll('.difficulty-card').forEach(c => c.classList.remove('selected'));
+              this.classList.add('selected');
+
+              console.log('Difficulté sélectionnée :', selectedDifficulty);
+            });
+          });
+        }
+
+        // Ouvre la modale
+        function openCountModal(quizType) {
+          selectedQuizType = quizType;
+          document.getElementById('countModal').style.display = 'flex';
+
+          // Réinitialise les curseurs HSK
+          const minSlider = document.getElementById('hsk-min');
+          const maxSlider = document.getElementById('hsk-max');
+          if (minSlider && maxSlider) {
+            minSlider.value = '1';
+            maxSlider.value = '6';
+            updateHSKRange();
+          }
+
+          // Réinitialise la difficulté (balanced par défaut)
+          selectedDifficulty = 'balanced';
+          document.querySelectorAll('.difficulty-card').forEach(card => {
+            card.classList.remove('selected');
+            const radio = card.querySelector('input[type="radio"]');
+            if (radio && radio.value === 'balanced') {
+              radio.checked = true;
+              card.classList.add('selected');
             }
           });
 
-          // Activer le bouton de démarrage
+          // Réinitialise la sélection du nombre de mots (20 par défaut)
+          selectedCount = 20;
+          document.querySelectorAll('.word-count-card').forEach(card => {
+            card.classList.remove('selected');
+            const radio = card.querySelector('input[type="radio"]');
+            if (radio && radio.value === '20') {
+              radio.checked = true;
+              card.classList.add('selected');
+            }
+          });
+
+          // Active le bouton Start
           document.getElementById('startQuizBtn').disabled = false;
         }
 
+        // Ferme la modale
+        function closeCountModal() {
+          document.getElementById('countModal').style.display = 'none';
+          const startBtn = document.getElementById('startQuizBtn');
+          if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>Start quiz';
+          }
+        }
+
+        // Démarre le quiz
         async function startQuiz() {
           if (!selectedQuizType || !selectedCount) return;
 
-          const hskFilter = document.getElementById('hskFilter').value;
+          const min = parseInt(document.getElementById('hsk-min').value, 10);
+          const max = parseInt(document.getElementById('hsk-max').value, 10);
+          const hskParam = min + '-' + max;
 
-          // Désactiver le bouton immédiatement
           const startBtn = document.getElementById('startQuizBtn');
-          const originalHTML = startBtn.innerHTML; // 🔥 SAUVEGARDER
+          const originalHTML = startBtn.innerHTML;
           startBtn.disabled = true;
           startBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Checking...';
 
           try {
-            // Test rapide pour vérifier la limite
             const testResponse = await fetch('/quiz-mots?count=1');
-
             if (testResponse.status === 403) {
               const limitData = await testResponse.json();
-
-              // Fermer la modal de sélection
-              bootstrap.Modal.getInstance(document.getElementById('countModal')).hide();
-
-              // Petite pause pour l'animation
-              setTimeout(() => {
-                showQuizLimitPopup(limitData);
-              }, 300);
-
+              closeCountModal();
+              setTimeout(() => showQuizLimitPopup(limitData), 300);
               return;
             }
 
-            // Si OK, rediriger
-            const quizUrl = `/quiz-play?type=${selectedQuizType}&count=${selectedCount}&hsk=${hskFilter}`;
-            bootstrap.Modal.getInstance(document.getElementById('countModal')).hide();
-
-            // Petite animation avant redirection
-            setTimeout(() => {
-              window.location.href = quizUrl;
-            }, 200);
+            const quizUrl = `/quiz-play?type=${selectedQuizType}&count=${selectedCount}&hsk=${hskParam}&difficulty=${selectedDifficulty}`;
+            closeCountModal();
+            setTimeout(() => window.location.href = quizUrl, 200);
 
           } catch (error) {
-            // En cas d'erreur, rediriger quand même (meilleure UX)
             console.log('⚠️ Error checking limit, proceeding anyway:', error);
-
-            const quizUrl = `/quiz-play?type=${selectedQuizType}&count=${selectedCount}&hsk=${hskFilter}`;
-            bootstrap.Modal.getInstance(document.getElementById('countModal')).hide();
-
-            setTimeout(() => {
-              window.location.href = quizUrl;
-            }, 200);
-
-          } finally {
-            // 🔥 TOUJOURS réinitialiser le bouton, même en cas d'erreur
-            // (mais seulement si la modal est encore ouverte)
-            const countModal = document.getElementById('countModal');
-            if (countModal && countModal.classList.contains('show')) {
-              startBtn.disabled = false;
-              startBtn.innerHTML = originalHTML;
-            }
+            const quizUrl = `/quiz-play?type=${selectedQuizType}&count=${selectedCount}&hsk=${hskParam}&difficulty=${selectedDifficulty}`;
+            closeCountModal();
+            setTimeout(() => window.location.href = quizUrl, 200);
           }
         }
 
-        // Navigation
-        function setActiveNavItem() {
+        // Popup de limite de quiz
+        function showQuizLimitPopup(data) {
+          console.log('🎯 Showing quiz limit popup:', data);
+          const startBtn = document.getElementById('startQuizBtn');
+          if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>Start quiz';
+          }
+
+          document.querySelectorAll('.quiz-limit-popup').forEach(el => el.remove());
+
+          const overlay = document.createElement('div');
+          overlay.className = 'quiz-limit-popup';
+          overlay.style.cssText = `
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.4); z-index:9999; display:flex;
+      align-items:center; justify-content:center; padding:20px;
+    `;
+
+          const modal = document.createElement('div');
+          modal.style.cssText = `
+      background: white; border-radius:12px; padding:28px 24px 24px;
+      width:100%; max-width:340px; box-shadow:0 10px 25px rgba(0,0,0,0.1);
+    `;
+
+          const current = data.current || 5;
+          const max = data.max || 5;
+
+          modal.innerHTML = `
+      <div style="text-align:center; margin-bottom:16px; font-size:1.1rem; font-weight:600; color:#000;">
+        Daily Quiz Limit
+      </div>
+      <div style="text-align:center; color:#666; font-size:0.94rem; line-height:1.5; margin-bottom:28px;">
+        You've already taken <strong>${current}</strong> quizzes today.<br>
+        Free users are limited to ${max} quizzes per day.
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <a href="/pricing" onclick="this.closest('.quiz-limit-popup')?.remove()"
+           style="display:block; text-align:center; background:#007AFF; color:white; padding:12px; border-radius:10px; text-decoration:none; font-weight:500;">
+          <i class="bi bi-star-fill me-2"></i>Upgrade to Premium
+        </a>
+        <button onclick="this.closest('.quiz-limit-popup')?.remove()"
+                style="background:transparent; border:1.5px solid #D1D1D6; color:#000; padding:12px; border-radius:10px; font-weight:500; cursor:pointer;">
+          OK
+        </button>
+      </div>
+    `;
+
+          overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+              overlay.remove();
+              if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>Start quiz';
+              }
+            }
+          });
+
+          overlay.appendChild(modal);
+          document.body.appendChild(overlay);
+        }
+
+        // Initialisation au chargement de la page
+        document.addEventListener('DOMContentLoaded', function () {
+          // Curseurs HSK
+          const minSlider = document.getElementById('hsk-min');
+          const maxSlider = document.getElementById('hsk-max');
+          if (minSlider && maxSlider) {
+            minSlider.addEventListener('input', updateHSKRange);
+            maxSlider.addEventListener('input', updateHSKRange);
+            updateHSKRange();
+          }
+
+          // Sélection du nombre de mots
+          initWordCountSelection();
+
+          // Sélection de la difficulté
+          initDifficultySelection();
+
+          // Navigation active
           const path = window.location.pathname;
           document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.remove('active');
@@ -286,165 +594,7 @@
               link.classList.add('active');
             }
           });
-        }
-
-        document.addEventListener('DOMContentLoaded', setActiveNavItem);
-
-        // 🔥 ANIMATION AU SURVOL DES OPTIONS
-        document.addEventListener('DOMContentLoaded', function () {
-          document.querySelectorAll('.count-option').forEach(option => {
-            option.addEventListener('mouseenter', function () {
-              this.style.transform = 'scale(1.02)';
-            });
-
-            option.addEventListener('mouseleave', function () {
-              this.style.transform = 'scale(1)';
-            });
-          });
         });
-
-        // Fonction pour gérer les erreurs de limite de quiz
-        function handleQuizLimitError(errorData) {
-          if (errorData.limitReached && errorData.type === 'quiz') {
-            showQuizLimitPopup(errorData);
-            return true;
-          }
-          return false;
-        }
-
-        // Popup pour limite de quiz
-        function showQuizLimitPopup(data) {
-          console.log('🎯 Showing quiz limit popup:', data);
-
-          // 🔥 RÉINITIALISER LE BOUTON "Start the quiz"
-          const startBtn = document.getElementById('startQuizBtn');
-          if (startBtn) {
-            startBtn.disabled = false;
-            startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>Start the quiz';
-          }
-
-          // Supprimer toute popup existante
-          document.querySelectorAll('.quiz-limit-popup').forEach(el => el.remove());
-
-          // Créer l'overlay
-          const overlay = document.createElement('div');
-          overlay.className = 'quiz-limit-popup';
-          overlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.4);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-  `;
-
-          // Créer la modal
-          const modal = document.createElement('div');
-          modal.style.cssText = `
-    background: white;
-    border-radius: 12px;
-    padding: 28px 24px 24px;
-    width: 100%;
-    max-width: 340px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  `;
-
-          const current = data.current || 5;
-          const max = data.max || 5;
-
-          modal.innerHTML = `
-    <div style="text-align: center; margin-bottom: 16px; font-size: 1.1rem; font-weight: 600; color: #000;">
-      Daily Quiz Limit
-    </div>
-    
-    <div style="text-align: center; color: #666; font-size: 0.94rem; line-height: 1.5; margin-bottom: 28px;">
-      You've already taken <strong>${current}</strong> quizzes today.<br>
-      Free users are limited to ${max} quizzes per day.
-    </div>
-    
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-      <a href="/pricing" 
-         onclick="this.closest('.quiz-limit-popup')?.remove()"
-         style="
-           display: block;
-           text-align: center;
-           background: #007AFF;
-           color: white;
-           padding: 12px;
-           border-radius: 10px;
-           text-decoration: none;
-           font-weight: 500;
-           border: none;
-           font-size: 0.95rem;
-         ">
-        <i class="bi bi-star-fill me-2"></i>
-        Upgrade to Premium
-      </a>
-      
-      <button onclick="this.closest('.quiz-limit-popup')?.remove()"
-              style="
-                background: transparent;
-                border: 1.5px solid #D1D1D6;
-                color: #000;
-                padding: 12px;
-                border-radius: 10px;
-                font-weight: 500;
-                font-size: 0.95rem;
-                cursor: pointer;
-              ">
-        OK
-      </button>
-    </div>
-  `;
-
-          // Fermer en cliquant sur l'overlay
-          overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-              overlay.remove();
-              // 🔥 RÉINITIALISER LE BOUTON QUAND ON FERME LA POPUP
-              if (startBtn) {
-                startBtn.disabled = false;
-                startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>Start the quiz';
-              }
-            }
-          });
-
-          // Ajouter au DOM
-          overlay.appendChild(modal);
-          document.body.appendChild(overlay);
-        }
-
-        // Dans votre code de quiz, interceptez les erreurs
-        async function loadQuizWords() {
-          try {
-            const response = await fetch('/quiz-mots?count=10');
-
-            if (!response.ok) {
-              const errorData = await response.json();
-
-              // Vérifier si c'est une limite
-              if (errorData.limitReached && errorData.type === 'quiz') {
-                showQuizLimitPopup(errorData);
-                return;
-              }
-
-              throw new Error(errorData.error || 'Failed to load quiz');
-            }
-
-            const words = await response.json();
-            // ... afficher le quiz
-
-          } catch (error) {
-            console.error('Error loading quiz:', error);
-            // Afficher une erreur générique
-          }
-        }
-
       </script>
 
 </body>
