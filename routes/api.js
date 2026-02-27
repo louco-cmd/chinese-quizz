@@ -973,6 +973,72 @@ router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
   }
 });
 
+// DELETE /api/user/delete-account
+router.delete('/api/user/delete-account', ensureAuth, async (req, res) => {
+  const userId = req.user.id;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Vérifier si l'utilisateur a un abonnement premium actif ET non résilié en fin de période
+    const subResult = await client.query(
+      `SELECT status, cancel_at_period_end FROM user_subscriptions WHERE user_id = $1 AND status = 'active'`,
+      [userId]
+    );
+
+    const hasActiveNotCancelled = subResult.rows.some(row => row.cancel_at_period_end !== true);
+    if (hasActiveNotCancelled) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        error: 'active_subscription',
+        message: 'Vous devez d’abord résilier votre abonnement premium avant de supprimer votre compte.'
+      });
+    }
+
+    // 2. Supprimer tous les mots de l'utilisateur
+    await client.query('DELETE FROM user_mots WHERE user_id = $1', [userId]);
+
+    // 3. Supprimer la ligne dans user_subscriptions
+    await client.query('DELETE FROM user_subscriptions WHERE user_id = $1', [userId]);
+
+    // 4. Supprimer l'utilisateur
+    const deleteUserResult = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [userId]);
+
+    if (deleteUserResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({
+        success: false,
+        error: 'user_not_found',
+        message: 'Utilisateur introuvable.'
+      });
+    }
+
+    await client.query('COMMIT');
+
+    // 5. Déconnecter l'utilisateur (sans appeler session.destroy)
+    req.logout((err) => {
+      if (err) {
+        console.error('Logout error:', err);
+        return res.status(500).json({ success: false, error: 'logout_error' });
+      }
+      // Réponse unique après déconnexion réussie
+      res.json({ success: true, message: 'Votre compte a été supprimé définitivement.' });
+    });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Erreur suppression compte:', err);
+    res.status(500).json({
+      success: false,
+      error: 'server_error',
+      message: 'Une erreur est survenue lors de la suppression du compte.'
+    });
+  } finally {
+    client.release();
+  }
+});
 
 // Duels API
 // 📍 CLASSEMENT
