@@ -10,6 +10,17 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD,
   },
+  connectionTimeout: 15000, // 15 secondes
+  greetingTimeout: 15000,
+  socketTimeout: 20000,
+});
+
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('❌ Erreur de configuration SMTP :', error);
+  } else {
+    console.log('✅ Serveur SMTP prêt');
+  }
 });
 
 // Fonction d'envoi d'email générique
@@ -27,7 +38,7 @@ async function sendEmail({ to, subject, html, text }) {
     return info;
   } catch (error) {
     console.error('💥 Erreur envoi email:', error);
-    
+
     // En mode développement, log le contenu sans échouer
     if (process.env.NODE_ENV === 'development') {
       console.log('📧 [DEV MODE] Email content:');
@@ -36,7 +47,7 @@ async function sendEmail({ to, subject, html, text }) {
       console.log('HTML:', html);
       return { messageId: 'dev-mode' };
     }
-    
+
     throw error;
   }
 }
@@ -44,7 +55,7 @@ async function sendEmail({ to, subject, html, text }) {
 // Fonction pour l'envoi d'email de réinitialisation
 async function sendPasswordResetEmail(email, token) {
   const resetLink = `${process.env.APP_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
-  
+
   return await sendEmail({
     to: email,
     subject: 'Réinitialisation de votre mot de passe - Chinese Quiz',
@@ -81,17 +92,17 @@ async function sendPasswordResetEmail(email, token) {
   });
 }
 
-// Fonction pour l'envoi d'email de vérification
+// Fonction pour l'envoi d'email de vérification (version anglaise)
 async function sendVerificationEmail(email, token) {
-  const verifyLink = `${process.env.APP_URL || 'http://localhost:3000'}/auth/verify-email?token=${token}`;
-  
+  const verifyLink = `https://app.jiayou.fr/auth/verify-email?token=${token}`;
+
   return await sendEmail({
     to: email,
-    subject: 'Vérifiez votre email - Chinese Quiz',
+    subject: 'Verify your email - Jiayou',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">Bienvenue sur Chinese Quiz !</h2>
-        <p>Merci de vous être inscrit. Veuillez vérifier votre adresse email en cliquant sur le bouton ci-dessous :</p>
+        <h2 style="color: #333;">Welcome to Jiayou!</h2>
+        <p>Thank you for signing up. Please verify your email address by clicking the button below:</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${verifyLink}" 
              style="background-color: #007bff; 
@@ -101,17 +112,17 @@ async function sendVerificationEmail(email, token) {
                     border-radius: 5px; 
                     font-weight: bold;
                     display: inline-block;">
-            Vérifier mon email
+            Verify my email
           </a>
         </div>
-        <p>Ou copiez-collez ce lien dans votre navigateur :</p>
+        <p>Or copy and paste this link into your browser:</p>
         <p style="background-color: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all;">
           ${verifyLink}
         </p>
-        <p><strong>Ce lien expirera dans 24 heures.</strong></p>
+        <p><strong>This link will expire in 24 hours.</strong></p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
         <p style="color: #666; font-size: 12px;">
-          Si vous ne vous êtes pas inscrit, ignorez simplement cet email.
+          If you didn't sign up for this account, please ignore this email.
         </p>
       </div>
     `
@@ -121,5 +132,5 @@ async function sendVerificationEmail(email, token) {
 module.exports = {
   sendEmail,
   sendPasswordResetEmail,
-  sendVerificationEmail
+  sendVerificationEmail,
 };

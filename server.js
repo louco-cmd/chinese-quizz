@@ -392,10 +392,10 @@ app.post('/auth/signup-basic', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Validations (inchangées)
     if (!email || !password) {
       return res.status(400).json({ error: 'Email et mot de passe requis' });
     }
-
     const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
     if (!passwordRegex.test(password)) {
       return res.status(400).json({
@@ -405,85 +405,53 @@ app.post('/auth/signup-basic', async (req, res) => {
 
     const hash = await bcrypt.hash(password, 10);
 
+    // Insertion utilisateur
     const userRes = await pool.query(
       `INSERT INTO users (email, password_hash, provider, email_verified, balance)
        VALUES ($1, $2, 'local', false, 100)
        RETURNING id, email`,
       [email, hash]
     );
-
     const user = userRes.rows[0];
 
-    // 🔐 token email
+    // Génération et sauvegarde du token
     const token = generateToken();
-
+    console.log('🔑 Token généré :', token);
     await pool.query(
       `INSERT INTO email_verification_tokens (user_id, token, expires_at)
        VALUES ($1, $2, NOW() + INTERVAL '24 hours')`,
       [user.id, token]
     );
+    console.log('✅ Token inséré en base pour user', user.id);
 
-    // 📧 envoyer mail
-    await sendVerificationEmail(user.email, token);
+    console.log('📧 Envoi email à', user.email, 'avec token', token);
+    // Tentative d'envoi d'email (ne doit jamais faire échouer la requête)
+    let emailSent = false;
+    try {
+      await sendVerificationEmail(user.email, token);
+      emailSent = true;
+      console.log(`✅ Email de vérification envoyé à ${user.email}`);
+    } catch (emailErr) {
+      console.error(`❌ Échec envoi email à ${user.email}:`, emailErr.message);
+    }
 
-    res.json({
+    // Réponse toujours positive
+    res.status(201).json({
       success: true,
-      message: 'Verification email sent'
+      userId: user.id,
+      email: user.email,
+      message: emailSent
+        ? 'Compte créé avec succès. Vérifiez votre email.'
+        : 'Compte créé, mais l\'email de confirmation n\'a pas pu être envoyé. Vous pourrez le renvoyer plus tard.',
+      emailSent
     });
 
   } catch (err) {
     if (err.code === '23505') {
-      return res.status(400).json({ error: 'Email déjà utilisé' });
+      return res.status(409).json({ error: 'Cet email est déjà utilisé.' });
     }
-    console.error(err);
-    res.status(500).json({ error: 'Erreur serveur' });
-  }
-});
-
-app.post('/auth/login-basic', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const result = await pool.query(
-      'SELECT id, email, password_hash, email_verified FROM users WHERE email = $1',
-      [email]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
-    const user = result.rows[0];
-
-    if (!user.email_verified) {
-      return res.status(403).json({
-        error: 'Please verify your email first'
-      });
-    }
-
-    if (!user.password_hash) {
-      return res.status(401).json({ error: 'Use Google to sign in' });
-    }
-
-    const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
-
-    req.login(user, err => {
-      if (err) {
-        return res.status(500).json({ error: 'Login failed' });
-      }
-
-      res.json({
-        success: true,
-        redirect: '/dashboard'
-      });
-    });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+    console.error('❌ Erreur inattendue lors de l\'inscription:', err);
+    res.status(500).json({ error: 'Erreur serveur. Veuillez réessayer.' });
   }
 });
 
