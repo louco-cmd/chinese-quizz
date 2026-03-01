@@ -52,119 +52,119 @@
 
 <body>
   <%- include('partials/header') %>
-    <%- include('partials/navbar', {currentPage: 'quiz-play' }) %>
+  <%- include('partials/navbar', {currentPage: 'quiz-play' }) %>
 
-      <div class="quiz-container container p-4 bg-light rounded shadow-sm col-12 col-md-10 col-lg-8 mx-auto mt-4">
+  <div class="quiz-container container p-4 bg-light rounded shadow-sm col-12 col-md-10 col-lg-8 mx-auto mt-4">
 
-        <!-- Question -->
-        <div id="quizQuestion" class="mb-4 fw-bold fs-3 text-center"></div>
+    <!-- Question -->
+    <div id="quizQuestion" class="mb-4 fw-bold fs-3 text-center"></div>
 
-        <!-- Result -->
-        <div id="quizResult" class="alert mb-4 text-center" style="display: none;"></div>
+    <!-- Result -->
+    <div id="quizResult" class="alert mb-4 text-center" style="display: none;"></div>
 
-        <!-- Quiz form -->
-        <form id="quizForm" class="p-4 bg-white rounded gap-4 d-flex flex-column">
-          <div id="quizFields" class="d-flex flex-wrap justify-content-center gap-2 mb-3"></div>
+    <!-- Quiz form -->
+    <form id="quizForm" class="p-4 bg-white rounded gap-4 d-flex flex-column">
+      <div id="quizFields" class="d-flex flex-wrap justify-content-center gap-2 mb-3"></div>
 
-          <!-- Buttons -->
-          <div class="d-flex flex-column gap-2">
-            <button type="submit" id="checkBtn" class="btn btn-primary w-100 btn-lg">
-              <i class="bi bi-send-check me-2"></i>Submit
-            </button>
-          </div>
-        </form>
-
-        <!-- Score and Progress -->
-        <div class="row mt-4">
-          <div class="col-12 col-md-6">
-            <div id="quizScore" class="fw-bold text-center fs-5">✅ 0 | ❌ 0</div>
-          </div>
-          <div class="col-12 col-md-6">
-            <div id="quizProgress" class="text-muted fw-medium text-center">Question 1/10</div>
-            <!-- Info supplémentaires (HSK, difficulté) -->
-            <div id="quizInfo" class="text-muted small text-center mt-2 border-top pt-2"></div>
-          </div>
-        </div>
-
+      <!-- Buttons -->
+      <div class="d-flex flex-column gap-2">
+        <button type="submit" id="checkBtn" class="btn btn-primary w-100 btn-lg">
+          <i class="bi bi-send-check me-2"></i>Submit
+        </button>
       </div>
+    </form>
 
-      <script src="/js/global.js"></script>
-      <script src="/js/saveQuiz.js"></script>
-      <script src="/js/tts-chinese.js"></script>
-      <script src="/js/card-function.js"></script>
-      <script>
-        // ==================================================
-        // GLOBAL VARIABLES
-        // ==================================================
+    <!-- Score and Progress -->
+    <div class="row mt-4">
+      <div class="col-12 col-md-6">
+        <div id="quizScore" class="fw-bold text-center fs-5">✅ 0 | ❌ 0</div>
+      </div>
+      <div class="col-12 col-md-6">
+        <div id="quizProgress" class="text-muted fw-medium text-center">Question 1/10</div>
+        <!-- Info supplémentaires (HSK, difficulté) -->
+        <div id="quizInfo" class="text-muted small text-center mt-2 border-top pt-2"></div>
+      </div>
+    </div>
 
-        let quizWords = [];
-        let quizResults = [];
-        let quizIdx = 0;
-        let quizInputs = [];
-        let correctCount = 0;
-        let wrongCount = 0;
-        let currentWord = null;
-        let hasSecondChance = false;
-        let quizEnded = false;
-        let quizType = null;
-        let hskLevel = 'all';
-        let quizCount = 10;
-        let difficulty = 'balanced'; // valeur par défaut
+  </div>
 
-        // 🔥 CORRECTION : Vérifier si les variables existent déjà
-        if (typeof window.hoverModal === 'undefined') window.hoverModal = null;
-        if (typeof window.cacheMots === 'undefined') window.cacheMots = null;
-        if (typeof window.dernierFetch === 'undefined') window.dernierFetch = 0;
-        if (typeof window.CACHE_DURATION === 'undefined') window.CACHE_DURATION = 5 * 60 * 1000;
-        if (typeof window.hoverTimeout === 'undefined') window.hoverTimeout = null;
+  <script src="/js/global.js"></script>
+  <script src="/js/saveQuiz.js"></script>
+  <script src="/js/tts-chinese.js"></script>
+  <script src="/js/card-function.js"></script>
+  <script>
+    // ==================================================
+    // GLOBAL VARIABLES
+    // ==================================================
 
-        // DOM elements
-        const quizQuestion = document.getElementById('quizQuestion');
-        const quizFields = document.getElementById('quizFields');
-        const checkBtn = document.getElementById('checkBtn');
-        const quizResult = document.getElementById('quizResult');
-        const quizForm = document.getElementById('quizForm');
-        const quizScore = document.getElementById('quizScore');
-        const quizProgress = document.getElementById('quizProgress');
+    let quizWords = [];
+    let quizResults = [];
+    let quizIdx = 0;
+    let quizInputs = [];
+    let correctCount = 0;
+    let wrongCount = 0;
+    let currentWord = null;
+    let hasSecondChance = false;
+    let quizEnded = false;
+    let quizType = null;
+    let hskLevel = 'all';
+    let quizCount = 10;
+    let difficulty = 'balanced'; // valeur par défaut
+
+    // 🔥 CORRECTION : Vérifier si les variables existent déjà
+    if (typeof window.hoverModal === 'undefined') window.hoverModal = null;
+    if (typeof window.cacheMots === 'undefined') window.cacheMots = null;
+    if (typeof window.dernierFetch === 'undefined') window.dernierFetch = 0;
+    if (typeof window.CACHE_DURATION === 'undefined') window.CACHE_DURATION = 5 * 60 * 1000;
+    if (typeof window.hoverTimeout === 'undefined') window.hoverTimeout = null;
+
+    // DOM elements
+    const quizQuestion = document.getElementById('quizQuestion');
+    const quizFields = document.getElementById('quizFields');
+    const checkBtn = document.getElementById('checkBtn');
+    const quizResult = document.getElementById('quizResult');
+    const quizForm = document.getElementById('quizForm');
+    const quizScore = document.getElementById('quizScore');
+    const quizProgress = document.getElementById('quizProgress');
 
 
-        // Initialize on load
-        document.addEventListener('DOMContentLoaded', async function () {
-          // Get URL parameters
-          const urlParams = new URLSearchParams(window.location.search);
-          quizType = urlParams.get('type') || 'pinyin';
-          quizCount = urlParams.get('count') || '10';
-          hskLevel = urlParams.get('hsk') || 'all';
-          difficulty = urlParams.get('difficulty') || 'balanced'; // ← important
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', async function() {
+      // Get URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      quizType = urlParams.get('type') || 'pinyin';
+      quizCount = urlParams.get('count') || '10';
+      hskLevel = urlParams.get('hsk') || 'all';
+      difficulty = urlParams.get('difficulty') || 'balanced'; // ← important
 
 
-          // Load and start quiz
-          updateQuizInfo();
-          await loadQuizWords();
-        });
+      // Load and start quiz
+      updateQuizInfo();
+      await loadQuizWords();
+    });
 
-        // Load words for quiz - VERSION AMÉLIORÉE
-        // Load words for quiz - VERSION CORRIGÉE
-        async function loadQuizWords() {
-          try {
-            // Show loading message
-            quizQuestion.textContent = 'Loading words...';
-            disableSubmitButton();
+    // Load words for quiz - VERSION AMÉLIORÉE
+    // Load words for quiz - VERSION CORRIGÉE
+    async function loadQuizWords() {
+      try {
+        // Show loading message
+        quizQuestion.textContent = 'Loading words...';
+        disableSubmitButton();
 
-            // Call API with parameters
-            const res = await fetch(`/quiz-mots?count=${encodeURIComponent(quizCount)}&hsk=${encodeURIComponent(hskLevel)}&type=${encodeURIComponent(quizType)}&difficulty=${encodeURIComponent(difficulty)}`);
+        // Call API with parameters
+        const res = await fetch(`/quiz-mots?count=${encodeURIComponent(quizCount)}&hsk=${encodeURIComponent(hskLevel)}&type=${encodeURIComponent(quizType)}&difficulty=${encodeURIComponent(difficulty)}`);
 
-            // 🔥 VÉRIFIER SPÉCIFIQUEMENT LA LIMITE (403)
-            if (res.status === 403) {
-              const errorData = await res.json();
+        // 🔥 VÉRIFIER SPÉCIFIQUEMENT LA LIMITE (403)
+        if (res.status === 403) {
+          const errorData = await res.json();
 
-              // Afficher la popup de limite
-              if (errorData.limitReached && errorData.type === 'quiz') {
-                showQuizLimitPopup(errorData);
+          // Afficher la popup de limite
+          if (errorData.limitReached && errorData.type === 'quiz') {
+            showQuizLimitPopup(errorData);
 
-                // Afficher un message dans le quiz aussi
-                quizQuestion.textContent = '⛔ Daily Quiz Limit Reached';
-                quizResult.innerHTML = `
+            // Afficher un message dans le quiz aussi
+            quizQuestion.textContent = '⛔ Daily Quiz Limit Reached';
+            quizResult.innerHTML = `
           <div class="alert alert-warning">
             <strong>You've reached your daily limit!</strong><br>
             You've taken ${errorData.current || 0}/${errorData.max || 5} quizzes today.<br>
@@ -176,50 +176,57 @@
             </button>
           </div>
         `;
-                quizResult.style.display = 'block';
-                return;
-              }
-            }
+            quizResult.style.display = 'block';
+            return;
+          }
+        }
 
-            if (!res.ok) {
-              throw new Error(`HTTP error ${res.status}`);
-            }
+        if (!res.ok) {
+          const errorData = await res.json();
 
-            // 🔥 CORRECTION : Votre API renvoie {success: true, words: [...]}
-            const responseData = await res.json();
+          if (errorData?.error === 'not_enough_words_in_collection') {
+            showNotEnoughWordsMessage(errorData);
+            return;
+          }
 
-            // DEBUG: Afficher ce que reçoit le frontend
-            console.log('📥 API Response:', responseData);
+          throw new Error(errorData?.message || `HTTP error ${res.status}`);
+        }
 
-            // Extraire les mots de la réponse
-            let mots;
-            if (responseData.words && Array.isArray(responseData.words)) {
-              // Format actuel de votre API
-              mots = responseData.words;
-              console.log(`✅ ${mots.length} mots extraits de responseData.words`);
-            } else if (Array.isArray(responseData)) {
-              // Format ancien (tableau direct)
-              mots = responseData;
-              console.log(`✅ ${mots.length} mots reçus (format tableau)`);
-            } else {
-              // Format inattendu
-              console.warn('❌ Format de réponse inattendu:', responseData);
-              mots = [];
-            }
+        // 🔥 CORRECTION : Votre API renvoie {success: true, words: [...]}
+        const responseData = await res.json();
 
-            // 🔥 AJOUTER UN LOG DÉTAILLÉ
-            console.log('🔍 Détails des mots reçus:');
-            console.log('- Nombre:', mots.length);
-            if (mots.length > 0) {
-              console.log(`📋 ${quizWords.length} mots chargés pour le quiz :`);
-              quizWords.forEach((word, index) => {
-                console.log(`- Mot ${index + 1}: {pinyin: '${word.pinyin}', english: '${word.english}', score: ${word.score}}`);
-              });
-            }
+        // DEBUG: Afficher ce que reçoit le frontend
+        console.log('📥 API Response:', responseData);
 
-            if (!mots || !mots.length) {
-              quizQuestion.textContent = '⚠️ No words available for these parameters.';
-              quizResult.innerHTML = `
+        // Extraire les mots de la réponse
+        let mots;
+        if (responseData.words && Array.isArray(responseData.words)) {
+          // Format actuel de votre API
+          mots = responseData.words;
+          console.log(`✅ ${mots.length} mots extraits de responseData.words`);
+        } else if (Array.isArray(responseData)) {
+          // Format ancien (tableau direct)
+          mots = responseData;
+          console.log(`✅ ${mots.length} mots reçus (format tableau)`);
+        } else {
+          // Format inattendu
+          console.warn('❌ Format de réponse inattendu:', responseData);
+          mots = [];
+        }
+
+        // 🔥 AJOUTER UN LOG DÉTAILLÉ
+        console.log('🔍 Détails des mots reçus:');
+        console.log('- Nombre:', mots.length);
+        if (mots.length > 0) {
+          console.log(`📋 ${quizWords.length} mots chargés pour le quiz :`);
+          quizWords.forEach((word, index) => {
+            console.log(`- Mot ${index + 1}: {pinyin: '${word.pinyin}', english: '${word.english}', score: ${word.score}}`);
+          });
+        }
+
+        if (!mots || !mots.length) {
+          quizQuestion.textContent = '⚠️ No words available for these parameters.';
+          quizResult.innerHTML = `
         <div class="alert alert-warning">
           <strong>No words available</strong><br>
           <p>API returned ${mots ? 0 : 'no data'}. Server response:</p>
@@ -232,31 +239,31 @@
           </button>
         </div>
       `;
-              quizResult.style.display = 'block';
-              return;
-            }
+          quizResult.style.display = 'block';
+          return;
+        }
 
-            quizWords = mots;
-            initQuizTracking();
-            quizIdx = 0;
-            correctCount = 0;
-            wrongCount = 0;
-            hasSecondChance = false;
-            quizEnded = false;
+        quizWords = mots;
+        initQuizTracking();
+        quizIdx = 0;
+        correctCount = 0;
+        wrongCount = 0;
+        hasSecondChance = false;
+        quizEnded = false;
 
-            updateScore();
-            updateProgress();
-            enableSubmitButton();
+        updateScore();
+        updateProgress();
+        enableSubmitButton();
 
-            showQuizWord();
+        showQuizWord();
 
-          } catch (error) {
-            console.error('Error loading words:', error);
+      } catch (error) {
+        console.error('Error loading words:', error);
 
-            // Gestion des erreurs réseau
-            if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
-              quizQuestion.textContent = '🌐 Network Error';
-              quizResult.innerHTML = `
+        // Gestion des erreurs réseau
+        if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
+          quizQuestion.textContent = '🌐 Network Error';
+          quizResult.innerHTML = `
         <div class="alert alert-danger">
           <strong>Connection problem</strong><br>
           Please check your internet connection and try again.<br>
@@ -265,9 +272,9 @@
           </button>
         </div>
       `;
-            } else {
-              quizQuestion.textContent = '⚠️ Error loading words.';
-              quizResult.innerHTML = `
+        } else {
+          quizQuestion.textContent = '⚠️ Error loading words.';
+          quizResult.innerHTML = `
         <div class="alert alert-danger">
           <strong>Error</strong><br>
           ${error.message}<br>
@@ -276,314 +283,333 @@
           </button>
         </div>
       `;
-            }
-
-            quizResult.style.display = 'block';
-          }
         }
 
-        // Initialize results tracking
-        function initQuizTracking() {
-          quizResults = quizWords.map(word => {
-            return {
-              mot_id: word.id,
-              chinese: word.chinese,
-              pinyin: word.pinyin,
-              english: word.english,
-              quiz_mode: quizType,
-              correct: null,
-              attempts: 0
-            };
-          });
-        }
+        quizResult.style.display = 'block';
+      }
+    }
 
-        // Show a question
-        function showQuizWord() {
-          if (quizEnded || quizIdx >= quizWords.length) {
-            endQuiz();
-            return;
-          }
-
-          // Reset interface
-          quizFields.innerHTML = '';
-          quizInputs = [];
-          quizResult.style.display = 'none';
-          hasSecondChance = false;
-          // 🔥 CORRECTION : Toujours cacher la carte quand on passe à une nouvelle question
-          hideCharacterCard();
-          enableSubmitButton();
-
-          // Get current word
-          currentWord = quizWords[quizIdx];
-          updateProgress();
-
-          // Show according to quiz type
-          if (quizType === 'pinyin') {
-            showPinyinQuestion();
-          } else {
-            showCharacterQuestion();
-          }
-
-          // Focus on first field
-          if (quizInputs.length > 0) {
-            quizInputs[0].focus();
-          }
-        }
-
-        // Show a pinyin question
-        function showPinyinQuestion() {
-          quizQuestion.textContent = `How to say "${currentWord.english}" in pinyin?`;
-
-          // Create fields for each syllable
-          const syllables = currentWord.pinyin.split(' ');
-
-          syllables.forEach((syllable, index) => {
-            const inputGroup = document.createElement('div');
-            inputGroup.className = 'd-flex flex-column align-items-center';
-
-            const inp = document.createElement('input');
-            inp.type = 'text';
-            inp.className = 'form-control syllable-input mb-1';
-            // 🔥 CORRECTION : "x letters" au lieu de "x characters"
-            inp.placeholder = `${syllable.length} letters`;
-            inp.maxLength = syllable.length;
-
-            // Auto-focus management
-            inp.addEventListener('input', (e) => {
-              if (e.target.value.length >= e.target.maxLength && quizInputs[index + 1]) {
-                quizInputs[index + 1].focus();
-              }
-            });
-
-            // 🔥 SUPPRESSION : Plus d'indicateur de syllabe
-            inputGroup.appendChild(inp);
-            quizFields.appendChild(inputGroup);
-            quizInputs.push(inp);
-          });
-        }
-
-        // Show a character question
-        function showCharacterQuestion() {
-          quizQuestion.textContent = `How to write "${currentWord.english}" in Chinese characters?`;
-
-          // Single field for characters
-          const inp = document.createElement('input');
-          inp.type = 'text';
-          inp.className = 'form-control character-input';
-          inp.placeholder = 'Write Chinese characters here...';
-          inp.autocomplete = 'off';
-          inp.spellcheck = false;
-
-          quizFields.appendChild(inp);
-          quizInputs.push(inp);
-        }
-
-        // Update progress
-        function updateProgress() {
-          quizProgress.textContent = `Question ${quizIdx + 1}/${quizWords.length}`;
-        }
-
-        // Update score
-        function updateScore() {
-          quizScore.textContent = `✅ ${correctCount} | ❌ ${wrongCount}`;
-        }
-
-        function updateQuizInfo() {
-          let hskDisplay = '';
-          if (hskLevel === 'all') {
-            hskDisplay = 'all HSK';
-          } else if (hskLevel === 'street') {
-            hskDisplay = 'Street only';
-          } else if (hskLevel.includes('-')) {
-            const [min, max] = hskLevel.split('-');
-            if (max === '7') {
-              hskDisplay = `HSK ${min}–6 + Street`;
-            } else {
-              hskDisplay = `HSK ${min}–${max}`;
-            }
-          } else {
-            hskDisplay = `HSK ${hskLevel}`;
-          }
-
-          let difficultyDisplay = '';
-          if (difficulty === 'revision') {
-            difficultyDisplay = 'Review (mastered words)';
-          } else if (difficulty === 'discovery') {
-            difficultyDisplay = 'Discovery (unknown words)';
-          } else {
-            difficultyDisplay = 'Balanced';
-          }
-
-          const infoEl = document.getElementById('quizInfo');
-          if (infoEl) {
-            infoEl.textContent = `${hskDisplay} • ${difficultyDisplay}`;
-          }
-        }
-
-        // Normalize pinyin for comparison
-        function normalizePinyin(str) {
-          return str
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/\s+/g, "")
-            .toLowerCase()
-            .trim();
-        }
-
-        // Disable submit button
-        function disableSubmitButton() {
-          checkBtn.disabled = true;
-          checkBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Loading...';
-          checkBtn.classList.add('disabled');
-        }
-
-        // Enable submit button
-        function enableSubmitButton() {
-          checkBtn.disabled = false;
-          checkBtn.innerHTML = '<i class="bi bi-send-check me-2"></i>Submit';
-          checkBtn.classList.remove('disabled');
-        }
-
-        // Form submission handling
-        quizForm.onsubmit = (e) => {
-          e.preventDefault();
-          disableSubmitButton();
-
-          const isCorrect = checkAnswer();
-
-          // Record result - CORRECTION
-          if (quizResults[quizIdx]) {
-            // 🔥 CORRECTION : Ne mettre à jour 'correct' que sur PREMIÈRE tentative
-            if (!hasSecondChance) {
-              quizResults[quizIdx].correct = isCorrect; // ← SEULEMENT quand pas de 2ème chance
-            }
-            quizResults[quizIdx].attempts = hasSecondChance ? 2 : 1;
-          }
-
-          if (isCorrect) {
-            handleCorrectAnswer();
-          } else {
-            handleIncorrectAnswer();
-          }
+    // Initialize results tracking
+    function initQuizTracking() {
+      quizResults = quizWords.map(word => {
+        return {
+          mot_id: word.id,
+          chinese: word.chinese,
+          pinyin: word.pinyin,
+          english: word.english,
+          quiz_mode: quizType,
+          correct: null,
+          attempts: 0
         };
+      });
+    }
 
-        // Check answer
-        function checkAnswer() {
-          if (quizType === 'pinyin') {
-            const userAnswer = normalizePinyin(quizInputs.map(inp => inp.value).join(" "));
-            const correctAnswer = normalizePinyin(currentWord.pinyin);
-            return userAnswer === correctAnswer;
-          } else {
-            const userAnswer = quizInputs[0].value.trim();
-            return userAnswer === currentWord.chinese;
+    function showNotEnoughWordsMessage(data) {
+      quizQuestion.textContent = '📚 Not enough words in your collection';
+
+      quizResult.innerHTML = `
+    <div class="alert alert-warning text-center">
+  
+      <p>
+        This quiz needs <strong>${data.requested}</strong> words of the selected HSK(s) levels.
+      </p>
+
+      </p>
+      </div>
+    </div>
+  `;
+
+      quizResult.style.display = 'block';
+      disableSubmitButton();
+    }
+
+    // Show a question
+    function showQuizWord() {
+      if (quizEnded || quizIdx >= quizWords.length) {
+        endQuiz();
+        return;
+      }
+
+      // Reset interface
+      quizFields.innerHTML = '';
+      quizInputs = [];
+      quizResult.style.display = 'none';
+      hasSecondChance = false;
+      // 🔥 CORRECTION : Toujours cacher la carte quand on passe à une nouvelle question
+      hideCharacterCard();
+      enableSubmitButton();
+
+      // Get current word
+      currentWord = quizWords[quizIdx];
+      updateProgress();
+
+      // Show according to quiz type
+      if (quizType === 'pinyin') {
+        showPinyinQuestion();
+      } else {
+        showCharacterQuestion();
+      }
+
+      // Focus on first field
+      if (quizInputs.length > 0) {
+        quizInputs[0].focus();
+      }
+    }
+
+    // Show a pinyin question
+    function showPinyinQuestion() {
+      quizQuestion.textContent = `How to say "${currentWord.english}" in pinyin?`;
+
+      // Create fields for each syllable
+      const syllables = currentWord.pinyin.split(' ');
+
+      syllables.forEach((syllable, index) => {
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'd-flex flex-column align-items-center';
+
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'form-control syllable-input mb-1';
+        // 🔥 CORRECTION : "x letters" au lieu de "x characters"
+        inp.placeholder = `${syllable.length} letters`;
+        inp.maxLength = syllable.length;
+
+        // Auto-focus management
+        inp.addEventListener('input', (e) => {
+          if (e.target.value.length >= e.target.maxLength && quizInputs[index + 1]) {
+            quizInputs[index + 1].focus();
           }
+        });
+
+        // 🔥 SUPPRESSION : Plus d'indicateur de syllabe
+        inputGroup.appendChild(inp);
+        quizFields.appendChild(inputGroup);
+        quizInputs.push(inp);
+      });
+    }
+
+    // Show a character question
+    function showCharacterQuestion() {
+      quizQuestion.textContent = `How to write "${currentWord.english}" in Chinese characters?`;
+
+      // Single field for characters
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'form-control character-input';
+      inp.placeholder = 'Write Chinese characters here...';
+      inp.autocomplete = 'off';
+      inp.spellcheck = false;
+
+      quizFields.appendChild(inp);
+      quizInputs.push(inp);
+    }
+
+    // Update progress
+    function updateProgress() {
+      quizProgress.textContent = `Question ${quizIdx + 1}/${quizWords.length}`;
+    }
+
+    // Update score
+    function updateScore() {
+      quizScore.textContent = `✅ ${correctCount} | ❌ ${wrongCount}`;
+    }
+
+    function updateQuizInfo() {
+      let hskDisplay = '';
+      if (hskLevel === 'all') {
+        hskDisplay = 'all HSK';
+      } else if (hskLevel === 'street') {
+        hskDisplay = 'Street only';
+      } else if (hskLevel.includes('-')) {
+        const [min, max] = hskLevel.split('-');
+        if (max === '7') {
+          hskDisplay = `HSK ${min}–6 + Street`;
+        } else {
+          hskDisplay = `HSK ${min}–${max}`;
         }
+      } else {
+        hskDisplay = `HSK ${hskLevel}`;
+      }
 
-        // Handle correct answer
-        function handleCorrectAnswer() {
-          quizResult.textContent = "✅ Correct!";
-          quizResult.className = "alert alert-success";
-          quizResult.style.display = 'block';
+      let difficultyDisplay = '';
+      if (difficulty === 'revision') {
+        difficultyDisplay = 'Review (mastered words)';
+      } else if (difficulty === 'discovery') {
+        difficultyDisplay = 'Discovery (unknown words)';
+      } else {
+        difficultyDisplay = 'Balanced';
+      }
 
-          if (!hasSecondChance) {
-            correctCount++;
-            updateScore();
-          }
+      const infoEl = document.getElementById('quizInfo');
+      if (infoEl) {
+        infoEl.textContent = `${hskDisplay} • ${difficultyDisplay}`;
+      }
+    }
 
-          quizIdx++;
+    // Normalize pinyin for comparison
+    function normalizePinyin(str) {
+      return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "")
+        .toLowerCase()
+        .trim();
+    }
 
-          setTimeout(() => {
-            if (quizEnded) return;
-            // 🔥 CORRECTION : Cacher la carte avant de passer à la question suivante
-            hideCharacterCard();
-            showQuizWord();
-          }, 1200);
+    // Disable submit button
+    function disableSubmitButton() {
+      checkBtn.disabled = true;
+      checkBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Loading...';
+      checkBtn.classList.add('disabled');
+    }
+
+    // Enable submit button
+    function enableSubmitButton() {
+      checkBtn.disabled = false;
+      checkBtn.innerHTML = '<i class="bi bi-send-check me-2"></i>Submit';
+      checkBtn.classList.remove('disabled');
+    }
+
+    // Form submission handling
+    quizForm.onsubmit = (e) => {
+      e.preventDefault();
+      disableSubmitButton();
+
+      const isCorrect = checkAnswer();
+
+      // Record result - CORRECTION
+      if (quizResults[quizIdx]) {
+        // 🔥 CORRECTION : Ne mettre à jour 'correct' que sur PREMIÈRE tentative
+        if (!hasSecondChance) {
+          quizResults[quizIdx].correct = isCorrect; // ← SEULEMENT quand pas de 2ème chance
         }
+        quizResults[quizIdx].attempts = hasSecondChance ? 2 : 1;
+      }
 
-        // Handle incorrect answer
-        function handleIncorrectAnswer() {
-          if (!hasSecondChance) {
-            wrongCount++;
-            updateScore();
+      if (isCorrect) {
+        handleCorrectAnswer();
+      } else {
+        handleIncorrectAnswer();
+      }
+    };
 
-            // Show feedback card with audio and hover functionality
-            showCharacterCard(currentWord);
+    // Check answer
+    function checkAnswer() {
+      if (quizType === 'pinyin') {
+        const userAnswer = normalizePinyin(quizInputs.map(inp => inp.value).join(" "));
+        const correctAnswer = normalizePinyin(currentWord.pinyin);
+        return userAnswer === correctAnswer;
+      } else {
+        const userAnswer = quizInputs[0].value.trim();
+        return userAnswer === currentWord.chinese;
+      }
+    }
 
-            hasSecondChance = true;
+    // Handle correct answer
+    function handleCorrectAnswer() {
+      quizResult.textContent = "✅ Correct!";
+      quizResult.className = "alert alert-success";
+      quizResult.style.display = 'block';
 
-            // Prepare for second chance
-            quizInputs.forEach(input => {
-              input.value = '';
-              input.style.border = '2px solid #dc3545';
-              input.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
-            });
-            quizInputs[0].focus();
+      if (!hasSecondChance) {
+        correctCount++;
+        updateScore();
+      }
 
-            enableSubmitButton();
+      quizIdx++;
 
-          } else {
-            // Second error
-            quizResult.textContent = quizType === 'pinyin' ?
-              `✅ Correct answer: ${currentWord.pinyin}` :
-              `✅ Correct answer: ${currentWord.chinese}`;
+      setTimeout(() => {
+        if (quizEnded) return;
+        // 🔥 CORRECTION : Cacher la carte avant de passer à la question suivante
+        hideCharacterCard();
+        showQuizWord();
+      }, 1200);
+    }
 
-            quizResult.className = "alert alert-warning";
-            quizResult.style.display = 'block';
+    // Handle incorrect answer
+    function handleIncorrectAnswer() {
+      if (!hasSecondChance) {
+        wrongCount++;
+        updateScore();
 
-            quizIdx++;
+        // Show feedback card with audio and hover functionality
+        showCharacterCard(currentWord);
 
-            setTimeout(() => {
-              if (quizEnded) return;
-              // 🔥 CORRECTION : Cacher la carte avant de passer à la question suivante
-              hideCharacterCard();
-              showQuizWord();
-            }, 1200);
-          }
-        }
+        hasSecondChance = true;
 
-        // End quiz
-        function endQuiz() {
-          quizEnded = true;
+        // Prepare for second chance
+        quizInputs.forEach(input => {
+          input.value = '';
+          input.style.border = '2px solid #dc3545';
+          input.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
+        });
+        quizInputs[0].focus();
 
-          const successRate = (correctCount / quizWords.length) * 100;
-          const coinsEarned = calculateCoinsEarned(correctCount, quizWords.length);
+        enableSubmitButton();
 
-          // 🔥 CORRECTION : Cacher la carte de feedback à la fin du quiz
+      } else {
+        // Second error
+        quizResult.textContent = quizType === 'pinyin' ?
+          `✅ Correct answer: ${currentWord.pinyin}` :
+          `✅ Correct answer: ${currentWord.chinese}`;
+
+        quizResult.className = "alert alert-warning";
+        quizResult.style.display = 'block';
+
+        quizIdx++;
+
+        setTimeout(() => {
+          if (quizEnded) return;
+          // 🔥 CORRECTION : Cacher la carte avant de passer à la question suivante
           hideCharacterCard();
+          showQuizWord();
+        }, 1200);
+      }
+    }
 
-          // 🔥 NOUVEAU : Interface de fin de quiz SIMPLIFIÉE
-          showQuizCompletedScreen(correctCount, quizWords.length, coinsEarned);
-        }
+    // End quiz
+    function endQuiz() {
+      quizEnded = true;
 
-        // Calculate earned coins
-        function calculateCoinsEarned(correct, total) {
-          const successRate = (correct / total) * 100;
+      const successRate = (correctCount / quizWords.length) * 100;
+      const coinsEarned = calculateCoinsEarned(correctCount, quizWords.length);
 
-          if (correct === 0) return 0;
-          if (successRate <= 50) return 2;
-          if (successRate <= 70) return 3;
-          return 5;
-        }
+      // 🔥 CORRECTION : Cacher la carte de feedback à la fin du quiz
+      hideCharacterCard();
 
-        // 🔥 NOUVELLE FONCTION : Interface de fin de quiz SIMPLIFIÉE
-        function showQuizCompletedScreen(correct, total, coinsEarned) {
-          const successRate = (correct / total) * 100;
+      // 🔥 NOUVEAU : Interface de fin de quiz SIMPLIFIÉE
+      showQuizCompletedScreen(correctCount, quizWords.length, coinsEarned);
+    }
 
-          // Message de motivation
-          let motivationMessage = '';
-          if (successRate >= 80) {
-            motivationMessage = 'Outstanding! You\'re a Chinese master!';
-          } else if (successRate >= 60) {
-            motivationMessage = 'Great job! You\'re making excellent progress!';
-          } else if (successRate >= 40) {
-            motivationMessage = 'Good effort! Keep practicing to improve!';
-          } else {
-            motivationMessage = 'Practice makes perfect! Don\'t give up!';
-          }
+    // Calculate earned coins
+    function calculateCoinsEarned(correct, total) {
+      const successRate = (correct / total) * 100;
 
-          const quizContainer = document.querySelector('.quiz-container');
+      if (correct === 0) return 0;
+      if (successRate <= 50) return 2;
+      if (successRate <= 70) return 3;
+      return 5;
+    }
 
-          quizContainer.innerHTML = `
+    // 🔥 NOUVELLE FONCTION : Interface de fin de quiz SIMPLIFIÉE
+    function showQuizCompletedScreen(correct, total, coinsEarned) {
+      const successRate = (correct / total) * 100;
+
+      // Message de motivation
+      let motivationMessage = '';
+      if (successRate >= 80) {
+        motivationMessage = 'Outstanding! You\'re a Chinese master!';
+      } else if (successRate >= 60) {
+        motivationMessage = 'Great job! You\'re making excellent progress!';
+      } else if (successRate >= 40) {
+        motivationMessage = 'Good effort! Keep practicing to improve!';
+      } else {
+        motivationMessage = 'Practice makes perfect! Don\'t give up!';
+      }
+
+      const quizContainer = document.querySelector('.quiz-container');
+
+      quizContainer.innerHTML = `
     <div class="text-center p-4">
       <!-- Icône et titre -->
       <div class="mb-4">
@@ -631,86 +657,86 @@
     </div>
   `;
 
-          // Gestion du bouton
-          if (coinsEarned > 0) {
-            document.getElementById('collectBtn').addEventListener('click', saveQuizResults);
-          } else {
-            document.getElementById('finishBtn').addEventListener('click', saveQuizResults);
-          }
-        }
+      // Gestion du bouton
+      if (coinsEarned > 0) {
+        document.getElementById('collectBtn').addEventListener('click', saveQuizResults);
+      } else {
+        document.getElementById('finishBtn').addEventListener('click', saveQuizResults);
+      }
+    }
 
-        // Save results
-        function saveQuizResults() {
-          const coinsEarned = calculateCoinsEarned(correctCount, quizWords.length);
+    // Save results
+    function saveQuizResults() {
+      const coinsEarned = calculateCoinsEarned(correctCount, quizWords.length);
 
-          const quizData = {
-            score: correctCount,
-            total_questions: quizWords.length,
-            quiz_type: quizType,
-            results: quizResults,
-            words_used: quizWords.map(word => quizType === 'pinyin' ? word.pinyin : word.chinese)
-          };
+      const quizData = {
+        score: correctCount,
+        total_questions: quizWords.length,
+        quiz_type: quizType,
+        results: quizResults,
+        words_used: quizWords.map(word => quizType === 'pinyin' ? word.pinyin : word.chinese)
+      };
 
-          // Désactiver le bouton pendant la sauvegarde
-          const button = document.getElementById('collectBtn') || document.getElementById('finishBtn');
-          if (button) {
-            button.disabled = true;
-            button.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Saving...';
-          }
+      // Désactiver le bouton pendant la sauvegarde
+      const button = document.getElementById('collectBtn') || document.getElementById('finishBtn');
+      if (button) {
+        button.disabled = true;
+        button.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Saving...';
+      }
 
-          fetch('/api/quiz/save', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(quizData)
-          })
-            .then(response => response.json())
-            .then(data => {
-              console.log('✅ Quiz saved:', data);
-              // Rediriger vers la page de sélection de quiz
-              setTimeout(() => {
-                window.location.href = '/quiz';
-              }, 500);
-            })
-            .catch(error => {
-              console.error('❌ Save error:', error);
-              // Réactiver le bouton en cas d'erreur
-              if (button) {
-                button.disabled = false;
-                button.innerHTML = coinsEarned > 0 ?
-                  `<i class="bi bi-wallet2 me-2"></i>Collect ${coinsEarned}₵` :
-                  `<i class="bi bi-check-circle me-2"></i>End Quiz`;
-              }
-            });
-        }
-
-        // Return to selection
-        function returnToSelection() {
-          if (quizIdx > 0 && !quizEnded) {
-            if (confirm('Do you really want to quit? Your progress will be lost.')) {
-              window.location.href = '/quiz';
-            }
-          } else {
+      fetch('/api/quiz/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(quizData)
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log('✅ Quiz saved:', data);
+          // Rediriger vers la page de sélection de quiz
+          setTimeout(() => {
             window.location.href = '/quiz';
+          }, 500);
+        })
+        .catch(error => {
+          console.error('❌ Save error:', error);
+          // Réactiver le bouton en cas d'erreur
+          if (button) {
+            button.disabled = false;
+            button.innerHTML = coinsEarned > 0 ?
+              `<i class="bi bi-wallet2 me-2"></i>Collect ${coinsEarned}₵` :
+              `<i class="bi bi-check-circle me-2"></i>End Quiz`;
           }
+        });
+    }
+
+    // Return to selection
+    function returnToSelection() {
+      if (quizIdx > 0 && !quizEnded) {
+        if (confirm('Do you really want to quit? Your progress will be lost.')) {
+          window.location.href = '/quiz';
         }
+      } else {
+        window.location.href = '/quiz';
+      }
+    }
 
-        // ==================================================
-        // FONCTIONS POUR LA CARTE DE CARACTÈRE
-        // ==================================================
+    // ==================================================
+    // FONCTIONS POUR LA CARTE DE CARACTÈRE
+    // ==================================================
 
-        // Functions for character card
-        function showCharacterCard(word) {
-          const card = document.createElement('div');
-          card.className = 'card card-custom-bg rounded-4 shadow-sm p-3 mb-3 mx-auto';
-          card.style.cssText = 'width: 280px; max-width: 100%; background: #FFF4F2; border: 1px solid #FDA297;';
-          card.id = 'character-card-feedback';
+    // Functions for character card
+    function showCharacterCard(word) {
+      const card = document.createElement('div');
+      card.className = 'card card-custom-bg rounded-4 shadow-sm p-3 mb-3 mx-auto';
+      card.style.cssText = 'width: 280px; max-width: 100%; background: #FFF4F2; border: 1px solid #FDA297;';
+      card.id = 'character-card-feedback';
 
-          const hskLevelDisplay = word.hsk || 'Street';
-          const chineseFontSizeClass = word.chinese && word.chinese.length >= 3 ? 'fs-2' : 'fs-1';
+      const hskLevelDisplay = word.hsk || 'Street';
+      const chineseFontSizeClass = word.chinese && word.chinese.length >= 3 ? 'fs-2' : 'fs-1';
 
-          card.innerHTML = `
+      card.innerHTML = `
         <div class="card-body text-center p-0">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="badge bg-secondary">
@@ -734,48 +760,48 @@
         </div>
     `;
 
-          quizForm.parentNode.insertBefore(card, quizForm);
+      quizForm.parentNode.insertBefore(card, quizForm);
 
-          // Activate audio buttons (utilise les fonctions de card-function.js)
-          if (window.activateAudioButtons) {
-            window.activateAudioButtons(card);
-          } else {
-            // Fallback simple
-            const audioBtn = card.querySelector('.btn-audio');
-            if (audioBtn) {
-              audioBtn.addEventListener('click', function () {
-                const text = this.getAttribute('data-text');
-                if (window.textToSpeech) {
-                  window.textToSpeech(text, 'zh-CN');
-                } else if ('speechSynthesis' in window) {
-                  const utterance = new SpeechSynthesisUtterance(text);
-                  utterance.lang = 'zh-CN';
-                  utterance.rate = 0.8;
-                  speechSynthesis.speak(utterance);
-                }
-              });
+      // Activate audio buttons (utilise les fonctions de card-function.js)
+      if (window.activateAudioButtons) {
+        window.activateAudioButtons(card);
+      } else {
+        // Fallback simple
+        const audioBtn = card.querySelector('.btn-audio');
+        if (audioBtn) {
+          audioBtn.addEventListener('click', function() {
+            const text = this.getAttribute('data-text');
+            if (window.textToSpeech) {
+              window.textToSpeech(text, 'zh-CN');
+            } else if ('speechSynthesis' in window) {
+              const utterance = new SpeechSynthesisUtterance(text);
+              utterance.lang = 'zh-CN';
+              utterance.rate = 0.8;
+              speechSynthesis.speak(utterance);
             }
-          }
-
-          // Transform Chinese characters for hover (utilise les fonctions de card-function.js)
-          if (window.transformChineseCharacters) {
-            const chineseContainer = card.querySelector('.chinese-clickable');
-            if (chineseContainer && word.chinese) {
-              window.transformChineseCharacters(word.chinese, chineseContainer);
-            }
-          }
+          });
         }
+      }
 
-        function hideCharacterCard() {
-          const card = document.getElementById('character-card-feedback');
-          if (card) card.remove();
+      // Transform Chinese characters for hover (utilise les fonctions de card-function.js)
+      if (window.transformChineseCharacters) {
+        const chineseContainer = card.querySelector('.chinese-clickable');
+        if (chineseContainer && word.chinese) {
+          window.transformChineseCharacters(word.chinese, chineseContainer);
         }
+      }
+    }
 
-        // Make quizWords available globally for hover functionality
-        window.quizWords = quizWords;
-      </script>
+    function hideCharacterCard() {
+      const card = document.getElementById('character-card-feedback');
+      if (card) card.remove();
+    }
 
-      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    // Make quizWords available globally for hover functionality
+    window.quizWords = quizWords;
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

@@ -812,69 +812,78 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     }
 
     // =============================
-    // 5. SÉLECTION SELON LA DIFFICULTÉ
+    // 5. SÉLECTION SELON LA DIFFICULTÉ (REWORK)
     // =============================
-    // Définir les seuils et pourcentages cibles
-    let highThreshold, targetHighPercent;
+
+    let threshold;
+    let weakRatio;
 
     switch (difficulty) {
       case 'revision':
-        highThreshold = 70;   // mots considérés comme "maîtrisés" si score >= 70
-        targetHighPercent = 0.8; // 80% de mots maîtrisés
+        threshold = 70;
+        weakRatio = 0.2;
         break;
+
       case 'discovery':
-        highThreshold = 50;
-        targetHighPercent = 0.1; // 10% de mots avec score >= 50
+        threshold = 50;
+        weakRatio = 0.7;
         break;
+
+      case 'hard':
+        threshold = 50;
+        weakRatio = 0.9;   // ⭐ 90% mots faibles
+        break;
+
       case 'balanced':
       default:
-        highThreshold = 50;
-        targetHighPercent = 0.5; // 50% de mots avec score >= 50
+        threshold = 50;
+        weakRatio = 0.5;
         break;
     }
 
-    // Séparer les mots en deux groupes
-    const highGroup = finalPool.filter(w => w.score >= highThreshold);
-    const lowGroup = finalPool.filter(w => w.score < highThreshold);
+    // Groupes
+    const weakWords = finalPool.filter(w => w.score < threshold);
+    const strongWords = finalPool.filter(w => w.score >= threshold);
 
-    console.log(`📊 Groupes: high=${highGroup.length} (score≥${highThreshold}), low=${lowGroup.length}`);
+    const desiredWeak = Math.round(requestedCount * weakRatio);
+    const desiredStrong = requestedCount - desiredWeak;
 
-    // Calculer les quantités souhaitées
-    let desiredHigh = Math.floor(requestedCount * targetHighPercent);
-    let desiredLow = requestedCount - desiredHigh;
+    // Ajustements dynamiques
+    let actualWeak = Math.min(desiredWeak, weakWords.length);
+    let actualStrong = Math.min(desiredStrong, strongWords.length);
 
-    // Ajuster si pas assez dans un groupe
-    let actualHigh = Math.min(desiredHigh, highGroup.length);
-    let actualLow = Math.min(desiredLow, lowGroup.length);
+    // Complétion intelligente
+    let missing = requestedCount - (actualWeak + actualStrong);
 
-    // Si le total est insuffisant, compléter avec l'autre groupe
-    let remaining = requestedCount - (actualHigh + actualLow);
-    if (remaining > 0) {
-      // On peut ajouter au groupe qui a encore des disponibilités
-      if (actualHigh < highGroup.length) {
-        actualHigh = Math.min(actualHigh + remaining, highGroup.length);
-      } else if (actualLow < lowGroup.length) {
-        actualLow = Math.min(actualLow + remaining, lowGroup.length);
+    if (missing > 0) {
+      if (actualWeak < weakWords.length) {
+        const extra = Math.min(missing, weakWords.length - actualWeak);
+        actualWeak += extra;
+        missing -= extra;
+      }
+      if (missing > 0 && actualStrong < strongWords.length) {
+        const extra = Math.min(missing, strongWords.length - actualStrong);
+        actualStrong += extra;
       }
     }
 
-    // Fonction de sélection aléatoire
+    // Tirage random pondéré
     const pickRandom = (arr, n) => {
       if (n <= 0) return [];
-      const shuffled = [...arr].sort(() => Math.random() - 0.5);
-      return shuffled.slice(0, n);
+      return [...arr].sort(() => Math.random() - 0.5).slice(0, n);
     };
 
     let selected = [
-      ...pickRandom(highGroup, actualHigh),
-      ...pickRandom(lowGroup, actualLow)
+      ...pickRandom(weakWords, actualWeak),
+      ...pickRandom(strongWords, actualStrong)
     ];
 
-    // Mélanger le résultat
+    // Mélange final
     selected.sort(() => Math.random() - 0.5);
 
+    console.log(`🎚 Difficulty=${difficulty} → weak=${actualWeak}, strong=${actualStrong}`);
     console.log(`✅ ${selected.length} mots sélectionnés (difficulté: ${difficulty})`);
-    console.log(`   Composition: high=${selected.filter(w => w.score >= highThreshold).length}, low=${selected.filter(w => w.score < highThreshold).length}`);
+    console.log(`   Composition: strong=${selected.filter(w => w.score >= threshold).length}, weak=${selected.filter(w => w.score < threshold).length}`);
 
     // Mise à jour last_seen
     if (selected.length > 0) {

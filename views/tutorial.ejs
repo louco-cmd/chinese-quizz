@@ -63,6 +63,7 @@
 
     .image-mock {
       display: flex;
+      height: 250px;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -305,7 +306,7 @@
       /* Slides alignées en haut, padding-top réduit */
       .slide {
         align-items: flex-start;
-        padding-top: 80px;
+        padding-top: 100px;
         /* espace juste sous le logo */
         /* padding-right et padding-bottom conservés depuis la règle de base (24px) */
       }
@@ -400,7 +401,6 @@
         font-size: 0.9rem;
       }
     }
-
   </style>
 </head>
 
@@ -427,14 +427,14 @@
     </a>
   </div>
 
-  <!-- BOUTON D'ACTION À DROITE (SKIP TUTORIAL) - visible sur slides 1-3 -->
+  <!-- BOUTON D'ACTION À DROITE (SKIP TUTORIAL) - visible sur slides 1-3 
   <div class="action-btn-container" id="actionRight">
     <a href="/dashboard" id="skipBtn" class="btn-action">
       <i class="bi bi-arrow-right-circle"></i>
       <span class="skip-full">Skip tutorial</span>
       <span class="skip-short">Skip</span>
     </a>
-  </div>
+  </div>-->
 
   <!-- BOUTON START PLAYING CENTRÉ (visible seulement sur la dernière slide) -->
   <div class="action-center hidden" id="actionCenter">
@@ -455,11 +455,6 @@
         </div>
         <h1 class="slide-title">Welcome to Jiayou!</h1>
         <p class="text-secondary-custom fs-5 fw-light mb-3">A collaborative Chinese app with 3 core features.</p>
-        <ul class="list-tutorial">
-          <li><i class="bi bi-plus-circle"></i> Add / Collect words</li>
-          <li><i class="bi bi-question-circle"></i> Quiz— pinyin, characters</li>
-          <li><i class="bi bi-trophy"></i> Duels vs friends</li>
-        </ul>
       </div>
     </section>
 
@@ -471,12 +466,7 @@
           <span>illustration</span>
         </div>
         <h2 class="slide-title">Add a word</h2>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">Shared database — you benefits from other people input, they benefits from yours.</p>
-        <ul class="list-tutorial">
-          <li><i class="bi bi-emoji-smile"></i> So be respectful. Mindful of the quality of your content, and use English / Chinese only</li>
-          <li><i class="bi bi-keyboard"></i> install and use one of the Chinese keyboard of your device to input words</li>
-          <li><i class="bi bi-coin"></i> Capture words costs 3 coins, you start with 100, you earn them with quizzes and duels.</li>
-        </ul>
+        <p class="text-secondary-custom fs-5 fw-light mb-3">Build you vocabulary list based on share data with all users. <br><br>A Chinese keyboard is requiered to play.</p>
       </div>
     </section>
 
@@ -488,11 +478,7 @@
           <span>illustration</span>
         </div>
         <h2 class="slide-title">Quiz</h2>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">Test yourself, earn coins.</p>
-        <ul class="list-tutorial">
-          <li><i class="bi bi-pen"></i> Several quizzez are available, pinyin or characters — handwriting ready</li>
-          <li><i class="bi bi-stars"></i> Win up to 5 coins per quiz</li>
-        </ul>
+        <p class="text-secondary-custom fs-5 fw-light mb-3">Test yourself with persionalized quizzes, earn coins to capture new words or challenge your friends.</p>
       </div>
     </section>
 
@@ -504,11 +490,7 @@
           <span>illustration</span>
         </div>
         <h2 class="slide-title">Duels</h2>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">Challenge a friend, two modes:</p>
-        <ul class="list-tutorial">
-          <li><i class="bi bi-1-circle"></i> Classic (20 words) — 10 yours + 10 opponent’s</li>
-          <li><i class="bi bi-2-circle"></i> Match AA (10 words) — 10 words both competitors have in common</li>
-        </ul>
+        <p class="text-secondary-custom fs-5 fw-light mb-3">Challenge a friend in various duel modes and show them who is really the best</p>
       </div>
     </section>
   </div>
@@ -559,13 +541,12 @@
         const isLastSlide = (currentIndex === totalSlides - 1);
 
         if (isLastSlide) {
-          // Dernière slide : bouton Start playing centré, flèche up seule à droite (outline)
-          actionRight.classList.add('hidden');
+
+          if (actionRight) actionRight.classList.add('hidden');
           actionCenter.classList.remove('hidden');
 
-          // Remplacer les deux flèches par une seule flèche up à droite
           navArrows.classList.add('hidden');
-          // Créer un bouton up seul s'il n'existe pas déjà
+
           let upOnly = document.querySelector('.nav-btn.up-only');
           if (!upOnly) {
             upOnly = document.createElement('a');
@@ -579,20 +560,20 @@
             });
             document.body.appendChild(upOnly);
           }
+
           upOnly.classList.remove('hidden');
-          // Positionner à droite (style inline pour override)
           upOnly.style.position = 'fixed';
           upOnly.style.right = '28px';
           upOnly.style.bottom = '34px';
           upOnly.style.left = 'auto';
           upOnly.style.transform = 'none';
+
         } else {
-          // Slides 1-3 : bouton Skip à droite, flèches centrées
-          actionRight.classList.remove('hidden');
+
+          if (actionRight) actionRight.classList.add('hidden'); // on ne l’affiche plus jamais
           actionCenter.classList.add('hidden');
           navArrows.classList.remove('hidden');
 
-          // Cacher et supprimer le bouton up-only s'il existe
           const upOnly = document.querySelector('.nav-btn.up-only');
           if (upOnly) upOnly.classList.add('hidden');
         }

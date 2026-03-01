@@ -90,7 +90,7 @@ app.use(session({
   rolling: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
+    httpOnly: true, //TRUE in prod
     sameSite: 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000
   }
@@ -504,12 +504,16 @@ app.post('/auth/login-basic', async (req, res) => {
       console.log('🔍 req.user après login:', req.user ? req.user.id : 'absent');
 
       // Forcer la sauvegarde de la session
-      req.session.save((saveErr) => {
+      req.session.save(async(saveErr) => {
         if (saveErr) {
           console.error('❌ Erreur sauvegarde session:', saveErr);
         } else {
           console.log('💾 Session sauvegardée');
         }
+        await pool.query(
+          'UPDATE users SET last_login = NOW() WHERE id = $1',
+          [user.id]
+        );
         res.json({ success: true, redirect: '/dashboard' });
       });
     });
@@ -785,7 +789,6 @@ app.get('/auth/reset-password', async (req, res) => {
     });
   }
 });
-
 
 // Pages EJS
 app.get('/', (req, res) => {
