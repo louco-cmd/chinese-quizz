@@ -740,9 +740,8 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
           WHEN EXTRACT(EPOCH FROM (NOW() - um.last_seen)) > 12 * 3600 THEN 2
           ELSE 3 
         END,
-        um.score ASC,
         RANDOM()
-      LIMIT $${paramIndex}
+        LIMIT $${paramIndex}
     `;
     wordsParams.push(fetchLimit);
 
@@ -812,78 +811,120 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     }
 
     // =============================
-    // 5. SÉLECTION SELON LA DIFFICULTÉ (REWORK)
+    // 5. SÉLECTION SELON LA DIFFICULTÉ
     // =============================
-
-    let threshold;
-    let weakRatio;
-
-    switch (difficulty) {
-      case 'revision':
-        threshold = 70;
-        weakRatio = 0.2;
-        break;
-
-      case 'discovery':
-        threshold = 50;
-        weakRatio = 0.7;
-        break;
-
-      case 'hard':
-        threshold = 50;
-        weakRatio = 0.9;   // ⭐ 90% mots faibles
-        break;
-
-      case 'balanced':
-      default:
-        threshold = 50;
-        weakRatio = 0.5;
-        break;
-    }
-
-    // Groupes
-    const weakWords = finalPool.filter(w => w.score < threshold);
-    const strongWords = finalPool.filter(w => w.score >= threshold);
-
-    const desiredWeak = Math.round(requestedCount * weakRatio);
-    const desiredStrong = requestedCount - desiredWeak;
-
-    // Ajustements dynamiques
-    let actualWeak = Math.min(desiredWeak, weakWords.length);
-    let actualStrong = Math.min(desiredStrong, strongWords.length);
-
-    // Complétion intelligente
-    let missing = requestedCount - (actualWeak + actualStrong);
-
-    if (missing > 0) {
-      if (actualWeak < weakWords.length) {
-        const extra = Math.min(missing, weakWords.length - actualWeak);
-        actualWeak += extra;
-        missing -= extra;
-      }
-      if (missing > 0 && actualStrong < strongWords.length) {
-        const extra = Math.min(missing, strongWords.length - actualStrong);
-        actualStrong += extra;
-      }
-    }
-
-    // Tirage random pondéré
     const pickRandom = (arr, n) => {
       if (n <= 0) return [];
-      return [...arr].sort(() => Math.random() - 0.5).slice(0, n);
+      // Mélange aléatoire efficace (Fisher-Yates)
+      const shuffled = [...arr];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled.slice(0, n);
     };
 
-    let selected = [
-      ...pickRandom(weakWords, actualWeak),
-      ...pickRandom(strongWords, actualStrong)
-    ];
+    let selected = [];
 
-    // Mélange final
+    if (difficulty === 'balanced') {
+      // Balanced : mots entre 30 et 80 (inclus)
+      const targetWords = finalPool.filter(w => w.score >= 30 && w.score <= 80);
+
+      if (targetWords.length >= requestedCount) {
+        // Assez de mots dans la fourchette → on prend uniquement ceux-là
+        selected = pickRandom(targetWords, requestedCount);
+      } else {
+        // Pas assez → on prend tous les targetWords
+        selected = [...targetWords];
+        const remaining = requestedCount - targetWords.length;
+
+        // Priorité aux mots "proches" (25-30 et 80-85) pour rester cohérent
+        const closeWords = finalPool.filter(w =>
+          (w.score >= 25 && w.score < 30) || (w.score > 80 && w.score <= 85)
+        ).filter(w => !selected.includes(w));
+
+        if (closeWords.length >= remaining) {
+          selected.push(...pickRandom(closeWords, remaining));
+        } else {
+          selected.push(...closeWords);
+          const stillNeeded = remaining - closeWords.length;
+          // En dernier recours : tous les autres mots
+          const otherWords = finalPool.filter(w => !selected.includes(w));
+          selected.push(...pickRandom(otherWords, Math.min(stillNeeded, otherWords.length)));
+        }
+      }
+
+      console.log(`⚖️ Balanced → ${selected.length} mots (dont ${selected.filter(w => w.score >= 30 && w.score <= 80).length} dans la cible)`);
+
+    } else if (difficulty === 'revision') {
+      // Revision : uniquement des mots avec score >= 70
+      const strongWords = finalPool.filter(w => w.score >= 70);
+
+      if (strongWords.length >= requestedCount) {
+        selected = pickRandom(strongWords, requestedCount);
+      } else {
+        // Pas assez → on prend tous les strongWords
+        selected = [...strongWords];
+        const remaining = requestedCount - strongWords.length;
+
+        // On complète avec les mots les plus proches (score entre 60 et 70)
+        const nearStrong = finalPool.filter(w => w.score >= 60 && w.score < 70).filter(w => !selected.includes(w));
+
+        if (nearStrong.length >= remaining) {
+          selected.push(...pickRandom(nearStrong, remaining));
+        } else {
+          selected.push(...nearStrong);
+          const stillNeeded = remaining - nearStrong.length;
+          // Dernier recours : tous les autres mots
+          const otherWords = finalPool.filter(w => !selected.includes(w));
+          selected.push(...pickRandom(otherWords, Math.min(stillNeeded, otherWords.length)));
+        }
+      }
+
+      console.log(`📚 Revision → ${selected.length} mots (dont ${selected.filter(w => w.score >= 70).length} avec score >=70)`);
+
+    } else if (difficulty === 'discovery') {
+      // Discovery : 80% de mots avec score < 50
+      const weakWords = finalPool.filter(w => w.score < 50);
+      const otherWords = finalPool.filter(w => w.score >= 50);
+
+      const desiredWeak = Math.round(requestedCount * 0.8);
+      const desiredStrong = requestedCount - desiredWeak;
+
+      let actualWeak = Math.min(desiredWeak, weakWords.length);
+      let actualStrong = Math.min(desiredStrong, otherWords.length);
+
+      // Si on manque de weak, on augmente la part de strong
+      let missing = requestedCount - (actualWeak + actualStrong);
+      if (missing > 0) {
+        // On essaie d'abord de prendre plus de weak s'il en reste
+        if (actualWeak < weakWords.length) {
+          const extra = Math.min(missing, weakWords.length - actualWeak);
+          actualWeak += extra;
+          missing -= extra;
+        }
+        // Ensuite on prend plus de strong
+        if (missing > 0 && actualStrong < otherWords.length) {
+          const extra = Math.min(missing, otherWords.length - actualStrong);
+          actualStrong += extra;
+        }
+      }
+
+      selected = [
+        ...pickRandom(weakWords, actualWeak),
+        ...pickRandom(otherWords, actualStrong)
+      ];
+
+      console.log(`🔍 Discovery → weak=${actualWeak}, strong=${actualStrong}`);
+
+    } else {
+      // Fallback (difficulty inconnue) → aléatoire pur
+      selected = pickRandom(finalPool, requestedCount);
+      console.log(`🎲 Fallback (difficulty inconnue) → ${selected.length} mots aléatoires`);
+    }
+
+    // Mélange final pour éviter un ordre artificiel
     selected.sort(() => Math.random() - 0.5);
-
-    console.log(`🎚 Difficulty=${difficulty} → weak=${actualWeak}, strong=${actualStrong}`);
-    console.log(`✅ ${selected.length} mots sélectionnés (difficulté: ${difficulty})`);
-    console.log(`   Composition: strong=${selected.filter(w => w.score >= threshold).length}, weak=${selected.filter(w => w.score < threshold).length}`);
 
     // Mise à jour last_seen
     if (selected.length > 0) {

@@ -790,6 +790,7 @@ app.get('/auth/reset-password', async (req, res) => {
   }
 });
 
+
 // Pages EJS
 app.get('/', (req, res) => {
   const error = req.query.error;
