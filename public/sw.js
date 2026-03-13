@@ -1,5 +1,5 @@
 // sw.js - VERSION CORRIGÉE & SIMPLIFIÉE
-const CACHE_NAME = 'jiayou-v4.1'; // 🔥 CHANGEZ CE NOM MAINTENANT
+const CACHE_NAME = 'jiayou-v1'; // 🔥 CHANGEZ CE NOM MAINTENANT
 const OFFLINE_URL = '/offline.html';
 
 const urlsToCache = [
@@ -10,7 +10,8 @@ const urlsToCache = [
   '/js/card-functions.js',
   '/manifest.json',
   '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  '/icons/icon-512.png',
+  '/icons/icon-app.png',
 ];
 
 // ========== INSTALL ==========
@@ -45,11 +46,11 @@ self.addEventListener('activate', (event) => {
         );
       })
     ]).then(() => {
-      console.log('[SW] Prêt (v4)');
+      console.log('[SW] Prêt (v1)');
       // Notification discrète aux clients
       self.clients.matchAll().then(clients => {
         clients.forEach(client => {
-          client.postMessage({ type: 'SW_READY', version: 'v4' });
+          client.postMessage({ type: 'SW_READY', version: 'v1' });
         });
       });
     })

@@ -825,12 +825,22 @@ app.get('/dashboard', ensureAuth, async (req, res) => {
   const userId = req.user.id;
 
   try {
-    const userRes = await pool.query('SELECT name, balance, last_login FROM users WHERE id = $1', [userId]);
+    // Récupérer les infos utilisateur, y compris has_seen_tutorial
+    const userRes = await pool.query(
+      'SELECT name, balance, last_login, has_seen_tutorial FROM users WHERE id = $1',
+      [userId]
+    );
     const user = userRes.rows[0] || {};
+
+    // Vérifier si l'utilisateur a déjà vu le tutoriel
+    // Si le champ est NULL ou false, on redirige
+    if (!user.has_seen_tutorial) {
+      console.log(`🆕 Utilisateur ${userId} redirigé vers le tutoriel (has_seen_tutorial = ${user.has_seen_tutorial})`);
+      return res.redirect('/tutorial');
+    }
 
     // Récupérer le solde
     const balance = user.balance || 0;
-
 
     console.log('📊 Rendering dashboard with:', {
       userId,
@@ -853,6 +863,16 @@ app.get('/dashboard', ensureAuth, async (req, res) => {
   } catch (err) {
     console.error("❌ Dashboard error:", err);
     res.status(500).send("Erreur serveur");
+  }
+});
+
+app.post('/complete-tutorial', ensureAuth, async (req, res) => {
+  try {
+    await pool.query('UPDATE users SET has_seen_tutorial = true WHERE id = $1', [req.user.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 

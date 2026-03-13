@@ -63,16 +63,22 @@
 
     .image-mock {
       display: flex;
-      height: 250px;
+      height: 350px;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      margin-bottom: 32px;
-      padding: 28px 20px;
-      background: #f8fafd;
+      background: linear-gradient(180deg, #1772F5 0%, #1EBCEE 100%);;
       border: 1px dashed #cbd5e1;
       border-radius: 24px;
       color: #6c7a89;
+      overflow: hidden;
+    }
+
+    .image-mock img {
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+      /* Évite un petit espace sous l'image */
     }
 
     .image-mock i {
@@ -93,6 +99,7 @@
 
     /* ----- TYPOGRAPHIE ----- */
     .slide-title {
+      margin-top: 20px;
       margin-bottom: 20px;
       font-size: 2.2rem;
       font-weight: 600;
@@ -305,8 +312,8 @@
 
       /* Slides alignées en haut, padding-top réduit */
       .slide {
-        align-items: flex-start;
-        padding-top: 100px;
+        align-items: center;
+        padding-top: 0px;
         /* espace juste sous le logo */
         /* padding-right et padding-bottom conservés depuis la règle de base (24px) */
       }
@@ -328,6 +335,9 @@
       /* Carte */
       .card-tutorial {
         padding: 30px 24px;
+        margin-top: 60px;
+        /* valeur à ajuster selon la hauteur du logo */
+
       }
 
       .slide-title {
@@ -438,9 +448,10 @@
 
   <!-- BOUTON START PLAYING CENTRÉ (visible seulement sur la dernière slide) -->
   <div class="action-center hidden" id="actionCenter">
-    <a href="/dashboard" id="startBtn" class="btn-action btn-action-primary">
+    <!-- Au lieu de <a href="/dashboard" id="startBtn" ...> -->
+    <button id="startBtn" class="btn-action btn-action-primary">
       <i class="bi bi-play-circle-fill"></i> Start playing
-    </a>
+    </button>
   </div>
 
   <!-- CONTENEUR DES SLIDES -->
@@ -450,8 +461,7 @@
     <section class="slide" id="slide1">
       <div class="card-tutorial">
         <div class="image-mock">
-          <i class="bi bi-megaphone"></i>
-          <span>illustration</span>
+          <img src="/screenshots/screenshot 01.png" alt="Tutoriel">
         </div>
         <h1 class="slide-title">Welcome to Jiayou!</h1>
         <p class="text-secondary-custom fs-5 fw-light mb-3">A collaborative Chinese app with 3 core features.</p>
@@ -461,12 +471,12 @@
     <!-- SLIDE 2 : ADD WORD -->
     <section class="slide" id="slide2">
       <div class="card-tutorial">
-        <div class="image-mock">
-          <i class="bi bi-pencil-square"></i>
-          <span>illustration</span>
+           <div class="image-mock">
+          <img src="/screenshots/screenshot 02.png" alt="Tutoriel">
         </div>
         <h2 class="slide-title">Add a word</h2>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">Build you vocabulary list based on share data with all users. <br><br>A Chinese keyboard is requiered to play.</p>
+        <p class="text-secondary-custom fs-5 fw-light mb-3">Build you vocabulary list based on share data with all
+          users. <br>A Chinese keyboard is requiered to play.</p>
       </div>
     </section>
 
@@ -474,11 +484,11 @@
     <section class="slide" id="slide3">
       <div class="card-tutorial">
         <div class="image-mock">
-          <i class="bi bi-patch-question"></i>
-          <span>illustration</span>
+          <img src="/screenshots/screenshot 03.png" alt="Tutoriel">
         </div>
         <h2 class="slide-title">Quiz</h2>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">Test yourself with persionalized quizzes, earn coins to capture new words or challenge your friends.</p>
+        <p class="text-secondary-custom fs-5 fw-light mb-3">Test yourself with persionalized quizzes, earn coins to
+          capture new words or challenge your friends.</p>
       </div>
     </section>
 
@@ -486,17 +496,17 @@
     <section class="slide" id="slide4">
       <div class="card-tutorial">
         <div class="image-mock">
-          <i class="bi bi-people-fill"></i>
-          <span>illustration</span>
+          <img src="/screenshots/screenshot 04.png" alt="Tutoriel">
         </div>
         <h2 class="slide-title">Duels</h2>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">Challenge a friend in various duel modes and show them who is really the best</p>
+        <p class="text-secondary-custom fs-5 fw-light mb-3">Challenge a friend in various duel modes and show them who
+          is really the best. <br> Careful with coins gambling</p>
       </div>
     </section>
   </div>
 
   <script>
-    (function() {
+    (function () {
       "use strict";
 
       // ----- ÉLÉMENTS -----
@@ -613,7 +623,26 @@
         container.style.transform = `translateY(-${currentIndex * 100}vh)`;
       });
 
+      document.getElementById('startBtn').addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          const res = await fetch('/complete-tutorial', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          if (res.ok) {
+            window.location.href = '/dashboard';
+          } else {
+            console.error('Erreur lors de la mise à jour');
+            // Optionnel : rediriger quand même ou afficher un message
+          }
+        } catch (err) {
+          console.error('Erreur réseau', err);
+        }
+      });
+
     })();
+
   </script>
 
 </body>

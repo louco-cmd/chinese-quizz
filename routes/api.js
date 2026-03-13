@@ -884,38 +884,17 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
       console.log(`📚 Revision → ${selected.length} mots (dont ${selected.filter(w => w.score >= 70).length} avec score >=70)`);
 
     } else if (difficulty === 'discovery') {
-      // Discovery : 80% de mots avec score < 50
-      const weakWords = finalPool.filter(w => w.score < 50);
-      const otherWords = finalPool.filter(w => w.score >= 50);
+      // Discovery : 100% des mots avec score <= 50
+      const weakWords = finalPool.filter(w => w.score <= 50);
 
-      const desiredWeak = Math.round(requestedCount * 0.8);
-      const desiredStrong = requestedCount - desiredWeak;
-
-      let actualWeak = Math.min(desiredWeak, weakWords.length);
-      let actualStrong = Math.min(desiredStrong, otherWords.length);
-
-      // Si on manque de weak, on augmente la part de strong
-      let missing = requestedCount - (actualWeak + actualStrong);
-      if (missing > 0) {
-        // On essaie d'abord de prendre plus de weak s'il en reste
-        if (actualWeak < weakWords.length) {
-          const extra = Math.min(missing, weakWords.length - actualWeak);
-          actualWeak += extra;
-          missing -= extra;
-        }
-        // Ensuite on prend plus de strong
-        if (missing > 0 && actualStrong < otherWords.length) {
-          const extra = Math.min(missing, otherWords.length - actualStrong);
-          actualStrong += extra;
-        }
+      if (weakWords.length >= requestedCount) {
+        selected = pickRandom(weakWords, requestedCount);
+      } else {
+        // Pas assez de mots faibles : on prend tous ceux disponibles (sans ajouter de mots plus forts)
+        selected = [...weakWords];
       }
 
-      selected = [
-        ...pickRandom(weakWords, actualWeak),
-        ...pickRandom(otherWords, actualStrong)
-      ];
-
-      console.log(`🔍 Discovery → weak=${actualWeak}, strong=${actualStrong}`);
+      console.log(`🔍 Discovery → ${selected.length} mots (tous <=50)`);
 
     } else {
       // Fallback (difficulty inconnue) → aléatoire pur
@@ -958,6 +937,12 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
 
     if (bypassedCooldown) {
       response.warning = "Certains mots ont été réutilisés avant la fin du délai de repos";
+    }
+
+    // Ajout d'un avertissement si le nombre demandé n'est pas atteint en mode discovery
+    if (difficulty === 'discovery' && selected.length < requestedCount) {
+      const warningMsg = `Nombre de mots insuffisant dans la plage de score demandée (<=50). Seuls ${selected.length} mots ont été sélectionnés.`;
+      response.warning = response.warning ? `${response.warning} ${warningMsg}` : warningMsg;
     }
 
     res.json(response);

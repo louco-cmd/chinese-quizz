@@ -23,8 +23,8 @@ body {
    CARTES & CONTENEURS
    =================================== */
 .card-custom-bg {
-    background-color: #f7fcf7;
-    border: 1px solid #c8e6c9;
+    background-color: #EBF3FF;
+    border: 1px solid #EBF3FF;
 }
 
 #card-container,
@@ -81,7 +81,7 @@ body {
    =================================== */
 .hsk-tag-custom {
     background-color: white;
-    color: #4CAF50;
+    color: #186FF6;
     font-weight: bold;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     border-radius: 0.25rem;
@@ -455,7 +455,7 @@ function createCardElement(word) {
           <div class="flex-grow-1 d-flex flex-column justify-content-between">
               <div>
                   <div class="fs-pinyin fw-bold text-dark mb-1">${word.pinyin || ''}</div>
-                  <div class="fs-5 text-success mb-3">${word.english || 'No Translation'}</div>
+                  <div class="fs-5 mb-3">${word.english || 'No Translation'}</div>
                   <div class="pt-3 border-top border-light-subtle">
                       <div class="text-context">${word.description || 'No description provided.'}</div>
                   </div>
