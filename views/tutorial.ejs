@@ -32,14 +32,14 @@
       display: flex;
       flex-direction: column;
       width: 100%;
-      height: 100vh;
+      height: 100%;
       transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
       will-change: transform;
     }
 
     .slide {
-      flex: 0 0 100vh;
-      height: 100vh;
+      flex: 0 0 auto;
+      height: auto;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -58,7 +58,7 @@
       border: 1px solid rgba(0, 0, 0, 0.02);
       border-radius: 40px;
       padding: 40px 36px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.02), 0 4px 16px rgba(0, 0, 0, 0.02);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.05);
     }
 
     .image-mock {
@@ -67,7 +67,8 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(180deg, #1772F5 0%, #1EBCEE 100%);;
+      background: linear-gradient(180deg, #1772F5 0%, #1EBCEE 100%);
+      ;
       border: 1px dashed #cbd5e1;
       border-radius: 24px;
       color: #6c7a89;
@@ -471,7 +472,7 @@
     <!-- SLIDE 2 : ADD WORD -->
     <section class="slide" id="slide2">
       <div class="card-tutorial">
-           <div class="image-mock">
+        <div class="image-mock">
           <img src="/screenshots/screenshot 02.png" alt="Tutoriel">
         </div>
         <h2 class="slide-title">Add a word</h2>
@@ -522,25 +523,34 @@
       let currentIndex = 0;
       const totalSlides = slides.length;
 
-      // ----- MISE À JOUR DE L'INTERFACE -----
+      // ----- FONCTION POUR AJUSTER LES HAUTEURS EN PIXELS -----
+      function setHeights() {
+        const vh = window.innerHeight; // hauteur réelle de la fenêtre
+        container.style.height = vh + 'px';
+        slides.forEach(slide => slide.style.height = vh + 'px');
+        // Recalcule la translation pour la slide courante
+        container.style.transform = `translateY(-${currentIndex * vh}px)`;
+      }
+
+      // ----- MISE À JOUR DE L'INTERFACE (MODIFIÉE) -----
       function goToSlide(index) {
         if (index < 0) index = 0;
         if (index >= totalSlides) index = totalSlides - 1;
         if (index === currentIndex) return;
 
         currentIndex = index;
-        container.style.transform = `translateY(-${currentIndex * 100}vh)`;
+        const vh = window.innerHeight; // utilise la hauteur actuelle
+        container.style.transform = `translateY(-${currentIndex * vh}px)`;
 
         // Mise à jour des points
         dots.forEach((dot, i) => {
           dot.classList.toggle('active', i === currentIndex);
         });
 
-        // Gestion des flèches (activation/désactivation)
+        // Gestion des flèches
         prevBtn.classList.toggle('disabled', currentIndex === 0);
         nextBtn.classList.toggle('disabled', currentIndex === totalSlides - 1);
 
-        // Cacher complètement le bouton up sur la première slide
         if (currentIndex === 0) {
           prevBtn.classList.add('hidden');
         } else {
@@ -551,10 +561,8 @@
         const isLastSlide = (currentIndex === totalSlides - 1);
 
         if (isLastSlide) {
-
           if (actionRight) actionRight.classList.add('hidden');
           actionCenter.classList.remove('hidden');
-
           navArrows.classList.add('hidden');
 
           let upOnly = document.querySelector('.nav-btn.up-only');
@@ -579,8 +587,7 @@
           upOnly.style.transform = 'none';
 
         } else {
-
-          if (actionRight) actionRight.classList.add('hidden'); // on ne l’affiche plus jamais
+          if (actionRight) actionRight.classList.add('hidden');
           actionCenter.classList.add('hidden');
           navArrows.classList.remove('hidden');
 
@@ -601,12 +608,8 @@
       });
 
       // ----- BLOCAGE DU SCROLL NATUREL -----
-      window.addEventListener('wheel', (e) => e.preventDefault(), {
-        passive: false
-      });
-      window.addEventListener('touchmove', (e) => e.preventDefault(), {
-        passive: false
-      });
+      window.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+      window.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
       window.addEventListener('keydown', (e) => {
         if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) {
           e.preventDefault();
@@ -616,13 +619,16 @@
       });
 
       // ----- INITIALISATION -----
-      goToSlide(0);
+      setHeights(); // définit les hauteurs initiales
+      goToSlide(0); // positionne la première slide
 
-      // Ajustement au resize
+      // Recalculer les hauteurs lors du redimensionnement
       window.addEventListener('resize', () => {
-        container.style.transform = `translateY(-${currentIndex * 100}vh)`;
+        setHeights();
+        // La translation est déjà recalculée dans setHeights()
       });
 
+      // ----- GESTION DU BOUTON START -----
       document.getElementById('startBtn').addEventListener('click', async (e) => {
         e.preventDefault();
         try {
@@ -634,7 +640,6 @@
             window.location.href = '/dashboard';
           } else {
             console.error('Erreur lors de la mise à jour');
-            // Optionnel : rediriger quand même ou afficher un message
           }
         } catch (err) {
           console.error('Erreur réseau', err);
@@ -642,7 +647,6 @@
       });
 
     })();
-
   </script>
 
 </body>
