@@ -1313,42 +1313,34 @@ router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, asyn
   const client = await pool.connect();
 
   try {
-    // 🆕 Récupération de word_count avec valeur par défaut 20
-    const {
-      opponent_id,
-      duel_type = 'classic',
-      word_count = 20,          // ← AJOUT
-      quiz_type = 'pinyin',
-      bet_amount = 0
-    } = req.body;
+    const { opponent_id, duel_type = 'classic', word_count = 20, quiz_type = 'pinyin', bet_amount = 0 } = req.body;
     const challengerId = req.user.id;
 
-    console.log('🎯 Création duel avec pari:', { challengerId, opponent_id, duel_type, word_count, bet_amount });
-
-    // Vérif opposant AVANT la transaction
-    const opponentCheck = await client.query(
-      'SELECT id, name, balance FROM users WHERE id = $1',
-      [opponent_id]
-    );
-
-    console.log('[Création Duel] Verified oponnent:', opponentCheck.rows[0]);
-
+    // Vérif opposant
+    const opponentCheck = await client.query('SELECT id, name, balance FROM users WHERE id = $1', [opponent_id]);
     if (opponentCheck.rows.length === 0) {
-      console.log('[Création Duel] Opposant non trouvé');
       return res.status(404).json({ error: 'Unfound user' });
     }
-
     if (opponent_id === challengerId) {
-      console.log('[Création Duel] Tentative de duel contre soi-même');
       return res.status(400).json({ error: 'Really ? against yourself ? are you sick or what ?' });
     }
 
-    // ✅ VÉRIFICATION DU SOLDE OPPOSANT AVANT TRANSACTION
-    const opponentBalance = opponentCheck.rows[0].balance;
-    console.log('[Création Duel] Solde opposant (avant verrouillage):', opponentBalance);
+    // ✅ LIMITE DUELS EN COURS
+    const activeDuelsCount = await pool.query(`
+      SELECT COUNT(*) FROM duels
+      WHERE (challenger_id = $1 OR opponent_id = $1)
+        AND status IN ('pending', 'active')
+        AND created_at > NOW() - INTERVAL '7 days'
+    `, [challengerId]);
+    if (parseInt(activeDuelsCount.rows[0].count) >= 5) {
+      return res.status(400).json({
+        error: "You already have 5 duels in progress. Complete or cancel one before creating a new duel."
+      });
+    }
 
+    // Vérification du solde opposant (hors transaction)
+    const opponentBalance = opponentCheck.rows[0].balance;
     if (bet_amount > 0 && opponentBalance < bet_amount) {
-      console.log('[Création Duel] Opposant n\'a pas assez pour couvrir le pari');
       return res.status(400).json({
         error: `${opponentCheck.rows[0].name} doesn't have enough coins to accept the duel.`
       });
