@@ -25,6 +25,8 @@ const {
   isValidEmail
 } = require('../middleware/index');
 const { withSubscription, canPlayDuel, canAddWord, canTakeQuiz } = require('../middleware/subscription');
+const dailyCache = new Map(); // ⬅️ AJOUTER CECI EN HAUT
+
 
 
 // ---------------------API
@@ -1005,6 +1007,48 @@ router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
     });
   } finally {
     client.release();
+  }
+});
+
+router.get('/api/difficult-words', ensureAuth, async (req, res) => {
+  const userId = req.user.id;
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Cache quotidien
+  const cached = dailyCache.get(userId);
+  if (cached && cached.date === today) {
+    return res.json(cached.words);
+  }
+
+  // Requête PostgreSQL (placeholders $1, $2, ...)
+  const query = `
+    SELECT 
+      m.chinese, m.pinyin, m.english, um.score
+    FROM user_mots um
+    JOIN mots m ON um.mot_id = m.id
+    WHERE um.user_id = $1
+      AND um.nb_quiz > 0   -- éviter les mots jamais testés
+      AND (
+        (um.score < 40 AND (um.nb_quiz < 3 OR um.nb_correct::float / um.nb_quiz < 0.5))
+        OR (um.nb_quiz >= 3 AND um.nb_correct::float / um.nb_quiz < 0.4)
+      )
+    ORDER BY um.score ASC
+    LIMIT 8
+`;
+
+  try {
+    const { rows } = await pool.query(query, [userId]);
+    const result = rows.map(row => ({
+      chinese: row.chinese,
+      pinyin: row.pinyin || '',
+      english: row.english || '',
+      score: row.score
+    }));
+    dailyCache.set(userId, { date: today, words: result });
+    res.json(result);
+  } catch (err) {
+    console.error('❌ Erreur difficult words:', err);
+    res.status(500).json({ error: 'Database error' });
   }
 });
 
