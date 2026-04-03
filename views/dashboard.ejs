@@ -412,522 +412,545 @@
 
 <body>
 
-  <%- include('partials/header', {currentPage: 'dashboard', user: user, balance: balance}) %>
-  <%- include('partials/navbar', {currentPage: 'dashboard', user: user}) %>
+  <%- include('partials/header', {currentPage: 'dashboard' , user: user, balance: balance}) %>
+    <%- include('partials/navbar', {currentPage: 'dashboard' , user: user}) %>
 
-  <!-- ÉCRAN 1 : SAISIE PRINCIPALE -->
-  <div class="screen-container">
-    <div class="content-area">
+      <!-- ÉCRAN 1 : SAISIE PRINCIPALE -->
+      <div class="screen-container">
+        <div class="content-area">
 
-      <div id="inputScreen" class="screen active">
-        <div class="input-container">
-          <!-- Logo -->
-          <div class="app-logo text-center">加油</div>
+          <div id="inputScreen" class="screen active">
+            <div class="input-container">
+              <!-- Logo -->
+              <div class="app-logo text-center">加油</div>
 
-          <!-- Label -->
-          <div class="input-label">Add a word</div>
+              <!-- Label -->
+              <div class="input-label">Add a word</div>
 
-          <!-- Champ de saisie -->
-          <input type="text" id="chinese" class="chinese-input" placeholder="" maxlength="6" autocomplete="off">
+              <!-- Champ de saisie -->
+              <input type="text" id="chinese" class="chinese-input" placeholder="" maxlength="6" autocomplete="off">
 
-          <!-- Message d'erreur -->
-          <div id="errorMessage" class="error-message"></div>
+              <!-- Message d'erreur -->
+              <div id="errorMessage" class="error-message"></div>
 
-          <!-- Bouton submit (caché par défaut) -->
-          <button type="button" id="submitBtn" class="submit-btn">
-            <i class="bi bi-search me-2"></i>Add the Word
-          </button>
+              <!-- Bouton submit (caché par défaut) -->
+              <button type="button" id="submitBtn" class="submit-btn">
+                <i class="bi bi-search me-2"></i>Add the Word
+              </button>
 
-          <!-- Message de statut -->
-          <div id="statusMessage" class="status-message"></div>
+              <!-- Message de statut -->
+              <div id="statusMessage" class="status-message"></div>
+            </div>
+          </div>
+
+          <!-- ========== MODALE MOT EXISTANT ========== -->
+          <div id="existingWordModal" class="confirm-popup" style="display: none;">
+            <div class="confirm-popup-content" style="max-width: 500px; padding: 30px;">
+              <div class="text-end">
+                <button type="button" class="btn-close" onclick="closeExistingWordModal()"></button>
+              </div>
+              <h3 id="existingWordTitle" class="text-success text-center mb-3">
+                <i class="bi bi-check-circle-fill me-2"></i>Word Found
+              </h3>
+              <div id="existingWordError" class="error-message" style="display:none;"></div>
+              <div class="chinese-preview" id="previewChinese"
+                style="font-size: 3rem; font-weight: bold; color: #0d6efd; text-align: center; margin: 20px 0;"></div>
+              <div class="word-info"
+                style="background: #f8f9fa; border-radius: 12px; padding: 15px; margin-bottom: 15px;">
+                <div class="word-info-row d-flex justify-content-between py-2 border-bottom">
+                  <span class="word-info-label fw-bold text-secondary">Pinyin</span>
+                  <span class="word-info-value text-dark text-end" id="displayPinyin">-</span>
+                </div>
+                <div class="word-info-row d-flex justify-content-between py-2 border-bottom">
+                  <span class="word-info-label fw-bold text-secondary">English</span>
+                  <span class="word-info-value text-dark text-end" id="displayEnglish">-</span>
+                </div>
+                <div class="word-info-row d-flex justify-content-between py-2">
+                  <span class="word-info-label fw-bold text-secondary">Description</span>
+                  <span class="word-info-value text-dark text-end" id="displayDescription">-</span>
+                </div>
+              </div>
+              <div class="d-grid gap-2">
+                <button class="btn btn-success btn-lg" id="confirmAddBtn" onclick="confirmAddExistingWord()">
+                  <i class="bi bi-check-lg me-2"></i>Capture the word (3 coins)
+                </button>
+                <button class="btn btn-outline-secondary" id="editBeforeAddBtn" onclick="showNewWordModal()">
+                  <i class="bi bi-pencil me-2"></i>Edit Before Adding
+                </button>
+                <button class="btn btn-outline-secondary" onclick="closeExistingWordModal()">
+                  <i class="bi bi-arrow-left me-2"></i>Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========== MODALE NOUVEAU MOT ========== -->
+          <div id="newWordModal" class="confirm-popup" style="display: none;">
+            <div class="confirm-popup-content" style="max-width: 500px; padding: 30px;">
+              <div class="text-end">
+                <button type="button" class="btn-close" onclick="closeNewWordModal()"></button>
+              </div>
+              <h3 class="text-warning text-center mb-3">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>New Word
+              </h3>
+              <div class="chinese-preview" id="newPreviewChinese"
+                style="font-size: 3rem; font-weight: bold; color: #0d6efd; text-align: center; margin: 20px 0;"></div>
+              <input type="text" id="newPinyin" class="form-control mb-3" placeholder="Pinyin...">
+              <input type="text" id="newEnglish" class="form-control mb-3" placeholder="English..." required>
+              <textarea id="newDescription" class="form-control mb-3" rows="3" placeholder="Description..."></textarea>
+              <div class="d-grid gap-2">
+                <button class="btn btn-success btn-lg" onclick="confirmAddNewWord()">
+                  <i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)
+                </button>
+                <button class="btn btn-outline-secondary" onclick="closeNewWordModal()">
+                  <i class="bi bi-arrow-left me-2"></i>Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <% if (!userData.lastLogin) { %>
+            <a href="/tutorial" class="btn-tutorial-float">
+              <i class="bi bi-play-circle-fill me-1"></i> Tutorial
+            </a>
+            <% } %>
+              <!-- DEBUG last_login -->
         </div>
       </div>
 
-      <!-- ========== MODALE MOT EXISTANT ========== -->
-      <div id="existingWordModal" class="confirm-popup" style="display: none;">
-        <div class="confirm-popup-content" style="max-width: 500px; padding: 30px;">
-          <div class="text-end">
-            <button type="button" class="btn-close" onclick="closeExistingWordModal()"></button>
-          </div>
-          <h3 id="existingWordTitle" class="text-success text-center mb-3">
-            <i class="bi bi-check-circle-fill me-2"></i>Word Found
-          </h3>
-          <div id="existingWordError" class="error-message" style="display:none;"></div>
-          <div class="chinese-preview" id="previewChinese" style="font-size: 3rem; font-weight: bold; color: #0d6efd; text-align: center; margin: 20px 0;"></div>
-          <div class="word-info" style="background: #f8f9fa; border-radius: 12px; padding: 15px; margin-bottom: 15px;">
-            <div class="word-info-row d-flex justify-content-between py-2 border-bottom">
-              <span class="word-info-label fw-bold text-secondary">Pinyin</span>
-              <span class="word-info-value text-dark text-end" id="displayPinyin">-</span>
-            </div>
-            <div class="word-info-row d-flex justify-content-between py-2 border-bottom">
-              <span class="word-info-label fw-bold text-secondary">English</span>
-              <span class="word-info-value text-dark text-end" id="displayEnglish">-</span>
-            </div>
-            <div class="word-info-row d-flex justify-content-between py-2">
-              <span class="word-info-label fw-bold text-secondary">Description</span>
-              <span class="word-info-value text-dark text-end" id="displayDescription">-</span>
-            </div>
-          </div>
-          <div class="d-grid gap-2">
-            <button class="btn btn-success btn-lg" id="confirmAddBtn" onclick="confirmAddExistingWord()">
-              <i class="bi bi-check-lg me-2"></i>Capture the word (3 coins)
-            </button>
-            <button class="btn btn-outline-secondary" id="editBeforeAddBtn" onclick="showNewWordModal()">
-              <i class="bi bi-pencil me-2"></i>Edit Before Adding
-            </button>
-            <button class="btn btn-outline-secondary" onclick="closeExistingWordModal()">
-              <i class="bi bi-arrow-left me-2"></i>Cancel
-            </button>
-          </div>
-        </div>
+      <!-- Animation de succès -->
+      <div id="successCheckmark" class="success-checkmark">
+        <i class="bi bi-check-circle-fill"></i>
       </div>
 
-      <!-- ========== MODALE NOUVEAU MOT ========== -->
-      <div id="newWordModal" class="confirm-popup" style="display: none;">
-        <div class="confirm-popup-content" style="max-width: 500px; padding: 30px;">
-          <div class="text-end">
-            <button type="button" class="btn-close" onclick="closeNewWordModal()"></button>
-          </div>
-          <h3 class="text-warning text-center mb-3">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i>New Word
-          </h3>
-          <div class="chinese-preview" id="newPreviewChinese" style="font-size: 3rem; font-weight: bold; color: #0d6efd; text-align: center; margin: 20px 0;"></div>
-          <input type="text" id="newPinyin" class="form-control mb-3" placeholder="Pinyin...">
-          <input type="text" id="newEnglish" class="form-control mb-3" placeholder="English..." required>
-          <textarea id="newDescription" class="form-control mb-3" rows="3" placeholder="Description..."></textarea>
-          <div class="d-grid gap-2">
-            <button class="btn btn-success btn-lg" onclick="confirmAddNewWord()">
-              <i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)
-            </button>
-            <button class="btn btn-outline-secondary" onclick="closeNewWordModal()">
-              <i class="bi bi-arrow-left me-2"></i>Cancel
-            </button>
-          </div>
-        </div>
-      </div>
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+      <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3"></script>
+      <script src="/js/global.js"></script>
+      <script>
+        let currentChinese = '';
+        let existingWordData = null;
+        let currentRequestController = null;
+        let statusTimer = null;
 
-      <% if (!userData.lastLogin) { %>
-      <a href="/tutorial" class="btn-tutorial-float">
-        <i class="bi bi-play-circle-fill me-1"></i> Tutorial
-      </a>
-      <% } %>
-      <!-- DEBUG last_login -->
-    </div>
-  </div>
+        const chineseInput = document.getElementById('chinese');
+        const submitBtn = document.getElementById('submitBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const statusMessage = document.getElementById('statusMessage');
 
-  <!-- Animation de succès -->
-  <div id="successCheckmark" class="success-checkmark">
-    <i class="bi bi-check-circle-fill"></i>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3"></script>
-  <script src="/js/global.js"></script>
-  <script>
-    let currentChinese = '';
-    let existingWordData = null;
-    let currentRequestController = null;
-    let statusTimer = null;
-
-    const chineseInput = document.getElementById('chinese');
-    const submitBtn = document.getElementById('submitBtn');
-    const errorMessage = document.getElementById('errorMessage');
-    const statusMessage = document.getElementById('statusMessage');
-
-    // ========== GESTION DE LA SAISIE ==========
-    submitBtn.addEventListener('click', searchAndAddWord);
-    // Validation par touche Entrée
-    chineseInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault(); // Empêche tout comportement par défaut (ex: soumission de formulaire)
-        // Seulement si le bouton est visible (donc qu'il y a du texte)
-        if (submitBtn.classList.contains('visible')) {
-          searchAndAddWord();
-        }
-      }
-    });
-
-    chineseInput.addEventListener('input', function() {
-      const value = this.value.trim();
-      if (value) {
-        submitBtn.classList.add('visible');
-        validateChineseInput(this);
-      } else {
-        submitBtn.classList.remove('visible');
-        errorMessage.textContent = '';
-        this.classList.remove('valid', 'invalid');
-      }
-    });
-
-    function validateChineseInput(input) {
-      const value = input.value;
-      const nonChineseRegex = /[^\u4e00-\u9fff]/g;
-      const nonChineseChars = value.match(nonChineseRegex);
-      if (nonChineseChars) {
-        input.classList.add('invalid');
-        input.classList.remove('valid');
-        errorMessage.textContent = 'Only Chinese characters allowed';
-      } else {
-        input.classList.add('valid');
-        input.classList.remove('invalid');
-        errorMessage.textContent = '';
-      }
-    }
-
-    chineseInput.addEventListener('beforeinput', (e) => {
-      if (e.data && !/[\u4e00-\u9fff]/.test(e.data)) {
-        e.preventDefault();
-        errorMessage.textContent = 'Only Chinese characters allowed';
-        chineseInput.classList.add('invalid');
-        chineseInput.classList.remove('valid');
-      }
-    });
-
-    // ========== RECHERCHE DU MOT ==========
-    async function searchAndAddWord() {
-      const chinese = chineseInput.value.trim();
-      if (!chinese) return;
-
-      if (currentRequestController) currentRequestController.abort();
-      currentRequestController = new AbortController();
-
-      if (/[^\u4e00-\u9fff]/.test(chinese)) {
-        showStatus('Only Chinese characters allowed', 'error');
-        return;
-      }
-
-      currentChinese = chinese;
-      disableSubmitButton();
-      showStatus('Searching...', 'info');
-
-      try {
-        const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`, {
-          signal: currentRequestController.signal
+        // ========== GESTION DE LA SAISIE ==========
+        submitBtn.addEventListener('click', searchAndAddWord);
+        // Validation par touche Entrée
+        chineseInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault(); // Empêche tout comportement par défaut (ex: soumission de formulaire)
+            // Seulement si le bouton est visible (donc qu'il y a du texte)
+            if (submitBtn.classList.contains('visible')) {
+              searchAndAddWord();
+            }
+          }
         });
-        currentRequestController = null;
-        const data = await res.json();
 
-        if (data.exists) {
-          existingWordData = data.mot;
-          displayExistingWordModal(data.mot);
-        } else {
-          existingWordData = null;
-          displayNewWordModal();
+        chineseInput.addEventListener('input', function () {
+          const value = this.value.trim();
+          if (value) {
+            submitBtn.classList.add('visible');
+            validateChineseInput(this);
+          } else {
+            submitBtn.classList.remove('visible');
+            errorMessage.textContent = '';
+            this.classList.remove('valid', 'invalid');
+          }
+        });
+
+        function validateChineseInput(input) {
+          const value = input.value;
+          const nonChineseRegex = /[^\u4e00-\u9fff]/g;
+          const nonChineseChars = value.match(nonChineseRegex);
+          if (nonChineseChars) {
+            input.classList.add('invalid');
+            input.classList.remove('valid');
+            errorMessage.textContent = 'Only Chinese characters allowed';
+          } else {
+            input.classList.add('valid');
+            input.classList.remove('invalid');
+            errorMessage.textContent = '';
+          }
         }
-        clearStatus();
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          console.log('Requête annulée');
-        } else {
-          showStatus('Error searching database', 'error');
+
+        chineseInput.addEventListener('beforeinput', (e) => {
+          if (e.data && !/[\u4e00-\u9fff]/.test(e.data)) {
+            e.preventDefault();
+            errorMessage.textContent = 'Only Chinese characters allowed';
+            chineseInput.classList.add('invalid');
+            chineseInput.classList.remove('valid');
+          }
+        });
+
+        // ========== RECHERCHE DU MOT ==========
+        async function searchAndAddWord() {
+          const chinese = chineseInput.value.trim();
+          if (!chinese) return;
+
+          if (currentRequestController) currentRequestController.abort();
+          currentRequestController = new AbortController();
+
+          if (/[^\u4e00-\u9fff]/.test(chinese)) {
+            showStatus('Only Chinese characters allowed', 'error');
+            return;
+          }
+
+          currentChinese = chinese;
+          disableSubmitButton();
+          showStatus('Searching...', 'info');
+
+          try {
+            const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`, {
+              signal: currentRequestController.signal
+            });
+            currentRequestController = null;
+            const data = await res.json();
+
+            if (data.exists) {
+              existingWordData = data.mot;
+              displayExistingWordModal(data.mot);
+            } else {
+              existingWordData = null;
+              displayNewWordModal();
+            }
+            clearStatus();
+          } catch (err) {
+            if (err.name === 'AbortError') {
+              console.log('Requête annulée');
+            } else {
+              showStatus('Error searching database', 'error');
+              enableSubmitButton();
+            }
+          }
+        }
+
+        // ========== MODALE MOT EXISTANT ==========
+        function displayExistingWordModal(word) {
+          document.getElementById('previewChinese').textContent = word.chinese;
+          document.getElementById('displayPinyin').textContent = word.pinyin || '-';
+          document.getElementById('displayEnglish').textContent = word.english || '-';
+          document.getElementById('displayDescription').textContent = word.description || '-';
+          checkIfWordAlreadyCaptured(word.chinese);
+          document.getElementById('existingWordModal').style.display = 'flex';
+        }
+
+        function closeExistingWordModal() {
+          document.getElementById('existingWordModal').style.display = 'none';
           enableSubmitButton();
+
+          // Réinitialiser le bouton de confirmation
+          const confirmBtn = document.getElementById('confirmAddBtn');
+          if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
+            confirmBtn.classList.remove('btn-secondary');
+            confirmBtn.classList.add('btn-success');
+          }
+
+          // Réafficher le bouton "Edit" (s'il avait été masqué)
+          const editBtn = document.getElementById('editBeforeAddBtn');
+          if (editBtn) editBtn.style.display = 'block';
         }
-      }
-    }
 
-    // ========== MODALE MOT EXISTANT ==========
-    function displayExistingWordModal(word) {
-      document.getElementById('previewChinese').textContent = word.chinese;
-      document.getElementById('displayPinyin').textContent = word.pinyin || '-';
-      document.getElementById('displayEnglish').textContent = word.english || '-';
-      document.getElementById('displayDescription').textContent = word.description || '-';
-      checkIfWordAlreadyCaptured(word.chinese);
-      document.getElementById('existingWordModal').style.display = 'flex';
-    }
+        async function confirmAddExistingWord() {
+          if (!existingWordData) return;
 
-    function closeExistingWordModal() {
-      document.getElementById('existingWordModal').style.display = 'none';
-      enableSubmitButton();
-    }
+          const errorDiv = document.getElementById('existingWordError');
+          const confirmBtn = document.getElementById('confirmAddBtn');
 
-    async function confirmAddExistingWord() {
-      if (!existingWordData) return;
+          errorDiv.style.display = 'none';
+          errorDiv.textContent = '';
+          confirmBtn.disabled = true;
+          confirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding...';
+          showStatus('Adding word...', 'info');
 
-      const errorDiv = document.getElementById('existingWordError');
-      const confirmBtn = document.getElementById('confirmAddBtn');
+          try {
+            await addWord(
+              existingWordData.chinese,
+              existingWordData.pinyin,
+              existingWordData.english
+            );
+            closeExistingWordModal();
+          } catch (err) {
+            errorDiv.textContent = '❌ Server error. Please try again later.';
+            errorDiv.style.display = 'block';
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
+          }
+        }
 
-      errorDiv.style.display = 'none';
-      errorDiv.textContent = '';
-      confirmBtn.disabled = true;
-      confirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding...';
-      showStatus('Adding word...', 'info');
+        async function checkIfWordAlreadyCaptured(chineseWord) {
+          try {
+            const response = await fetch(`/check-user-word/${encodeURIComponent(chineseWord)}`);
+            if (!response.ok) return setConfirmButtonState(false);
+            const data = await response.json();
+            setConfirmButtonState(data.alreadyExists);
+          } catch {
+            setConfirmButtonState(false);
+          }
+        }
 
-      try {
-        await addWord(
-          existingWordData.chinese,
-          existingWordData.pinyin,
-          existingWordData.english
-        );
-        closeExistingWordModal();
-      } catch (err) {
-        errorDiv.textContent = '❌ Server error. Please try again later.';
-        errorDiv.style.display = 'block';
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
-      }
-    }
+        function setConfirmButtonState(alreadyCaptured) {
+          const confirmBtn = document.getElementById('confirmAddBtn');
+          const editBtn = document.getElementById('editBeforeAddBtn');
+          if (!confirmBtn) return;
+          if (alreadyCaptured) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Already captured';
+            confirmBtn.classList.remove('btn-success');
+            confirmBtn.classList.add('btn-secondary');
+            if (editBtn) editBtn.style.display = 'none';
+          } else {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
+            confirmBtn.classList.remove('btn-secondary');
+            confirmBtn.classList.add('btn-success');
+            if (editBtn) editBtn.style.display = 'block';
+          }
+        }
 
-    async function checkIfWordAlreadyCaptured(chineseWord) {
-      try {
-        const response = await fetch(`/check-user-word/${encodeURIComponent(chineseWord)}`);
-        if (!response.ok) return setConfirmButtonState(false);
-        const data = await response.json();
-        setConfirmButtonState(data.alreadyExists);
-      } catch {
-        setConfirmButtonState(false);
-      }
-    }
+        // ========== MODALE NOUVEAU MOT ==========
+        function displayNewWordModal() {
+          const newPreview = document.getElementById('newPreviewChinese');
+          const pinyinField = document.getElementById('newPinyin');
+          const englishField = document.getElementById('newEnglish');
+          const descriptionField = document.getElementById('newDescription');
 
-    function setConfirmButtonState(alreadyCaptured) {
-      const confirmBtn = document.getElementById('confirmAddBtn');
-      const editBtn = document.getElementById('editBeforeAddBtn');
-      if (!confirmBtn) return;
-      if (alreadyCaptured) {
-        confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Already captured';
-        confirmBtn.classList.remove('btn-success');
-        confirmBtn.classList.add('btn-secondary');
-        if (editBtn) editBtn.style.display = 'none';
-      } else {
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
-        confirmBtn.classList.remove('btn-secondary');
-        confirmBtn.classList.add('btn-success');
-        if (editBtn) editBtn.style.display = 'block';
-      }
-    }
+          newPreview.textContent = currentChinese;
 
-    // ========== MODALE NOUVEAU MOT ==========
-    function displayNewWordModal() {
-      const newPreview = document.getElementById('newPreviewChinese');
-      const pinyinField = document.getElementById('newPinyin');
-      const englishField = document.getElementById('newEnglish');
-      const descriptionField = document.getElementById('newDescription');
+          if (existingWordData) {
+            pinyinField.value = existingWordData.pinyin || '';
+            englishField.value = existingWordData.english || '';
+            descriptionField.value = existingWordData.description || '';
+          } else {
+            // ✅ Génération automatique du pinyin
+            const pinyinAuto = convertirPinyin(currentChinese);
+            pinyinField.value = pinyinAuto;
+            englishField.value = '';
+            descriptionField.value = '';
+          }
 
-      newPreview.textContent = currentChinese;
+          document.getElementById('newWordModal').style.display = 'flex';
 
-      if (existingWordData) {
-        pinyinField.value = existingWordData.pinyin || '';
-        englishField.value = existingWordData.english || '';
-        descriptionField.value = existingWordData.description || '';
-      } else {
-        // ✅ Génération automatique du pinyin
-        const pinyinAuto = convertirPinyin(currentChinese);
-        pinyinField.value = pinyinAuto;
-        englishField.value = '';
-        descriptionField.value = '';
-      }
+          setTimeout(() => {
+            if (!pinyinField.value) pinyinField.focus();
+            else if (!englishField.value) englishField.focus();
+            else descriptionField.focus();
+          }, 100);
+        }
 
-      document.getElementById('newWordModal').style.display = 'flex';
+        function closeNewWordModal() {
+          document.getElementById('newWordModal').style.display = 'none';
+          enableSubmitButton();
 
-      setTimeout(() => {
-        if (!pinyinField.value) pinyinField.focus();
-        else if (!englishField.value) englishField.focus();
-        else descriptionField.focus();
-      }, 100);
-    }
+          // Réinitialiser le bouton "Capture the word" de la popup
+          const addBtn = document.querySelector('#newWordModal .btn-success');
+          if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
+          }
+        }
 
-    function closeNewWordModal() {
-      document.getElementById('newWordModal').style.display = 'none';
-      enableSubmitButton();
-    }
+        // Conversion Pinyin
+        function convertirPinyin(texteChinois) {
+          if (typeof pinyinPro === 'undefined') return '';
+          if (!texteChinois || typeof texteChinois !== 'string') return '';
+          try {
+            return pinyinPro.pinyin(texteChinois, {
+              toneType: 'symbol',
+              pattern: 'pinyin',
+              separate: ' '
+            });
+          } catch {
+            return '';
+          }
+        }
 
-    // Conversion Pinyin
-    function convertirPinyin(texteChinois) {
-      if (typeof pinyinPro === 'undefined') return '';
-      if (!texteChinois || typeof texteChinois !== 'string') return '';
-      try {
-        return pinyinPro.pinyin(texteChinois, {
-          toneType: 'symbol',
-          pattern: 'pinyin',
-          separate: ' '
-        });
-      } catch {
-        return '';
-      }
-    }
+        async function confirmAddNewWord() {
+          const pinyin = document.getElementById('newPinyin').value.trim();
+          const english = document.getElementById('newEnglish').value.trim();
+          const description = document.getElementById('newDescription').value.trim();
 
-    async function confirmAddNewWord() {
-      const pinyin = document.getElementById('newPinyin').value.trim();
-      const english = document.getElementById('newEnglish').value.trim();
-      const description = document.getElementById('newDescription').value.trim();
+          if (!english) {
+            showStatus('English translation required', 'error');
+            return;
+          }
 
-      if (!english) {
-        showStatus('English translation required', 'error');
-        return;
-      }
+          const addBtn = document.querySelector('#newWordModal .btn-success');
+          const originalText = addBtn.innerHTML;
+          addBtn.disabled = true;
+          addBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding...';
+          showStatus('Adding word...', 'info');
 
-      const addBtn = document.querySelector('#newWordModal .btn-success');
-      const originalText = addBtn.innerHTML;
-      addBtn.disabled = true;
-      addBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding...';
-      showStatus('Adding word...', 'info');
+          try {
+            if (existingWordData && existingWordData.id) {
+              const hasBeenModified =
+                pinyin !== (existingWordData.pinyin || '') ||
+                english !== (existingWordData.english || '') ||
+                description !== (existingWordData.description || '');
 
-      try {
-        if (existingWordData && existingWordData.id) {
-          const hasBeenModified =
-            pinyin !== (existingWordData.pinyin || '') ||
-            english !== (existingWordData.english || '') ||
-            description !== (existingWordData.description || '');
+              if (hasBeenModified) {
+                showStatus('Updating word in database...', 'info');
+                await fetch(`/update/${existingWordData.id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    chinese: currentChinese,
+                    pinyin,
+                    english,
+                    description
+                  })
+                });
+              }
+            }
 
-          if (hasBeenModified) {
-            showStatus('Updating word in database...', 'info');
-            await fetch(`/update/${existingWordData.id}`, {
-              method: 'PUT',
+            await addWord(currentChinese, pinyin, english);
+            closeNewWordModal();
+            // resetForm() sera appelé par addWord après succès
+          } catch (err) {
+            console.error('❌ Erreur dans confirmAddNewWord:', err);
+            enableSubmitButton();
+            addBtn.disabled = false;
+            addBtn.innerHTML = originalText;
+            showStatus('Operation failed: ' + err.message, 'error');
+          }
+        }
+
+        // ========== AJOUT DE MOT (API) ==========
+        async function addWord(chinese, pinyin, english) {
+          try {
+            const response = await fetch('/ajouter', {
+              method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                chinese: currentChinese,
+                chinese,
                 pinyin,
-                english,
-                description
+                english
               })
             });
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+              showSuccess('Word added! -3 coins');
+              showSuccessAnimation();
+              enableSubmitButton();
+              setTimeout(resetForm, 1500);
+            } else {
+              enableSubmitButton();
+              if (data.limitReached) {
+                showLimitReachedPopup(data);
+              } else if (data.message?.includes('balance')) {
+                showError('Not enough coins (3 required)');
+                // ❌ Ne pas réinitialiser le formulaire
+              } else if (data.message?.includes('already')) {
+                showError('You already have this word');
+                // ❌ Ne pas réinitialiser
+              } else {
+                showError(data.error || data.message || `Error ${response.status}`);
+              }
+            }
+          } catch (err) {
+            console.error('Error:', err);
+            showError('Network error');
+            enableSubmitButton();
           }
         }
 
-        await addWord(currentChinese, pinyin, english);
-        closeNewWordModal();
-        // resetForm() sera appelé par addWord après succès
-      } catch (err) {
-        console.error('❌ Erreur dans confirmAddNewWord:', err);
-        enableSubmitButton();
-        addBtn.disabled = false;
-        addBtn.innerHTML = originalText;
-        showStatus('Operation failed: ' + err.message, 'error');
-      }
-    }
-
-    // ========== AJOUT DE MOT (API) ==========
-    async function addWord(chinese, pinyin, english) {
-      try {
-        const response = await fetch('/ajouter', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            chinese,
-            pinyin,
-            english
-          })
-        });
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          showSuccess('Word added! -3 coins');
-          showSuccessAnimation();
-          enableSubmitButton();
-          setTimeout(resetForm, 1500);
-        } else {
-          enableSubmitButton();
-          if (data.limitReached) {
-            showLimitReachedPopup(data);
-          } else if (data.message?.includes('balance')) {
-            showError('Not enough coins (3 required)');
-            // ❌ Ne pas réinitialiser le formulaire
-          } else if (data.message?.includes('already')) {
-            showError('You already have this word');
-            // ❌ Ne pas réinitialiser
-          } else {
-            showError(data.error || data.message || `Error ${response.status}`);
+        // ========== GESTION DES MESSAGES DE STATUT ==========
+        function clearStatus() {
+          statusMessage.textContent = '';
+          statusMessage.classList.remove('success', 'error', 'info');
+          statusMessage.style.cssText = ''; // supprime tous les styles inline
+          if (statusTimer) {
+            clearTimeout(statusTimer);
+            statusTimer = null;
           }
         }
-      } catch (err) {
-        console.error('Error:', err);
-        showError('Network error');
-        enableSubmitButton();
-      }
-    }
 
-    // ========== GESTION DES MESSAGES DE STATUT ==========
-    function clearStatus() {
-      statusMessage.textContent = '';
-      statusMessage.classList.remove('success', 'error', 'info');
-      statusMessage.style.cssText = ''; // supprime tous les styles inline
-      if (statusTimer) {
-        clearTimeout(statusTimer);
-        statusTimer = null;
-      }
-    }
+        function showStatus(message, type = 'info') {
+          clearStatus(); // nettoie tout avant
 
-    function showStatus(message, type = 'info') {
-      clearStatus(); // nettoie tout avant
+          statusMessage.textContent = message;
+          statusMessage.classList.add(type);
 
-      statusMessage.textContent = message;
-      statusMessage.classList.add(type);
+          // Couleur du texte (optionnel, le CSS peut déjà le faire)
+          if (type === 'success') {
+            statusMessage.style.color = '#d4edda';
+          } else if (type === 'info') {
+            statusMessage.style.color = '#cfe2ff';
+          }
+          // Pour 'error', le CSS via .status-message.error s'applique
 
-      // Couleur du texte (optionnel, le CSS peut déjà le faire)
-      if (type === 'success') {
-        statusMessage.style.color = '#d4edda';
-      } else if (type === 'info') {
-        statusMessage.style.color = '#cfe2ff';
-      }
-      // Pour 'error', le CSS via .status-message.error s'applique
+          const duration = type === 'error' ? 6000 : 3000;
+          if (type !== 'permanent') {
+            statusTimer = setTimeout(() => {
+              clearStatus();
+            }, duration);
+          }
+        }
 
-      const duration = type === 'error' ? 6000 : 3000;
-      if (type !== 'permanent') {
-        statusTimer = setTimeout(() => {
+        function showSuccess(message) {
+          showStatus(message, 'success');
+          console.log('✅', message);
+        }
+
+        function showError(message) {
+          showStatus(message, 'error');
+          console.error('❌', message);
+        }
+
+        // ========== UTILITAIRES BOUTONS & FORMULAIRE ==========
+        function disableSubmitButton() {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Searching...';
+        }
+
+        function enableSubmitButton() {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="bi bi-search me-2"></i>Add the Word';
+        }
+
+        function resetForm() {
+          chineseInput.value = '';
+          chineseInput.classList.remove('valid', 'invalid');
+          submitBtn.classList.remove('visible');
+          enableSubmitButton();
+          currentChinese = '';
+          existingWordData = null;
           clearStatus();
-        }, duration);
-      }
-    }
+          closeExistingWordModal();
+          closeNewWordModal();
+          chineseInput.focus();
+        }
 
-    function showSuccess(message) {
-      showStatus(message, 'success');
-      console.log('✅', message);
-    }
+        // ========== ANIMATION DE SUCCÈS ==========
+        function showSuccessAnimation() {
+          const checkmark = document.getElementById('successCheckmark');
+          checkmark.classList.add('show');
+          setTimeout(() => checkmark.classList.remove('show'), 1000);
+        }
 
-    function showError(message) {
-      showStatus(message, 'error');
-      console.error('❌', message);
-    }
+        // ========== FOCUS INITIAL ==========
+        window.addEventListener('load', () => chineseInput.focus());
 
-    // ========== UTILITAIRES BOUTONS & FORMULAIRE ==========
-    function disableSubmitButton() {
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Searching...';
-    }
+        // Popup pour limite atteinte - Bootstrap corrigée
+        function showLimitReachedPopup(data) {
+          // Vérifier si une modal existe déjà
+          const existingModal = document.getElementById('limitModal');
+          if (existingModal) {
+            existingModal.remove();
+          }
 
-    function enableSubmitButton() {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = '<i class="bi bi-search me-2"></i>Add the Word';
-    }
-
-    function resetForm() {
-      chineseInput.value = '';
-      chineseInput.classList.remove('valid', 'invalid');
-      submitBtn.classList.remove('visible');
-      enableSubmitButton();
-      currentChinese = '';
-      existingWordData = null;
-      clearStatus();
-      closeExistingWordModal();
-      closeNewWordModal();
-      chineseInput.focus();
-    }
-
-    // ========== ANIMATION DE SUCCÈS ==========
-    function showSuccessAnimation() {
-      const checkmark = document.getElementById('successCheckmark');
-      checkmark.classList.add('show');
-      setTimeout(() => checkmark.classList.remove('show'), 1000);
-    }
-
-    // ========== FOCUS INITIAL ==========
-    window.addEventListener('load', () => chineseInput.focus());
-
-    // Popup pour limite atteinte - Bootstrap corrigée
-    function showLimitReachedPopup(data) {
-      // Vérifier si une modal existe déjà
-      const existingModal = document.getElementById('limitModal');
-      if (existingModal) {
-        existingModal.remove();
-      }
-
-      // Modal Bootstrap avec centrage mobile
-      const modalHTML = `
+          // Modal Bootstrap avec centrage mobile
+          const modalHTML = `
     <div class="modal fade" id="limitModal" tabindex="-1" data-bs-backdrop="static">
       <div class="modal-dialog modal-dialog-centered m-0" style="
         display: flex;
@@ -1008,81 +1031,81 @@
     </div>
   `;
 
-      // Créer et afficher le modal
-      const modalContainer = document.createElement('div');
-      modalContainer.innerHTML = modalHTML;
-      document.body.appendChild(modalContainer);
+          // Créer et afficher le modal
+          const modalContainer = document.createElement('div');
+          modalContainer.innerHTML = modalHTML;
+          document.body.appendChild(modalContainer);
 
-      // Initialiser Bootstrap Modal
-      const modalElement = document.getElementById('limitModal');
-      const modal = new bootstrap.Modal(modalElement, {
-        backdrop: 'static',
-        keyboard: false
-      });
+          // Initialiser Bootstrap Modal
+          const modalElement = document.getElementById('limitModal');
+          const modal = new bootstrap.Modal(modalElement, {
+            backdrop: 'static',
+            keyboard: false
+          });
 
-      // Forcer le redimensionnement après affichage
-      modalElement.addEventListener('shown.bs.modal', () => {
-        // Réappliquer les styles pour le centrage
-        const dialog = modalElement.querySelector('.modal-dialog');
-        if (dialog) {
-          dialog.style.margin = 'auto';
-          dialog.style.display = 'flex';
-          dialog.style.alignItems = 'center';
-          dialog.style.justifyContent = 'center';
+          // Forcer le redimensionnement après affichage
+          modalElement.addEventListener('shown.bs.modal', () => {
+            // Réappliquer les styles pour le centrage
+            const dialog = modalElement.querySelector('.modal-dialog');
+            if (dialog) {
+              dialog.style.margin = 'auto';
+              dialog.style.display = 'flex';
+              dialog.style.alignItems = 'center';
+              dialog.style.justifyContent = 'center';
+            }
+          });
+
+          modal.show();
+
+          // Nettoyer après fermeture
+          modalElement.addEventListener('hidden.bs.modal', () => {
+            modalContainer.remove();
+          });
         }
-      });
 
-      modal.show();
+        // Fonction pour fermer la modal
+        function hideLimitModal() {
+          const modal = bootstrap.Modal.getInstance(document.getElementById('limitModal'));
+          if (modal) {
+            modal.hide();
+          }
+        }
 
-      // Nettoyer après fermeture
-      modalElement.addEventListener('hidden.bs.modal', () => {
-        modalContainer.remove();
-      });
-    }
+        // Fonctions utilitaires simples - version sans toasters
+        function showSuccess(message) {
+          // Option 1: Utiliser le statusMessage
+          showStatus(message, 'success');
 
-    // Fonction pour fermer la modal
-    function hideLimitModal() {
-      const modal = bootstrap.Modal.getInstance(document.getElementById('limitModal'));
-      if (modal) {
-        modal.hide();
-      }
-    }
+          // Option 2: Log seulement
+          console.log('✅', message);
+        }
 
-    // Fonctions utilitaires simples - version sans toasters
-    function showSuccess(message) {
-      // Option 1: Utiliser le statusMessage
-      showStatus(message, 'success');
+        function showError(message) {
+          // Option 1: Utiliser le statusMessage
+          showStatus(message, 'error');
 
-      // Option 2: Log seulement
-      console.log('✅', message);
-    }
+          // Option 2: Log seulement
+          console.error('❌', message);
+        }
 
-    function showError(message) {
-      // Option 1: Utiliser le statusMessage
-      showStatus(message, 'error');
+        function clearAllMessages() {
+          // Nettoyer le statusMessage principal
+          clearStatus();
 
-      // Option 2: Log seulement
-      console.error('❌', message);
-    }
+          // Nettoyer les messages d'erreur spécifiques
+          const errorDiv = document.getElementById('existingWordError');
+          if (errorDiv) {
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+          }
 
-    function clearAllMessages() {
-      // Nettoyer le statusMessage principal
-      clearStatus();
-
-      // Nettoyer les messages d'erreur spécifiques
-      const errorDiv = document.getElementById('existingWordError');
-      if (errorDiv) {
-        errorDiv.style.display = 'none';
-        errorDiv.textContent = '';
-      }
-
-      // Nettoyer les champs d'entrée si nécessaire
-      const errorMessageDiv = document.getElementById('errorMessage');
-      if (errorMessageDiv) {
-        errorMessageDiv.textContent = '';
-      }
-    }
-  </script>
+          // Nettoyer les champs d'entrée si nécessaire
+          const errorMessageDiv = document.getElementById('errorMessage');
+          if (errorMessageDiv) {
+            errorMessageDiv.textContent = '';
+          }
+        }
+      </script>
 </body>
 
 </html>
