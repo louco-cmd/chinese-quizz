@@ -754,7 +754,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     console.log(`📥 Mots récupérés: ${allWords.length}`);
 
     // =============================
-    // 4. FILTRE TEMPOREL INTELLIGENT (identique)
+    // 4. FILTRE TEMPOREL INTELLIGENT (MODIFIÉ)
     // =============================
     const COOLDOWN_HOURS = 12;
     const now = new Date();
@@ -767,13 +767,23 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
 
     console.log(`⏰ Après filtre temporel (${COOLDOWN_HOURS}h): ${availableWords.length}/${allWords.length}`);
 
-    // Décision intelligente (identique)
+    // ===== NOUVEAU GARDE-FOU =====
+    // Si TOUS les mots sont en cooldown, on ignore complètement le cooldown
     let finalPool;
     let bypassedCooldown = false;
+    let cooldownBypassReason = null;
 
-    if (availableWords.length >= requestedCount) {
+    if (availableWords.length === 0 && allWords.length > 0) {
+      // Cas critique : tous les mots ont été vus récemment
+      console.log(`⚠️ Tous les ${allWords.length} mots sont en cooldown. Cooldown ignoré pour cette session.`);
+      finalPool = allWords;
+      bypassedCooldown = true;
+      cooldownBypassReason = 'all_words_in_cooldown';
+    } else if (availableWords.length >= requestedCount) {
+      // Cas normal : assez de mots frais
       finalPool = availableWords;
     } else if (availableWords.length >= requestedCount * 0.5) {
+      // Cas mixte : on complète avec quelques mots en cooldown
       finalPool = availableWords;
       const needed = requestedCount - availableWords.length;
       const cooldownWords = allWords.filter(w => {
@@ -788,12 +798,15 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
       });
       finalPool.push(...cooldownWords.slice(0, needed));
       bypassedCooldown = true;
+      cooldownBypassReason = 'insufficient_fresh_words';
     } else {
+      // Cas où très peu de mots frais
       finalPool = allWords;
       bypassedCooldown = true;
+      cooldownBypassReason = 'insufficient_fresh_words';
     }
 
-    console.log(`📦 Pool final: ${finalPool.length} mots`);
+    console.log(`📦 Pool final: ${finalPool.length} mots${bypassedCooldown ? ` (cooldown ignoré: ${cooldownBypassReason})` : ''}`);
 
     // Vérification finale
     if (finalPool.length < requestedCount) {

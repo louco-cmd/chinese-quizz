@@ -22,48 +22,47 @@
   <style>
     .quiz-card {
       transition: all 0.3s ease;
-      border: none;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      /* Bordure bleue Bootstrap */
+      background: rgb(248, 249, 255);
+      /* Fond blanc */
       height: 100%;
+      border-radius: 12px;
+      color: #000000;
+      /* Texte sombre par défaut */
     }
 
     .quiz-card:hover {
       transform: translateY(-5px);
-      box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 8px 15px rgba(13, 110, 253, 0.15);
+      border-color: #0a58ca;
     }
 
     .quiz-icon {
       font-size: 3rem;
       margin-bottom: 1rem;
+      color: #0d6efd;
+      /* Icône bleue */
     }
 
-    .pinyin-card {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-
-    .character-card {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      color: white;
-    }
-
+    /* Boutons avec style outline-primary */
     .quiz-btn {
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
+      border: 2px solid #0d6efd;
+      background: #0d6efd;
+      color: #ffffff;
+      font-weight: 600;
       transition: all 0.3s ease;
     }
 
     .quiz-btn:hover {
-      background: rgba(255, 255, 255, 0.2);
-      border-color: rgba(255, 255, 255, 0.5);
-      transform: scale(1.05);
+      background: #ffffff;
+      color: #0d6efd;
+      transform: scale(1.02);
+      border: 1px solid #0d6efd;
     }
 
     .count-option {
       cursor: pointer;
       transition: all 0.2s ease;
-      border: 2px solid #e9ecef;
     }
 
     .count-option:hover {
@@ -280,7 +279,7 @@
 
     .apple-toggle input:checked+.slider {
       background-color: #0d6efd;
-;
+      ;
     }
 
     .apple-toggle input:checked+.slider:before {
@@ -296,6 +295,30 @@
         font-size: 2rem;
       }
     }
+
+    /* Adaptation mobile : colonnes côte à côte */
+    @media (max-width: 576px) {
+      .quiz-card .card-body {
+        padding: 1rem 0.5rem;
+      }
+
+      .quiz-icon {
+        font-size: 2.5rem;
+      }
+
+      .quiz-card h3 {
+        font-size: 1.2rem;
+      }
+
+      .quiz-card p {
+        font-size: 0.9rem;
+      }
+
+      .quiz-btn {
+        font-size: 0.9rem;
+        padding: 0.5rem 0.25rem;
+      }
+    }
   </style>
 </head>
 
@@ -306,34 +329,35 @@
 
       <section class="container my-4">
         <!-- 🔥 DEUX QUIZ CÔTE À CÔTE -->
-        <div class="row g-4">
+        <div class="row g-3 justify-content-center">
           <!-- Quiz Pinyin -->
-          <div class="col-12 col-lg-6">
-            <div class="quiz-card card p-4 pinyin-card">
+          <div class="col-6 col-lg-6">
+            <div class="quiz-card card p-3 p-md-4">
               <div class="card-body text-center">
                 <!-- 🔥 NOUVEL ICÔNE : Langue internationale -->
                 <i class="quiz-icon bi bi-type"></i>
                 <h3 class="card-title">Quiz Pinyin</h3>
                 <p class="card-text mb-4">From english to pinyin</p>
-                <button class="btn quiz-btn btn-lg w-100" onclick="openCountModal('pinyin')">
-                  <i class="bi bi-play-circle me-2"></i>Start now !
-                </button>
+
               </div>
+              <button class="btn quiz-btn btn-lg w-100" onclick="openCountModal('pinyin')">
+                <i class="bi bi-play-circle me-2"></i>Start now !
+              </button>
             </div>
           </div>
 
           <!-- Quiz Caractères -->
-          <div class="col-12 col-lg-6">
-            <div class="quiz-card card p-4 character-card">
+          <div class="col-6 col-lg-6">
+            <div class="quiz-card card p-3 p-md-4">
               <div class="card-body text-center">
                 <!-- 🔥 NOUVEL ICÔNE : Langue chinoise -->
                 <i class="quiz-icon bi bi-translate"></i>
                 <h3 class="card-title">Quiz characters</h3>
                 <p class="card-text mb-4">From English to chinese characters</p>
-                <button class="btn quiz-btn btn-lg w-100" onclick="openCountModal('character')">
-                  <i class="bi bi-play-circle me-2"></i>Start now !
-                </button>
               </div>
+              <button class="btn quiz-btn btn-lg w-100" onclick="openCountModal('character')">
+                <i class="bi bi-play-circle me-2"></i>Start now !
+              </button>
             </div>
           </div>
         </div>
@@ -483,7 +507,7 @@
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h2 class="text-dark mb-0">
               <i class="text-warning"></i>
-              Today's difficult words
+              You've struggled on...
             </h2>
 
             <!-- Toggle style Apple -->
