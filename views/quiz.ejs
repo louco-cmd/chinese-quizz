@@ -23,16 +23,18 @@
     .quiz-card {
       transition: all 0.3s ease;
       /* Bordure bleue Bootstrap */
-      background: rgb(248, 249, 255);
+      background: linear-gradient(135deg, #007bff, #0056b3);
       /* Fond blanc */
       height: 100%;
       border-radius: 12px;
-      color: #000000;
+      color: #ffffff;
       /* Texte sombre par défaut */
+    }
+    .characterCard {
+      background: linear-gradient(135deg, #7828a7, #4e1e7e);
     }
 
     .quiz-card:hover {
-      transform: translateY(-5px);
       box-shadow: 0 8px 15px rgba(13, 110, 253, 0.15);
       border-color: #0a58ca;
     }
@@ -40,24 +42,21 @@
     .quiz-icon {
       font-size: 3rem;
       margin-bottom: 1rem;
-      color: #0d6efd;
+      color: #ffffff;
       /* Icône bleue */
     }
 
     /* Boutons avec style outline-primary */
     .quiz-btn {
-      border: 2px solid #0d6efd;
-      background: #0d6efd;
-      color: #ffffff;
+      background: #ffffff;
+      color: #000000;
       font-weight: 600;
       transition: all 0.3s ease;
     }
 
     .quiz-btn:hover {
-      background: #ffffff;
-      color: #0d6efd;
-      transform: scale(1.02);
-      border: 1px solid #0d6efd;
+      background: #cccfff;
+      color: #000000;
     }
 
     .count-option {
@@ -348,7 +347,7 @@
 
           <!-- Quiz Caractères -->
           <div class="col-6 col-lg-6">
-            <div class="quiz-card card p-3 p-md-4">
+            <div class="quiz-card card p-3 p-md-4 characterCard">
               <div class="card-body text-center">
                 <!-- 🔥 NOUVEL ICÔNE : Langue chinoise -->
                 <i class="quiz-icon bi bi-translate"></i>

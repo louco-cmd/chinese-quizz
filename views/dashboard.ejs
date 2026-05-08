@@ -755,6 +755,13 @@
           }
         }
 
+        function showNewWordModal() {
+          // Ferme la modale "mot trouvé"
+          closeExistingWordModal();
+          // Ouvre la modale d'édition avec les champs pré-remplis
+          displayNewWordModal();
+        }
+
         // Conversion Pinyin
         function convertirPinyin(texteChinois) {
           if (typeof pinyinPro === 'undefined') return '';

@@ -1,141 +1,148 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>加油！Collection</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
-<style>
-/* ===================================
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>加油！Collection</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+  <style>
+    /* ===================================
    GÉNÉRAL
    =================================== */
-html,
-body {
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-    margin-bottom: 45px; /* Espace pour la navigation fixe */
-}
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      margin-bottom: 45px;
+      /* Espace pour la navigation fixe */
+    }
 
-/* ===================================
+    /* ===================================
    CARTES & CONTENEURS
    =================================== */
-.card-custom-bg {
-    background-color: #EBF3FF;
-    border: 1px solid #EBF3FF;
-}
+    .card-custom-bg {
+      background-color: #EBF3FF;
+      border: 1px solid #EBF3FF;
+    }
 
-#card-container,
-#list-container {
-    transition: opacity 0.5s ease, transform 0.5s ease, max-height 0.5s ease-in-out;
-}
+    #card-container,
+    #list-container {
+      transition: opacity 0.5s ease, transform 0.5s ease, max-height 0.5s ease-in-out;
+    }
 
-.hidden {
-    opacity: 0;
-    transform: translateY(50px);
-    pointer-events: none;
-    max-height: 0;
-    overflow: hidden;
-    visibility: hidden;
-}
+    .hidden {
+      opacity: 0;
+      transform: translateY(50px);
+      pointer-events: none;
+      max-height: 0;
+      overflow: hidden;
+      visibility: hidden;
+    }
 
-.visible {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: all;
-    max-height: 2000px;
-    visibility: visible;
-}
+    .visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: all;
+      max-height: 2000px;
+      visibility: visible;
+    }
 
-/* ===================================
+    /* ===================================
    TYPOGRAPHIE CHINOISE
    =================================== */
-.fs-chinese {
-    font-size: 6.25rem; /* 100px */
-    line-height: 1.2;
-}
+    .fs-chinese {
+      font-size: 6.25rem;
+      /* 100px */
+      line-height: 1.2;
+    }
 
-.fs-chinese-small {
-    font-size: 4.25rem; /* 68px - pour 3+ caractères */
-    line-height: 1.2;
-}
+    .fs-chinese-small {
+      font-size: 4.25rem;
+      /* 68px - pour 3+ caractères */
+      line-height: 1.2;
+    }
 
-.fs-pinyin {
-    font-size: 2.25rem; /* 36px */
-}
+    .fs-pinyin {
+      font-size: 2.25rem;
+      /* 36px */
+    }
 
-.text-box {
-    min-height: 170px;
-    align-content: center;
-}
+    .text-box {
+      min-height: 170px;
+      align-content: center;
+    }
 
-.text-context {
-    color: #999;
-    font-size: 0.875rem; /* 14px */
-}
+    .text-context {
+      color: #999;
+      font-size: 0.875rem;
+      /* 14px */
+    }
 
-/* ===================================
+    /* ===================================
    ÉTIQUETTE HSK
    =================================== */
-.hsk-tag-custom {
-    background-color: white;
-    color: #186FF6;
-    font-weight: bold;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    border-radius: 0.25rem;
-}
+    .hsk-tag-custom {
+      background-color: white;
+      color: #186FF6;
+      font-weight: bold;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      border-radius: 0.25rem;
+    }
 
-/* ===================================
+    /* ===================================
    LISTE & TABLEAU
    =================================== */
-#listBody tr {
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
+    #listBody tr {
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
 
-#listBody tr:hover {
-    background-color: rgba(0, 123, 255, 0.1);
-}
+    #listBody tr:hover {
+      background-color: rgba(0, 123, 255, 0.1);
+    }
 
-/* ===================================
+    /* ===================================
    SYSTÈME DE HOVER - CARACTÈRES
    =================================== */
-.chinese-character {
-    cursor: help;
-    transition: all 0.2s ease;
-    padding: 2px 4px;
-    border-radius: 4px;
-    display: inline-block;
-    position: relative;
-}
+    .chinese-character {
+      cursor: help;
+      transition: all 0.2s ease;
+      padding: 2px 4px;
+      border-radius: 4px;
+      display: inline-block;
+      position: relative;
+    }
 
-.chinese-character:hover {
-    background-color: rgba(13, 110, 253, 0.1);
-}
+    .chinese-character:hover {
+      background-color: rgba(13, 110, 253, 0.1);
+    }
 
-/* ===================================
+    /* ===================================
    MODALE DE CARACTÈRE (POPUP)
    =================================== */
-.character-modal {
-    position: fixed;
-    z-index: 10000;
-    background: white;
-    border: 2px solid #0d6efd;
-    border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    padding: 15px;
-    min-width: 180px;
-    max-width: 250px;
-    pointer-events: auto;
-    transition: opacity 0.2s ease-in-out;
-}
-</style>
+    .character-modal {
+      position: fixed;
+      z-index: 10000;
+      background: white;
+      border: 2px solid #0d6efd;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      padding: 15px;
+      min-width: 180px;
+      max-width: 250px;
+      pointer-events: auto;
+      transition: opacity 0.2s ease-in-out;
+    }
+    
+  </style>
 
   <!-- Ajoute ces lignes -->
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#0d6efd"/>
+  <meta name="theme-color" content="#0d6efd" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- Icônes pour iOS -->
@@ -148,118 +155,124 @@ body {
     }
   </script>
 </head>
+
 <body>
-<%- include('partials/header', {currentPage: 'collection', user: user, balance: balance}) %>
-<%- include('partials/navbar', {currentPage: 'collection', user: user}) %>
+  <%- include('partials/header', {currentPage: 'collection' , user: user, balance: balance}) %>
+    <%- include('partials/navbar', {currentPage: 'collection' , user: user}) %>
 
-<section class="section d-flex flex-column align-items-center mt-4">
-  <%- include('partials/voiceOn') %> 
-  <div id="card-container" class="d-flex justify-content-center visible mb-2 position-relative"></div>
+      <section class="section d-flex flex-column align-items-center mt-4">
+        <%- include('partials/voiceOn') %>
+          <div id="card-container" class="d-flex justify-content-center visible mb-2 position-relative"></div>
 
-  <div id="list-container" class="container mt-4 hidden">
-    <div class="mb-3" style="max-width: 400px;">
-      <input type="text" id="searchInput" class="form-control" placeholder="Looking for a word...">
-    </div>
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th>Chinese</th>
-          <th>Pinyin</th>
-          <th>English</th>
-        </tr>
-      </thead>
-      <tbody id="listBody"></tbody>
-    </table>
-  </div>
+          <div id="list-container" class="container mt-4 hidden">
+            <div class="mb-3" style="max-width: 400px;">
+              <input type="text" id="searchInput" class="form-control" placeholder="Looking for a word...">
+            </div>
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Chinese</th>
+                  <th>Pinyin</th>
+                  <th>English</th>
+                </tr>
+              </thead>
+              <tbody id="listBody"></tbody>
+            </table>
+          </div>
 
-  <div class="d-flex justify-content-between w-100" style="max-width: 18rem;">
-    <button id="prevBtn" class="btn btn-primary rounded-circle px-3 py-2">‹</button>
-    <button id="nextBtn" class="btn btn-primary rounded-circle px-3 py-2">›</button>
-  </div>
-</section>
+          <div class="d-flex justify-content-between w-100 mt-auto buttons-container" style="max-width: 18rem;">
+            <button id="prevBtn" class="btn btn-primary rounded-circle px-3 py-2">‹</button>
+            <button id="nextBtn" class="btn btn-primary rounded-circle px-3 py-2">›</button>
+          </div>
+      </section>
 
-<!-- Modal Bootstrap -->
-<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content bg-dark text-white">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editModalLabel">Edit Word</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <form id="editForm" class="p-3">
-        <input type="hidden" id="editId" />
-        <div class="mb-3"><label for="editChinese" class="form-label">Chinese</label><input type="text" class="form-control" id="editChinese" required></div>
-        <div class="mb-3"><label for="editPinyin" class="form-label">Pinyin</label><input type="text" class="form-control" id="editPinyin"></div>
-        <div class="mb-3"><label for="editEnglish" class="form-label">English</label><input type="text" class="form-control" id="editEnglish"></div>
-        <div class="mb-3"><label for="editDescription" class="form-label">Description</label><textarea class="form-control" id="editDescription" rows="3"></textarea></div>
-        <div class="text-end">
-          <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save</button>
+      <!-- Modal Bootstrap -->
+      <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content bg-dark text-white">
+            <div class="modal-header">
+              <h5 class="modal-title" id="editModalLabel">Edit Word</h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                aria-label="Close"></button>
+            </div>
+            <form id="editForm" class="p-3">
+              <input type="hidden" id="editId" />
+              <div class="mb-3"><label for="editChinese" class="form-label">Chinese</label><input type="text"
+                  class="form-control" id="editChinese" required></div>
+              <div class="mb-3"><label for="editPinyin" class="form-label">Pinyin</label><input type="text"
+                  class="form-control" id="editPinyin"></div>
+              <div class="mb-3"><label for="editEnglish" class="form-label">English</label><input type="text"
+                  class="form-control" id="editEnglish"></div>
+              <div class="mb-3"><label for="editDescription" class="form-label">Description</label><textarea
+                  class="form-control" id="editDescription" rows="3"></textarea></div>
+              <div class="text-end">
+                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+              </div>
+            </form>
+          </div>
         </div>
-      </form>
-    </div>
-  </div>
-</div>
+      </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/JS/global.js"></script>
-<script>
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+      <script src="/JS/global.js"></script>
+      <script>
 
-  let words=[], idx=0;
-  let touchStartY = 0;
-  const cardContainer=document.getElementById('card-container');
-  const prevBtn=document.getElementById('prevBtn');
-  const nextBtn=document.getElementById('nextBtn');
-  const listContainer=document.getElementById('list-container');
-  const listBody=document.getElementById('listBody');
-  const searchInput = document.getElementById('searchInput');
+        let words = [], idx = 0;
+        let touchStartY = 0;
+        const cardContainer = document.getElementById('card-container');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const listContainer = document.getElementById('list-container');
+        const listBody = document.getElementById('listBody');
+        const searchInput = document.getElementById('searchInput');
 
-  // modal
-  const editModal=document.getElementById('editModal');
-  const editForm=document.getElementById('editForm');
-  const editId=document.getElementById('editId');
-  const editChinese=document.getElementById('editChinese');
-  const editPinyin=document.getElementById('editPinyin');
-  const editEnglish=document.getElementById('editEnglish');
-  const editDescription=document.getElementById('editDescription');
+        // modal
+        const editModal = document.getElementById('editModal');
+        const editForm = document.getElementById('editForm');
+        const editId = document.getElementById('editId');
+        const editChinese = document.getElementById('editChinese');
+        const editPinyin = document.getElementById('editPinyin');
+        const editEnglish = document.getElementById('editEnglish');
+        const editDescription = document.getElementById('editDescription');
 
-  // 🎯 VARIABLES POUR LE SYSTÈME DE HOVER
-  let hoverModal = null;
-  let cacheMots = null;
-  let dernierFetch = 0;
-  const CACHE_DURATION = 5 * 60 * 1000;
-  let hoverTimeout = null;
-  let isHoveringModal = false;
+        // 🎯 VARIABLES POUR LE SYSTÈME DE HOVER
+        let hoverModal = null;
+        let cacheMots = null;
+        let dernierFetch = 0;
+        const CACHE_DURATION = 5 * 60 * 1000;
+        let hoverTimeout = null;
+        let isHoveringModal = false;
 
-  // Load words
-  async function loadWords(){
-    const res=await fetch('/mes-mots'); 
-    words=await res.json();
-    if(!words.length){
-      cardContainer.innerHTML='<p>No words yet.</p>';
-      return;
-    }
-    idx=0; 
-    showCard();
-    showList();
-  }
-
-
-async function fetchCharacterData(character, event) {
-    try {
-        console.log('🔍 Recherche pour:', character);
-        
-        // Annuler tout timeout de fermeture en cours
-        if (hoverTimeout) {
-            clearTimeout(hoverTimeout);
-            hoverTimeout = null;
+        // Load words
+        async function loadWords() {
+          const res = await fetch('/mes-mots');
+          words = await res.json();
+          if (!words.length) {
+            cardContainer.innerHTML = '<p>No words yet.</p>';
+            return;
+          }
+          idx = 0;
+          showCard();
+          showList();
         }
-        
-        // Création de la modale si nécessaire
-        if (!hoverModal) {
-            hoverModal = document.createElement('div');
-            hoverModal.className = 'character-modal';
-            hoverModal.style.cssText = `
+
+
+        async function fetchCharacterData(character, event) {
+          try {
+            console.log('🔍 Recherche pour:', character);
+
+            // Annuler tout timeout de fermeture en cours
+            if (hoverTimeout) {
+              clearTimeout(hoverTimeout);
+              hoverTimeout = null;
+            }
+
+            // Création de la modale si nécessaire
+            if (!hoverModal) {
+              hoverModal = document.createElement('div');
+              hoverModal.className = 'character-modal';
+              hoverModal.style.cssText = `
                 position: fixed;
                 width: 200px;
                 height: auto;
@@ -272,47 +285,47 @@ async function fetchCharacterData(character, event) {
                 padding: 15px;
                 pointer-events: auto;
             `;
-            
-            // Gestion du hover sur la modale
-            hoverModal.addEventListener('mouseenter', () => {
+
+              // Gestion du hover sur la modale
+              hoverModal.addEventListener('mouseenter', () => {
                 console.log('🔄 Souris sur modale');
                 if (hoverTimeout) {
-                    clearTimeout(hoverTimeout);
-                    hoverTimeout = null;
+                  clearTimeout(hoverTimeout);
+                  hoverTimeout = null;
                 }
-            });
-            
-            hoverModal.addEventListener('mouseleave', () => {
+              });
+
+              hoverModal.addEventListener('mouseleave', () => {
                 console.log('🚪 Souris quitte modale');
                 hoverTimeout = setTimeout(() => {
-                    if (hoverModal) {
-                        hoverModal.style.display = 'none';
-                    }
+                  if (hoverModal) {
+                    hoverModal.style.display = 'none';
+                  }
                 }, 200);
-            });
-            
-            document.body.appendChild(hoverModal);
-        }
+              });
 
-        // Positionnement
-        if (event && event.target) {
-            const rect = event.target.getBoundingClientRect();
-            const scrollX = window.scrollX || document.documentElement.scrollLeft;
-            const scrollY = window.scrollY || document.documentElement.scrollTop;
-            
-            const centerX = rect.left + (rect.width / 2) + scrollX;
-            const characterTop = rect.top + scrollY;
-            
-            hoverModal.style.left = `${centerX}px`;
-            hoverModal.style.top = `${characterTop - 5}px`;
-            hoverModal.style.transform = 'translateX(-50%) translateY(+30%)';
-        }
-        
-        // Afficher la modale
-        hoverModal.style.display = 'block';
-        
-        // Spinner
-        hoverModal.innerHTML = `
+              document.body.appendChild(hoverModal);
+            }
+
+            // Positionnement
+            if (event && event.target) {
+              const rect = event.target.getBoundingClientRect();
+              const scrollX = window.scrollX || document.documentElement.scrollLeft;
+              const scrollY = window.scrollY || document.documentElement.scrollTop;
+
+              const centerX = rect.left + (rect.width / 2) + scrollX;
+              const characterTop = rect.top + scrollY;
+
+              hoverModal.style.left = `${centerX}px`;
+              hoverModal.style.top = `${characterTop - 5}px`;
+              hoverModal.style.transform = 'translateX(-50%) translateY(+30%)';
+            }
+
+            // Afficher la modale
+            hoverModal.style.display = 'block';
+
+            // Spinner
+            hoverModal.innerHTML = `
             <div style="text-align: center;">
                 <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px;">${character}</div>
                 <div class="spinner-border spinner-border-sm text-primary" role="status">
@@ -321,54 +334,54 @@ async function fetchCharacterData(character, event) {
             </div>
         `;
 
-        // Recherche des données (ton code existant)
-        let caractereExact = words.find(mot => 
-            mot && mot.chinese && mot.chinese.length === 1 && mot.chinese === character
-        );
-        
-        if (!caractereExact && cacheMots) {
-            caractereExact = cacheMots.find(mot => 
-                mot && mot.chinese && mot.chinese.length === 1 && mot.chinese === character
+            // Recherche des données (ton code existant)
+            let caractereExact = words.find(mot =>
+              mot && mot.chinese && mot.chinese.length === 1 && mot.chinese === character
             );
-        }
 
-        if (!caractereExact && (!cacheMots || Date.now() - dernierFetch > CACHE_DURATION)) {
-            try {
+            if (!caractereExact && cacheMots) {
+              caractereExact = cacheMots.find(mot =>
+                mot && mot.chinese && mot.chinese.length === 1 && mot.chinese === character
+              );
+            }
+
+            if (!caractereExact && (!cacheMots || Date.now() - dernierFetch > CACHE_DURATION)) {
+              try {
                 const response = await fetch('/api/tous-les-mots');
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                
+
                 cacheMots = await response.json();
                 dernierFetch = Date.now();
-                
-                caractereExact = cacheMots.find(mot => 
-                    mot && mot.chinese && mot.chinese.length === 1 && mot.chinese === character
+
+                caractereExact = cacheMots.find(mot =>
+                  mot && mot.chinese && mot.chinese.length === 1 && mot.chinese === character
                 );
-            } catch (cacheError) {
+              } catch (cacheError) {
                 console.error('❌ Erreur cache:', cacheError);
                 cacheMots = [];
+              }
             }
-        }
 
-        if (!caractereExact) {
-            const motContenant = cacheMots?.find(mot => 
+            if (!caractereExact) {
+              const motContenant = cacheMots?.find(mot =>
                 mot && mot.chinese && mot.chinese.includes(character) && mot.chinese.length > 1
-            );
-            
-            if (motContenant) {
-                caractereExact = {
-                    chinese: character,
-                    pinyin: `(Part of: ${motContenant.pinyin})`,
-                    english: `Component of: ${motContenant.english}`,
-                    hsk: motContenant.hsk
-                };
-            } else {
-                caractereExact = await fetchCharacterFromAPI(character);
-            }
-        }
+              );
 
-        // Mise à jour de la modale
-        if (hoverModal && hoverModal.style.display !== 'none') {
-            if (caractereExact) {
+              if (motContenant) {
+                caractereExact = {
+                  chinese: character,
+                  pinyin: `(Part of: ${motContenant.pinyin})`,
+                  english: `Component of: ${motContenant.english}`,
+                  hsk: motContenant.hsk
+                };
+              } else {
+                caractereExact = await fetchCharacterFromAPI(character);
+              }
+            }
+
+            // Mise à jour de la modale
+            if (hoverModal && hoverModal.style.display !== 'none') {
+              if (caractereExact) {
                 hoverModal.innerHTML = `
                     <div style="text-align: center;">
                         <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px;">${character}</div>
@@ -385,52 +398,52 @@ async function fetchCharacterData(character, event) {
                         ` : ''}
                     </div>
                 `;
-            } else {
+              } else {
                 hoverModal.innerHTML = `
                     <div style="text-align: center;">
                         <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px;">${character}</div>
                         <div style="color: #999; font-size: 0.9rem;">Caractère non enregistré</div>
                     </div>
                 `;
+              }
             }
-        }
 
-    } catch (error) {
-        console.error('❌ Erreur:', error);
-        if (hoverModal && hoverModal.style.display !== 'none') {
-            hoverModal.innerHTML = `
+          } catch (error) {
+            console.error('❌ Erreur:', error);
+            if (hoverModal && hoverModal.style.display !== 'none') {
+              hoverModal.innerHTML = `
                 <div style="text-align: center;">
                     <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px;">${character}</div>
                     <div style="color: #d32f2f; font-size: 0.9rem;">Erreur de chargement</div>
                 </div>
             `;
+            }
+          }
         }
-    }
-}
 
 
-  // scroll control
-cardContainer.addEventListener('wheel', (e) => {
-    const canScroll = cardContainer.scrollHeight > cardContainer.clientHeight;
-    
-    // Si la carte tient dans le conteneur, on autorise le toggle
-    if(!canScroll && Math.abs(e.deltaY) > 30){
-      toggleView('list');
-    }
-  });
+        // scroll control
+        cardContainer.addEventListener('wheel', (e) => {
+          const canScroll = cardContainer.scrollHeight > cardContainer.clientHeight;
 
-function createCardElement(word) {
-    const card = document.createElement('div');
-    card.classList.add('col', 'mb-4'); 
-    
-    const hskLevelDisplay = word.hsk || 'Street';
-    const chineseFontSizeClass = (word.chinese && word.chinese.length >= 3) ? 'fs-chinese-small' : 'fs-chinese';
-    
-    // 🔥 NOUVEAU : Système de pictos par score
-    const score = word.score || 0;
-    const picto = getScorePicto(score);
+          // Si la carte tient dans le conteneur, on autorise le toggle
+          if (!canScroll && Math.abs(e.deltaY) > 30) {
+            toggleView('list');
+          }
+        });
 
-    card.innerHTML = `
+        function createCardElement(word) {
+          const card = document.createElement('div');
+          card.classList.add('col', 'mb-4');
+
+          const hskLevelDisplay = word.hsk || 'Street';
+          const chineseFontSizeClass = (word.chinese && word.chinese.length >= 3) ? 'fs-chinese-small' : 'fs-chinese';
+
+          // 🔥 NOUVEAU : Système de pictos par score
+          const score = word.score || 0;
+          const picto = getScorePicto(score);
+
+          card.innerHTML = `
       <div class="card card-custom-bg rounded-4 shadow-lg p-3 mx-auto" style="width: 320px; height: 500px; position: relative;">
 
           <div class="position-absolute top-0 end-0 mt-3 me-3">
@@ -482,316 +495,317 @@ function createCardElement(word) {
       </div>
     `;
 
-card.querySelector('.delete-btn').onclick = async () => {
-  if (!confirm(`Are you sure you want delete "${word.chinese}" from your collection ?`)) return;
+          card.querySelector('.delete-btn').onclick = async () => {
+            if (!confirm(`Are you sure you want delete "${word.chinese}" from your collection ?`)) return;
 
-  try {
-    const response = await fetch('/mes-mots/delete', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ mot_id: word.id }),
-    });
+            try {
+              const response = await fetch('/mes-mots/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mot_id: word.id }),
+              });
 
-    const data = await response.json();
+              const data = await response.json();
 
-    if (response.ok) {
-      alert(data.message || 'Word has been successfully deleted');
-      // Supprimer localement pour mise à jour rapide
-      words = words.filter(w => w.id !== word.id);
+              if (response.ok) {
+                alert(data.message || 'Word has been successfully deleted');
+                // Supprimer localement pour mise à jour rapide
+                words = words.filter(w => w.id !== word.id);
 
-      // Si tu veux gérer la navigation après suppression
-      if (words.length === 0) {
-        cardContainer.innerHTML = '<p>No words yet.</p>';
-        listBody.innerHTML = '';
-        return;
-      }
+                // Si tu veux gérer la navigation après suppression
+                if (words.length === 0) {
+                  cardContainer.innerHTML = '<p>No words yet.</p>';
+                  listBody.innerHTML = '';
+                  return;
+                }
 
-      // Ajuster l'index si nécessaire
-      if (idx >= words.length) idx = words.length - 1;
-      showCard();
-      showList();
-    } else {
-      alert(data.error || 'Erreur lors de la suppression');
-    }
-  } catch (err) {
-    console.error(err);
-    alert('Erreur réseau');
-  }
-};
+                // Ajuster l'index si nécessaire
+                if (idx >= words.length) idx = words.length - 1;
+                showCard();
+                showList();
+              } else {
+                alert(data.error || 'Erreur lors de la suppression');
+              }
+            } catch (err) {
+              console.error(err);
+              alert('Erreur réseau');
+            }
+          };
 
-    // Transforme les caractères chinois (ton code existant)
-    const chineseContainer = card.querySelector('.chinese-clickable');
-    if (chineseContainer && word.chinese) {
-      transformChineseCharacters(word.chinese, chineseContainer);
-    }
+          // Transforme les caractères chinois (ton code existant)
+          const chineseContainer = card.querySelector('.chinese-clickable');
+          if (chineseContainer && word.chinese) {
+            transformChineseCharacters(word.chinese, chineseContainer);
+          }
 
-    // Gestion des événements
-    card.querySelector('.edit-btn').onclick = () => openEdit(word);
-    
-    return card;
-}
+          // Gestion des événements
+          card.querySelector('.edit-btn').onclick = () => openEdit(word);
 
-// 🔥 NOUVELLE FONCTION : Retourne le picto selon le score
-function getScorePicto(score) {
-    if (score >= 80) return '🥳';  // 80-100 : Excellent
-    if (score >= 60) return '☺️';  // 60-79 : Bon
-    if (score >= 40) return '😑';  // 40-59 : Moyen
-    if (score >= 20) return '🥺';  // 20-39 : Faible
-    if (score >= 1) return '😭';   // 1-19 : Très faible
-    return '🫥';                   // 0 : Non appris
-}
+          return card;
+        }
 
-// 🎯 SYSTÈME DE HOVER SIMPLIFIÉ - APPROCHE DIFFÉRENTE
-function transformChineseCharacters(chineseWord, container) {
-    if (!container || !chineseWord) return;
+        // 🔥 NOUVELLE FONCTION : Retourne le picto selon le score
+        function getScorePicto(score) {
+          if (score >= 80) return '🥳';  // 80-100 : Excellent
+          if (score >= 60) return '☺️';  // 60-79 : Bon
+          if (score >= 40) return '😑';  // 40-59 : Moyen
+          if (score >= 20) return '🥺';  // 20-39 : Faible
+          if (score >= 1) return '😭';   // 1-19 : Très faible
+          return '🫥';                   // 0 : Non appris
+        }
 
-    container.classList.add('chinese-container');
-    const characters = Array.from(chineseWord);
-    
-    if (characters.length <= 1) {
-        container.textContent = chineseWord;
-        return;
-    }
-    
-    container.innerHTML = '';
-    
-    characters.forEach((character) => {
-        const span = document.createElement('span');
-        span.className = 'chinese-character';
-        span.setAttribute('data-char', character);
-        span.textContent = character;
-        
-        span.addEventListener('mouseenter', (e) => {
-            console.log('🔍 Hover sur:', character);
-            // Annuler la fermeture si on survole rapidement
-            if (hoverTimeout) {
+        // 🎯 SYSTÈME DE HOVER SIMPLIFIÉ - APPROCHE DIFFÉRENTE
+        function transformChineseCharacters(chineseWord, container) {
+          if (!container || !chineseWord) return;
+
+          container.classList.add('chinese-container');
+          const characters = Array.from(chineseWord);
+
+          if (characters.length <= 1) {
+            container.textContent = chineseWord;
+            return;
+          }
+
+          container.innerHTML = '';
+
+          characters.forEach((character) => {
+            const span = document.createElement('span');
+            span.className = 'chinese-character';
+            span.setAttribute('data-char', character);
+            span.textContent = character;
+
+            span.addEventListener('mouseenter', (e) => {
+              console.log('🔍 Hover sur:', character);
+              // Annuler la fermeture si on survole rapidement
+              if (hoverTimeout) {
                 clearTimeout(hoverTimeout);
                 hoverTimeout = null;
-            }
-            handleCharacterHover(e);
-        });
-        
-        span.addEventListener('mouseleave', () => {
-            console.log('🚪 Leave caractère');
-            // Délai avant fermeture pour laisser le temps d'aller sur la modale
-            hoverTimeout = setTimeout(() => {
+              }
+              handleCharacterHover(e);
+            });
+
+            span.addEventListener('mouseleave', () => {
+              console.log('🚪 Leave caractère');
+              // Délai avant fermeture pour laisser le temps d'aller sur la modale
+              hoverTimeout = setTimeout(() => {
                 if (hoverModal) {
-                    hoverModal.style.display = 'none';
+                  hoverModal.style.display = 'none';
                 }
-            }, 200);
+              }, 200);
+            });
+
+            container.appendChild(span);
+          });
+        }
+
+        function handleCharacterHover(event) {
+          const character = event.target.getAttribute('data-char');
+          console.log('👆 Nouveau hover:', character);
+
+          const container = event.target.closest('.chinese-container');
+          if (!container) return;
+
+          fetchCharacterData(character, event);
+        }
+
+        function closeModal() {
+          if (hoverModal) {
+            hoverModal.style.display = 'none';
+            hoverModal.style.opacity = '0';
+          }
+        }
+
+        function showCard() {
+          if (!words.length) return;
+          const word = words[idx];
+          if (!word) return;
+          cardContainer.innerHTML = '';
+          const newCard = createCardElement(word);
+          cardContainer.appendChild(newCard);
+        }
+
+        // Navigation
+        prevBtn.onclick = () => { idx = (idx - 1 + words.length) % words.length; showCard(); toggleView('card'); };
+        nextBtn.onclick = () => { idx = (idx + 1) % words.length; showCard(); toggleView('card'); };
+
+        window.addEventListener('keydown', e => {
+          if (e.key === 'ArrowLeft') prevBtn.click();
+          else if (e.key === 'ArrowRight') nextBtn.click();
         });
-        
-        container.appendChild(span);
-    });
-}
 
-function handleCharacterHover(event) {
-    const character = event.target.getAttribute('data-char');
-    console.log('👆 Nouveau hover:', character);
-    
-    const container = event.target.closest('.chinese-container');
-    if (!container) return;
-    
-    fetchCharacterData(character, event);
-}
+        // List view
+        function showList() {
+          listBody.innerHTML = '';
+          words.forEach((word, i) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${word.chinese}</td><td>${word.pinyin || ''}</td><td>${word.english || ''}</td>`;
+            row.onclick = () => {
+              idx = i;
+              showCard();
+              toggleView('card');
+            };
+            listBody.appendChild(row);
+          });
+        }
 
-function closeModal() {
-    if (hoverModal) {
-        hoverModal.style.display = 'none';
-        hoverModal.style.opacity = '0';
-    }
-}
+        function toggleView(view) {
+          if (view === 'list') {
+            listContainer.classList.remove('hidden');
+            listContainer.classList.add('visible');
+            cardContainer.classList.remove('visible');
+            cardContainer.classList.add('hidden');
+            prevBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+            window.scrollTo({ top: listContainer.offsetTop, behavior: 'smooth' });
+          } else {
+            cardContainer.classList.remove('hidden');
+            cardContainer.classList.add('visible');
+            listContainer.classList.remove('visible');
+            listContainer.classList.add('hidden');
+            prevBtn.style.display = 'inline-block';
+            nextBtn.style.display = 'inline-block';
+            window.scrollTo({ top: cardContainer.offsetTop, behavior: 'smooth' });
+          }
+        }
 
-function showCard() {
-    if (!words.length) return;
-    const word = words[idx];
-    if (!word) return;
-    cardContainer.innerHTML = '';
-    const newCard = createCardElement(word);
-    cardContainer.appendChild(newCard);
-  }
+        // Scroll pour passer de carte à liste
+        window.addEventListener('wheel', (e) => {
+          if (e.deltaY > 30 && cardContainer.classList.contains('visible')) toggleView('list');
+          else if (e.deltaY < -30 && listContainer.classList.contains('visible')) toggleView('card');
+        });
 
-  // Navigation
-  prevBtn.onclick = ()=>{ idx=(idx-1+words.length)%words.length; showCard(); toggleView('card'); };
-  nextBtn.onclick = ()=>{ idx=(idx+1)%words.length; showCard(); toggleView('card'); };
+        cardContainer.addEventListener('touchstart', e => {
+          touchStartY = e.touches[0].clientY;
+        });
 
-  window.addEventListener('keydown',e=>{
-    if(e.key==='ArrowLeft') prevBtn.click();
-    else if(e.key==='ArrowRight') nextBtn.click();
-  });
+        cardContainer.addEventListener('touchend', e => {
+          const touchEndY = e.changedTouches[0].clientY;
+          const deltaY = touchEndY - touchStartY;
+          if (Math.abs(deltaY) > 30) {
+            toggleView('list');
+          }
+        });
 
-  // List view
-  function showList() {
-    listBody.innerHTML = '';
-    words.forEach((word,i)=>{
-      const row=document.createElement('tr');
-      row.innerHTML = `<td>${word.chinese}</td><td>${word.pinyin||''}</td><td>${word.english||''}</td>`;
-      row.onclick = ()=>{
-        idx=i;
-        showCard();
-        toggleView('card');
-      };
-      listBody.appendChild(row);
-    });
-  }
+        // Modal
+        function openEdit(word) {
+          editId.value = word.id;
+          editChinese.value = word.chinese;
+          editPinyin.value = word.pinyin || '';
+          editEnglish.value = word.english || '';
+          editDescription.value = word.description || '';
+          const modal = new bootstrap.Modal(editModal);
+          modal.show();
+        }
 
-  function toggleView(view){
-    if(view==='list'){
-      listContainer.classList.remove('hidden'); 
-      listContainer.classList.add('visible');
-      cardContainer.classList.remove('visible'); 
-      cardContainer.classList.add('hidden');
-      prevBtn.style.display = 'none';
-      nextBtn.style.display = 'none';
-      window.scrollTo({ top: listContainer.offsetTop, behavior: 'smooth' });
-    } else {
-      cardContainer.classList.remove('hidden'); 
-      cardContainer.classList.add('visible');
-      listContainer.classList.remove('visible'); 
-      listContainer.classList.add('hidden');
-      prevBtn.style.display = 'inline-block';
-      nextBtn.style.display = 'inline-block';
-      window.scrollTo({ top: cardContainer.offsetTop, behavior: 'smooth' });
-    }
-  }
+        // Edit submit
+        editForm.onsubmit = async (e) => {
+          e.preventDefault();
+          const payload = {
+            chinese: editChinese.value,
+            pinyin: editPinyin.value,
+            english: editEnglish.value,
+            description: editDescription.value
+          };
+          try {
+            await fetch(`/update/${editId.value}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            words[idx] = { ...words[idx], ...payload };
+            showCard();
+            showList();
+          } catch (err) { alert("Update failed"); }
+          const bsModal = bootstrap.Modal.getInstance(editModal);
+          if (bsModal) bsModal.hide();
+        };
 
-  // Scroll pour passer de carte à liste
-  window.addEventListener('wheel', (e)=>{
-    if(e.deltaY > 30 && cardContainer.classList.contains('visible')) toggleView('list');
-    else if(e.deltaY < -30 && listContainer.classList.contains('visible')) toggleView('card');
-  });
+        //search a specific word in list
+        searchInput.addEventListener('input', () => {
+          const query = searchInput.value.toLowerCase();
+          document.querySelectorAll('#listBody tr').forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(query) ? '' : 'none';
+          });
+        });
 
-  cardContainer.addEventListener('touchstart', e => {
-    touchStartY = e.touches[0].clientY;
-  });
+        loadWords();
+        // Navigation System Simple
+        class SimpleNavigation {
+          constructor() {
+            this.currentPage = 'dashboard';
+            this.init();
+          }
 
-  cardContainer.addEventListener('touchend', e => {
-    const touchEndY = e.changedTouches[0].clientY;
-    const deltaY = touchEndY - touchStartY;
-    if(Math.abs(deltaY) > 30){
-      toggleView('list');
-    }
-  });
-
-  // Modal
-  function openEdit(word){
-    editId.value = word.id;
-    editChinese.value = word.chinese;
-    editPinyin.value = word.pinyin||'';
-    editEnglish.value = word.english||'';
-    editDescription.value = word.description||'';
-    const modal = new bootstrap.Modal(editModal);
-    modal.show();
-  }
-
-  // Edit submit
-  editForm.onsubmit = async (e)=>{
-    e.preventDefault();
-    const payload={
-      chinese: editChinese.value,
-      pinyin: editPinyin.value,
-      english: editEnglish.value,
-      description: editDescription.value
-    };
-    try{
-      await fetch(`/update/${editId.value}`,{
-        method:'PUT',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(payload)
-      });
-      words[idx]={...words[idx], ...payload};
-      showCard();
-      showList();
-    }catch(err){alert("Update failed");}
-    const bsModal = bootstrap.Modal.getInstance(editModal);
-    if(bsModal) bsModal.hide();
-  };
-
-  //search a specific word in list
-  searchInput.addEventListener('input', () => {
-    const query = searchInput.value.toLowerCase();
-    document.querySelectorAll('#listBody tr').forEach(row => {
-      const text = row.textContent.toLowerCase();
-      row.style.display = text.includes(query) ? '' : 'none';
-    });
-  });
-
-  loadWords();
-// Navigation System Simple
-class SimpleNavigation {
-    constructor() {
-        this.currentPage = 'dashboard';
-        this.init();
-    }
-    
-    init() {
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', (e) => {
+          init() {
+            document.querySelectorAll('.nav-link').forEach(link => {
+              link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const targetPage = link.getAttribute('data-page');
-                
-                if (targetPage === this.currentPage || link.classList.contains('disabled')) {
-                    return;
-                }
-                
-                this.navigateTo(targetPage);
-            });
-        });
-        
-        this.showPage('dashboard');
-    }
-    
-    navigateTo(page) {
-        this.updateActiveNavItem(page);
-        this.showPage(page);
-        history.pushState({ page }, '', `#${page}`);
-        this.currentPage = page;
-    }
-    
-    updateActiveNavItem(page) {
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('active');
-        });
-        
-        const activeLink = document.querySelector(`[data-page="${page}"]`);
-        if (activeLink) {
-            activeLink.classList.add('active');
-        }
-    }
-    
-    showPage(page) {
-        document.querySelectorAll('.page-content').forEach(content => {
-            content.classList.add('d-none');
-        });
-        
-        const activePage = document.getElementById(page);
-        if (activePage) {
-            activePage.classList.remove('d-none');
-        }
-    }
-    
-    handlePopState(event) {
-        if (event.state && event.state.page) {
-            this.navigateTo(event.state.page);
-        }
-    }
-}
-// Détection automatique de la page active
-function setActiveNavItem() {
-    const path = window.location.pathname;
-    
-  document.querySelectorAll('.nav-link').forEach(link => {
-        link.classList.remove('active');
-        // Active si le data-page correspond à l'URL
-        if (path.includes(link.getAttribute('data-page'))) {
-            link.classList.add('active');
-        }
-    });
-}
-// Appeler au chargement
-document.addEventListener('DOMContentLoaded', setActiveNavItem);
 
-</script>
+                if (targetPage === this.currentPage || link.classList.contains('disabled')) {
+                  return;
+                }
+
+                this.navigateTo(targetPage);
+              });
+            });
+
+            this.showPage('dashboard');
+          }
+
+          navigateTo(page) {
+            this.updateActiveNavItem(page);
+            this.showPage(page);
+            history.pushState({ page }, '', `#${page}`);
+            this.currentPage = page;
+          }
+
+          updateActiveNavItem(page) {
+            document.querySelectorAll('.nav-link').forEach(link => {
+              link.classList.remove('active');
+            });
+
+            const activeLink = document.querySelector(`[data-page="${page}"]`);
+            if (activeLink) {
+              activeLink.classList.add('active');
+            }
+          }
+
+          showPage(page) {
+            document.querySelectorAll('.page-content').forEach(content => {
+              content.classList.add('d-none');
+            });
+
+            const activePage = document.getElementById(page);
+            if (activePage) {
+              activePage.classList.remove('d-none');
+            }
+          }
+
+          handlePopState(event) {
+            if (event.state && event.state.page) {
+              this.navigateTo(event.state.page);
+            }
+          }
+        }
+        // Détection automatique de la page active
+        function setActiveNavItem() {
+          const path = window.location.pathname;
+
+          document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
+            // Active si le data-page correspond à l'URL
+            if (path.includes(link.getAttribute('data-page'))) {
+              link.classList.add('active');
+            }
+          });
+        }
+        // Appeler au chargement
+        document.addEventListener('DOMContentLoaded', setActiveNavItem);
+
+      </script>
 
 </body>
+
 </html>

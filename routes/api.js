@@ -36,8 +36,6 @@ router.get('/account-info', ensureAuth, async (req, res) => {
   const targetUserId = req.query.user_id || req.user.id;
   const currentUserId = req.user.id;
 
-  console.log('🎯 /account-info appelé:', { targetUserId, currentUserId });
-
   try {
     // 1. Récupérer les infos utilisateur COMPLÈTES
     const userInfo = await pool.query(`
@@ -54,6 +52,7 @@ router.get('/account-info', ensureAuth, async (req, res) => {
     const userMots = await pool.query(`
       SELECT 
         user_mots.score,
+        user_mots.score_character,
         user_mots.mot_id,
         mots.chinese, 
         mots.pinyin, 
@@ -109,15 +108,6 @@ router.get('/account-info', ensureAuth, async (req, res) => {
         total_duels: parseInt(duelStats.rows[0].total_duels)
       }
     };
-
-    console.log('✅ /account-info réponse:', {
-      name: response.name,
-      tagline: response.tagline,    // ← NOUVEAU
-      country: response.country,    // ← NOUVEAU
-      wordCount: response.wordCount,
-      totalQuizzes: response.stats.total_quizzes,
-      totalDuels: response.stats.total_duels
-    });
 
     res.json(response);
 
@@ -267,12 +257,8 @@ router.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
       console.log(`🔄 Mise à jour de ${results.length} scores de mots...`);
 
       for (const result of results) {
-        console.log(`🎯 Traitement mot:`, result);
-
         if (result.mot_id && result.correct !== null && result.correct !== undefined) {
-          await updateWordScore(req.user.id, result.mot_id, result.correct);
-        } else {
-          console.log('❌ Données manquantes pour mot:', result);
+          await updateWordScore(req.user.id, result.mot_id, result.correct, quiz_type);
         }
       }
       console.log('✅ Tous les scores mis à jour');
@@ -1065,6 +1051,208 @@ router.get('/api/difficult-words', ensureAuth, async (req, res) => {
   }
 });
 
+
+// Packs et gestion d'achat
+router.post('/api/purchase-pack', ensureAuth, async (req, res) => {
+  const userId = req.user.id;
+  const packPrice = 200;
+  const hskLevel = 1;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 1. Verrouiller l'utilisateur pour éviter les concurrences
+    const { rows: userRows } = await client.query(
+      'SELECT balance FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentBalance = userRows[0].balance;
+
+    if (currentBalance < packPrice) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Not enough coins' });
+    }
+
+    // 2. Insérer les mots HSK1 manquants (sans débit pour l'instant)
+    const insertResult = await client.query(`
+      INSERT INTO user_mots (user_id, mot_id, score, nb_quiz, nb_correct, last_seen)
+      SELECT 
+        $1,
+        m.id,
+        0, 0, 0, NULL
+      FROM mots m
+      WHERE m.hsk = $2
+        AND NOT EXISTS (
+          SELECT 1 FROM user_mots um
+          WHERE um.user_id = $1 AND um.mot_id = m.id
+        )
+      RETURNING mot_id
+    `, [userId, hskLevel]);
+
+    const wordsAdded = insertResult.rowCount;
+
+    if (wordsAdded === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'You already own all words...' });
+    }
+
+    // 3. Débiter les coins (une seule fois)
+    await client.query(
+      'UPDATE users SET balance = balance - $1 WHERE id = $2',
+      [packPrice, userId]
+    );
+
+    // 4. Enregistrer la transaction (optionnel)
+    await client.query(
+      `INSERT INTO transactions (user_id, amount, type, description) 
+       VALUES ($1, $2, 'purchase', $3)`,
+      [userId, -packPrice, `Achat du pack HSK${hskLevel} (${wordsAdded} mots ajoutés)`]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      wordsAdded,
+      newBalance: currentBalance - packPrice,
+      message: `Pack HSK1 : ${wordsAdded} word(s) added. New balance: ${currentBalance - packPrice} ₵`
+    });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Erreur achat pack:', err);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
+
+router.get('/api/pack-info/:level', ensureAuth, async (req, res) => {
+  const level = parseInt(req.params.level);
+  const userId = req.user.id;
+
+  try {
+    const total = await pool.query('SELECT COUNT(*) FROM mots WHERE hsk = $1', [level]);
+    const owned = await pool.query(
+      `SELECT COUNT(*) FROM user_mots um 
+       JOIN mots m ON um.mot_id = m.id 
+       WHERE um.user_id = $1 AND m.hsk = $2`,
+      [userId, level]
+    );
+
+    const totalCount = parseInt(total.rows[0].count);
+    const ownedCount = parseInt(owned.rows[0].count);
+    const missing = Math.max(0, totalCount - ownedCount);
+
+    res.json({ total: totalCount, owned: ownedCount, missing });
+  } catch (err) {
+    console.error('Erreur pack-info:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/api/acheter-booster', ensureAuth, async (req, res) => {
+  // Déclaration des constantes directement dans la route
+  const BOOSTER_COST = 20;
+  const BOOSTER_CARD_COUNT = 5;
+
+  const userId = req.user.id;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Vérifier le solde avec verrou
+    const { rows: userRows } = await client.query(
+      'SELECT balance FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.json({ success: false, message: 'Utilisateur introuvable' });
+    }
+
+    const currentBalance = userRows[0].balance;
+
+    if (currentBalance < BOOSTER_COST) {
+      await client.query('ROLLBACK');
+      return res.json({
+        success: false,
+        message: `Solde insuffisant. Il vous faut ${BOOSTER_COST} pièces.`
+      });
+    }
+
+    // Sélectionner 5 mots aléatoires
+    const { rows: randomWords } = await client.query(
+      `SELECT id, chinese, pinyin, english, description, hsk 
+       FROM mots 
+       WHERE id NOT IN (
+         SELECT mot_id FROM user_mots WHERE user_id = $1
+       )
+       ORDER BY RANDOM() 
+       LIMIT $2`,
+      [userId, BOOSTER_CARD_COUNT]
+    );
+
+    // Si pas assez de nouveaux mots disponibles
+    if (randomWords.length < BOOSTER_CARD_COUNT) {
+      await client.query('ROLLBACK');
+      return res.json({
+        success: false,
+        message: 'Pas assez de nouveaux mots disponibles à découvrir.'
+      });
+    }
+
+    // Débiter l'utilisateur (en utilisant votre fonction addTransaction existante)
+    const transactionResult = await addTransaction(
+      client,
+      userId,
+      -BOOSTER_COST,
+      'booster_purchase',
+      `Achat booster de ${BOOSTER_CARD_COUNT} mots`
+    );
+
+    if (!transactionResult.success) {
+      await client.query('ROLLBACK');
+      return res.json({ success: false, message: transactionResult.message });
+    }
+
+    // Ajouter les mots à la collection de l'utilisateur
+    for (const word of randomWords) {
+      await client.query(
+        'INSERT INTO user_mots (user_id, mot_id) VALUES ($1, $2)',
+        [userId, word.id]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      words: randomWords,
+      newBalance: currentBalance - BOOSTER_COST,
+      message: `Booster acheté ! Vous avez obtenu ${BOOSTER_CARD_COUNT} nouveaux mots.`
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Erreur achat booster:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  } finally {
+    client.release();
+  }
+});
+
+
 // DELETE /api/user/delete-account
 router.delete('/api/user/delete-account', ensureAuth, async (req, res) => {
   const userId = req.user.id;
@@ -1820,98 +2008,5 @@ router.get('/api/transactions', ensureAuth, async (req, res) => {
   }
 });
 
-// Acheter un booster
-router.post('/api/acheter-booster', ensureAuth, async (req, res) => {
-  // Déclaration des constantes directement dans la route
-  const BOOSTER_COST = 20;
-  const BOOSTER_CARD_COUNT = 5;
-
-  const userId = req.user.id;
-  const client = await pool.connect();
-
-  try {
-    await client.query('BEGIN');
-
-    // Vérifier le solde avec verrou
-    const { rows: userRows } = await client.query(
-      'SELECT balance FROM users WHERE id = $1 FOR UPDATE',
-      [userId]
-    );
-
-    if (userRows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.json({ success: false, message: 'Utilisateur introuvable' });
-    }
-
-    const currentBalance = userRows[0].balance;
-
-    if (currentBalance < BOOSTER_COST) {
-      await client.query('ROLLBACK');
-      return res.json({
-        success: false,
-        message: `Solde insuffisant. Il vous faut ${BOOSTER_COST} pièces.`
-      });
-    }
-
-    // Sélectionner 5 mots aléatoires
-    const { rows: randomWords } = await client.query(
-      `SELECT id, chinese, pinyin, english, description, hsk 
-       FROM mots 
-       WHERE id NOT IN (
-         SELECT mot_id FROM user_mots WHERE user_id = $1
-       )
-       ORDER BY RANDOM() 
-       LIMIT $2`,
-      [userId, BOOSTER_CARD_COUNT]
-    );
-
-    // Si pas assez de nouveaux mots disponibles
-    if (randomWords.length < BOOSTER_CARD_COUNT) {
-      await client.query('ROLLBACK');
-      return res.json({
-        success: false,
-        message: 'Pas assez de nouveaux mots disponibles à découvrir.'
-      });
-    }
-
-    // Débiter l'utilisateur (en utilisant votre fonction addTransaction existante)
-    const transactionResult = await addTransaction(
-      client,
-      userId,
-      -BOOSTER_COST,
-      'booster_purchase',
-      `Achat booster de ${BOOSTER_CARD_COUNT} mots`
-    );
-
-    if (!transactionResult.success) {
-      await client.query('ROLLBACK');
-      return res.json({ success: false, message: transactionResult.message });
-    }
-
-    // Ajouter les mots à la collection de l'utilisateur
-    for (const word of randomWords) {
-      await client.query(
-        'INSERT INTO user_mots (user_id, mot_id) VALUES ($1, $2)',
-        [userId, word.id]
-      );
-    }
-
-    await client.query('COMMIT');
-
-    res.json({
-      success: true,
-      words: randomWords,
-      newBalance: currentBalance - BOOSTER_COST,
-      message: `Booster acheté ! Vous avez obtenu ${BOOSTER_CARD_COUNT} nouveaux mots.`
-    });
-
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Erreur achat booster:', error);
-    res.status(500).json({ success: false, message: 'Erreur serveur' });
-  } finally {
-    client.release();
-  }
-});
 
 module.exports = router;

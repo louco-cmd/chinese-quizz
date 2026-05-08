@@ -280,10 +280,13 @@ function shuffleArray(array) {
   return shuffled;
 }
 
-async function updateWordScore(userId, motId, isCorrect) {
+async function updateWordScore(userId, motId, isCorrect, quizType = 'pinyin') {
   try {
-    console.log(`🎯 updateWordScore - User:${userId}, Mot:${motId}, Correct:${isCorrect}`);
-    
+    console.log(`🎯 updateWordScore - User:${userId}, Mot:${motId}, Correct:${isCorrect}, Type:${quizType}`);
+
+    // Déterminer la colonne à mettre à jour
+    const scoreColumn = quizType === 'character' ? 'score_character' : 'score';
+
     // Vérifier si le mot existe dans user_mots
     const existing = await pool.query(
       'SELECT * FROM user_mots WHERE user_id = $1 AND mot_id = $2',
@@ -291,36 +294,46 @@ async function updateWordScore(userId, motId, isCorrect) {
     );
 
     if (existing.rows.length === 0) {
-      // Nouveau mot - l'ajouter avec score initial
-      const initialScore = isCorrect ? 15 : 0;
-      console.log(`➕ Nouveau mot ${motId} - Score initial: ${initialScore}`);
-      
+      // Nouveau mot - initialiser les deux scores à 0
+      console.log(`➕ Nouveau mot ${motId} - Initialisation`);
+
       await pool.query(
-        'INSERT INTO user_mots (user_id, mot_id, score, nb_quiz, nb_correct) VALUES ($1, $2, $3, $4, $5)',
-        [userId, motId, initialScore, 1, isCorrect ? 1 : 0]
+        `INSERT INTO user_mots (user_id, mot_id, score, score_character, nb_quiz, nb_correct) 
+         VALUES ($1, $2, 0, 0, 0, 0)`,
+        [userId, motId]
       );
-    } else {
-      // Mettre à jour le score existant
-      const current = existing.rows[0];
-      const newNbQuiz = (current.nb_quiz || 0) + 1;
-      const newNbCorrect = (current.nb_correct || 0) + (isCorrect ? 1 : 0);
-      
-      // 🔥 NOUVEAU SYSTÈME : +15 si correct, -20 si incorrect
-      let newScore;
-      if (isCorrect) {
-        newScore = Math.min(100, (current.score || 0) + 15);
-      } else {
-        newScore = Math.max(0, (current.score || 0) - 20);
-      }
-      
-      console.log(`✏️ Mise à jour mot ${motId}: ${current.score} -> ${newScore} (${isCorrect ? '+15' : '-20'})`);
-      
-      await pool.query(
-        'UPDATE user_mots SET score = $1, nb_quiz = $2, nb_correct = $3 WHERE user_id = $4 AND mot_id = $5',
-        [newScore, newNbQuiz, newNbCorrect, userId, motId]
-      );
+
+      // Puis faire comme une mise à jour normale (le mot existe maintenant)
+      // On rappelle la fonction ou on fait directement la mise à jour
+      // Solution simple : on laisse la suite se dérouler en récupérant la ligne nouvellement créée
+      return updateWordScore(userId, motId, isCorrect, quizType);
     }
-    
+
+    // Mise à jour du score existant
+    const current = existing.rows[0];
+    const newNbQuiz = (current.nb_quiz || 0) + 1;
+    const newNbCorrect = (current.nb_correct || 0) + (isCorrect ? 1 : 0);
+
+    // Récupérer le score actuel pour la colonne concernée
+    const currentScore = current[scoreColumn] || 0;
+
+    // Calcul du nouveau score (+15 / -20)
+    let newScore;
+    if (isCorrect) {
+      newScore = Math.min(100, currentScore + 15);
+    } else {
+      newScore = Math.max(0, currentScore - 20);
+    }
+
+    console.log(`✏️ Mise à jour ${scoreColumn} mot ${motId}: ${currentScore} -> ${newScore} (${isCorrect ? '+15' : '-20'})`);
+
+    // Mettre à jour uniquement la colonne concernée, et nb_quiz/nb_correct
+    await pool.query(
+      `UPDATE user_mots SET ${scoreColumn} = $1, nb_quiz = $2, nb_correct = $3 
+       WHERE user_id = $4 AND mot_id = $5`,
+      [newScore, newNbQuiz, newNbCorrect, userId, motId]
+    );
+
     console.log(`✅ Score mis à jour pour mot ${motId}`);
   } catch (error) {
     console.error('❌ Erreur updateWordScore:', error);
