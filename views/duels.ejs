@@ -337,352 +337,268 @@
 
 <body>
   <%- include('partials/header') %>
-  <%- include('partials/navbar', {currentPage: 'duels'}) %>
+    <%- include('partials/navbar', {currentPage: 'duels' }) %>
 
-  <!-- Main Content -->
-  <div class="container py-4">
-    <div class="row g-4">
-      <!-- Colonne Droite - Actions (PREMIER sur mobile) -->
-      <div class="col-12 col-lg-4 mobile-order-1">
-        <!-- Recherche -->
-        <div class="card">
-          <div class="card-header">
-            <h6 class="mb-0 d-flex align-items-center">
-              <i class="bi bi-search me-2"></i>
-              Search a duelist
-            </h6>
-          </div>
-          <div class="card-body">
-            <div class="input-group">
-              <input type="text" id="duelist-search" class="form-control" placeholder="Nom ou email..." onkeypress="handleSearchKeyPress(event)" oninput="handleSearchInput()">
-              <button class="btn btn-primary" type="button" onclick="searchDuelists()">
-                <i class="bi bi-search" id="search-icon"></i>
-                <span class="spinner-border spinner-border-sm d-none" id="search-spinner"></span>
-              </button>
-            </div>
-
-            <div id="search-suggestions" class="mt-2" style="display: none;">
-              <div class="list-group list-group-flush small">
-                <!-- Suggestions -->
+      <!-- Main Content -->
+      <div class="container py-4">
+        <div class="row g-4">
+          <!-- Colonne Gauche (tout) -->
+          <div class="col-12 mobile-order-1">
+            <!-- Recherche -->
+            <div class="card">
+              <div class="card-header">
+                <h6 class="mb-0 d-flex align-items-center">
+                  <i class="bi bi-search me-2"></i>
+                  Search a duelist
+                </h6>
               </div>
-            </div>
-
-          </div>
-        </div>
-        <!-- Section Duels -->
-        <div class="card mt-4">
-          <div class="card-header">
-            <h6 class="mb-0 d-flex align-items-center">
-              <i class="bi bi-clock me-2"></i>
-              Recent duels
-            </h6>
-          </div>
-          <div class="card-body p-0">
-            <div id="recent-duels">
-              <div class="text-center py-4">
-                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                <p class="mt-2 text-muted small">Loading...</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Stats -->
-        <div class="card mt-4">
-          <div class="card-header">
-            <h6 class="mb-0 d-flex align-items-center">
-              <i class="bi bi-graph-up me-2"></i>
-              My statistics
-            </h6>
-          </div>
-          <div class="card-body">
-            <div id="my-duel-stats">
-              <div class="text-center py-2">
-                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Colonne Gauche - Classement (DEUXIEME sur mobile) -->
-
-      <div class="col-12 col-lg-8 mobile-order-2 gap-2">
-        <% if (players && players.length> 0) { %>
-        <%- include('partials/ranking', { 
-            players: players, 
-            currentUserId: user.id, 
-            rankingLimit: 20, 
-            showFullRankingLink: false, 
-            rankingTitle: 'Player Ranking ' + new Date().getFullYear() 
-          }) %>
-        <% } else { %>
-        <div class="alert alert-warning">
-          <p><strong>Debug Info:</strong></p>
-          <p>Players variable type: <%= typeof players %>
-          </p>
-          <p>Players count: <%= players ? players.length : 0 %>
-          </p>
-        </div>
-        <% } %>
-
-        <!-- Bouton "Voir le classement complet" -->
-        <div class="mt-4 w-100 text-center">
-          <a href="/leaderboard" class="btn btn-primary btn">
-            <i class="bi bi-trophy-fill me-1"></i>
-            See full ranking
-          </a>
-        </div>
-      </div>
-    </div>
-
-    <!-- Popup de défi améliorée -->
-    <div id="duelPopup" class="confirm-popup" style="display: none;">
-      <div class="confirm-popup-content" style="max-width: 440px; padding: 32px;">
-        <!-- En-tête -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-          <h5 style="font-weight: 600; font-size: 1.3rem; margin: 0;">Challenge <span id="opponentName"></span></h5>
-          <button type="button" class="btn-close" onclick="closeDuelPopup()" style="font-size: 1rem;"></button>
-        </div>
-
-        <form id="duelForm">
-          <input type="hidden" id="opponentId">
-
-          <!-- Type de duel : boutons avec icônes -->
-          <div style="margin-bottom: 32px;">
-            <div style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 12px; letter-spacing: 0.5px;">DUEL TYPE</div>
-            <div style="display: flex; gap: 16px;">
-              <!-- Random -->
-              <label class="duel-type-label" style="flex: 1; cursor: pointer;">
-                <input type="radio" name="duelType" value="classic" checked style="display: none;">
-                <div class="duel-type-card" style="border: 2px solid #e0e0e0; border-radius: 18px; padding: 18px 8px; text-align: center; background-color: #f9f9f9; transition: all 0.2s;">
-                  <div style="font-size: 2.2rem; margin-bottom: 8px;">🎲</div>
-                  <div style="font-weight: 600; margin-bottom: 6px; font-size: 1rem;">Random</div>
-                  <div style="font-size: 0.8rem; color: #666; line-height: 1.3;">half your words<br>half your partner's</div>
+              <div class="card-body">
+                <div class="input-group">
+                  <input type="text" id="duelist-search" class="form-control" placeholder="Search a name..."
+                    onkeypress="handleSearchKeyPress(event)" oninput="handleSearchInput()">
+                  <button class="btn btn-primary" type="button" onclick="searchDuelists()">
+                    <i class="bi bi-search" id="search-icon"></i>
+                    <span class="spinner-border spinner-border-sm d-none" id="search-spinner"></span>
+                  </button>
                 </div>
-              </label>
-              <!-- AA -->
-              <label class="duel-type-label" style="flex: 1; cursor: pointer;">
-                <input type="radio" name="duelType" value="match_aa" style="display: none;">
-                <div class="duel-type-card" style="border: 2px solid #e0e0e0; border-radius: 18px; padding: 18px 8px; text-align: center; background-color: #f9f9f9; transition: all 0.2s;">
-                  <div style="font-size: 2.2rem; margin-bottom: 8px;">🤝</div>
-                  <div style="font-weight: 600; margin-bottom: 6px; font-size: 1rem;">AA</div>
-                  <div style="font-size: 0.8rem; color: #666; line-height: 1.3;">only words you<br>have in common</div>
+                <div id="search-suggestions" class="mt-2" style="display: none;">
+                  <div class="list-group list-group-flush small">
+                    <!-- Suggestions -->
+                  </div>
                 </div>
-              </label>
+              </div>
             </div>
+
+            <!-- Section Duels récents -->
+            <div class="card mt-4">
+              <div class="card-header">
+                <h6 class="mb-0 d-flex align-items-center">
+                  <i class="bi bi-clock me-2"></i>
+                  Recent duels
+                </h6>
+              </div>
+              <div class="card-body p-0">
+                <div id="recent-duels">
+                  <!-- chargement -->
+                </div>
+              </div>
+            </div>
+
+            <!-- My statistics + Ranking -->
+            <div class="card mt-4">
+              <div class="card-header">
+                <h6 class="mb-0 d-flex align-items-center">
+                  <i class="bi bi-graph-up me-2"></i>
+                  My statistics
+                </h6>
+              </div>
+              <div class="card-body text-center">
+                <div id="my-duel-stats">
+                  <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                </div>
+                <div class="mt-4 text-center">
+                  <a href="/leaderboard" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-trophy-fill me-1"></i>
+                    See full ranking
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bullies -->
+            <div class="card mt-4">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 d-flex align-items-center">
+                  <i class="bi bi-people-fill me-2"></i>
+                  Bullies
+                </h6>
+                <span class="text-muted small">Click to challenge</span>
+              </div>
+
+              <div class="card-body p-0">
+                <div id="bullies-list">
+                  <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <p class="mt-2 text-muted small">Loading...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div> <!-- fin col-lg-4 -->
+        </div> <!-- fin row -->
+      </div> <!-- fin container -->
+
+      <!-- Popup de défi améliorée -->
+      <div id="duelPopup" class="confirm-popup" style="display: none;">
+        <div class="confirm-popup-content" style="max-width: 440px; padding: 32px;">
+          <!-- En-tête -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <h5 style="font-weight: 600; font-size: 1.3rem; margin: 0;">Challenge <span id="opponentName"></span></h5>
+            <button type="button" class="btn-close" onclick="closeDuelPopup()" style="font-size: 1rem;"></button>
           </div>
 
-          <!-- Nombre de mots : radios plus gros -->
-          <div style="margin-bottom: 32px;">
-            <div style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 12px; letter-spacing: 0.5px;">NUMBER OF WORDS</div>
+          <form id="duelForm">
+            <input type="hidden" id="opponentId">
+
+            <!-- Type de duel : boutons avec icônes -->
+            <div style="margin-bottom: 32px;">
+              <div
+                style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 12px; letter-spacing: 0.5px;">
+                DUEL TYPE</div>
+              <div style="display: flex; gap: 16px;">
+                <!-- Random -->
+                <label class="duel-type-label" style="flex: 1; cursor: pointer;">
+                  <input type="radio" name="duelType" value="classic" checked style="display: none;">
+                  <div class="duel-type-card"
+                    style="border: 2px solid #e0e0e0; border-radius: 18px; padding: 18px 8px; text-align: center; background-color: #f9f9f9; transition: all 0.2s;">
+                    <div style="font-size: 2.2rem; margin-bottom: 8px;">🎲</div>
+                    <div style="font-weight: 600; margin-bottom: 6px; font-size: 1rem;">Random</div>
+                    <div style="font-size: 0.8rem; color: #666; line-height: 1.3;">half your words<br>half your
+                      partner's</div>
+                  </div>
+                </label>
+                <!-- AA -->
+                <label class="duel-type-label" style="flex: 1; cursor: pointer;">
+                  <input type="radio" name="duelType" value="match_aa" style="display: none;">
+                  <div class="duel-type-card"
+                    style="border: 2px solid #e0e0e0; border-radius: 18px; padding: 18px 8px; text-align: center; background-color: #f9f9f9; transition: all 0.2s;">
+                    <div style="font-size: 2.2rem; margin-bottom: 8px;">🤝</div>
+                    <div style="font-weight: 600; margin-bottom: 6px; font-size: 1rem;">AA</div>
+                    <div style="font-size: 0.8rem; color: #666; line-height: 1.3;">only words you<br>have in common
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Nombre de mots : radios plus gros -->
+            <div style="margin-bottom: 32px;">
+              <div
+                style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 12px; letter-spacing: 0.5px;">
+                NUMBER OF WORDS</div>
+              <div style="display: flex; gap: 12px;">
+                <label class="word-count-label"
+                  style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid #e0e0e0; border-radius: 14px; padding: 14px; cursor: pointer; background-color: #f9f9f9; transition: all 0.2s;">
+                  <input type="radio" name="wordCount" value="10" style="transform: scale(1.3);"> <span
+                    style="font-weight: 600; font-size: 1.2rem;">10</span>
+                </label>
+                <label class="word-count-label"
+                  style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid #007bff; border-radius: 14px; padding: 14px; cursor: pointer; background-color: #e7f1ff; transition: all 0.2s;">
+                  <input type="radio" name="wordCount" value="20" checked style="transform: scale(1.3);"> <span
+                    style="font-weight: 600; font-size: 1.2rem;">20</span>
+                </label>
+                <label class="word-count-label"
+                  style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid #e0e0e0; border-radius: 14px; padding: 14px; cursor: pointer; background-color: #f9f9f9; transition: all 0.2s;">
+                  <input type="radio" name="wordCount" value="30" style="transform: scale(1.3);"> <span
+                    style="font-weight: 600; font-size: 1.2rem;">30</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Mise -->
+            <div style="margin-bottom: 32px;">
+              <div
+                style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;">
+                BET (coins)</div>
+              <input type="number" id="betAmount" class="form-control" min="0" value="0"
+                style="padding: 14px; border-radius: 14px; border: 2px solid #e0e0e0; font-size: 1rem;">
+            </div>
+
+            <!-- Boutons d'action -->
             <div style="display: flex; gap: 12px;">
-              <label class="word-count-label" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid #e0e0e0; border-radius: 14px; padding: 14px; cursor: pointer; background-color: #f9f9f9; transition: all 0.2s;">
-                <input type="radio" name="wordCount" value="10" style="transform: scale(1.3);"> <span style="font-weight: 600; font-size: 1.2rem;">10</span>
-              </label>
-              <label class="word-count-label" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid #007bff; border-radius: 14px; padding: 14px; cursor: pointer; background-color: #e7f1ff; transition: all 0.2s;">
-                <input type="radio" name="wordCount" value="20" checked style="transform: scale(1.3);"> <span style="font-weight: 600; font-size: 1.2rem;">20</span>
-              </label>
-              <label class="word-count-label" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid #e0e0e0; border-radius: 14px; padding: 14px; cursor: pointer; background-color: #f9f9f9; transition: all 0.2s;">
-                <input type="radio" name="wordCount" value="30" style="transform: scale(1.3);"> <span style="font-weight: 600; font-size: 1.2rem;">30</span>
-              </label>
+              <button type="button" class="btn btn-outline-secondary" onclick="closeDuelPopup()"
+                style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; border: 2px solid #e0e0e0;">Cancel</button>
+              <button type="button" class="btn btn-primary" onclick="createDuel()"
+                style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; background: linear-gradient(135deg, #007bff, #0056b3); border: none;">Send
+                a duel</button>
             </div>
-          </div>
-
-          <!-- Mise -->
-          <div style="margin-bottom: 32px;">
-            <div style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;">BET (coins)</div>
-            <input type="number" id="betAmount" class="form-control" min="0" value="0" style="padding: 14px; border-radius: 14px; border: 2px solid #e0e0e0; font-size: 1rem;">
-          </div>
-
-          <!-- Boutons d'action -->
-          <div style="display: flex; gap: 12px;">
-            <button type="button" class="btn btn-outline-secondary" onclick="closeDuelPopup()" style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; border: 2px solid #e0e0e0;">Cancel</button>
-            <button type="button" class="btn btn-primary" onclick="createDuel()" style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; background: linear-gradient(135deg, #007bff, #0056b3); border: none;">Send a duel</button>
-          </div>
-          <!-- Zone d'erreur -->
-          <div id="duelPopupError" class="alert alert-danger" style="display: none; margin-bottom: 20px; margin-top: 20px; padding: 10px; border-radius: 10px; font-size: 0.9rem;"></div>
-        </form>
+            <!-- Zone d'erreur -->
+            <div id="duelPopupError" class="alert alert-danger"
+              style="display: none; margin-bottom: 20px; margin-top: 20px; padding: 10px; border-radius: 10px; font-size: 0.9rem;">
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-      let currentOpponent = null;
-      let searchTimeout = null;
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+      <script>
+        let currentOpponent = null;
+        let searchTimeout = null;
 
-      /* ==================== DEBUG TRACER ====================
-      const originalShowAlert = window.showAlert;
-      let showAlertCallCount = 0;
 
-      window.showAlert = function(message, type) {
-        showAlertCallCount++;
-        console.group(`🔍 showAlert #${showAlertCallCount}`);
-        console.log('Message:', message);
-        console.log('Type:', type);
-        console.trace('Stack trace:'); // Montre d'où vient l'appel
-        console.groupEnd();
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function () {
+          loadMyStats();
+          loadRecentDuels();
+          loadBullies();           // <-- nouveau
 
-        // Si c'est un message de limite, NE PAS appeler l'original
-        const limitKeywords = ['limit', 'Limit', 'Daily', 'duel', 'upgrade', 'Premium'];
-        const isLimitMessage = limitKeywords.some(keyword =>
-          message.toLowerCase().includes(keyword.toLowerCase())
-        );
+        });
 
-        if (isLimitMessage) {
-          console.error('🚫 BLOCKED: Limit message prevented from showing toaster!');
-          console.error('Message was:', message);
-          return; // ⚠️ NE PAS créer de toaster
+        // Fonction pour voir le profil d'un autre utilisateur
+        function viewUserProfile(userId) {
+          window.location.href = `/user/${userId}`;
         }
 
-        // Pour les autres messages, comportement normal
-        return originalShowAlert.call(this, message, type);
-      };*/
+        // Recherche
+        function handleSearchKeyPress(event) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            searchDuelists();
+          }
+        }
 
+        function handleSearchInput() {
+          const query = document.getElementById('duelist-search').value.trim();
+          const suggestions = document.getElementById('search-suggestions');
 
-      // Initialisation
-      document.addEventListener('DOMContentLoaded', function() {
-        loadLeaderboard();
-        loadMyStats();
-        loadRecentDuels();
-      });
-
-      // Classement
-      async function loadLeaderboard() {
-        try {
-          const response = await fetch('/api/duels/leaderboard');
-          const data = await response.json();
-
-          const container = document.getElementById('leaderboard-container');
-          const currentUserId = <%= user.id %>; // Récupère l'ID de l'utilisateur connecté depuis EJS
-
-          if (data.length === 0) {
-            container.innerHTML = `
-                <div class="text-center py-4 text-muted">
-                    <i class="bi bi-trophy fs-2 opacity-50"></i>
-                    <p class="mt-2 small">Aucun duel joué</p>
-                </div>
-            `;
+          if (query.length === 0) {
+            suggestions.style.display = 'none';
             return;
           }
 
-          container.innerHTML = data.map((user, index) => {
-            const isCurrentUser = user.id === currentUserId;
-            const clickAction = isCurrentUser ?
-              'window.location.href=\'/account\'' :
-              `viewUserProfile(${user.id})`;
+          if (searchTimeout) clearTimeout(searchTimeout);
 
-            return `
-                <div class="list-item d-flex justify-content-between align-items-center border-bottom p-3">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar me-3">
-                            ${index + 1}
-                        </div>
-                        <div>
-                            <!-- NOM CLIQUABLE -->
-                            <div class="fw-medium small user-name" 
-                                 style="cursor: pointer; color: #0d6efd; ${isCurrentUser ? 'font-weight: bold !important;' : ''}" 
-                                 onclick="${clickAction}">
-                                ${user.name} ${isCurrentUser ? '<span class="badge bg-primary ms-1">You</span>' : ''}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="d-flex gap-2 small">
-                        <span class="text-success">${user.wins || 0}V</span>
-                        <span class="text-danger">${user.losses || 0}D</span>
-                        <span class="text-primary">${user.ratio || 0}%</span>
-                    </div>
-                </div>
-            `;
-          }).join('');
-
-          // Ajouter des effets de hover pour améliorer l'UX
-          setTimeout(() => {
-            document.querySelectorAll('.user-name').forEach(name => {
-              name.addEventListener('mouseenter', function() {
-                this.style.textDecoration = 'underline';
-              });
-              name.addEventListener('mouseleave', function() {
-                this.style.textDecoration = 'none';
-              });
-            });
-          }, 100);
-
-        } catch (error) {
-          console.error('Erreur classement:', error);
-          document.getElementById('leaderboard-container').innerHTML = `
-            <div class="text-center py-4 text-muted">
-                <i class="bi bi-exclamation-triangle"></i>
-                <p class="mt-2 small">Erreur de chargement</p>
-            </div>
-        `;
-        }
-      }
-
-      // Fonction pour voir le profil d'un autre utilisateur
-      function viewUserProfile(userId) {
-        window.location.href = `/user/${userId}`;
-      }
-
-      // Recherche
-      function handleSearchKeyPress(event) {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          searchDuelists();
-        }
-      }
-
-      function handleSearchInput() {
-        const query = document.getElementById('duelist-search').value.trim();
-        const suggestions = document.getElementById('search-suggestions');
-
-        if (query.length === 0) {
-          suggestions.style.display = 'none';
-          return;
-        }
-
-        if (searchTimeout) clearTimeout(searchTimeout);
-
-        if (query.length >= 2) {
-          searchTimeout = setTimeout(() => {
-            searchDuelists(true);
-          }, 300);
-        } else {
-          suggestions.style.display = 'none';
-        }
-      }
-
-      async function searchDuelists(isSuggestionMode = false) {
-        const query = document.getElementById('duelist-search').value.trim();
-        if (!query) return;
-
-        showSearchLoading(true);
-
-        try {
-          const response = await fetch(`/api/duels/search?q=${encodeURIComponent(query)}`);
-          const results = await response.json();
-
-          if (isSuggestionMode) {
-            displaySearchSuggestions(results);
+          if (query.length >= 2) {
+            searchTimeout = setTimeout(() => {
+              searchDuelists(true);
+            }, 300);
           } else {
-            displaySearchResults(results);
+            suggestions.style.display = 'none';
           }
-        } catch (error) {
-          console.error('Erreur recherche:', error);
-          displaySearchError();
-        } finally {
-          showSearchLoading(false);
-        }
-      }
-
-      function displaySearchSuggestions(results) {
-        const container = document.getElementById('search-suggestions');
-        if (!results || results.length === 0) {
-          container.style.display = 'none';
-          return;
         }
 
-        container.innerHTML = results.slice(0, 3).map(user => `
+        async function searchDuelists(isSuggestionMode = false) {
+          const query = document.getElementById('duelist-search').value.trim();
+          if (!query) return;
+
+          showSearchLoading(true);
+
+          try {
+            const response = await fetch(`/api/duels/search?q=${encodeURIComponent(query)}`);
+            const results = await response.json();
+
+            if (isSuggestionMode) {
+              displaySearchSuggestions(results);
+            } else {
+              displaySearchResults(results);
+            }
+          } catch (error) {
+            console.error('Erreur recherche:', error);
+            displaySearchError();
+          } finally {
+            showSearchLoading(false);
+          }
+        }
+
+        function displaySearchSuggestions(results) {
+          const container = document.getElementById('search-suggestions');
+          if (!results || results.length === 0) {
+            container.style.display = 'none';
+            return;
+          }
+
+          container.innerHTML = results.slice(0, 3).map(user => `
                 <div class="list-group-item list-group-item-action p-2" 
                      onclick="selectSuggestion(${user.id}, '${user.name.replace(/'/g, "\\'")}')">
                     <div class="d-flex align-items-center">
@@ -696,23 +612,23 @@
                 </div>
             `).join('');
 
-        container.style.display = 'block';
-      }
+          container.style.display = 'block';
+        }
 
-      function displaySearchResults(results) {
-        const container = document.getElementById('search-results');
+        function displaySearchResults(results) {
+          const container = document.getElementById('search-results');
 
-        if (!results || results.length === 0) {
-          container.innerHTML = `
+          if (!results || results.length === 0) {
+            container.innerHTML = `
                     <div class="text-center text-muted py-3">
                         <i class="bi bi-person-x"></i>
                         <div class="mt-1 small">Aucun utilisateur trouvé</div>
                     </div>
                 `;
-          return;
-        }
+            return;
+          }
 
-        container.innerHTML = results.map(user => `
+          container.innerHTML = results.map(user => `
                 <div class="list-item d-flex justify-content-between align-items-center p-2 border-bottom">
                     <div class="d-flex align-items-center">
                         <div class="avatar me-2">
@@ -729,159 +645,160 @@
                     </button>
                 </div>
             `).join('');
-      }
+        }
 
-      function selectSuggestion(userId, userName) {
-        document.getElementById('duelist-search').value = userName;
-        document.getElementById('search-suggestions').style.display = 'none';
-        openDuelPopup(userId, userName);
-      }
+        function selectSuggestion(userId, userName) {
+          document.getElementById('duelist-search').value = userName;
+          document.getElementById('search-suggestions').style.display = 'none';
+          openDuelPopup(userId, userName);
+        }
 
-      function displaySearchError() {
-        document.getElementById('search-results').innerHTML = `
+        function displaySearchError() {
+          document.getElementById('search-results').innerHTML = `
                 <div class="alert alert-warning small">
                     <i class="bi bi-exclamation-triangle me-1"></i>
                     Erreur lors de la recherche
                 </div>
             `;
-      }
-
-      function showSearchLoading(show) {
-        const icon = document.getElementById('search-icon');
-        const spinner = document.getElementById('search-spinner');
-        const button = document.querySelector('#duelist-search + .btn');
-
-        if (show) {
-          icon.classList.add('d-none');
-          spinner.classList.remove('d-none');
-          button.disabled = true;
-        } else {
-          icon.classList.remove('d-none');
-          spinner.classList.add('d-none');
-          button.disabled = false;
         }
-      }
 
-      // Stats
-      async function loadMyStats() {
-        try {
-          const response = await fetch('/api/duels/stats');
-          const stats = await response.json();
+        function showSearchLoading(show) {
+          const icon = document.getElementById('search-icon');
+          const spinner = document.getElementById('search-spinner');
+          const button = document.querySelector('#duelist-search + .btn');
 
-          document.getElementById('my-duel-stats').innerHTML = `
-                    <div class="row text-center">
-                        <div class="col-4">
-                            <div class="h5 text-success">${stats.wins || 0}</div>
-                            <div class="text-muted small">Victoires</div>
-                        </div>
-                        <div class="col-4">
-                            <div class="h5 text-danger">${stats.losses || 0}</div>
-                            <div class="text-muted small">Défaites</div>
-                        </div>
-                        <div class="col-4">
-                            <div class="h5 text-primary">${stats.ratio || 0}%</div>
-                            <div class="text-muted small">Ratio</div>
-                        </div>
-                    </div>
-                `;
-        } catch (error) {
-          document.getElementById('my-duel-stats').innerHTML = `
-                    <div class="text-center text-muted small">
-                        Données indisponibles
-                    </div>
-                `;
+          if (show) {
+            icon.classList.add('d-none');
+            spinner.classList.remove('d-none');
+            button.disabled = true;
+          } else {
+            icon.classList.remove('d-none');
+            spinner.classList.add('d-none');
+            button.disabled = false;
+          }
         }
-      }
 
-      // Duels récents
-      async function loadRecentDuels() {
-        try {
-          const currentUserId = <%= user.id %>;
-          const [recent, pending] = await Promise.all([
-            fetch('/api/duels/history?limit=6'),
-            fetch('/api/duels/pending')
-          ]);
+        async function loadMyStats() {
+          try {
+            const response = await fetch('/api/duels/stats');
+            const stats = await response.json();
 
-          const recentDuels = await recent.json();
-          const pendingDuels = await pending.json();
-          const container = document.getElementById('recent-duels');
+            document.getElementById('my-duel-stats').innerHTML = `
+      <div class="row text-center">
+        <div class="col-3">
+          <div class="h5 text-success">${stats.wins || 0}</div>
+          <div class="text-muted small">Victories</div>
+        </div>
+        <div class="col-3">
+          <div class="h5 text-danger">${stats.losses || 0}</div>
+          <div class="text-muted small">Defeats</div>
+        </div>
+        <div class="col-3">
+          <div class="h5">${stats.ratio || 0}%</div>
+          <div class="text-muted small">Ratio</div>
+        </div>
+        <div class="col-3">
+          <div class="h5">${stats.rank ? `#${stats.rank}` : '—'}</div>
+          <div class="text-muted small">Ranking</div>
+        </div>
+      </div>
+    `;
+          } catch (err) {  // ← MANQUANT dans ton code
+            console.error('Erreur stats:', err);
+            document.getElementById('my-duel-stats').innerHTML =
+              '<p class="text-muted small text-center">Erreur de chargement</p>';
+          }
+        }
 
-          if (recentDuels.length === 0 && pendingDuels.length === 0) {
-            container.innerHTML = `
+        // Duels récents
+        async function loadRecentDuels() {
+          try {
+            const currentUserId = <%= user.id %>;
+            const [recent, pending] = await Promise.all([
+              fetch('/api/duels/history?limit=6'),
+              fetch('/api/duels/pending')
+            ]);
+
+            const recentDuels = await recent.json();
+            const pendingDuels = await pending.json();
+            const container = document.getElementById('recent-duels');
+
+            if (recentDuels.length === 0 && pendingDuels.length === 0) {
+              container.innerHTML = `
                         <div class="text-center py-4 text-muted">
                             <i class="bi bi-sword fs-2 opacity-50"></i>
                             <p class="mt-2 small">Aucun duel</p>
                         </div>
                     `;
-            return;
-          }
+              return;
+            }
 
-          let html = '';
+            let html = '';
 
-          if (pendingDuels.length > 0) {
-            html += pendingDuels.map(duel => renderDuelItem(duel, currentUserId, true)).join('');
-          }
+            if (pendingDuels.length > 0) {
+              html += pendingDuels.map(duel => renderDuelItem(duel, currentUserId, true)).join('');
+            }
 
-          if (recentDuels.length > 0) {
-            html += recentDuels.map(duel => renderDuelItem(duel, currentUserId, false)).join('');
-          }
+            if (recentDuels.length > 0) {
+              html += recentDuels.map(duel => renderDuelItem(duel, currentUserId, false)).join('');
+            }
 
-          container.innerHTML = html;
-        } catch (error) {
-          console.error('Erreur duels récents:', error);
-          document.getElementById('recent-duels').innerHTML = `
+            container.innerHTML = html;
+          } catch (error) {
+            console.error('Erreur duels récents:', error);
+            document.getElementById('recent-duels').innerHTML = `
                     <div class="alert alert-warning m-3 small">
                         <i class="bi bi-exclamation-triangle me-1"></i>
                         Erreur de chargement
                     </div>
                 `;
+          }
         }
-      }
 
-      function renderDuelItem(duel, userId, isPending) {
-        const isChallenger = duel.challenger_id === userId;
-        const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name;
-        const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
-        const opponentScore = isChallenger ? duel.opponent_score : duel.challenger_score;
-        const hasUserPlayed = userScore !== null;
-        const hasOpponentPlayed = opponentScore !== null;
+        function renderDuelItem(duel, userId, isPending) {
+          const isChallenger = duel.challenger_id === userId;
+          const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name;
+          const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
+          const opponentScore = isChallenger ? duel.opponent_score : duel.challenger_score;
+          const hasUserPlayed = userScore !== null;
+          const hasOpponentPlayed = opponentScore !== null;
 
-        let status = '',
-          cta = '';
+          let status = '',
+            cta = '';
 
-        if (isPending) {
-          if (!hasUserPlayed) {
-            status = '<span class="badge bg-primary">À jouer</span>';
-            cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">Jouer</button>`;
+          if (isPending) {
+            if (!hasUserPlayed) {
+              status = '<span class="badge bg-primary">À jouer</span>';
+              cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">Jouer</button>`;
+            } else {
+              status = '<span class="badge bg-secondary">En attente</span>';
+              cta = '';
+            }
           } else {
-            status = '<span class="badge bg-secondary">En attente</span>';
+            const userWon = userScore > opponentScore;
+            const isDraw = userScore === opponentScore;
+
+            if (isDraw) {
+              status = '<span class="badge bg-warning">Even</span>';
+            } else if (userWon) {
+              status = '<span class="badge bg-success">Victory</span>';
+            } else {
+              status = '<span class="badge bg-danger">Defeated</span>';
+            }
             cta = '';
           }
-        } else {
-          const userWon = userScore > opponentScore;
-          const isDraw = userScore === opponentScore;
 
-          if (isDraw) {
-            status = '<span class="badge bg-warning">Even</span>';
-          } else if (userWon) {
-            status = '<span class="badge bg-success">Victory</span>';
-          } else {
-            status = '<span class="badge bg-danger">Defeated</span>';
-          }
-          cta = '';
-        }
+          // 🔥 NOUVEAU : Affichage du montant du pari
+          const betDisplay = duel.bet_amount > 0 ?
+            `<span class="badge bg-warning text-dark ms-2"><i class="bi bi-coin me-1"></i>${duel.bet_amount}</span>` :
+            '';
 
-        // 🔥 NOUVEAU : Affichage du montant du pari
-        const betDisplay = duel.bet_amount > 0 ?
-          `<span class="badge bg-warning text-dark ms-2"><i class="bi bi-coin me-1"></i>${duel.bet_amount}</span>` :
-          '';
+          // 🔥 NOUVEAU : Rendre la ligne cliquable si le duel est terminé
+          const isCompleted = !isPending && hasUserPlayed && hasOpponentPlayed;
+          const clickableClass = isCompleted ? 'clickable-row' : '';
+          const onClick = isCompleted ? `onclick="viewDuelDetails(${duel.id})"` : '';
 
-        // 🔥 NOUVEAU : Rendre la ligne cliquable si le duel est terminé
-        const isCompleted = !isPending && hasUserPlayed && hasOpponentPlayed;
-        const clickableClass = isCompleted ? 'clickable-row' : '';
-        const onClick = isCompleted ? `onclick="viewDuelDetails(${duel.id})"` : '';
-
-        return `
+          return `
         <div class="list-item d-flex justify-content-between align-items-center border-bottom p-3 ${clickableClass}" 
             ${onClick}
             style="${isCompleted ? 'cursor: pointer; transition: background-color 0.2s;' : ''}"
@@ -905,124 +822,183 @@
             ${cta}
         </div>
     `;
-      }
+        }
 
+        async function loadBullies() {
+          try {
+            const response = await fetch('/api/duels/bullies');
+            const bullies = await response.json();
+            const container = document.getElementById('bullies-list');
 
-      // 🔥 NOUVELLE FONCTION : Redirection vers les détails
-      function viewDuelDetails(duelId) {
-        window.location.href = `/duel/${duelId}`;
-      }
-
-      function playDuel(duelId) {
-        window.location.href = `/duel-play/${duelId}`;
-      }
-
-      function openDuelPopup(opponentId, opponentName) {
-        currentOpponent = opponentId;
-        document.getElementById('opponentName').textContent = opponentName;
-        document.getElementById('opponentId').value = opponentId;
-        document.getElementById('duelPopup').style.display = 'flex';
-        initDuelPopupUI();
-        // Cacher l'erreur précédente
-        const errorDiv = document.getElementById('duelPopupError');
-        errorDiv.style.display = 'none';
-        errorDiv.textContent = '';
-      }
-
-      function closeDuelPopup() {
-        document.getElementById('duelPopup').style.display = 'none';
-      }
-
-      async function createDuel() {
-        console.group('🎯 createDuel START');
-
-        // Cacher les erreurs précédentes
-        const errorDiv = document.getElementById('duelPopupError');
-        errorDiv.style.display = 'none';
-        errorDiv.textContent = '';
-
-        const duelType = document.querySelector('input[name="duelType"]:checked').value;
-        const wordCount = parseInt(document.querySelector('input[name="wordCount"]:checked').value);
-        const betAmount = parseInt(document.getElementById('betAmount').value) || 0;
-
-        const sendBtn = document.querySelector('#duelPopup .btn-primary');
-        const originalHTML = sendBtn.innerHTML;
-        sendBtn.disabled = true;
-        sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-
-        try {
-          const response = await fetch('/api/duels/create', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              opponent_id: currentOpponent,
-              duel_type: duelType,
-              word_count: wordCount,
-              quiz_type: 'pinyin',
-              bet_amount: betAmount
-            })
-          });
-
-          const result = await response.json();
-
-          if (response.ok && result.success) {
-            closeDuelPopup();
-            showAlert('Duel launched!', 'success');
-            loadRecentDuels();
-          } else if (response.status === 403) {
-            console.log('🔴 403 received, data:', result);
-            closeDuelPopup(); // ✅ Ferme la popup de duel
-            showDuelLimitPopup(result);
-          } else {
-            // Traduire les messages d'erreur courants
-            let errorMessage = result.error || 'Error creating duel';
-            if (errorMessage.includes('Pas assez de mots communs')) {
-              errorMessage = '❌ Not enough words in common';
-            } else if (errorMessage.includes('Pas assez de mots')) {
-              errorMessage = '❌ Not enough words to create duel';
-            } else if (errorMessage.includes('coins') || errorMessage.includes('founds')) {
-              errorMessage = '❌ Not enough coins';
-            } else if (errorMessage.includes('limit') || errorMessage.includes('Daily')) {
-              errorMessage = '❌ Daily duel limit reached';
+            if (!bullies.length) {
+              container.innerHTML = '<div class="text-center py-4 text-muted small">No rivals yet</div>';
+              return;
             }
-            errorDiv.textContent = errorMessage;
-            errorDiv.style.display = 'block';
 
-            // Effet shake sur le contenu de la popup
+            container.innerHTML = `<div style="padding: 12px; display: flex; flex-direction: column; gap: 10px;">` +
+              bullies.map(b => {
+                const isPositive = b.balance >= 0;
+                const sign = isPositive ? '+' : '';
+                const bgColor = isPositive ? '#e8f5e9' : '#fdecea';
+                const avatarBg = isPositive ? '#c8e6c9' : '#ffcdd2';
+                const textColor = isPositive ? '#2e7d32' : '#c62828';
+
+                return `
+          <div onclick="openDuelPopup(${b.id}, '${b.name.replace(/'/g, "\\'")}')"
+               style="
+                 background: ${bgColor};
+                 border-radius: 50px;
+                 padding: 10px 16px;
+                 display: flex;
+                 justify-content: space-between;
+                 align-items: center;
+                 cursor: pointer;
+                 transition: opacity 0.2s;
+               "
+               onmouseover="this.style.opacity='0.8'"
+               onmouseout="this.style.opacity='1'">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="
+                background: ${avatarBg};
+                border-radius: 50%;
+                width: 38px;
+                height: 38px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              ">
+                <i class="bi bi-person" style="font-size: 1.1rem; color: ${textColor};"></i>
+              </div>
+              <span style="font-weight: 600; font-size: 0.95rem;">${b.name}</span>
+            </div>
+            <span style="font-weight: 700; color: ${textColor}; font-size: 0.95rem;">
+              ${sign}${b.balance}$
+            </span>
+          </div>
+        `;
+              }).join('') + `</div>`;
+
+          } catch (err) {
+            document.getElementById('bullies-list').innerHTML =
+              '<div class="text-center py-3 text-muted small">Error loading bullies</div>';
+          }
+        }
+
+        // 🔥 NOUVELLE FONCTION : Redirection vers les détails
+        function viewDuelDetails(duelId) {
+          window.location.href = `/duel/${duelId}`;
+        }
+
+        function playDuel(duelId) {
+          window.location.href = `/duel-play/${duelId}`;
+        }
+
+        function openDuelPopup(opponentId, opponentName) {
+          currentOpponent = opponentId;
+          document.getElementById('opponentName').textContent = opponentName;
+          document.getElementById('opponentId').value = opponentId;
+          document.getElementById('duelPopup').style.display = 'flex';
+          initDuelPopupUI();
+          // Cacher l'erreur précédente
+          const errorDiv = document.getElementById('duelPopupError');
+          errorDiv.style.display = 'none';
+          errorDiv.textContent = '';
+        }
+
+        function closeDuelPopup() {
+          document.getElementById('duelPopup').style.display = 'none';
+        }
+
+        async function createDuel() {
+          console.group('🎯 createDuel START');
+
+          // Cacher les erreurs précédentes
+          const errorDiv = document.getElementById('duelPopupError');
+          errorDiv.style.display = 'none';
+          errorDiv.textContent = '';
+
+          const duelType = document.querySelector('input[name="duelType"]:checked').value;
+          const wordCount = parseInt(document.querySelector('input[name="wordCount"]:checked').value);
+          const betAmount = parseInt(document.getElementById('betAmount').value) || 0;
+
+          const sendBtn = document.querySelector('#duelPopup .btn-primary');
+          const originalHTML = sendBtn.innerHTML;
+          sendBtn.disabled = true;
+          sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+          try {
+            const response = await fetch('/api/duels/create', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                opponent_id: currentOpponent,
+                duel_type: duelType,
+                word_count: wordCount,
+                quiz_type: 'pinyin',
+                bet_amount: betAmount
+              })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+              closeDuelPopup();
+              showAlert('Duel launched!', 'success');
+              loadRecentDuels();
+            } else if (response.status === 403) {
+              console.log('🔴 403 received, data:', result);
+              closeDuelPopup(); // ✅ Ferme la popup de duel
+              showDuelLimitPopup(result);
+            } else {
+              // Traduire les messages d'erreur courants
+              let errorMessage = result.error || 'Error creating duel';
+              if (errorMessage.includes('Pas assez de mots communs')) {
+                errorMessage = '❌ Not enough words in common';
+              } else if (errorMessage.includes('Pas assez de mots')) {
+                errorMessage = '❌ Not enough words to create duel';
+              } else if (errorMessage.includes('coins') || errorMessage.includes('founds')) {
+                errorMessage = '❌ Not enough coins';
+              } else if (errorMessage.includes('limit') || errorMessage.includes('Daily')) {
+                errorMessage = '❌ Daily duel limit reached';
+              }
+              errorDiv.textContent = errorMessage;
+              errorDiv.style.display = 'block';
+
+              // Effet shake sur le contenu de la popup
+              const popupContent = document.querySelector('.confirm-popup-content');
+              popupContent.classList.add('shake');
+              setTimeout(() => {
+                popupContent.classList.remove('shake');
+              }, 500);
+            }
+          } catch (error) {
+            console.error('❌ Catch error:', error);
+            errorDiv.textContent = '❌ Network error, please try again';
+            errorDiv.style.display = 'block';
             const popupContent = document.querySelector('.confirm-popup-content');
             popupContent.classList.add('shake');
             setTimeout(() => {
               popupContent.classList.remove('shake');
             }, 500);
+          } finally {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = originalHTML;
+            console.groupEnd();
           }
-        } catch (error) {
-          console.error('❌ Catch error:', error);
-          errorDiv.textContent = '❌ Network error, please try again';
-          errorDiv.style.display = 'block';
-          const popupContent = document.querySelector('.confirm-popup-content');
-          popupContent.classList.add('shake');
-          setTimeout(() => {
-            popupContent.classList.remove('shake');
-          }, 500);
-        } finally {
-          sendBtn.disabled = false;
-          sendBtn.innerHTML = originalHTML;
-          console.groupEnd();
         }
-      }
 
-      function showDuelLimitPopup(data) {
-        console.log('🎯 Creating duel limit popup with:', data);
+        function showDuelLimitPopup(data) {
+          console.log('🎯 Creating duel limit popup with:', data);
 
-        // Supprimer toute popup existante
-        document.querySelectorAll('.duel-limit-popup').forEach(el => el.remove());
+          // Supprimer toute popup existante
+          document.querySelectorAll('.duel-limit-popup').forEach(el => el.remove());
 
-        // Créer l'overlay
-        const overlay = document.createElement('div');
-        overlay.className = 'duel-limit-popup';
-        overlay.style.cssText = `
+          // Créer l'overlay
+          const overlay = document.createElement('div');
+          overlay.className = 'duel-limit-popup';
+          overlay.style.cssText = `
         position: fixed;
         top: 0;
         left: 0;
@@ -1036,9 +1012,9 @@
         padding: 20px;
     `;
 
-        // Créer la modal
-        const modal = document.createElement('div');
-        modal.style.cssText = `
+          // Créer la modal
+          const modal = document.createElement('div');
+          modal.style.cssText = `
         background: white;
         border-radius: 12px;
         padding: 28px 24px 24px;
@@ -1047,11 +1023,11 @@
         box-shadow: 0 10px 25px rgba(0,0,0,0.1);
     `;
 
-        // Valeurs par défaut si data est incomplet
-        const current = data.current || 1;
-        const max = data.max || 1;
+          // Valeurs par défaut si data est incomplet
+          const current = data.current || 1;
+          const max = data.max || 1;
 
-        modal.innerHTML = `
+          modal.innerHTML = `
         <div style="text-align: center; margin-bottom: 16px; font-size: 1.1rem; font-weight: 600; color: #000;">
             Daily Duel Limit
         </div>
@@ -1096,33 +1072,33 @@
         </div>
     `;
 
-        // Fermer en cliquant sur l'overlay
-        overlay.addEventListener('click', (e) => {
-          if (e.target === overlay) {
-            overlay.remove();
-          }
-        });
+          // Fermer en cliquant sur l'overlay
+          overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+              overlay.remove();
+            }
+          });
 
-        // Ajouter au DOM
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-      }
+          // Ajouter au DOM
+          overlay.appendChild(modal);
+          document.body.appendChild(overlay);
+        }
 
-      function showAlert(message, type) {
+        function showAlert(message, type) {
 
-        // Supprimer les alertes existantes du même type
-        const existingAlerts = document.querySelectorAll(`.alert-${type}.position-fixed`);
-        existingAlerts.forEach(alert => alert.remove());
+          // Supprimer les alertes existantes du même type
+          const existingAlerts = document.querySelectorAll(`.alert-${type}.position-fixed`);
+          existingAlerts.forEach(alert => alert.remove());
 
-        const alert = document.createElement('div');
-        alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-        alert.style.cssText = 'top: 20px; right: 20px; z-index: 1055; min-width: 300px;';
+          const alert = document.createElement('div');
+          alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+          alert.style.cssText = 'top: 20px; right: 20px; z-index: 1055; min-width: 300px;';
 
-        const icon = type === 'success' ? 'check-circle-fill' :
-          type === 'danger' ? 'exclamation-triangle-fill' :
-          type === 'warning' ? 'exclamation-circle-fill' : 'info-fill';
+          const icon = type === 'success' ? 'check-circle-fill' :
+            type === 'danger' ? 'exclamation-triangle-fill' :
+              type === 'warning' ? 'exclamation-circle-fill' : 'info-fill';
 
-        alert.innerHTML = `
+          alert.innerHTML = `
         <div class="d-flex align-items-center">
             <i class="bi bi-${icon} me-2"></i>
             <div class="flex-grow-1">${message}</div>
@@ -1130,54 +1106,54 @@
         </div>
     `;
 
-        document.body.appendChild(alert);
+          document.body.appendChild(alert);
 
-        // Auto-dismiss après 5 secondes
-        setTimeout(() => {
-          if (alert.parentNode) {
-            alert.classList.remove('show');
-            setTimeout(() => alert.remove(), 150);
-          }
-        }, 5000);
-      }
-
-      // Amélioration de l'interface de la popup
-      function initDuelPopupUI() {
-        // Gestion des cartes de type (déjà géré par CSS avec input:checked + .duel-type-card)
-
-        // Gestion des labels du nombre de mots (fallback pour :has)
-        const wordCountRadios = document.querySelectorAll('input[name="wordCount"]');
-        wordCountRadios.forEach(radio => {
-          radio.addEventListener('change', function() {
-            // Retirer la classe de tous les labels
-            document.querySelectorAll('.word-count-label').forEach(label => {
-              label.classList.remove('js-word-count-checked');
-              label.style.borderColor = '#e0e0e0';
-              label.style.backgroundColor = '#f9f9f9';
-            });
-            // Ajouter la classe au parent du radio coché
-            if (this.checked) {
-              const parentLabel = this.closest('.word-count-label');
-              if (parentLabel) {
-                parentLabel.classList.add('js-word-count-checked');
-                parentLabel.style.borderColor = '#007bff';
-                parentLabel.style.backgroundColor = '#e7f1ff';
-              }
+          // Auto-dismiss après 5 secondes
+          setTimeout(() => {
+            if (alert.parentNode) {
+              alert.classList.remove('show');
+              setTimeout(() => alert.remove(), 150);
             }
-          });
-        });
-      }
-
-      // Fermer les suggestions
-      document.addEventListener('click', function(event) {
-        const suggestions = document.getElementById('search-suggestions');
-        const searchInput = document.getElementById('duelist-search');
-
-        if (!searchInput.contains(event.target) && !suggestions.contains(event.target)) {
-          suggestions.style.display = 'none';
+          }, 5000);
         }
-      });
-    </script>
+
+        // Amélioration de l'interface de la popup
+        function initDuelPopupUI() {
+          // Gestion des cartes de type (déjà géré par CSS avec input:checked + .duel-type-card)
+
+          // Gestion des labels du nombre de mots (fallback pour :has)
+          const wordCountRadios = document.querySelectorAll('input[name="wordCount"]');
+          wordCountRadios.forEach(radio => {
+            radio.addEventListener('change', function () {
+              // Retirer la classe de tous les labels
+              document.querySelectorAll('.word-count-label').forEach(label => {
+                label.classList.remove('js-word-count-checked');
+                label.style.borderColor = '#e0e0e0';
+                label.style.backgroundColor = '#f9f9f9';
+              });
+              // Ajouter la classe au parent du radio coché
+              if (this.checked) {
+                const parentLabel = this.closest('.word-count-label');
+                if (parentLabel) {
+                  parentLabel.classList.add('js-word-count-checked');
+                  parentLabel.style.borderColor = '#007bff';
+                  parentLabel.style.backgroundColor = '#e7f1ff';
+                }
+              }
+            });
+          });
+        }
+
+        // Fermer les suggestions
+        document.addEventListener('click', function (event) {
+          const suggestions = document.getElementById('search-suggestions');
+          const searchInput = document.getElementById('duelist-search');
+
+          if (!searchInput.contains(event.target) && !suggestions.contains(event.target)) {
+            suggestions.style.display = 'none';
+          }
+        });
+      </script>
 </body>
 
 </html>

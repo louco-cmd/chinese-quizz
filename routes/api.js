@@ -1441,7 +1441,7 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
       LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id)
       WHERE u.id IN (SELECT DISTINCT user_id FROM user_mots)
       GROUP BY u.id, u.name, u.email, u.tagline, u.country  -- ⬅️ AJOUTER tagline et country
-      ORDER BY wins DESC, total_words DESC
+      ORDER BY wins DESC, total_words DESC, losses ASC
     `);
 
     console.log(`✅ ${result.rows.length} joueurs trouvés`);
@@ -1467,15 +1467,13 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
   }
 });
 
-// 📍 STATS PERSO
 router.get('/api/duels/stats', ensureAuth, async (req, res) => {
+  const userId = req.user.id;
   try {
-    console.log('📊 Chargement stats perso pour:', req.user.id);
 
-    const result = await pool.query(`
+    // 1️⃣ Statistiques personnelles (wins, losses, ratio)
+    const statsResult = await pool.query(`
       SELECT 
-        COUNT(*) as total_duels,
-        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_duels,
         COUNT(CASE WHEN status = 'completed' AND (
           (challenger_id = $1 AND challenger_score > opponent_score) OR
           (opponent_id = $1 AND opponent_score > challenger_score)
@@ -1487,25 +1485,94 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
         CASE 
           WHEN COUNT(CASE WHEN status = 'completed' AND (challenger_id = $1 OR opponent_id = $1) THEN 1 END) > 0 THEN
             ROUND(
-              (COUNT(CASE WHEN status = 'completed' AND (
+              COUNT(CASE WHEN status = 'completed' AND (
                 (challenger_id = $1 AND challenger_score > opponent_score) OR
                 (opponent_id = $1 AND opponent_score > challenger_score)
-              ) THEN 1 END) * 100.0) / 
+              ) THEN 1 END) * 100.0 /
               COUNT(CASE WHEN status = 'completed' AND (challenger_id = $1 OR opponent_id = $1) THEN 1 END)
             , 1)
           ELSE 0
         END as ratio
       FROM duels 
       WHERE (challenger_id = $1 OR opponent_id = $1)
-    `, [req.user.id]);
+    `, [userId]);
 
-    const stats = result.rows[0] || { wins: 0, losses: 0, ratio: 0, total_duels: 0 };
-    console.log('✅ Stats perso:', stats);
-    res.json(stats);
+    // 2️⃣ Rang global — logique : wins > total_words > moins de défaites
+    const rankResult = await pool.query(`
+      SELECT position FROM (
+        SELECT 
+          id,
+          RANK() OVER (
+            ORDER BY wins DESC, total_words DESC, losses ASC
+          ) as position
+        FROM (
+          SELECT
+            u.id,
+            COUNT(DISTINCT uw.mot_id) as total_words,
+            COUNT(DISTINCT CASE 
+              WHEN d.status = 'completed' AND (
+                (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+                (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+              ) THEN d.id
+            END) as wins,
+            COUNT(DISTINCT CASE 
+              WHEN d.status = 'completed' AND (
+                (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
+                (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
+              ) THEN d.id
+            END) as losses
+          FROM users u
+          LEFT JOIN user_mots uw ON u.id = uw.user_id
+          LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id)
+          GROUP BY u.id
+        ) sub
+      ) ranked
+      WHERE id = $1
+    `, [userId]);
+
+    const stats = statsResult.rows[0] || { wins: 0, losses: 0, ratio: 0 };
+    const rank = rankResult.rows.length > 0 ? parseInt(rankResult.rows[0].position) : null;
+
+    res.json({ ...stats, rank });
 
   } catch (err) {
-    console.error('❌ Erreur stats perso:', err);
+    console.error('Erreur stats perso:', err);
     res.status(500).json({ error: 'Erreur chargement stats' });
+  }
+});
+
+router.get('/api/duels/bullies', ensureAuth, async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const result = await pool.query(`
+      SELECT
+        opponent.id,
+        opponent.name,
+        SUM(CASE
+          WHEN (d.challenger_id = $1 AND d.challenger_score > d.opponent_score)
+            OR (d.opponent_id = $1 AND d.opponent_score > d.challenger_score)
+          THEN d.bet_amount
+          ELSE -d.bet_amount
+        END) AS balance
+      FROM duels d
+      JOIN users opponent ON (
+        (d.challenger_id = $1 AND d.opponent_id = opponent.id) OR
+        (d.opponent_id = $1 AND d.challenger_id = opponent.id)
+      )
+      WHERE d.challenger_score IS NOT NULL
+        AND d.opponent_score IS NOT NULL
+        AND d.bet_amount > 0
+        AND opponent.id != $1
+        AND opponent.last_login >= NOW() - INTERVAL '1 month'
+      GROUP BY opponent.id, opponent.name
+      ORDER BY balance DESC
+    `, [userId]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Erreur bullies:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
