@@ -103,7 +103,44 @@ app.use(checker);
 app.use(security);
 app.use(reauth);
 app.use(requestLogger);
+// Expose isPremium + balance aux vues EJS (lecture seule, jamais de downgrade auto)
 app.use(async (req, res, next) => {
+  // Valeurs par défaut toujours définies pour les templates
+  res.locals.isPremium = false;
+  res.locals.balance = 0;
+  res.locals.user = req.user || null;
+
+  if (!req.isAuthenticated()) {
+    return next();
+  }
+
+  try {
+    const subResult = await pool.query(
+      `SELECT stripe_status FROM user_subscriptions WHERE user_id = $1`,
+      [req.user.id]
+    );
+
+    const isPremium = subResult.rows[0]?.stripe_status === 'active';
+
+    req.user.isPremium = isPremium;
+    req.user.planName = isPremium ? 'premium' : 'free';
+    res.locals.isPremium = isPremium;
+
+    const balanceResult = await pool.query(
+      'SELECT balance FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    res.locals.balance = balanceResult.rows[0]?.balance || 0;
+  } catch (err) {
+    console.error('Erreur lecture abonnement:', err);
+    // On garde les valeurs par défaut (free / 0)
+  }
+
+  next();
+});
+
+
+/* app.use(async (req, res, next) => {
   if (!req.isAuthenticated()) {
     res.locals.balance = 0;
     res.locals.isPremium = false;
@@ -111,7 +148,7 @@ app.use(async (req, res, next) => {
   }
 
   try {
-    // Vérifier l'abonnement avec notre logique d'interprétation
+ Vérifier l'abonnement avec notre logique d'interprétation
     const subResult = await pool.query(`
       SELECT 
         plan_name,
@@ -152,7 +189,7 @@ app.use(async (req, res, next) => {
       }
 
       res.locals.isPremium = isPremium;
-    }
+    }  
 
     // Solde
     const balanceResult = await pool.query(
@@ -169,7 +206,9 @@ app.use(async (req, res, next) => {
 
   next();
 });
-// Dans tes middlewares existants, remplace la partie complexe par:
+ */
+
+/* Dans tes middlewares existants, remplace la partie complexe par:
 app.use(async (req, res, next) => {
   if (!req.isAuthenticated()) {
     res.locals.balance = 0;
@@ -197,7 +236,7 @@ app.use(async (req, res, next) => {
       const sub = subResult.rows[0];
       const now = new Date();
 
-      // LOGIQUE SIMPLE :
+      /* LOGIQUE SIMPLE :
       // Premium si stripe_status = 'active' ET période pas expirée
       if (sub.stripe_status === 'active') {
         if (sub.current_period_end && new Date(sub.current_period_end) < now) {
@@ -238,7 +277,9 @@ app.use(async (req, res, next) => {
   }
 
   next();
-});
+}); */
+
+
 app.use("/", apiRoutes);
 
 
@@ -504,7 +545,7 @@ app.post('/auth/login-basic', async (req, res) => {
       console.log('🔍 req.user après login:', req.user ? req.user.id : 'absent');
 
       // Forcer la sauvegarde de la session
-      req.session.save(async(saveErr) => {
+      req.session.save(async (saveErr) => {
         if (saveErr) {
           console.error('❌ Erreur sauvegarde session:', saveErr);
         } else {
@@ -1460,23 +1501,45 @@ app.get('/subscribe', ensureAuth, async (req, res) => {
 
     console.log(`🎯 Création de session pour ${req.user.email}, plan: ${plan}`);
     console.log(`🌐 Base URL: ${baseUrl}`);
-
-    const session = await stripe.checkout.sessions.create({
+    // Récupérer le customer Stripe existant si l'utilisateur en a déjà un
+    const existingSub = await pool.query(
+      'SELECT stripe_customer_id FROM user_subscriptions WHERE user_id = $1 LIMIT 1',
+      [req.user.id]
+    );
+    const existingCustomerId = existingSub.rows[0]?.stripe_customer_id || null;
+    const sessionParams = {
       mode: 'subscription',
-      line_items: [
-        {
-          price: priceID,
-          quantity: 1
-        }
-      ],
+      line_items: [{ price: priceID, quantity: 1 }],
       success_url: `${baseUrl}/welcome-jiayou-premium?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/pricing`,
-      customer_email: req.user.email,
       metadata: {
         userId: req.user.id.toString(),
         planName: plan
       }
-    });
+    };
+
+    if (existingCustomerId) {
+      // Réutilise le customer Stripe existant (évite les doublons)
+      sessionParams.customer = existingCustomerId;
+    } else {
+      // Nouveau client : Stripe créera le customer
+      sessionParams.customer_email = req.user.email;
+    }
+
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams);
+    } catch (err) {
+      // Customer supprimé côté Stripe (env de test) : retry sans lui
+      if (err.code === 'resource_missing' && existingCustomerId) {
+        console.warn(`⚠️ Customer ${existingCustomerId} introuvable, fallback sur email`);
+        delete sessionParams.customer;
+        sessionParams.customer_email = req.user.email;
+        session = await stripe.checkout.sessions.create(sessionParams);
+      } else {
+        throw err;
+      }
+    }
 
     console.log('✅ Stripe session created:', session.id);
     console.log('🔗 URL de checkout:', session.url);
@@ -1530,6 +1593,12 @@ app.post('/create-portal-session', ensureAuth, async (req, res) => {
     res.json({ url: portalSession.url });
   } catch (error) {
     console.error('Error creating portal session:', error);
+
+    // Customer Stripe supprimé (fréquent en env de test) : renvoie vers Checkout
+    if (error.code === 'resource_missing' || error.statusCode === 404) {
+      return res.json({ url: '/subscribe?plan=premium' });
+    }
+
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -1951,31 +2020,28 @@ async function handleSubscriptionEvent(subscription, eventType) {
     // 5. MISE À JOUR DE LA BASE AVEC LES BONS NOMS DE COLONNES
     // -> Utiliser RETURNING pour contrôler la mise à jour, et fallback INSERT si besoin
     const updateQuery = `
-      UPDATE user_subscriptions 
-      SET 
-        plan_name = $1,
-        status = $2,
-        stripe_status = $3,
-        current_period_start = $4,
-        current_period_end = $5,
-        cancel_at_period_end = $6,
-        canceled_at = $7,
-        stripe_subscription_id = $8,
-        updated_at = NOW()
-      WHERE user_id = $9
-      RETURNING id, stripe_status, status, plan_name
-    `;
+  UPDATE user_subscriptions 
+  SET 
+    plan_name = $1,
+    status = $2,
+    stripe_status = $3,
+    current_period_start = $4,
+    current_period_end = $5,
+    cancel_at_period_end = $6,
+    canceled_at = $7,
+    stripe_subscription_id = $8,
+    stripe_customer_id = $9,
+    updated_at = NOW()
+  WHERE user_id = $10
+  RETURNING id, stripe_status, status, plan_name
+`;
     const updateParams = [
-      planName,
-      ourStatus,
-      ourStatus,
-      periodStartDate,
-      periodEndDate,
-      cancelAtPeriodEnd,
-      canceledAtDate,
-      subscription.id,
-      userId
+      planName, ourStatus, ourStatus,
+      periodStartDate, periodEndDate,
+      cancelAtPeriodEnd, canceledAtDate,
+      subscription.id, subscription.customer, userId
     ];
+
 
     const updateResult = await pool.query(updateQuery, updateParams);
 

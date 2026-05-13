@@ -2,11 +2,12 @@
   "name": "jiayou",
   "short_name": "Jiayou",
   "description": "add oil on your Chinese learning journey!",
-  "start_url": "https://app.jiayou.fr/",
+  "start_url": "app.jiayou.fr",
   "scope": "https://app.jiayou.fr/",
   "display": "standalone",
   "display_override": [
-    "window-controls-overlay"
+    "window-controls-overlay",
+    "fullscreen"
   ],
   "background_color": "#ffffff",
   "theme_color": "#0d6efd",
@@ -57,7 +58,10 @@
   ],
   "categories": [
     "education",
+    "games",
     "productivity"
   ],
-  "splash_pages": null
+  "splash_pages": null,
+  "lang": "en",
+  "dir": "auto"
 }
