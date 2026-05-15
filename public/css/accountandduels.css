@@ -122,33 +122,11 @@ body {
     aspect-ratio: 1;
     border-radius: 2px;
     background-color: var(--surface-2);
-    cursor: pointer;
     position: relative;
     border: 1px solid rgba(0,0,0,0.05);
-    transition: all 0.2s ease;
     min-width: 10px;
     min-height: 10px;
 }
-
-  .contribution-day:hover {
-      transform: scale(1.2);
-      z-index: 10;
-    }
-
-    .contribution-day:hover::after {
-      content: attr(data-count) " quiz le " attr(data-date);
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--text);
-      color: var(--surface);
-      padding: 0.5rem 1rem;
-      border-radius: 0.5rem;
-      font-size: 0.875rem;
-      white-space: nowrap;
-      z-index: 1000;
-    }
 
 /* Niveaux de couleur */
 .level-0 { background-color: var(--surface-1); }

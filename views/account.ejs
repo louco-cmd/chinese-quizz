@@ -13,24 +13,180 @@
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
 
   <style>
-    /* Ajouter dans la section <style> existante */
-    .progress-container {
-      margin: 1rem 0;
+    /* ---- Greeting ---- */
+    .account-greeting {
+      padding: 1.5rem 1rem 0.5rem;
+    }
+    .account-greeting h2 {
+      font-size: 3rem;
+      font-weight: 600;
+      color: #434343;
+      margin-bottom: 0.2rem;
+    }
+    .account-greeting .subtitle {
+      color: #6c757d;
+      font-size: 0.9rem;
     }
 
-    .progress-stacked {
-      border-radius: 4px;
-      overflow: hidden;
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    /* ---- Cards ---- */
+    .account-card {
+      border: none;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+    }
+    .account-card .card-body {
+      padding: 1.25rem;
+    }
+    .section-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #444;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+    }
+    .section-title i {
+      font-size: 1.4rem;
+      line-height: 1;
     }
 
-    .progress-bar {
-      transition: width 0.6s ease;
+    /* ---- Contributions inside card ---- */
+    .contributions-wrapper {
+      margin-bottom: 1rem;
+      padding: 0;
+    }
+    .contributions-count {
+      font-size: 0.8rem;
+      color: #6c757d;
+      margin-bottom: 0.35rem;
+      display: block;
     }
 
-    /* Style pour les textes de légende */
-    .progress-container .text-muted {
+    /* ---- Tagline + Flag row ---- */
+    .profile-meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 1rem;
+    }
+    .meta-label {
+      font-size: 0.72rem;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: block;
+      margin-bottom: 2px;
+    }
+    .tagline-value {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #333;
+    }
+    .flag-value {
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    /* ---- Stats row ---- */
+    .stats-row {
+      border-top: 1px solid #f0f0f0;
+      border-bottom: 1px solid #f0f0f0;
+      padding: 0.85rem 0;
+      margin-bottom: 1rem;
+    }
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #111;
+      line-height: 1;
+    }
+    .stat-label {
       font-size: 0.75rem;
+      color: #999;
+      margin-top: 2px;
+    }
+
+    /* ---- Progress bars ---- */
+    .mastery-track {
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #e9ecef;
+    }
+    .mastery-track .progress-bar {
+      transition: width 0.8s ease;
+    }
+    .mastery-caption {
+      font-size: 0.78rem;
+      color: #888;
+      margin-top: 4px;
+      display: block;
+    }
+
+    /* ---- HSK stats list ---- */
+    #hskStats .list-group-item {
+      border: none;
+      border-bottom: 1px solid #f5f5f5;
+      padding: 0.6rem 0;
+    }
+    #hskStats .list-group-item:last-child {
+      border-bottom: none;
+    }
+    .hsk-mastery {
+      font-size: 0.8rem;
+      color: #aaa;
+      margin-right: 0.5rem;
+    }
+
+    /* ---- Recent quizzes ---- */
+    .quiz-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .quiz-row:last-child {
+      border-bottom: none;
+    }
+    .quiz-left {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .quiz-score {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .quiz-coins {
+      font-size: 0.82rem;
+      color: #f0a500;
+      font-weight: 500;
+    }
+    .quiz-date {
+      font-size: 0.78rem;
+      color: #bbb;
+    }
+
+    /* Hidden helper */
+    #userNameDisplay { display: none; }
+
+    /* ---- Desktop layout: sticky "Your info" left column ---- */
+    @media (min-width: 992px) {
+      .account-greeting {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 0.75rem;
+      }
+      .account-layout {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .account-sidebar {
+        position: sticky;
+        top: 1rem;
+        align-self: flex-start;
+      }
     }
   </style>
 </head>
@@ -45,25 +201,17 @@
       </div>
       <div class="modal-body">
         <form id="profileEditForm">
-          <!-- Nom -->
           <div class="mb-3">
             <label class="form-label small fw-medium">Name</label>
-            <input type="text" class="form-control form-control-sm" id="editName" value="<%= user.name %>"
-              maxlength="50">
+            <input type="text" class="form-control form-control-sm" id="editName" value="<%= user.name %>" maxlength="50">
             <div class="form-text">Max 50 characters</div>
           </div>
-
-          <!-- Phrase d'accroche -->
           <div class="mb-3">
             <label class="form-label small fw-medium">Tagline</label>
             <textarea class="form-control form-control-sm" id="editTagline" rows="2" maxlength="100"
-              placeholder="Your learning motto...">
-              <%= user.tagline || '' %>
-            </textarea>
+              placeholder="Your learning motto..."><%= user.tagline || '' %></textarea>
             <div class="form-text">Max 100 characters</div>
           </div>
-
-          <!-- Pays -->
           <div class="mb-3">
             <label class="form-label small fw-medium">Country</label>
             <select class="form-select form-select-sm" id="editCountry">
@@ -80,7 +228,6 @@
               <option value="CA" <%=user.country==='CA' ? 'selected' : '' %>>🇨🇦 Canada</option>
               <option value="AU" <%=user.country==='AU' ? 'selected' : '' %>>🇦🇺 Australia</option>
               <option value="BR" <%=user.country==='BR' ? 'selected' : '' %>>🇧🇷 Brazil</option>
-              <!-- Ajoutez d'autres pays selon vos besoins -->
             </select>
           </div>
         </form>
@@ -95,923 +242,565 @@
   </div>
 </div>
 
+<!-- Hidden name element for modal use -->
+<span id="userNameDisplay"></span>
+
 <body>
   <%- include('partials/header') %>
-    <%- include('partials/navbar', {currentPage: 'account' }) %>
+  <%- include('partials/navbar', {currentPage: 'account' }) %>
 
-      <!-- Contributions -->
-      <section class="contributions-fullwidth my-4">
-        <div class="container">
-          <div class="contributions-wrapper">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h6 class="mb-0 d-flex align-items-center">
-                <i class="bi bi-calendar3 me-2"></i>Consistency
-              </h6>
-              <small class="text-muted" id="contributions-total">0 quiz</small>
+  <!-- ===== GREETING ===== -->
+  <div class="account-greeting">
+    <h2>👋 Hello <span id="greetingName">...</span> !</h2>
+    <p class="subtitle mb-0">Happy to see you here, everyday getting better.</p>
+  </div>
+
+  <!-- ===== PAGE CONTENT ===== -->
+  <div class="px-3 py-3 pb-5 account-layout">
+    <div class="row g-3 g-lg-4">
+
+      <!-- ── LEFT COLUMN: YOUR INFO (sticky on desktop) ── -->
+      <div class="col-lg-5 col-xl-4">
+        <div class="account-sidebar">
+          <div class="card account-card">
+            <div class="card-body">
+              <p class="section-title mb-3">
+                <i class="bi bi-person me-2 text-muted"></i>Your info
+              </p>
+
+              <!-- Heatmap contributions -->
+              <div class="contributions-wrapper">
+                <span class="contributions-count" id="contributions-total">Loading...</span>
+                <div class="contributions-grid" id="contributionsGrid">
+                  <div class="text-center py-2">
+                    <div class="spinner-border spinner-border-sm text-muted" role="status"></div>
+                  </div>
+                </div>
+                <div class="contributions-legend mt-1">
+                  <span>less quiz</span>
+                  <div class="color-scale">
+                    <div class="color-level level-0"></div>
+                    <div class="color-level level-1"></div>
+                    <div class="color-level level-2"></div>
+                    <div class="color-level level-3"></div>
+                    <div class="color-level level-4"></div>
+                  </div>
+                  <span>More quiz</span>
+                </div>
+              </div>
+
+              <!-- Tagline + Flag -->
+              <div class="profile-meta-row">
+                <div style="max-width: 65%">
+                  <span class="meta-label">Your words</span>
+                  <div class="tagline-value">
+                    <i class="bi bi-quote me-1 text-muted"></i><span id="taglineText">...</span>
+                  </div>
+                </div>
+                <div class="text-end">
+                  <span class="meta-label">Representing</span>
+                  <div class="flag-value" id="userFlagDisplay">🏳️</div>
+                </div>
+              </div>
+
+              <!-- Stats -->
+              <div class="row text-center stats-row mx-0">
+                <div class="col-4">
+                  <div class="stat-value" id="totalWords">-</div>
+                  <div class="stat-label">Words</div>
+                </div>
+                <div class="col-4">
+                  <div class="stat-value" id="totalQuizzes">-</div>
+                  <div class="stat-label">Quizzes</div>
+                </div>
+                <div class="col-4">
+                  <div class="stat-value" id="totalDuels">-</div>
+                  <div class="stat-label">Duels</div>
+                </div>
+              </div>
+
+              <!-- Pinyin progress bar -->
+              <div class="mb-3">
+                <div class="mastery-track progress">
+                  <div class="progress-bar bg-primary" id="MasteredBar" role="progressbar" style="width: 0%"></div>
+                  <div class="progress-bar bg-info" id="LearningBar" role="progressbar" style="width: 0%"></div>
+                  <div class="progress-bar bg-warning" id="MediumBar" role="progressbar" style="width: 0%"></div>
+                  <div class="progress-bar bg-secondary" id="NewBar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <span class="mastery-caption" id="masteryText">0% pinyin mastered</span>
+              </div>
+
+              <!-- Characters progress bar -->
+              <div class="mb-4">
+                <div class="mastery-track progress">
+                  <div class="progress-bar bg-primary" id="charMasteredBar" role="progressbar" style="width: 0%"></div>
+                  <div class="progress-bar bg-info" id="charLearningBar" role="progressbar" style="width: 0%"></div>
+                  <div class="progress-bar bg-warning" id="charMediumBar" role="progressbar" style="width: 0%"></div>
+                  <div class="progress-bar bg-secondary" id="charNewBar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <span class="mastery-caption" id="charMasteryText">0% characters mastered</span>
+              </div>
+
+              <!-- Edit button full-width -->
+              <button class="btn btn-primary w-100" onclick="openEditProfileModal()">
+                Edit personal info
+              </button>
             </div>
+          </div>
+        </div>
+      </div>
 
-            <div class="contributions-grid" id="contributionsGrid">
+      <!-- ── RIGHT COLUMN: pending duels, stats, recent quizzes ── -->
+      <div class="col-lg-7 col-xl-8">
+
+        <!-- ── PENDING DUELS (conditional) ── -->
+        <div id="pending-duels-section" style="display: none;" class="mb-3">
+          <div class="card account-card">
+            <div class="card-body">
+              <p class="section-title">
+                <i class="bi bi-lightning me-2 text-muted"></i>Pending duels
+              </p>
+              <div id="pending-duels-account">
+                <div class="text-center py-3 text-muted">
+                  <div class="spinner-border spinner-border-sm" role="status"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── STATISTICS ON WORDS ── -->
+        <div class="card account-card mb-3">
+          <div class="card-body">
+            <p class="section-title">
+              <i class="bi bi-search me-2 text-muted"></i>Statistics on words
+            </p>
+            <ul id="hskStats" class="list-group list-group-flush"></ul>
+          </div>
+        </div>
+
+        <!-- ── RECENT QUIZZES ── -->
+        <div class="card account-card mb-4">
+          <div class="card-body">
+            <p class="section-title">
+              <i class="bi bi-clock me-2 text-muted"></i>Recent quizzes
+            </p>
+            <div id="recent-quizzes">
               <div class="text-center text-muted py-3">
                 <div class="spinner-border spinner-border-sm" role="status"></div>
                 <span class="ms-2">Loading...</span>
               </div>
             </div>
-
-            <div class="contributions-legend">
-              <span>less quiz</span>
-              <div class="color-scale">
-                <div class="color-level level-0"></div>
-                <div class="color-level level-1"></div>
-                <div class="color-level level-2"></div>
-                <div class="color-level level-3"></div>
-                <div class="color-level level-4"></div>
-              </div>
-              <span>More quiz</span>
+            <div class="mt-3">
+              <a href="/quiz" class="btn btn-primary w-100">Start a new quiz</a>
             </div>
           </div>
         </div>
-      </section>
 
-      <!-- Main Content -->
-      <section class="container my-4">
-        <div class="row g-4">
-          <!-- Colonne Actions (PREMIERE sur mobile) -->
-          <div class="col-12 col-lg-4 mobile-order-1">
-            <!-- Duels en Attente - Section conditionnelle -->
-            <div id="pending-duels-section" style="display: none;">
-              <div class="card mb-4">
-                <div class="card-header">
-                  <h6 class="mb-0 d-flex align-items-center">
-                    <i class="bi bi-sword me-2"></i>
-                    Pending duels
-                  </h6>
-                </div>
-                <div class="card-body">
-                  <div id="pending-duels-account">
-                    <div class="text-center py-3">
-                      <div class="spinner-border spinner-border-sm" role="status"></div>
-                      <p class="mt-2 text-muted small">Loading...</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+      </div><!-- end right col -->
 
-            <!-- Version avec seulement le drapeau à côté du nom -->
-            <div class="card">
-              <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start mb-3">
-                  <h6 class="card-title mb-0 fw-bold">Profile</h6>
-                  <button class="btn btn-sm btn-outline-primary" onclick="openEditProfileModal()">
-                    <i class="bi bi-pencil"></i> Edit
-                  </button>
-                </div>
+    </div><!-- end row -->
+  </div><!-- end account-layout -->
 
-                <div class="row align-items-center">
-                  <div class="col-auto">
-                    <div class="avatar" style="width: 48px; height: 48px;">
-                      <i class="bi bi-person-fill"></i>
-                    </div>
-                  </div>
-                  <div class="col">
-                    <!-- Nom avec drapeau -->
-                    <div class="mb-2 d-flex align-items-center">
-                      <div class="fw-bold text-dark me-2" id="userNameDisplay">Loading...</div>
-                      <span class="flag-icon fs-6" id="userFlagDisplay">🏳️</span>
-                    </div>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ─────────────────────────────────────────────
+    // INIT
+    // ─────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function () {
+      loadUserData();
+      loadContributionsGrid();
+      loadPendingDuels('pending-duels-account');
+    });
 
-                    <!-- Phrase d'accroche seulement -->
-                    <div class="mb-0">
-                      <p class="text-muted small mb-0" id="userTaglineDisplay">
-                        <i class="bi bi-quote me-1"></i>
-                        <span id="taglineText">Loading...</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div class="card-body">
-                </div>
-                <!-- Stats globales -->
-                <div class="row text-center mb-4">
-                  <div class="col-4">
-                    <div class="h5 mb-1" id="totalWords">-</div>
-                    <div class="text-muted small">Words</div>
-                  </div>
-                  <div class="col-4">
-                    <div class="h5 mb-1" id="totalQuizzes">-</div>
-                    <div class="text-muted small">Quizzes</div>
-                  </div>
-                  <div class="col-4">
-                    <div class="h5 mb-1" id="totalDuels">-</div>
-                    <div class="text-muted small">Duels</div>
-                  </div>
-                </div>
+    // ─────────────────────────────────────────────
+    // USER DATA (profile + stats + HSK + quiz history)
+    // ─────────────────────────────────────────────
+    async function loadUserData() {
+      try {
+        const [accountRes, quizRes] = await Promise.all([
+          fetch('/account-info'),
+          fetch('/api/quiz/history?limit=5')
+        ]);
 
-                <!-- Jauge Pinyin (IDs corrigés) -->
-                <div class="progress-container">
-                  <div class="progress" style="height: 8px;">
-                    <div class="progress-bar bg-primary" id="MasteredBar" role="progressbar" style="width: 0%"></div>
-                    <div class="progress-bar bg-info" id="LearningBar" role="progressbar" style="width: 0%"></div>
-                    <div class="progress-bar bg-warning" id="MediumBar" role="progressbar" style="width: 0%"></div>
-                    <div class="progress-bar bg-secondary" id="NewBar" role="progressbar" style="width: 0%"></div>
-                  </div>
-                  <div class="text-center text-muted mt-2" style="font-size: 0.8rem;">
-                    <span id="masteryText">0% pinyin mastered</span>
-                  </div>
-                </div>
+        const data = await accountRes.json();
+        const quizData = quizRes.ok ? await quizRes.json() : null;
 
-                <!-- NOUVEAU : Jauge Caractères -->
-                <div class="progress-container mt-3">
-                  <div class="progress" style="height: 8px;">
-                    <div class="progress-bar bg-primary" id="charMasteredBar" role="progressbar" style="width: 0%">
-                    </div>
-                    <div class="progress-bar bg-info" id="charLearningBar" role="progressbar" style="width: 0%"></div>
-                    <div class="progress-bar bg-warning" id="charMediumBar" role="progressbar" style="width: 0%"></div>
-                    <div class="progress-bar bg-secondary" id="charNewBar" role="progressbar" style="width: 0%"></div>
-                  </div>
-                  <div class="text-center text-muted mt-2" style="font-size: 0.8rem;">
-                    <span id="charMasteryText">0% characters mastered</span>
-                  </div>
-                </div>
+        // Greeting + hidden name
+        const firstName = (data.name || 'User').split(' ')[0];
+        document.getElementById('greetingName').textContent = firstName;
+        document.getElementById('userNameDisplay').textContent = data.name || '';
 
-              </div>
-            </div>
-          </div>
+        // Tagline + Flag
+        document.getElementById('taglineText').textContent = data.tagline || 'Learning Chinese!';
+        document.getElementById('userFlagDisplay').textContent =
+          data.country ? getFlagEmoji(data.country) : '🏳️';
 
-          <!-- Colonne Données (DEUXIEME sur mobile) -->
-          <div class="col-12 col-lg-8 mobile-order-2">
-            <!-- Statistiques des mots -->
-            <div class="card">
-              <div class="card-header">
-                <h6 class="mb-0 d-flex align-items-center">
-                  <i class="bi bi-bar-chart me-2"></i>
-                  Words statistics
-                </h6>
-              </div>
-              <div class="card-body">
-                <ul id="hskStats" class="list-group list-group-flush"></ul>
-              </div>
-            </div>
+        // Global stats
+        document.getElementById('totalWords').textContent = data.wordCount || 0;
+        document.getElementById('totalQuizzes').textContent = data.stats?.total_quizzes || 0;
+        document.getElementById('totalDuels').textContent = data.stats?.total_duels || 0;
 
-            <!-- Derniers Quiz -->
-            <div class="card mt-4">
-              <div class="card-header">
-                <h6 class="mb-0 d-flex align-items-center">
-                  <i class="bi bi-clock me-2"></i>
-                  Recent quizzes
-                </h6>
-              </div>
-              <div class="card-body">
-                <div id="recent-quizzes">
-                  <div class="text-center text-muted py-3">
-                    <div class="spinner-border spinner-border-sm" role="status"></div>
-                    <span class="ms-2">Loading...</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-      <script>
-        // Initialisation
-        document.addEventListener('DOMContentLoaded', function () {
-          loadUserData();
-          loadQuizStats();
-          loadContributionsGrid();
-          loadPendingDuels('pending-duels-account');
-          loadPerformanceStats(); // Ajouter cette ligne
-        });
-
-
-        // Données utilisateur
-        async function loadUserData() {
-          try {
-            const res = await fetch('/account-info');
-            const data = await res.json();
-
-            console.log('🔍 DEBUG - Données reçues:', data);
-
-            // Mettre à jour les informations du profil
-            const userNameDisplay = document.getElementById('userNameDisplay');
-            const taglineText = document.getElementById('taglineText');
-            const userFlagDisplay = document.getElementById('userFlagDisplay');
-
-            if (userNameDisplay) {
-              userNameDisplay.textContent = data.name || 'Unknown';
-            }
-
-            if (taglineText) {
-              taglineText.textContent = data.tagline || 'Learning Chinese characters!';
-            }
-
-            // CORRECTION : Mettre à jour le drapeau avec la donnée country
-            if (userFlagDisplay) {
-              if (data.country && data.country.trim() !== '') {
-                userFlagDisplay.textContent = getFlagEmoji(data.country);
-                console.log('🎯 Drapeau mis à jour:', data.country, '->', getFlagEmoji(data.country));
-              } else {
-                userFlagDisplay.textContent = '🏳️';
-                console.log('🎯 Drapeau par défaut (pas de pays)');
-              }
-            }
-
-            // Le reste pour les stats HSK...
-            const hskStatsElement = document.getElementById('hskStats');
-            if (hskStatsElement && data.stats) {
-              hskStatsElement.innerHTML = '';
-
-              const hskLevels = Object.keys(data.stats).filter(key =>
-                key === 'Street' || key.startsWith('HSK')
-              );
-
-              for (const level of hskLevels) {
-                const li = document.createElement('li');
-                li.className = 'list-group-item d-flex justify-content-between align-items-center py-2';
-                li.textContent = level;
-
-                const badge = document.createElement('span');
-                const badgeClass = level === 'Street' ? 'bg-success' : 'bg-primary';
-                badge.className = `badge ${badgeClass}`;
-                badge.textContent = data.stats[level];
-
-                li.appendChild(badge);
-                hskStatsElement.appendChild(li);
-              }
-            }
-
-          } catch (err) {
-            console.error('Error loading data:', err);
-          }
+        // Progress bars (pinyin + characters)
+        const words = data.user_mots || [];
+        if (words.length > 0) {
+          updateProgressBars(words);
         }
 
-        // Stats quiz
-        async function loadQuizStats() {
-          try {
-            const response = await fetch('/api/quiz/history?limit=5');
-            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-            const data = await response.json();
+        // HSK stats with mastery %
+        renderHskStats(data.stats, words);
 
-            const recentQuizzes = document.getElementById('recent-quizzes');
+        // Recent quizzes
+        renderRecentQuizzes(quizData);
 
-            if (!data.quizzes || data.quizzes.length === 0) {
-              recentQuizzes.innerHTML = `
-            <div class="text-center text-muted py-3">
-              <i class="bi bi-clock fs-2 opacity-50"></i>
-              <div class="small mt-2">No recent quiz</div>
-              <a href="/quiz-pinyin" class="btn btn-outline-primary btn-sm mt-2">Start</a>
+      } catch (err) {
+        console.error('Error loading account data:', err);
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // PROGRESS BARS
+    // ─────────────────────────────────────────────
+    function updateProgressBars(words) {
+      const total = words.length;
+      if (total === 0) return;
+
+      function getDistribution(scores) {
+        return {
+          mastered: scores.filter(s => s >= 90).length,
+          learning: scores.filter(s => s >= 60 && s < 90).length,
+          medium:   scores.filter(s => s >= 30 && s < 60).length,
+          novice:   scores.filter(s => s < 30).length,
+        };
+      }
+
+      const pinyinDist = getDistribution(words.map(w => w.score || 0));
+      const charDist   = getDistribution(words.map(w => w.score_character || 0));
+
+      function applyGauge(prefix, dist) {
+        const pct = v => (v / total * 100).toFixed(1) + '%';
+        const set = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.style.width = pct(val);
+        };
+        set(prefix + 'MasteredBar', dist.mastered);
+        set(prefix + 'LearningBar', dist.learning);
+        set(prefix + 'MediumBar',   dist.medium);
+        set(prefix + 'NewBar',      dist.novice);
+      }
+
+      applyGauge('', pinyinDist);
+      document.getElementById('masteryText').textContent =
+        Math.round((pinyinDist.mastered / total) * 100) + '% pinyin mastered';
+
+      applyGauge('char', charDist);
+      document.getElementById('charMasteryText').textContent =
+        Math.round((charDist.mastered / total) * 100) + '% characters mastered';
+    }
+
+    // ─────────────────────────────────────────────
+    // HSK STATS
+    // ─────────────────────────────────────────────
+    function renderHskStats(stats, words) {
+      const el = document.getElementById('hskStats');
+      if (!el || !stats) return;
+
+      // Group word scores per HSK level
+      const groups = {};
+      words.forEach(w => {
+        const lvl = w.hsk ? `HSK${w.hsk}` : 'Street';
+        if (!groups[lvl]) groups[lvl] = [];
+        groups[lvl].push(w.score || 0);
+      });
+
+      const order = ['HSK1', 'HSK2', 'HSK3', 'HSK4', 'HSK5', 'HSK6', 'Street'];
+      const labels = {
+        HSK1: 'HSK 1', HSK2: 'HSK 2', HSK3: 'HSK 3',
+        HSK4: 'HSK 4', HSK5: 'HSK 5', HSK6: 'HSK 6', Street: 'HSK Street'
+      };
+
+      el.innerHTML = order.map(key => {
+        const count = stats[key] || stats[labels[key]] || 0;
+        if (!count) return '';
+
+        const scores = groups[key] || [];
+        const mastered = scores.filter(s => s >= 90).length;
+        const pct = scores.length > 0 ? Math.round((mastered / scores.length) * 100) : 0;
+        const masteryLabel = pct > 0 ? `${pct}% mastered` : '-';
+        const badgeColor = key === 'Street' ? 'bg-success' : 'bg-primary';
+
+        return `
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span class="fw-medium">${labels[key]}</span>
+            <div class="d-flex align-items-center gap-2">
+              <span class="hsk-mastery">${masteryLabel}</span>
+              <span class="badge ${badgeColor} rounded-pill">${count}</span>
             </div>
-          `;
-              return;
-            }
+          </li>`;
+      }).filter(Boolean).join('');
 
-            recentQuizzes.innerHTML = data.quizzes.map(quiz => `
-          <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
-            <div>
-              <span class="badge bg-${getQuizTypeColor(quiz.quiz_type)} me-2 small">
-                ${quiz.quiz_type}
-              </span>
-              <span class="fw-medium">${quiz.score}/${quiz.total_questions}</span>
-              <span class="text-${getScoreColor(quiz.ratio)} small ms-1">
-                (${Math.round(quiz.ratio)}%)
-              </span>
+      if (!el.innerHTML) {
+        el.innerHTML = `<li class="list-group-item text-muted text-center py-3">No words yet</li>`;
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // RECENT QUIZZES
+    // ─────────────────────────────────────────────
+    function renderRecentQuizzes(data) {
+      const el = document.getElementById('recent-quizzes');
+      if (!el) return;
+
+      if (!data || !data.quizzes || data.quizzes.length === 0) {
+        el.innerHTML = `<p class="text-muted text-center small py-2 mb-0">No quizzes yet</p>`;
+        return;
+      }
+
+      el.innerHTML = data.quizzes.map(quiz => {
+        const coins = calcCoins(quiz.ratio || 0);
+        const coinsText = coins > 0 ? `+${coins} coins` : '0 coins';
+        const dateStr = new Date(quiz.date_completed).toLocaleDateString('fr-FR');
+        const typeLabel = quiz.quiz_type
+          ? quiz.quiz_type.charAt(0).toUpperCase() + quiz.quiz_type.slice(1)
+          : 'Quiz';
+        const typeColor = getQuizTypeColor(quiz.quiz_type);
+
+        return `
+          <div class="quiz-row">
+            <div class="quiz-left">
+              <span class="badge bg-${typeColor}">${typeLabel}</span>
+              <span class="quiz-score">${quiz.score}/${quiz.total_questions}</span>
+              <span class="quiz-coins">${coinsText}</span>
             </div>
-            <small class="text-muted">
-              ${new Date(quiz.date_completed).toLocaleDateString('fr-FR')}
-            </small>
-          </div>
-        `).join('');
+            <span class="quiz-date">${dateStr}</span>
+          </div>`;
+      }).join('');
+    }
 
-          } catch (error) {
-            console.error('Erreur stats quiz:', error);
-            const recentQuizzes = document.getElementById('recent-quizzes');
-            recentQuizzes.innerHTML = `
-          <div class="alert alert-warning small mb-0">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            Unable to load recent quizzes
-          </div>
-        `;
-          }
+    // ─────────────────────────────────────────────
+    // CONTRIBUTIONS GRID
+    // ─────────────────────────────────────────────
+    async function loadContributionsGrid() {
+      try {
+        const year = new Date().getFullYear();
+        const res = await fetch(`/api/contributions?year=${year}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        const data = await res.json();
+        const activeDays = (data || []).filter(d => parseInt(d.count || 0) > 0).length;
+        document.getElementById('contributions-total').textContent =
+          `${activeDays} days of practice in ${year}`;
+
+        generateContributionsGrid(data || []);
+      } catch (err) {
+        console.error('Contributions error:', err);
+        document.getElementById('contributions-total').textContent = '- days of practice';
+        displayContributionsError();
+      }
+    }
+
+    function generateContributionsGrid(contributionsData) {
+      const grid = document.getElementById('contributionsGrid');
+      const map = {};
+      contributionsData.forEach(item => { map[item.date] = parseInt(item.count || 0); });
+
+      const dates = generateCurrentYearDates();
+      const todayNorm = new Date();
+      todayNorm.setHours(0, 0, 0, 0);
+
+      grid.innerHTML = '';
+      dates.forEach(date => {
+        const dateStr = date.toISOString().split('T')[0];
+        const dateNorm = new Date(date);
+        dateNorm.setHours(0, 0, 0, 0);
+        const isFuture = dateNorm > todayNorm;
+
+        const day = document.createElement('div');
+        if (isFuture) {
+          day.className = 'contribution-day future-day';
+        } else {
+          const count = map[dateStr] || 0;
+          day.className = `contribution-day level-${getContributionLevel(count)}`;
+          day.title = `${formatDate(dateStr)}: ${count} quiz`;
         }
+        grid.appendChild(day);
+      });
+    }
 
-        function displayNoQuizData() {
-          const statsContainer = document.getElementById('quiz-stats');
-          const recentQuizzes = document.getElementById('recent-quizzes');
+    // ─────────────────────────────────────────────
+    // PENDING DUELS
+    // ─────────────────────────────────────────────
+    async function loadPendingDuels(containerId) {
+      try {
+        const res = await fetch('/api/duels/pending');
+        const duels = await res.json();
+        const container = document.getElementById(containerId);
+        const section  = document.getElementById('pending-duels-section');
 
-          statsContainer.innerHTML = `
-        <div class="text-center">
-          <div class="h5 text-primary mb-1">0%</div>
-          <div class="text-muted small">No statistics</div>
-        </div>
-        <div class="row text-center mt-3">
-          <div class="col-6">
-            <div class="small fw-medium">0</div>
-            <div class="text-muted small">Total</div>
-          </div>
-          <div class="col-6">
-            <div class="small fw-medium">0%</div>
-            <div class="text-muted small">Best</div>
-          </div>
-        </div>
-      `;
+        if (!duels || duels.length === 0) { section.style.display = 'none'; return; }
+        section.style.display = 'block';
 
-          recentQuizzes.innerHTML = `
-        <div class="text-center text-muted py-3">
-          <i class="bi bi-clock fs-2 opacity-50"></i>
-          <div class="small mt-2">No recent quiz</div>
-          <a href="/quiz-pinyin" class="btn btn-outline-primary btn-sm mt-2">Start</a>
-        </div>
-      `;
-        }
+        container.innerHTML = duels.map(duel => {
+          const isChallenger = duel.user_role === 'challenger';
+          const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name;
+          const shortName = opponentName.split(' ')[0];
+          const userScore     = isChallenger ? duel.challenger_score : duel.opponent_score;
+          const opponentScore = isChallenger ? duel.opponent_score  : duel.challenger_score;
+          const hasUserPlayed     = userScore !== null;
+          const hasOpponentPlayed = opponentScore !== null;
 
-        function displayQuizStats(data) {
-          const statsContainer = document.getElementById('quiz-stats');
-          const recentQuizzes = document.getElementById('recent-quizzes');
-
-          statsContainer.innerHTML = `
-        <div class="text-center">
-          <div class="h5 text-primary mb-1">${Math.round(data.stats.average_ratio || 0)}%</div>
-          <div class="text-muted small">Moyenne</div>
-        </div>
-        <div class="row text-center mt-3">
-          <div class="col-6">
-            <div class="small fw-medium">${data.stats.total_quizzes}</div>
-            <div class="text-muted small">Total</div>
-          </div>
-          <div class="col-6">
-            <div class="small fw-medium">${data.stats.best_score ? Math.round(data.stats.best_score) : 0}%</div>
-            <div class="text-muted small">Meilleur</div>
-          </div>
-        </div>
-      `;
-
-          recentQuizzes.innerHTML = data.quizzes.map(quiz => `
-        <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
-          <div>
-            <span class="badge bg-${getQuizTypeColor(quiz.quiz_type)} me-2 small">
-              ${quiz.quiz_type}
-            </span>
-            <span class="fw-medium">${quiz.score}/${quiz.total_questions}</span>
-            <span class="text-${getScoreColor(quiz.ratio)} small ms-1">
-              (${Math.round(quiz.ratio)}%)
-            </span>
-          </div>
-          <small class="text-muted">
-            ${new Date(quiz.date_completed).toLocaleDateString('fr-FR')}
-          </small>
-        </div>
-      `).join('');
-        }
-
-        function displayQuizStatsError() {
-          const statsContainer = document.getElementById('quiz-stats');
-          if (statsContainer) {
-            statsContainer.innerHTML = `
-          <div class="alert alert-warning small">
-            <i class="bi bi-exclamation-triangle me-1"></i>
-            Data unavailable
-          </div>
-        `;
+          let status = '', cta = '';
+          if (!hasUserPlayed) {
+            status = '<span class="badge bg-primary small">To play</span>';
+            cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">Play</button>`;
+          } else if (!hasOpponentPlayed) {
+            status = '<span class="badge bg-secondary small">Waiting</span>';
           } else {
-            console.warn('Element #quiz-stats not found');
+            status = '<span class="badge bg-success small">Completed</span>';
+            cta = `<button class="btn btn-sm btn-outline-secondary" onclick="viewDuelResult(${duel.id})">View</button>`;
           }
-        }
 
-        // Contributions
-        async function loadContributionsGrid() {
-          try {
-            const currentYear = new Date().getFullYear();
-            const response = await fetch(`/api/contributions?year=${currentYear}`, {
-              credentials: 'include'
-            });
-
-            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
-
-            const data = await response.json();
-
-            if (!data || data.length === 0) {
-              displayNoContributions();
-            } else {
-              const totalQuizzes = data.reduce((sum, item) => sum + parseInt(item.count || 0), 0);
-              document.getElementById('contributions-total').textContent = `${totalQuizzes} quiz`;
-              generateContributionsGrid(data);
-            }
-
-          } catch (error) {
-            console.error('Erreur contributions:', error);
-            displayContributionsError();
-          }
-        }
-
-        function displayNoContributions() {
-          const grid = document.getElementById('contributionsGrid');
-          document.getElementById('contributions-total').textContent = '0 quiz';
-
-          const dates = generateCurrentYearDates();
-          const today = new Date();
-          const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-          grid.innerHTML = '';
-
-          dates.forEach(date => {
-            const dateString = date.toISOString().split('T')[0];
-            const dateNormalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-            const isFuture = dateNormalized > todayNormalized;
-
-            const dayElement = document.createElement('div');
-
-            if (isFuture) {
-              dayElement.className = 'contribution-day future-day';
-              dayElement.setAttribute('data-count', 0);
-              dayElement.setAttribute('data-date', 'Jour futur');
-            } else {
-              dayElement.className = 'contribution-day level-0';
-              dayElement.setAttribute('data-count', 0);
-              dayElement.setAttribute('data-date', formatDate(dateString));
-            }
-
-            grid.appendChild(dayElement);
-          });
-        }
-
-        function generateContributionsGrid(contributionsData) {
-          const grid = document.getElementById('contributionsGrid');
-          const contributionsMap = {};
-
-          contributionsData.forEach(item => {
-            contributionsMap[item.date] = parseInt(item.count);
-          });
-
-          const dates = generateCurrentYearDates();
-          const today = new Date();
-          const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-          grid.innerHTML = '';
-
-          dates.forEach(date => {
-            const dateString = date.toISOString().split('T')[0];
-            const dateNormalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-            const isFuture = dateNormalized > todayNormalized;
-
-            const dayElement = document.createElement('div');
-
-            if (isFuture) {
-              dayElement.className = 'contribution-day future-day';
-              dayElement.setAttribute('data-count', 0);
-              dayElement.setAttribute('data-date', 'Jour futur');
-            } else {
-              const count = contributionsMap[dateString] || 0;
-              const level = getContributionLevel(count);
-              dayElement.className = `contribution-day level-${level}`;
-              dayElement.setAttribute('data-count', count);
-              dayElement.setAttribute('data-date', formatDate(dateString));
-            }
-
-            grid.appendChild(dayElement);
-          });
-        }
-
-        // Duels en attente - AFFICHAGE CONDITIONNEL
-        async function loadPendingDuels(containerId) {
-          try {
-            const response = await fetch('/api/duels/pending');
-            const duels = await response.json();
-
-            const container = document.getElementById(containerId);
-            const section = document.getElementById('pending-duels-section');
-
-            if (!duels || duels.length === 0) {
-              // Masquer complètement la section si pas de duels
-              section.style.display = 'none';
-              return;
-            }
-
-            // Afficher la section et montrer les duels
-            section.style.display = 'block';
-
-            container.innerHTML = duels.map(duel => {
-              const isChallenger = duel.user_role === 'challenger';
-              const opponentName = isChallenger ? duel.opponent_name : duel.challenger_name;
-              const shortName = opponentName.split(' ')[0];
-
-              const userScore = isChallenger ? duel.challenger_score : duel.opponent_score;
-              const opponentScore = isChallenger ? duel.opponent_score : duel.challenger_score;
-
-              const hasUserPlayed = userScore !== null;
-              const hasOpponentPlayed = opponentScore !== null;
-
-              let status = '', cta = '';
-
-              if (!hasUserPlayed) {
-                status = '<span class="badge bg-primary small">To play</span>';
-                cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">Play</button>`;
-              } else if (!hasOpponentPlayed) {
-                status = '<span class="badge bg-secondary small">Waiting</span>';
-                cta = '';
-              } else {
-                status = '<span class="badge bg-success small">Completed</span>';
-                cta = `<button class="btn btn-sm btn-outline-secondary" onclick="viewDuelResult(${duel.id})">View</button>`;
-              }
-
-              return `
+          return `
             <div class="d-flex justify-content-between align-items-center border-bottom py-2">
-              <div class="d-flex align-items-center">
-                <div class="avatar me-2">
-                  <i class="bi bi-person"></i>
-                </div>
+              <div class="d-flex align-items-center gap-2">
+                <div class="avatar"><i class="bi bi-person"></i></div>
                 <div>
                   <div class="small fw-medium">${shortName}</div>
-                  <div class="text-muted" style="font-size: 0.75rem;">
-                    ${userScore || '?'} - ${opponentScore || '?'}
-                    ${status}
+                  <div class="text-muted" style="font-size:.75rem">
+                    ${userScore ?? '?'} - ${opponentScore ?? '?'} ${status}
                   </div>
                 </div>
               </div>
               ${cta}
-            </div>
-          `;
-            }).join('');
+            </div>`;
+        }).join('');
+      } catch (err) {
+        console.error('Pending duels error:', err);
+        document.getElementById('pending-duels-section').style.display = 'none';
+      }
+    }
 
-          } catch (error) {
-            console.error('Erreur duels:', error);
-            // En cas d'erreur, masquer aussi la section
-            document.getElementById('pending-duels-section').style.display = 'none';
-          }
+    // ─────────────────────────────────────────────
+    // PROFILE EDIT MODAL
+    // ─────────────────────────────────────────────
+    function openEditProfileModal() {
+      document.getElementById('editName').value    = document.getElementById('userNameDisplay').textContent;
+      document.getElementById('editTagline').value = document.getElementById('taglineText').textContent;
+      const flag = document.getElementById('userFlagDisplay').textContent;
+      document.getElementById('editCountry').value = getCountryFromFlag(flag);
+      new bootstrap.Modal(document.getElementById('editProfileModal')).show();
+    }
+
+    async function saveProfile() {
+      const name    = document.getElementById('editName').value.trim();
+      const tagline = document.getElementById('editTagline').value.trim();
+      const country = document.getElementById('editCountry').value;
+
+      if (!name) { showNotification('Name cannot be empty', 'error'); return; }
+
+      const btn = document.querySelector('#editProfileModal .btn-primary');
+      const orig = btn?.innerHTML;
+      if (btn) { btn.innerHTML = '<i class="bi bi-hourglass me-1"></i>Saving...'; btn.disabled = true; }
+
+      try {
+        const res = await fetch('/api/user/update-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, tagline, country }),
+          credentials: 'include'
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.message || 'HTTP ' + res.status);
+
+        if (result.success) {
+          document.getElementById('greetingName').textContent = name.split(' ')[0];
+          document.getElementById('userNameDisplay').textContent = name;
+          document.getElementById('taglineText').textContent = tagline || 'Learning Chinese!';
+          document.getElementById('userFlagDisplay').textContent = country ? getFlagEmoji(country) : '🏳️';
+          bootstrap.Modal.getInstance(document.getElementById('editProfileModal'))?.hide();
+          showNotification('Profile updated!', 'success');
+        } else {
+          throw new Error(result.message || 'Unknown error');
         }
+      } catch (err) {
+        showNotification('Error: ' + err.message, 'error');
+      } finally {
+        if (btn) { btn.innerHTML = orig; btn.disabled = false; }
+      }
+    }
 
-        // Chargement des performances
-        async function loadPerformanceStats() {
-          try {
-            const response = await fetch('/account-info');
-            const data = await response.json();
+    // ─────────────────────────────────────────────
+    // UTILS
+    // ─────────────────────────────────────────────
+    function calcCoins(ratio) {
+      if (ratio >= 71) return 5;
+      if (ratio >= 51) return 3;
+      if (ratio >= 1)  return 2;
+      return 0;
+    }
 
-            console.log('Performance data received:', data);
+    function getFlagEmoji(code) {
+      if (!code || !code.trim()) return '🏳️';
+      try {
+        return String.fromCodePoint(...code.toUpperCase().split('').map(c => 127397 + c.charCodeAt()));
+      } catch { return '🏳️'; }
+    }
 
-            document.getElementById('totalWords').textContent = data.wordCount || 0;
-            document.getElementById('totalQuizzes').textContent = data.stats?.total_quizzes || 0;
-            document.getElementById('totalDuels').textContent = data.stats?.total_duels || 0;
+    function getCountryFromFlag(flag) {
+      const map = { '🇫🇷':'FR','🇺🇸':'US','🇬🇧':'GB','🇩🇪':'DE','🇪🇸':'ES',
+                    '🇮🇹':'IT','🇯🇵':'JP','🇰🇷':'KR','🇨🇳':'CN','🇨🇦':'CA','🇦🇺':'AU','🇧🇷':'BR' };
+      return map[flag] || '';
+    }
 
-            const words = data.user_mots || [];
-            const total = words.length;
+    function getQuizTypeColor(type) {
+      return { pinyin:'primary', character:'warning', mixed:'success' }[type] || 'secondary';
+    }
 
-            if (total === 0) {
-              document.getElementById('masteryText').textContent = 'No words';
-              document.getElementById('charMasteryText').textContent = 'No words';
-              return;
-            }
+    function generateCurrentYearDates() {
+      const dates = [];
+      const year = new Date().getFullYear();
+      const start = new Date(year, 0, 1);
+      const end   = new Date(year, 11, 31);
+      const day = new Date(start);
+      const dow = day.getDay();
+      day.setDate(day.getDate() + (dow === 0 ? -6 : 1 - dow));
+      while (day <= end) { dates.push(new Date(day)); day.setDate(day.getDate() + 1); }
+      return dates;
+    }
 
-            function getDistribution(scores) {
-              return {
-                mastered: scores.filter(s => s >= 90).length,
-                learning: scores.filter(s => s >= 60 && s < 90).length,
-                medium: scores.filter(s => s >= 30 && s < 60).length,
-                new_words: scores.filter(s => s < 30).length
-              };
-            }
+    function getContributionLevel(count) {
+      if (!count) return 0;
+      if (count === 1) return 1;
+      if (count <= 3) return 2;
+      if (count <= 5) return 3;
+      return 4;
+    }
 
-            const pinyinDist = getDistribution(words.map(w => w.score || 0));
-            const charDist = getDistribution(words.map(w => w.score_character || 0));
+    function formatDate(dateStr) {
+      return new Date(dateStr).toLocaleDateString('fr-FR');
+    }
 
-            function updateGauge(prefix, dist, total) {
-              const els = {
-                mastered: document.getElementById(prefix + 'MasteredBar'),
-                learning: document.getElementById(prefix + 'LearningBar'),
-                medium: document.getElementById(prefix + 'MediumBar'),
-                new_words: document.getElementById(prefix + 'NewBar')
-              };
-              if (!els.mastered) return;
+    function playDuel(id)       { window.location.href = `/duel-play/${id}`; }
+    function viewDuelResult(id) { window.location.href = `/duels?view_result=${id}`; }
 
-              const percent = (val) => (val / total * 100).toFixed(1);
-              els.mastered.style.width = percent(dist.mastered) + '%';
-              els.learning.style.width = percent(dist.learning) + '%';
-              els.medium.style.width = percent(dist.medium) + '%';
-              els.new_words.style.width = percent(dist.new_words) + '%';
-            }
+    function displayContributionsError() {
+      document.getElementById('contributionsGrid').innerHTML =
+        '<div class="text-center text-muted py-2 small"><i class="bi bi-exclamation-triangle me-1"></i>Unavailable</div>';
+    }
 
-            updateGauge('', pinyinDist, total);
-            document.getElementById('masteryText').textContent =
-              Math.round((pinyinDist.mastered / total) * 100) + '% Pinyin mastered';
+    function showNotification(message, type = 'success') {
+      const container = document.getElementById('notificationContainer');
+      const n = document.createElement('div');
+      n.className = `alert alert-${type} alert-dismissible fade show`;
+      n.role = 'alert';
+      n.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+      container.appendChild(n);
+      setTimeout(() => new bootstrap.Alert(n).close(), 5000);
+    }
+  </script>
 
-            updateGauge('char', charDist, total);
-            document.getElementById('charMasteryText').textContent =
-              Math.round((charDist.mastered / total) * 100) + '% Characters Mastered';
-
-          } catch (error) {
-            console.error('Erreur chargement performances:', error);
-            displayPerformanceError();
-          }
-        }
-
-        function updateProgressBar(id, value, total) {
-          const percentage = total > 0 ? (value / total) * 100 : 0;
-          const bar = document.getElementById(id);
-          if (bar) {
-            bar.style.width = `${percentage}%`;
-            // Ajout d'un titre au survol pour voir les détails
-            bar.title = `${value} mots (${percentage.toFixed(1)}%)`;
-          }
-        }
-
-        function displayPerformanceError() {
-          const container = document.querySelector('.card-body');
-          container.innerHTML = `
-        <div class="alert alert-warning small mb-0">
-          <i class="bi bi-exclamation-triangle me-2"></i>
-          Unable to load performance data
-        </div>
-      `;
-        }
-
-        // Utilitaires
-        function generateCurrentYearDates() {
-          const dates = [];
-          const today = new Date();
-          const currentYear = today.getFullYear();
-          const startDate = new Date(currentYear, 0, 1);
-          const endDate = new Date(currentYear, 11, 31);
-
-          const firstMonday = new Date(startDate);
-          const dayOfWeek = firstMonday.getDay();
-          const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-          firstMonday.setDate(firstMonday.getDate() + diffToMonday);
-
-          const currentDate = new Date(firstMonday);
-          while (currentDate <= endDate) {
-            dates.push(new Date(currentDate));
-            currentDate.setDate(currentDate.getDate() + 1);
-          }
-
-          return dates;
-        }
-
-        function getContributionLevel(count) {
-          if (count === 0) return 0;
-          if (count === 1) return 1;
-          if (count <= 3) return 2;
-          if (count <= 5) return 3;
-          return 4;
-        }
-
-        function formatDate(dateString) {
-          return new Date(dateString).toLocaleDateString('fr-FR');
-        }
-
-        function getScoreColor(ratio) {
-          if (ratio >= 80) return 'success';
-          if (ratio >= 60) return 'warning';
-          return 'danger';
-        }
-
-        function getQuizTypeColor(type) {
-          const colors = {
-            'pinyin': 'info',
-            'character': 'warning',
-            'mixed': 'success'
-          };
-          return colors[type] || 'secondary';
-        }
-
-        function playDuel(duelId) {
-          window.location.href = `/duel-play/${duelId}`;
-        }
-
-        function viewDuelResult(duelId) {
-          window.location.href = `/duels?view_result=${duelId}`;
-        }
-
-        function displayContributionsError() {
-          document.getElementById('contributionsGrid').innerHTML = `
-        <div class="text-center text-warning py-3">
-          <i class="bi bi-exclamation-triangle"></i>
-          <div class="small mt-1">Données indisponibles</div>
-        </div>
-      `;
-        }
-
-        // Fonction helper pour les drapeaux (à ajouter dans votre backend EJS ou frontend)
-        function getFlagEmoji(countryCode) {
-          if (!countryCode || countryCode.trim() === '') {
-            return '🏳️';
-          }
-
-          try {
-            // Nettoyer le code pays
-            const cleanCode = countryCode.toUpperCase().trim();
-            console.log('🔄 Conversion drapeau:', cleanCode);
-
-            const codePoints = cleanCode.split('').map(char =>
-              127397 + char.charCodeAt()
-            );
-            const flag = String.fromCodePoint(...codePoints);
-            console.log('✅ Drapeau généré:', flag);
-            return flag;
-          } catch (error) {
-            console.warn('❌ Erreur génération drapeau:', error, 'pour countryCode:', countryCode);
-            return '🏳️';
-          }
-        }
-
-        // Ouvrir le modal d'édition
-        function openEditProfileModal() {
-          // Récupérer les valeurs actuelles directement depuis les éléments
-          const currentName = document.getElementById('userNameDisplay').textContent;
-          const currentTagline = document.getElementById('taglineText').textContent;
-          const currentFlag = document.getElementById('userFlagDisplay').textContent;
-
-          // Remplir les champs du modal
-          document.getElementById('editName').value = currentName;
-          document.getElementById('editTagline').value = currentTagline;
-
-          // Déterminer le pays à partir du drapeau affiché
-          const countrySelect = document.getElementById('editCountry');
-          const countryFromFlag = getCountryFromFlag(currentFlag);
-
-          if (countryFromFlag) {
-            countrySelect.value = countryFromFlag;
-          } else {
-            countrySelect.value = ''; // "Select your country"
-          }
-
-          // Ouvrir le modal
-          const modal = new bootstrap.Modal(document.getElementById('editProfileModal'));
-          modal.show();
-        }
-
-        // Helper pour obtenir le code pays à partir du drapeau emoji
-        function getCountryFromFlag(flagEmoji) {
-          const flagToCountry = {
-            '🇫🇷': 'FR',
-            '🇺🇸': 'US',
-            '🇬🇧': 'GB',
-            '🇩🇪': 'DE',
-            '🇪🇸': 'ES',
-            '🇮🇹': 'IT',
-            '🇯🇵': 'JP',
-            '🇰🇷': 'KR',
-            '🇨🇳': 'CN',
-            '🇨🇦': 'CA',
-            '🇦🇺': 'AU',
-            '🇧🇷': 'BR',
-            '🏳️': '' // Drapeau neutre = pas de pays sélectionné
-          };
-          return flagToCountry[flagEmoji] || '';
-        }
-
-        // Helper pour obtenir le code pays à partir du nom affiché
-        function getCountryNameFromDisplay(displayText) {
-          const countries = {
-            'France': 'FR',
-            'United States': 'US',
-            'United Kingdom': 'GB',
-            'Germany': 'DE',
-            'Spain': 'ES',
-            'Italy': 'IT',
-            'Japan': 'JP',
-            'South Korea': 'KR',
-            'China': 'CN',
-            'Canada': 'CA',
-            'Australia': 'AU',
-            'Brazil': 'BR',
-            'Not specified': ''
-          };
-
-          return countries[displayText] || '';
-        }
-
-        // Sauvegarder le profil
-        async function saveProfile() {
-          const name = document.getElementById('editName').value.trim();
-          const tagline = document.getElementById('editTagline').value.trim();
-          const country = document.getElementById('editCountry').value;
-
-          console.log('🔍 Debug saveProfile - Éléments:', {
-            editName: document.getElementById('editName'),
-            editTagline: document.getElementById('editTagline'),
-            editCountry: document.getElementById('editCountry'),
-            userNameDisplay: document.getElementById('userNameDisplay'),
-            taglineText: document.getElementById('taglineText'),
-            userFlagDisplay: document.getElementById('userFlagDisplay'),
-            saveButton: document.querySelector('#editProfileModal .btn-primary')
-          });
-
-          if (!name) {
-            showNotification('Name cannot be empty', 'error');
-            return;
-          }
-
-          const saveButton = document.querySelector('#editProfileModal .btn-primary');
-          const originalHTML = saveButton ? saveButton.innerHTML : '<i class="bi bi-check me-1"></i>Save'; // ← CORRECTION: originalHTML au lieu de originalText
-
-          try {
-            if (saveButton) {
-              saveButton.innerHTML = '<i class="bi bi-hourglass me-2"></i>Saving...';
-              saveButton.disabled = true;
-            }
-            // ← SUPPRIMER l'accolade fermante en trop ici
-
-            const response = await fetch('/api/user/update-profile', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                name: name,
-                tagline: tagline,
-                country: country
-              }),
-              credentials: 'include'
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-              throw new Error(result.message || `HTTP error: ${response.status}`);
-            }
-
-            if (result.success) {
-              // Mettre à jour l'affichage avec vérifications
-              const userNameDisplay = document.getElementById('userNameDisplay');
-              const taglineText = document.getElementById('taglineText');
-              const userFlagDisplay = document.getElementById('userFlagDisplay');
-
-              if (userNameDisplay) userNameDisplay.textContent = name;
-              if (taglineText) taglineText.textContent = tagline || 'Learning Chinese characters!';
-              if (userFlagDisplay) {
-                userFlagDisplay.textContent = country ? getFlagEmoji(country) : '🏳️';
-              }
-
-              // Fermer le modal
-              const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
-              if (modal) modal.hide();
-
-              showNotification('Profile updated successfully!', 'success');
-
-              // Recharger les données pour s'assurer que tout est synchronisé
-              setTimeout(() => loadUserData(), 500);
-            } else {
-              throw new Error(result.message || 'Unknown error');
-            }
-
-          } catch (error) {
-            console.error('Error updating profile:', error);
-            showNotification('Error: ' + error.message, 'error');
-          } finally {
-            if (saveButton) {
-              saveButton.innerHTML = originalHTML; // ← CORRECTION: utiliser originalHTML
-              saveButton.disabled = false;
-            }
-          }
-        }
-
-        // Helper pour obtenir le nom du pays à partir du code
-        function getCountryName(countryCode) {
-          const countries = {
-            'FR': 'France',
-            'US': 'United States',
-            'GB': 'United Kingdom',
-            'DE': 'Germany',
-            'ES': 'Spain',
-            'IT': 'Italy',
-            'JP': 'Japan',
-            'KR': 'South Korea',
-            'CN': 'China',
-            'CA': 'Canada',
-            'AU': 'Australia',
-            'BR': 'Brazil'
-          };
-          return countries[countryCode] || countryCode;
-        }
-
-        // Notifications
-        function showNotification(message, type = 'success') {
-          const container = document.getElementById('notificationContainer');
-          const notification = document.createElement('div');
-          const icon = type === 'success' ? 'bi-check-circle' : 'bi-exclamation-triangle';
-
-          notification.className = `alert alert-${type} alert-dismissible fade show`;
-          notification.role = 'alert';
-          notification.innerHTML = `
-    <i class="bi ${icon} me-2"></i>
-    ${message}
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-  `;
-
-          container.appendChild(notification);
-
-          // Auto-dismiss after 5 seconds
-          setTimeout(() => {
-            const alert = new bootstrap.Alert(notification);
-            alert.close();
-          }, 5000);
-        }
-
-      </script>
-
-      <!-- Container for notifications -->
-      <div id="notificationContainer" style="position: fixed; top: 1rem; right: 1rem; z-index: 1050;">
-      </div>
+  <div id="notificationContainer" style="position:fixed;top:1rem;right:1rem;z-index:1050;min-width:280px;"></div>
 </body>
 
 </html>

@@ -9,6 +9,50 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="/css/accountandduels.css" rel="stylesheet">
   <style>
+    /* ---- Cards (aligned with account.ejs) ---- */
+    .duels-card {
+      border: none;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+      background-color: #fff;
+      overflow: hidden;
+    }
+    .duels-card .card-header {
+      background-color: #fff;
+      border-bottom: 1px solid #f0f0f0;
+      padding: 1rem 1.25rem;
+    }
+    .duels-card .card-header h6 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #444;
+      display: flex;
+      align-items: center;
+    }
+    .duels-card .card-header h6 i {
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+    .duels-card .card-body {
+      padding: 1.25rem;
+    }
+    .duels-card .card-body.p-0 {
+      padding: 0 !important;
+    }
+
+    /* ---- Desktop layout: sticky "My statistics" left column ---- */
+    @media (min-width: 992px) {
+      .duels-layout {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .duels-sidebar {
+        position: sticky;
+        top: 1rem;
+        align-self: flex-start;
+      }
+    }
+
     /* Styles pour le classement */
     .player-card-mobile {
       display: none;
@@ -340,15 +384,41 @@
     <%- include('partials/navbar', {currentPage: 'duels' }) %>
 
       <!-- Main Content -->
-      <div class="container py-4">
-        <div class="row g-4">
-          <!-- Colonne Gauche (tout) -->
-          <div class="col-12 mobile-order-1">
+      <div class="container py-4 duels-layout">
+        <div class="row g-3 g-lg-4">
+
+          <!-- ── LEFT COLUMN: My statistics (sticky on desktop) ── -->
+          <div class="col-lg-5 col-xl-4">
+            <div class="duels-sidebar">
+              <div class="card duels-card">
+                <div class="card-header">
+                  <h6 class="mb-0">
+                    <i class="bi bi-graph-up me-2 text-muted"></i>
+                    My statistics
+                  </h6>
+                </div>
+                <div class="card-body text-center">
+                  <div id="my-duel-stats">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                  </div>
+                  <div class="mt-4 text-center">
+                    <a href="/leaderboard" class="btn btn-outline-primary btn-sm">
+                      <i class="bi bi-trophy-fill me-1"></i>
+                      See full ranking
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── RIGHT COLUMN: search, recent duels, bullies ── -->
+          <div class="col-lg-7 col-xl-8">
             <!-- Recherche -->
-            <div class="card">
+            <div class="card duels-card">
               <div class="card-header">
-                <h6 class="mb-0 d-flex align-items-center">
-                  <i class="bi bi-search me-2"></i>
+                <h6 class="mb-0">
+                  <i class="bi bi-search me-2 text-muted"></i>
                   Search a duelist
                 </h6>
               </div>
@@ -370,10 +440,10 @@
             </div>
 
             <!-- Section Duels récents -->
-            <div class="card mt-4">
+            <div class="card duels-card mt-3 mt-lg-4">
               <div class="card-header">
-                <h6 class="mb-0 d-flex align-items-center">
-                  <i class="bi bi-clock me-2"></i>
+                <h6 class="mb-0">
+                  <i class="bi bi-clock me-2 text-muted"></i>
                   Recent duels
                 </h6>
               </div>
@@ -384,32 +454,11 @@
               </div>
             </div>
 
-            <!-- My statistics + Ranking -->
-            <div class="card mt-4">
-              <div class="card-header">
-                <h6 class="mb-0 d-flex align-items-center">
-                  <i class="bi bi-graph-up me-2"></i>
-                  My statistics
-                </h6>
-              </div>
-              <div class="card-body text-center">
-                <div id="my-duel-stats">
-                  <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                </div>
-                <div class="mt-4 text-center">
-                  <a href="/leaderboard" class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-trophy-fill me-1"></i>
-                    See full ranking
-                  </a>
-                </div>
-              </div>
-            </div>
-
             <!-- Bullies -->
-            <div class="card mt-4">
+            <div class="card duels-card mt-3 mt-lg-4">
               <div class="card-header d-flex justify-content-between align-items-center">
-                <h6 class="mb-0 d-flex align-items-center">
-                  <i class="bi bi-people-fill me-2"></i>
+                <h6 class="mb-0">
+                  <i class="bi bi-people-fill me-2 text-muted"></i>
                   Bullies
                 </h6>
                 <span class="text-muted small">Click to challenge</span>
@@ -425,7 +474,7 @@
               </div>
             </div>
 
-          </div> <!-- fin col-lg-4 -->
+          </div> <!-- fin right col -->
         </div> <!-- fin row -->
       </div> <!-- fin container -->
 
