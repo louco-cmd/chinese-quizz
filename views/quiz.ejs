@@ -22,13 +22,10 @@
   <style>
     .quiz-card {
       transition: all 0.3s ease;
-      /* Bordure bleue Bootstrap */
       background: linear-gradient(135deg, #007bff, #0056b3);
-      /* Fond blanc */
       height: 100%;
       border-radius: 12px;
       color: #ffffff;
-      /* Texte sombre par défaut */
     }
     .characterCard {
       background: linear-gradient(135deg, #7828a7, #4e1e7e);
@@ -39,11 +36,78 @@
       border-color: #0a58ca;
     }
 
-    .quiz-icon {
-      font-size: 3rem;
-      margin-bottom: 1rem;
+    /* Carte cliquable : feedback visuel */
+    .quiz-card-clickable {
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .quiz-card-clickable:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.35);
+    }
+
+    /* Flèche d'indication de clic */
+    .quiz-card-arrow {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 1.2rem;
+      color: rgba(255, 255, 255, 0.7);
+      transition: transform 0.25s ease, color 0.25s ease;
+      pointer-events: none;
+    }
+
+    /* Hover desktop */
+    @media (hover: hover) {
+      .quiz-card-clickable:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+      }
+      .quiz-card-clickable:hover .quiz-card-arrow {
+        transform: translateX(4px);
+        color: #ffffff;
+      }
+      .quiz-card-clickable:hover .quiz-icon {
+        transform: scale(1.06);
+      }
+    }
+
+    /* Active (mobile tap + desktop click) */
+    .quiz-card-clickable:active {
+      transform: scale(0.97);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    }
+    .quiz-card-clickable:active .quiz-card-arrow {
+      transform: translateX(6px);
       color: #ffffff;
-      /* Icône bleue */
+    }
+
+    .quiz-icon {
+      transition: transform 0.25s ease;
+    }
+
+    .quiz-card .card-body {
+      padding: 0.75rem 0.5rem;
+    }
+
+    .quiz-icon {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      color: #ffffff;
+    }
+
+    .quiz-card .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .quiz-card .card-text {
+      font-size: 0.8rem;
+      opacity: 0.85;
+      margin-bottom: 0 !important;
     }
 
     /* Boutons avec style outline-primary */
@@ -51,6 +115,8 @@
       background: #ffffff;
       color: #000000;
       font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.5rem 0.75rem;
       transition: all 0.3s ease;
     }
 
@@ -139,7 +205,7 @@
     .word-count-inner {
       border: 2px solid #e0e0e0;
       border-radius: 18px;
-      padding: 16px 4px;
+      padding: 12px 4px;
       text-align: center;
       background-color: #f9f9f9;
       transition: all 0.2s;
@@ -155,7 +221,7 @@
     .difficulty-inner {
       border: 2px solid #e0e0e0;
       border-radius: 18px;
-      padding: 16px 4px;
+      padding: 12px 4px;
       text-align: center;
       background-color: #f9f9f9;
       transition: all 0.2s;
@@ -331,32 +397,29 @@
         <div class="row g-3 justify-content-center">
           <!-- Quiz Pinyin -->
           <div class="col-6 col-lg-6">
-            <div class="quiz-card card p-3 p-md-4">
+            <div class="quiz-card card p-2 p-md-3 quiz-card-clickable" role="button" tabindex="0"
+              onclick="openCountModal('pinyin')"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCountModal('pinyin');}">
+              <i class="quiz-card-arrow bi bi-arrow-right-circle-fill"></i>
               <div class="card-body text-center">
-                <!-- 🔥 NOUVEL ICÔNE : Langue internationale -->
                 <i class="quiz-icon bi bi-type"></i>
                 <h3 class="card-title">Quiz Pinyin</h3>
-                <p class="card-text mb-4">From english to pinyin</p>
-
+                <p class="card-text mb-0">From english to pinyin</p>
               </div>
-              <button class="btn quiz-btn btn-lg w-100" onclick="openCountModal('pinyin')">
-                <i class="bi bi-play-circle me-2"></i>Start now !
-              </button>
             </div>
           </div>
 
           <!-- Quiz Caractères -->
           <div class="col-6 col-lg-6">
-            <div class="quiz-card card p-3 p-md-4 characterCard">
+            <div class="quiz-card card p-2 p-md-3 characterCard quiz-card-clickable" role="button" tabindex="0"
+              onclick="openCountModal('character')"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCountModal('character');}">
+              <i class="quiz-card-arrow bi bi-arrow-right-circle-fill"></i>
               <div class="card-body text-center">
-                <!-- 🔥 NOUVEL ICÔNE : Langue chinoise -->
                 <i class="quiz-icon bi bi-translate"></i>
                 <h3 class="card-title">Quiz characters</h3>
-                <p class="card-text mb-4">From English to chinese characters</p>
+                <p class="card-text mb-0">From English to chinese characters</p>
               </div>
-              <button class="btn quiz-btn btn-lg w-100" onclick="openCountModal('character')">
-                <i class="bi bi-play-circle me-2"></i>Start now !
-              </button>
             </div>
           </div>
         </div>
@@ -462,21 +525,21 @@
                 <input type="radio" name="difficulty" value="revision" style="display: none;">
                 <div class="difficulty-inner">
                   <div style="font-weight: 700; font-size: 1rem;">Revision</div>
-                  <div style="font-size: 0.75rem; color: #666;">80% mastered</div>
+                  <div style="font-size: 0.75rem; color: #666;">Known words (blue)</div>
                 </div>
               </label>
               <label class="difficulty-card" style="flex: 1; cursor: pointer;">
                 <input type="radio" name="difficulty" value="balanced" checked style="display: none;">
                 <div class="difficulty-inner">
                   <div style="font-weight: 700; font-size: 1rem;">Balanced</div>
-                  <div style="font-size: 0.75rem; color: #666;">50% mastered</div>
+                  <div style="font-size: 0.75rem; color: #666;">Learning words (yellow)</div>
                 </div>
               </label>
               <label class="difficulty-card" style="flex: 1; cursor: pointer;">
                 <input type="radio" name="difficulty" value="discovery" style="display: none;">
                 <div class="difficulty-inner">
                   <div style="font-weight: 700; font-size: 1rem;">Discovery</div>
-                  <div style="font-size: 0.75rem; color: #666;">10% mastered</div>
+                  <div style="font-size: 0.75rem; color: #666;">Unknown words (grey)</div>
                 </div>
               </label>
             </div>
@@ -489,6 +552,13 @@
             <button type="button" class="btn btn-primary" onclick="startQuiz()" id="startQuizBtn"
               style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; background: linear-gradient(135deg, #007bff, #0056b3); border: none;">
               <i class="bi bi-rocket-takeoff me-2"></i>Start quiz
+            </button>
+          </div>
+          <!-- Lien tertiaire : quick quiz sur les difficultés -->
+          <div style="text-align: center; margin-top: 14px;">
+            <button type="button" id="modalQuickQuizLink" onclick="startQuickQuizFromModal()"
+              style="background: transparent; border: none; color: #6c757d; text-decoration: underline; font-size: 0.9rem; padding: 4px 8px; cursor: pointer;">
+              Start a quick quiz on your difficulties
             </button>
           </div>
           <!-- Zone d'erreur éventuelle -->
@@ -520,12 +590,20 @@
           </div>
         </div>
 
-        <div id="flashcardsContainer" class="row g-4">
+        <div id="flashcardsContainer" class="row g-4 justify-content-center">
           <!-- Cartes injectées ici -->
           <div class="col-12 text-center text-white-50">
             <div class="spinner-border text-light" role="status"></div>
             <p class="mt-2">Chargement des mots...</p>
           </div>
+        </div>
+
+        <!-- Quick quiz CTA (visible uniquement quand des mots sont chargés) -->
+        <div id="quickQuizContainer" class="text-center mt-4" style="display: none;">
+          <button type="button" id="quickQuizBtn" class="btn btn-secondary"
+            style="border-radius: 10px; font-weight: 400; padding: 8px 18px; font-size: 0.9rem;">
+            <i class="bi bi-lightning-charge-fill me-2"></i>Start a quick quiz on these words
+          </button>
         </div>
       </section>
 
@@ -654,6 +732,25 @@
             startBtn.disabled = false;
             startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>Start quiz';
           }
+        }
+
+        // Lance le quick quiz depuis la modale (lien tertiaire)
+        function startQuickQuizFromModal() {
+          const ids = (window.currentWords || [])
+            .map(w => w.id)
+            .filter(Boolean);
+          if (!ids.length) {
+            const errBox = document.getElementById('quizPopupError');
+            if (errBox) {
+              errBox.textContent = 'No difficult words available yet.';
+              errBox.style.display = 'block';
+            }
+            return;
+          }
+          closeCountModal();
+          setTimeout(() => {
+            window.location.href = `/quiz-play?type=pinyin&ids=${ids.join(',')}`;
+          }, 200);
         }
 
         // Démarre le quiz
@@ -799,10 +896,13 @@
 
         function renderFlashcards(words) {
           const container = document.getElementById('flashcardsContainer');
+          const quickContainer = document.getElementById('quickQuizContainer');
           if (!words || words.length === 0) {
             container.innerHTML = `<div class="col-12 text-center text-dark"><i class="bi bi-emoji-smile fs-1"></i><p class="mt-2">Aucun mot difficile aujourd'hui ! Continue comme ça 🎉</p></div>`;
+            if (quickContainer) quickContainer.style.display = 'none';
             return;
           }
+          if (quickContainer) quickContainer.style.display = '';
 
           container.innerHTML = words.map((word, idx) => {
             let frontContent, backContent;
@@ -847,6 +947,19 @@
               showPinyinOnFront = e.target.checked;
               if (window.currentWords) renderFlashcards(window.currentWords);
               else loadDifficultWords();
+            });
+          }
+
+          // Quick quiz : lance un quiz pinyin sur les mots difficiles affichés.
+          const quickBtn = document.getElementById('quickQuizBtn');
+          if (quickBtn) {
+            quickBtn.addEventListener('click', () => {
+              const ids = (window.currentWords || [])
+                .map(w => w.id)
+                .filter(Boolean);
+              if (!ids.length) return;
+              const url = `/quiz-play?type=pinyin&ids=${ids.join(',')}`;
+              window.location.href = url;
             });
           }
         });

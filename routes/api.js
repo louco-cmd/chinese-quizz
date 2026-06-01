@@ -602,8 +602,65 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
   const requestedCount = parseInt(req.query.count) || 10;
   const hskParam = req.query.hsk || 'all';
   const difficulty = req.query.difficulty || 'balanced';
+  const idsParam = req.query.ids; // ← liste explicite d'IDs (utilisée par le "quick quiz")
 
-  console.log('🎯 API /quiz-mots appelée', { userId, requestedCount, hskParam, difficulty });
+  console.log('🎯 API /quiz-mots appelée', { userId, requestedCount, hskParam, difficulty, idsParam });
+
+  // === MODE LISTE EXPLICITE ===
+  // Si "ids" est fourni, on bypasse toute la logique HSK/difficulté/cooldown :
+  // on retourne exactement les mots demandés (qui appartiennent à l'utilisateur).
+  if (idsParam) {
+    try {
+      const ids = idsParam
+        .split(',')
+        .map(s => parseInt(s, 10))
+        .filter(n => Number.isInteger(n) && n > 0)
+        .slice(0, 100);
+
+      if (!ids.length) {
+        return res.status(400).json({ success: false, error: 'invalid_ids' });
+      }
+
+      const { rows } = await pool.query(`
+        SELECT
+          m.*,
+          COALESCE(um.score, 0) AS score,
+          COALESCE(um.nb_quiz, 0) AS nb_quiz,
+          um.last_seen
+        FROM user_mots um
+        INNER JOIN mots m ON um.mot_id = m.id
+        WHERE um.user_id = $1 AND m.id = ANY($2)
+      `, [userId, ids]);
+
+      if (!rows.length) {
+        return res.status(400).json({
+          success: false,
+          error: 'not_enough_words_in_collection',
+          message: 'No matching words in your collection.',
+          requested: ids.length,
+          available: 0
+        });
+      }
+
+      // Mélange + mise à jour last_seen (cohérent avec le mode normal)
+      rows.sort(() => Math.random() - 0.5);
+      await pool.query(
+        `UPDATE user_mots SET last_seen = NOW() WHERE user_id = $1 AND mot_id = ANY($2)`,
+        [userId, rows.map(r => r.id)]
+      );
+
+      return res.json({
+        success: true,
+        words: rows,
+        count: rows.length,
+        requestedCount: ids.length,
+        mode: 'explicit_ids'
+      });
+    } catch (err) {
+      console.error('💥 ERREUR /quiz-mots (ids mode):', err);
+      return res.status(500).json({ success: false, error: 'server_error' });
+    }
+  }
 
   try {
     // =============================
@@ -691,7 +748,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     const fetchLimit = Math.min(totalInCollection, requestedCount * 3);
 
     let wordsQuery = `
-      SELECT 
+      SELECT
         m.*,
         COALESCE(um.score, 0) AS score,
         COALESCE(um.nb_quiz, 0) AS nb_quiz,
@@ -722,11 +779,11 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     }
 
     wordsQuery += `
-      ORDER BY 
-        CASE 
+      ORDER BY
+        CASE
           WHEN um.last_seen IS NULL THEN 1
           WHEN EXTRACT(EPOCH FROM (NOW() - um.last_seen)) > 12 * 3600 THEN 2
-          ELSE 3 
+          ELSE 3
         END,
         RANDOM()
         LIMIT $${paramIndex}
@@ -1011,39 +1068,83 @@ router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
 
 router.get('/api/difficult-words', ensureAuth, async (req, res) => {
   const userId = req.user.id;
-  const today = new Date().toISOString().slice(0, 10);
+  const DISPLAY_COUNT = 10;
+  const POOL_SIZE = 24;
+  const CACHE_TTL_MS = 15 * 60 * 1000;
 
-  // Cache quotidien
+  // Cache court (15 min) pour éviter de re-tirer à chaque navigation,
+  // mais assez court pour que les mots tournent plusieurs fois par jour.
   const cached = dailyCache.get(userId);
-  if (cached && cached.date === today) {
+  if (cached && cached.expiresAt > Date.now()) {
     return res.json(cached.words);
   }
 
-  // Requête PostgreSQL (placeholders $1, $2, ...)
+  // 1) Récupérer un pool plus large des mots "à problème", classés par taux d'erreur
+  //    (le mot le plus raté en premier), puis score bas, puis ancienneté.
   const query = `
-    SELECT 
-      m.chinese, m.pinyin, m.english, um.score
+    SELECT
+      m.id, m.chinese, m.pinyin, m.english,
+      um.score, um.nb_quiz, um.nb_correct, um.last_seen,
+      CASE
+        WHEN COALESCE(um.nb_quiz, 0) >= 2
+          THEN (1.0 - (COALESCE(um.nb_correct, 0)::float / NULLIF(um.nb_quiz, 0)))
+        ELSE 0.5
+      END AS error_rate
     FROM user_mots um
     JOIN mots m ON um.mot_id = m.id
     WHERE um.user_id = $1
-      AND um.nb_quiz > 0   -- éviter les mots jamais testés
+      AND um.nb_quiz > 0
       AND (
-        (um.score < 40 AND (um.nb_quiz < 3 OR um.nb_correct::float / um.nb_quiz < 0.5))
-        OR (um.nb_quiz >= 3 AND um.nb_correct::float / um.nb_quiz < 0.4)
+        (um.nb_quiz >= 2 AND (um.nb_correct::float / um.nb_quiz) < 0.6)
+        OR um.score < 50
       )
-    ORDER BY um.score ASC
-    LIMIT 8
-`;
+    ORDER BY
+      error_rate DESC,
+      um.score ASC,
+      um.last_seen ASC NULLS FIRST
+    LIMIT $2
+  `;
 
   try {
-    const { rows } = await pool.query(query, [userId]);
-    const result = rows.map(row => ({
+    const { rows } = await pool.query(query, [userId, POOL_SIZE]);
+
+    // 2) Échantillonner DISPLAY_COUNT mots dans le pool avec un biais "erreur élevée"
+    //    → les mots les plus ratés sortent souvent, mais la liste tourne d'une session à l'autre.
+    const pool_ = rows.map(r => ({
+      ...r,
+      // poids = taux d'erreur + bonus si score bas + plancher pour garder de la variété
+      weight: 0.1 + (Number(r.error_rate) || 0) * 0.7 + (1 - Math.min(100, r.score || 0) / 100) * 0.2
+    }));
+
+    const picked = [];
+    const remaining = [...pool_];
+    const target = Math.min(DISPLAY_COUNT, remaining.length);
+    for (let k = 0; k < target; k++) {
+      const total = remaining.reduce((s, x) => s + x.weight, 0);
+      if (total <= 0) {
+        picked.push(...remaining.splice(0, target - k));
+        break;
+      }
+      let r = Math.random() * total;
+      let idx = 0;
+      for (; idx < remaining.length; idx++) {
+        r -= remaining[idx].weight;
+        if (r <= 0) break;
+      }
+      if (idx >= remaining.length) idx = remaining.length - 1;
+      picked.push(remaining[idx]);
+      remaining.splice(idx, 1);
+    }
+
+    const result = picked.map(row => ({
+      id: row.id,
       chinese: row.chinese,
       pinyin: row.pinyin || '',
       english: row.english || '',
       score: row.score
     }));
-    dailyCache.set(userId, { date: today, words: result });
+
+    dailyCache.set(userId, { expiresAt: Date.now() + CACHE_TTL_MS, words: result });
     res.json(result);
   } catch (err) {
     console.error('❌ Erreur difficult words:', err);

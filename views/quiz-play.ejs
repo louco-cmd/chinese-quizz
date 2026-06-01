@@ -136,6 +136,7 @@
       quizCount = urlParams.get('count') || '10';
       hskLevel = urlParams.get('hsk') || 'all';
       difficulty = urlParams.get('difficulty') || 'balanced'; // ← important
+      window.quizIds = urlParams.get('ids') || ''; // ← liste explicite (quick quiz)
 
 
       // Load and start quiz
@@ -151,8 +152,11 @@
         quizQuestion.textContent = 'Loading words...';
         disableSubmitButton();
 
-        // Call API with parameters
-        const res = await fetch(`/quiz-mots?count=${encodeURIComponent(quizCount)}&hsk=${encodeURIComponent(hskLevel)}&type=${encodeURIComponent(quizType)}&difficulty=${encodeURIComponent(difficulty)}`);
+        // Call API with parameters (mode "ids" si quick quiz)
+        const apiUrl = window.quizIds
+          ? `/quiz-mots?type=${encodeURIComponent(quizType)}&ids=${encodeURIComponent(window.quizIds)}`
+          : `/quiz-mots?count=${encodeURIComponent(quizCount)}&hsk=${encodeURIComponent(hskLevel)}&type=${encodeURIComponent(quizType)}&difficulty=${encodeURIComponent(difficulty)}`;
+        const res = await fetch(apiUrl);
 
         // 🔥 VÉRIFIER SPÉCIFIQUEMENT LA LIMITE (403)
         if (res.status === 403) {
