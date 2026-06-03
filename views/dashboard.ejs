@@ -211,7 +211,7 @@
     }
 
     /* --------------------------------------------
-   MODALES (POPUPS) - Design neumorphisme léger
+   MODALES (POPUPS) - Aligné sur le style des duels
 -------------------------------------------- */
     .confirm-popup {
       position: fixed;
@@ -229,9 +229,9 @@
 
     .confirm-popup-content {
       background: white;
-      padding: 24px 28px;
+      padding: 32px;
       border-radius: 20px;
-      max-width: 500px;
+      max-width: 440px;
       width: 90%;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
       animation: fadeInScale 0.2s ease;
@@ -240,7 +240,7 @@
     @keyframes fadeInScale {
       from {
         opacity: 0;
-        transform: scale(0.9);
+        transform: scale(0.95);
       }
 
       to {
@@ -249,38 +249,56 @@
       }
     }
 
-    .confirm-popup h5 {
-      color: #0d6efd;
+    /* En-tête de modale : titre + bouton fermer */
+    .modal-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-header-row h5 {
       font-weight: 600;
+      font-size: 1.3rem;
+      margin: 0;
+      color: #1d1d1f;
     }
 
-    .confirm-popup p {
-      color: #2c3e50;
-      font-size: 1.1rem;
+    /* Étiquette de section type "DUEL TYPE" */
+    .section-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
 
-    /* Aperçu du caractère dans les modales */
+    /* Aperçu du caractère chinois */
     .chinese-preview {
-      font-size: 3rem;
+      font-size: 3.4rem;
       font-weight: bold;
       color: #0d6efd;
       text-align: center;
-      margin: 20px 0;
+      margin: 8px 0 24px;
+      line-height: 1.1;
     }
 
-    /* Cartes d'information dans la modale "Mot existant" */
+    /* Cartes d'information (mot existant) */
     .word-info {
-      background: #f8f9fa;
-      border-radius: 12px;
-      padding: 15px;
-      margin-bottom: 15px;
+      background: #f9f9f9;
+      border: 2px solid #e0e0e0;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 24px;
     }
 
     .word-info-row {
       display: flex;
       justify-content: space-between;
+      gap: 12px;
       padding: 8px 0;
-      border-bottom: 1px solid #dee2e6;
+      border-bottom: 1px solid #ececec;
     }
 
     .word-info-row:last-child {
@@ -290,12 +308,90 @@
     .word-info-label {
       font-weight: 600;
       color: #6c757d;
+      font-size: 0.9rem;
     }
 
     .word-info-value {
       color: #212529;
       text-align: right;
-      max-width: 60%;
+      max-width: 65%;
+      font-size: 0.95rem;
+    }
+
+    /* Champs du formulaire "nouveau mot" */
+    .modal-input {
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 2px solid #e0e0e0;
+      font-size: 1rem;
+      width: 100%;
+      background-color: #f9f9f9;
+      transition: all 0.2s;
+    }
+
+    .modal-input:focus {
+      outline: none;
+      border-color: #007bff;
+      background-color: #ffffff;
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.12);
+    }
+
+    /* Boutons d'action principaux */
+    .modal-btn-primary {
+      flex: 1;
+      padding: 14px;
+      border-radius: 14px;
+      font-weight: 600;
+      border: none;
+      color: #fff;
+      background: linear-gradient(135deg, #007bff, #0056b3);
+      transition: all 0.2s;
+    }
+
+    .modal-btn-primary:hover:not(:disabled) {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+
+    .modal-btn-primary:disabled {
+      background: #c5c8cc;
+      cursor: not-allowed;
+    }
+
+    .modal-btn-secondary {
+      flex: 1;
+      padding: 14px;
+      border-radius: 14px;
+      font-weight: 600;
+      border: 2px solid #e0e0e0;
+      background: #ffffff;
+      color: #444;
+      transition: all 0.2s;
+    }
+
+    .modal-btn-secondary:hover {
+      background: #f5f5f7;
+    }
+
+    .modal-btn-link {
+      background: transparent;
+      border: none;
+      color: #6c757d;
+      text-decoration: underline;
+      font-size: 0.9rem;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+
+    .modal-error {
+      display: none;
+      margin-top: 16px;
+      padding: 10px 12px;
+      background: #f8d7da;
+      color: #842029;
+      border: 1px solid #f5c2c7;
+      border-radius: 10px;
+      font-size: 0.9rem;
     }
 
     /* --------------------------------------------
@@ -445,65 +541,78 @@
 
           <!-- ========== MODALE MOT EXISTANT ========== -->
           <div id="existingWordModal" class="confirm-popup" style="display: none;">
-            <div class="confirm-popup-content" style="max-width: 500px; padding: 30px;">
-              <div class="text-end">
-                <button type="button" class="btn-close" onclick="closeExistingWordModal()"></button>
+            <div class="confirm-popup-content">
+              <div class="modal-header-row">
+                <h5>
+                  <i class="bi bi-check-circle-fill text-success me-2"></i>Word found
+                </h5>
+                <button type="button" class="btn-close" onclick="closeExistingWordModal()" style="font-size: 1rem;"></button>
               </div>
-              <h3 id="existingWordTitle" class="text-success text-center mb-3">
-                <i class="bi bi-check-circle-fill me-2"></i>Word Found
-              </h3>
-              <div id="existingWordError" class="error-message" style="display:none;"></div>
-              <div class="chinese-preview" id="previewChinese"
-                style="font-size: 3rem; font-weight: bold; color: #0d6efd; text-align: center; margin: 20px 0;"></div>
-              <div class="word-info"
-                style="background: #f8f9fa; border-radius: 12px; padding: 15px; margin-bottom: 15px;">
-                <div class="word-info-row d-flex justify-content-between py-2 border-bottom">
-                  <span class="word-info-label fw-bold text-secondary">Pinyin</span>
-                  <span class="word-info-value text-dark text-end" id="displayPinyin">-</span>
+
+              <div class="chinese-preview" id="previewChinese"></div>
+
+              <div class="section-label">Word details</div>
+              <div class="word-info">
+                <div class="word-info-row">
+                  <span class="word-info-label">Pinyin</span>
+                  <span class="word-info-value" id="displayPinyin">-</span>
                 </div>
-                <div class="word-info-row d-flex justify-content-between py-2 border-bottom">
-                  <span class="word-info-label fw-bold text-secondary">English</span>
-                  <span class="word-info-value text-dark text-end" id="displayEnglish">-</span>
+                <div class="word-info-row">
+                  <span class="word-info-label">English</span>
+                  <span class="word-info-value" id="displayEnglish">-</span>
                 </div>
-                <div class="word-info-row d-flex justify-content-between py-2">
-                  <span class="word-info-label fw-bold text-secondary">Description</span>
-                  <span class="word-info-value text-dark text-end" id="displayDescription">-</span>
+                <div class="word-info-row">
+                  <span class="word-info-label">Description</span>
+                  <span class="word-info-value" id="displayDescription">-</span>
                 </div>
               </div>
-              <div class="d-grid gap-2">
-                <button class="btn btn-success btn-lg" id="confirmAddBtn" onclick="confirmAddExistingWord()">
-                  <i class="bi bi-check-lg me-2"></i>Capture the word (3 coins)
-                </button>
-                <button class="btn btn-outline-secondary" id="editBeforeAddBtn" onclick="showNewWordModal()">
-                  <i class="bi bi-pencil me-2"></i>Edit Before Adding
-                </button>
-                <button class="btn btn-outline-secondary" onclick="closeExistingWordModal()">
-                  <i class="bi bi-arrow-left me-2"></i>Cancel
+
+              <div style="display: flex; gap: 12px;">
+                <button type="button" class="modal-btn-secondary" onclick="closeExistingWordModal()">Cancel</button>
+                <button type="button" class="modal-btn-primary" id="confirmAddBtn" onclick="confirmAddExistingWord()">
+                  <i class="bi bi-check-lg me-2"></i>Capture (3 ₵)
                 </button>
               </div>
+
+              <div style="text-align: center; margin-top: 14px;">
+                <button type="button" class="modal-btn-link" id="editBeforeAddBtn" onclick="showNewWordModal()">
+                  <i class="bi bi-pencil me-1"></i>Edit before adding
+                </button>
+              </div>
+
+              <div id="existingWordError" class="modal-error"></div>
             </div>
           </div>
 
           <!-- ========== MODALE NOUVEAU MOT ========== -->
           <div id="newWordModal" class="confirm-popup" style="display: none;">
-            <div class="confirm-popup-content" style="max-width: 500px; padding: 30px;">
-              <div class="text-end">
-                <button type="button" class="btn-close" onclick="closeNewWordModal()"></button>
+            <div class="confirm-popup-content">
+              <div class="modal-header-row">
+                <h5>
+                  <i class="bi bi-plus-circle-fill text-primary me-2"></i>New word
+                </h5>
+                <button type="button" class="btn-close" onclick="closeNewWordModal()" style="font-size: 1rem;"></button>
               </div>
-              <h3 class="text-warning text-center mb-3">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i>New Word
-              </h3>
-              <div class="chinese-preview" id="newPreviewChinese"
-                style="font-size: 3rem; font-weight: bold; color: #0d6efd; text-align: center; margin: 20px 0;"></div>
-              <input type="text" id="newPinyin" class="form-control mb-3" placeholder="Pinyin...">
-              <input type="text" id="newEnglish" class="form-control mb-3" placeholder="English..." required>
-              <textarea id="newDescription" class="form-control mb-3" rows="3" placeholder="Description..."></textarea>
-              <div class="d-grid gap-2">
-                <button class="btn btn-success btn-lg" onclick="confirmAddNewWord()">
-                  <i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)
-                </button>
-                <button class="btn btn-outline-secondary" onclick="closeNewWordModal()">
-                  <i class="bi bi-arrow-left me-2"></i>Cancel
+
+              <div class="chinese-preview" id="newPreviewChinese"></div>
+
+              <div style="margin-bottom: 16px;">
+                <div class="section-label">Pinyin</div>
+                <input type="text" id="newPinyin" class="modal-input" placeholder="Pinyin...">
+              </div>
+              <div style="margin-bottom: 16px;">
+                <div class="section-label">English</div>
+                <input type="text" id="newEnglish" class="modal-input" placeholder="English translation..." required>
+              </div>
+              <div style="margin-bottom: 24px;">
+                <div class="section-label">Description (optional)</div>
+                <textarea id="newDescription" class="modal-input" rows="3" placeholder="Add a short description..."></textarea>
+              </div>
+
+              <div style="display: flex; gap: 12px;">
+                <button type="button" class="modal-btn-secondary" onclick="closeNewWordModal()">Cancel</button>
+                <button type="button" class="modal-btn-primary" id="confirmAddNewBtn" onclick="confirmAddNewWord()">
+                  <i class="bi bi-check-lg me-2"></i>Capture (3 ₵)
                 </button>
               </div>
             </div>
@@ -646,14 +755,19 @@
           const confirmBtn = document.getElementById('confirmAddBtn');
           if (confirmBtn) {
             confirmBtn.disabled = false;
-            confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
-            confirmBtn.classList.remove('btn-secondary');
-            confirmBtn.classList.add('btn-success');
+            confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture (3 ₵)';
           }
 
           // Réafficher le bouton "Edit" (s'il avait été masqué)
           const editBtn = document.getElementById('editBeforeAddBtn');
-          if (editBtn) editBtn.style.display = 'block';
+          if (editBtn) editBtn.style.display = '';
+
+          // Masquer la zone d'erreur
+          const errorDiv = document.getElementById('existingWordError');
+          if (errorDiv) {
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+          }
         }
 
         async function confirmAddExistingWord() {
@@ -679,7 +793,7 @@
             errorDiv.textContent = '❌ Server error. Please try again later.';
             errorDiv.style.display = 'block';
             confirmBtn.disabled = false;
-            confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
+            confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture (3 ₵)';
           }
         }
 
@@ -701,15 +815,11 @@
           if (alreadyCaptured) {
             confirmBtn.disabled = true;
             confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Already captured';
-            confirmBtn.classList.remove('btn-success');
-            confirmBtn.classList.add('btn-secondary');
             if (editBtn) editBtn.style.display = 'none';
           } else {
             confirmBtn.disabled = false;
-            confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
-            confirmBtn.classList.remove('btn-secondary');
-            confirmBtn.classList.add('btn-success');
-            if (editBtn) editBtn.style.display = 'block';
+            confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture (3 ₵)';
+            if (editBtn) editBtn.style.display = '';
           }
         }
 
@@ -748,10 +858,10 @@
           enableSubmitButton();
 
           // Réinitialiser le bouton "Capture the word" de la popup
-          const addBtn = document.querySelector('#newWordModal .btn-success');
+          const addBtn = document.getElementById('confirmAddNewBtn');
           if (addBtn) {
             addBtn.disabled = false;
-            addBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture the word (3₵ coins)';
+            addBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Capture (3 ₵)';
           }
         }
 
@@ -787,7 +897,7 @@
             return;
           }
 
-          const addBtn = document.querySelector('#newWordModal .btn-success');
+          const addBtn = document.getElementById('confirmAddNewBtn');
           const originalText = addBtn.innerHTML;
           addBtn.disabled = true;
           addBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding...';
