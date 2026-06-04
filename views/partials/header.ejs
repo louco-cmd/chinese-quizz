@@ -68,7 +68,63 @@
         </div>
 </div>
 
-<!-- Drawer Settings - aligné sur le design des popups -->
+<!-- ====== PWA INSTALL BANNER ====== -->
+<div id="pwa-banner" style="display: none; background: #0d6efd; color: white; padding: 10px 16px; font-size: 0.85rem;">
+  <div style="display: flex; align-items: center; gap: 10px; max-width: 600px; margin: 0 auto;">
+    <img src="/icons/icon-192.png" style="width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;" alt="Jiayou icon">
+    <div style="flex: 1; min-width: 0;">
+      <div style="font-weight: 600; font-size: 0.88rem;">Install Jiayou on your phone</div>
+      <div id="pwa-banner-subtitle" style="opacity: 0.85; font-size: 0.78rem; margin-top: 1px;">Add to Home Screen for a better experience</div>
+    </div>
+    <button id="pwa-install-btn" onclick="triggerPwaInstall()" style="background: white; color: #0d6efd; border: none; border-radius: 8px; padding: 6px 14px; font-weight: 700; font-size: 0.82rem; cursor: pointer; flex-shrink: 0; white-space: nowrap;">
+      Install
+    </button>
+    <button onclick="dismissPwaBanner()" style="background: none; border: none; color: rgba(255,255,255,0.7); font-size: 1.2rem; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0;" aria-label="Dismiss">×</button>
+  </div>
+</div>
+
+<!-- ====== POPUP iOS INSTALL GUIDE ====== -->
+<div id="pwa-ios-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10100; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+  <div style="background: white; border-radius: 20px; padding: 28px; max-width: 380px; width: 90%; box-shadow: 0 20px 40px rgba(0,0,0,0.25); animation: fadeInScale 0.2s ease;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h5 style="margin: 0; font-weight: 700; font-size: 1.15rem; color: #1d1d1f;">
+        <i class="bi bi-phone me-2 text-primary"></i>Install Jiayou
+      </h5>
+      <button onclick="closePwaIosModal()" style="background: none; border: none; font-size: 1.1rem; cursor: pointer; color: #888;">×</button>
+    </div>
+    <p style="color: #555; font-size: 0.9rem; margin-bottom: 20px;">Follow these 3 steps in <strong>Safari</strong> to add Jiayou to your home screen:</p>
+
+    <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px;">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: #0d6efd; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0;">1</div>
+        <div style="font-size: 0.9rem; padding-top: 4px; color: #333;">
+          Tap the <strong>Share</strong> button <span style="font-size: 1.1rem;">⎋</span> at the bottom of the screen
+        </div>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: #0d6efd; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0;">2</div>
+        <div style="font-size: 0.9rem; padding-top: 4px; color: #333;">
+          Scroll down and tap <strong>"Add to Home Screen"</strong>
+        </div>
+      </div>
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <div style="width: 28px; height: 28px; border-radius: 50%; background: #0d6efd; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0;">3</div>
+        <div style="font-size: 0.9rem; padding-top: 4px; color: #333;">
+          Tap <strong>"Add"</strong> — Jiayou will appear on your home screen!
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow pointing down to hint the share button position -->
+    <div style="text-align: center; color: #aaa; font-size: 0.78rem; margin-bottom: 16px;">
+      <i class="bi bi-arrow-down-circle me-1"></i>The Share button ⎋ is at the bottom of Safari
+    </div>
+
+    <button onclick="closePwaIosModal()" style="width: 100%; padding: 13px; border-radius: 14px; border: none; background: linear-gradient(135deg, #007bff, #0056b3); color: white; font-weight: 700; font-size: 0.95rem; cursor: pointer;">
+      Got it!
+    </button>
+  </div>
+</div>
 <div id="settings-drawer" class="settings-drawer">
   <div class="settings-drawer-backdrop" onclick="closeSettingsDrawer()"></div>
   <div class="settings-drawer-content">
@@ -964,4 +1020,98 @@ async function performDeleteAccount() {
         });
     }, 500); // Délai réduit à 500ms
   }
+</script>
+
+<script>
+// ====== PWA INSTALL LOGIC ======
+(function () {
+  const DISMISS_KEY = 'pwa_banner_dismissed';
+  const DISMISS_DAYS = 7;
+
+  // Already installed (running in standalone mode) → never show
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+  if (isStandalone) return;
+
+  // Dismissed recently → skip
+  const dismissed = localStorage.getItem(DISMISS_KEY);
+  if (dismissed && Date.now() - parseInt(dismissed) < DISMISS_DAYS * 86400000) return;
+
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isAndroidChrome = /android/i.test(navigator.userAgent) && /chrome/i.test(navigator.userAgent);
+
+  let deferredPrompt = null;
+
+  // Android: capture the native install prompt
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showBanner('android');
+  });
+
+  // iOS: show manual guide banner
+  if (isIos && !isStandalone) {
+    // Small delay so the page header renders first
+    setTimeout(() => showBanner('ios'), 1500);
+  }
+
+  function showBanner(platform) {
+    const banner = document.getElementById('pwa-banner');
+    const subtitle = document.getElementById('pwa-banner-subtitle');
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (!banner) return;
+
+    if (platform === 'ios') {
+      subtitle.textContent = 'Tap Share ⎋ → "Add to Home Screen"';
+      installBtn.textContent = 'How?';
+    } else {
+      subtitle.textContent = 'Add to Home Screen for a better experience';
+      installBtn.textContent = 'Install';
+    }
+
+    banner.style.display = 'block';
+    banner.dataset.platform = platform;
+  }
+
+  window.triggerPwaInstall = function () {
+    const banner = document.getElementById('pwa-banner');
+    const platform = banner ? banner.dataset.platform : null;
+
+    if (platform === 'ios') {
+      // Show the iOS guide popup
+      const modal = document.getElementById('pwa-ios-modal');
+      if (modal) modal.style.display = 'flex';
+      return;
+    }
+
+    // Android: trigger native prompt
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choice) => {
+        if (choice.outcome === 'accepted') {
+          dismissPwaBanner();
+        }
+        deferredPrompt = null;
+      });
+    }
+  };
+
+  window.dismissPwaBanner = function () {
+    const banner = document.getElementById('pwa-banner');
+    if (banner) banner.style.display = 'none';
+    localStorage.setItem(DISMISS_KEY, Date.now().toString());
+  };
+
+  window.closePwaIosModal = function () {
+    const modal = document.getElementById('pwa-ios-modal');
+    if (modal) modal.style.display = 'none';
+  };
+
+  // Hide banner once app is installed
+  window.addEventListener('appinstalled', () => {
+    dismissPwaBanner();
+    console.log('✅ PWA installed');
+  });
+})();
 </script>

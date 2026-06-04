@@ -2,7 +2,7 @@
   "name": "jiayou",
   "short_name": "Jiayou",
   "description": "add oil on your Chinese learning journey!",
-  "start_url": "app.jiayou.fr",
+  "start_url": "/",
   "scope": "https://app.jiayou.fr/",
   "display": "standalone",
   "display_override": [
