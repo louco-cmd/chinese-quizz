@@ -4,11 +4,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Store - 加油！</title>
+  <title>Jiayou - Store</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
-    /* Prevent horizontal scroll */
+    /* Fix mobile navbar shift: must apply overflow-x on html AND body */
+    html,
     body {
       overflow-x: hidden;
     }
@@ -16,10 +17,10 @@
     .booster-card {
       transition: all 0.3s ease;
       border: none;
+      border-radius: 14px;
     }
 
     .booster-card:hover {
-      transform: translateY(-0px);
       box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
     }
 
@@ -38,6 +39,18 @@
       justify-content: center;
       color: white;
       font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .pack-icon-sm {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      flex-shrink: 0;
     }
 
     /* Booster opening animation */
@@ -45,7 +58,6 @@
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 60vh;
       border-radius: 20px;
-      margin: 0 -12px;
     }
 
     .booster-pack-animation {
@@ -54,17 +66,9 @@
     }
 
     @keyframes pulse {
-      0% {
-        transform: scale(1);
-      }
-
-      50% {
-        transform: scale(1.05);
-      }
-
-      100% {
-        transform: scale(1);
-      }
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.05); }
+      100% { transform: scale(1); }
     }
 
     /* Cards animation - RESPONSIVE */
@@ -132,26 +136,13 @@
     }
 
     @keyframes bounceIn {
-      0% {
-        transform: scale(0.3);
-        opacity: 0;
-      }
-
-      50% {
-        transform: scale(1.1);
-      }
-
-      70% {
-        transform: scale(0.9);
-      }
-
-      100% {
-        transform: scale(1);
-        opacity: 1;
-      }
+      0%   { transform: scale(0.3); opacity: 0; }
+      50%  { transform: scale(1.1); }
+      70%  { transform: scale(0.9); }
+      100% { transform: scale(1); opacity: 1; }
     }
 
-    /* Popup de confirmation */
+    /* Popup de confirmation — style unifié (dashboard / quiz) */
     .confirm-popup {
       position: fixed;
       top: 0;
@@ -168,37 +159,113 @@
 
     .confirm-popup-content {
       background: white;
-      padding: 24px 28px;
+      padding: 32px;
       border-radius: 20px;
-      max-width: 360px;
+      max-width: 440px;
       width: 90%;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
       animation: fadeInScale 0.2s ease;
     }
 
     @keyframes fadeInScale {
-      from {
-        opacity: 0;
-        transform: scale(0.9);
-      }
-
-      to {
-        opacity: 1;
-        transform: scale(1);
-      }
+      from { opacity: 0; transform: scale(0.95); }
+      to   { opacity: 1; transform: scale(1); }
     }
 
-    .confirm-popup h5 {
-      color: #0d6efd;
+    .modal-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-header-row h5 {
       font-weight: 600;
+      font-size: 1.3rem;
+      margin: 0;
+      color: #1d1d1f;
     }
 
-    .confirm-popup p {
-      color: #2c3e50;
-      font-size: 1.1rem;
+    .section-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
     }
 
-    /* Mobile responsive styles */
+    .word-info {
+      background: #f9f9f9;
+      border: 2px solid #e0e0e0;
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin-bottom: 24px;
+    }
+
+    .word-info-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid #ececec;
+    }
+
+    .word-info-row:last-child {
+      border-bottom: none;
+    }
+
+    .word-info-label {
+      font-weight: 600;
+      color: #6c757d;
+      font-size: 0.9rem;
+    }
+
+    .word-info-value {
+      color: #212529;
+      text-align: right;
+      font-size: 0.95rem;
+    }
+
+    .modal-btn-primary {
+      flex: 1;
+      padding: 14px;
+      border-radius: 14px;
+      font-weight: 600;
+      border: none;
+      color: #fff;
+      background: linear-gradient(135deg, #007bff, #0056b3);
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .modal-btn-primary:hover:not(:disabled) {
+      filter: brightness(1.05);
+      transform: translateY(-1px);
+    }
+
+    .modal-btn-primary:disabled {
+      background: #c5c8cc;
+      cursor: not-allowed;
+    }
+
+    .modal-btn-secondary {
+      flex: 1;
+      padding: 14px;
+      border-radius: 14px;
+      font-weight: 600;
+      border: 2px solid #e0e0e0;
+      background: #ffffff;
+      color: #444;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .modal-btn-secondary:hover {
+      background: #f5f5f7;
+    }
+
+    /* Mobile responsive */
     @media (max-width: 768px) {
       .pack-icon {
         width: 50px;
@@ -243,489 +310,469 @@
 
 <body class="bg-light">
   <%- include('partials/header', {currentPage: 'store' }) %>
-    <%- include('partials/navbar', {currentPage: 'store' }) %>
+  <%- include('partials/navbar', {currentPage: 'store' }) %>
 
-      <div class="container py-4">
-        <!-- Main store section -->
-        <div id="storeSection">
+  <div class="container py-4">
 
-          <!-- Main Booster - MOBILE VERTICAL VERSION -->
-          <div class="row justify-content-center">
-            <div class="col-12">
-              <div class="booster-card card shadow-sm mb-4">
-                <div class="card-body p-4">
-                  <!-- Desktop version (horizontal) -->
-                  <div class="d-none d-md-flex row align-items-center">
-                    <div class="col-auto">
-                      <div class="pack-icon">
-                        <i class="bi bi-gift"></i>
-                      </div>
-                    </div>
-                    <div class="col">
-                      <h5 class="card-title fw-bold text-primary mb-1">Words Booster</h5>
-                      <p class="text-muted mb-2 small">
-                        5 random Chinese words to discover and learn
-                      </p>
-                    </div>
-                    <div class="col-auto">
-                      <button id="buyBooster" class="btn btn-primary <%= user.balance < 20 ? 'disabled' : '' %>"
-                        <%=user.balance < 20 ? 'disabled' : '' %>>
-                        <i class="bi bi-cart3 me-2"></i>
-                        Buy (20₵)
-                      </button>
-                      <% if (user.balance < 20) { %>
-                        <p class="text-danger small mt-1 mb-0">
-                          <i class="bi bi-exclamation-triangle me-1"></i>
-                          Insufficient balance
-                        </p>
-                        <% } %>
-                    </div>
-                  </div>
+    <!-- ====== STORE SECTION ====== -->
+    <div id="storeSection">
 
-                  <!-- Mobile version (vertical) -->
-                  <div class="d-md-none text-center">
-                    <div class="pack-icon mx-auto mb-3">
-                      <i class="bi bi-gift"></i>
-                    </div>
-                    <h5 class="card-title fw-bold text-primary mb-2">Words Booster</h5>
-                    <p class="text-muted mb-3">
-                      5 random Chinese words to discover and learn
-                    </p>
-                    <button id="buyBoosterMobile"
-                      class="btn btn-primary w-100 <%= user.balance < 20 ? 'disabled' : '' %>" <%=user.balance < 20
-                      ? 'disabled' : '' %>>
-                      <i class="bi bi-cart3 me-2"></i>
-                      Buy (20₵)
-                    </button>
-                    <% if (user.balance < 20) { %>
-                      <p class="text-danger small mt-2 mb-0">
-                        <i class="bi bi-exclamation-triangle me-1"></i>
-                        Insufficient balance
-                      </p>
-                      <% } %>
-                  </div>
+      <!-- HSK Thematic Packs (top) -->
+      <div class="row mb-2">
+        <div class="col-12">
+          <h5 class="text-muted mb-3">Thematic Packs</h5>
+        </div>
+
+        <!-- Pack HSK1 (active) -->
+        <div class="col-md-6 col-lg-4 mb-3">
+          <div class="booster-card card shadow-sm h-100">
+            <div class="card-body p-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="pack-icon-sm" style="background: linear-gradient(135deg, #0d6efd, #6610f2);">
+                  <i class="bi bi-star-fill fs-5"></i>
+                </div>
+                <div>
+                  <h6 class="card-title fw-bold mb-1">HSK 1 Pack</h6>
+                  <p class="text-muted small mb-1">290 words from HSK level 1</p>
+                  <a href="#" class="btn btn-link p-0 text-decoration-none small fw-semibold pack-buy-btn" data-level="1" data-price="200" id="buyHSK1Btn">
+                    <i class="bi bi-cart-fill me-1"></i>Buy for 200 ₵
+                  </a>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- HSK Packs (coming soon) -->
-          <div class="row mt-2">
-            <div class="col-12">
-              <h5 class="text-muted mb-4">Thematic Packs</h5>
-            </div>
-
-            <!-- Pack HSK1 (actif) -->
-            <div class="col-md-6 col-lg-4 mb-3">
-              <div class="booster-card card shadow-sm h-100">
-                <div class="card-body p-3 d-flex flex-column">
-                  <!-- Contenu principal : icône + texte -->
-                  <div class="row align-items-center mb-2">
-                    <div class="col-auto">
-                      <div class="pack-icon"
-                        style="background: linear-gradient(135deg, #0d6efd, #6610f2); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                        <i class="bi bi-star-fill text-white fs-5"></i>
-                      </div>
-                    </div>
-                    <div class="col">
-                      <h6 class="card-title fw-bold mb-1">HSK 1 Pack</h6>
-                      <p class="text-muted small mb-0">290 words from HSK level 1</p>
-
-                      <a href="#" class="btn btn-link p-0 text-decoration-none" id="buyHSK1Btn">
-                        <i class="bi bi-cart-fill me-1"></i>Buy for 200 ₵
-                      </a>
-
-                    </div>
-                  </div>
+        <!-- Pack HSK2 (active) -->
+        <div class="col-md-6 col-lg-4 mb-3">
+          <div class="booster-card card shadow-sm h-100">
+            <div class="card-body p-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="pack-icon-sm" style="background: linear-gradient(135deg, #198754, #0d5c38);">
+                  <i class="bi bi-star-half fs-5"></i>
+                </div>
+                <div>
+                  <h6 class="card-title fw-bold mb-1">HSK 2 Pack</h6>
+                  <p class="text-muted small mb-1">Words from HSK level 2</p>
+                  <a href="#" class="btn btn-link p-0 text-decoration-none small fw-semibold pack-buy-btn" data-level="2" data-price="400" id="buyHSK2Btn">
+                    <i class="bi bi-cart-fill me-1"></i>Buy for 400 ₵
+                  </a>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
 
-            <% const hskLevels=[2, 3, 4, 5, 6]; %>
-              <% for (let i=0; i < hskLevels.length; i++) { %>
-                <div class="col-md-6 col-lg-4 mb-3">
-                  <div class="booster-card card shadow-sm coming-soon h-100">
-                    <div class="card-body p-3">
-                      <div class="row align-items-center">
-                        <div class="col-auto">
-                          <div class="pack-icon"
-                            style="background: linear-gradient(135deg, #6c757d, #495057); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                            <i class="bi bi-lock text-white fs-5"></i>
-                          </div>
-                        </div>
-                        <div class="col">
-                          <h6 class="card-title fw-bold text-muted mb-1">HSK <%= hskLevels[i] %> Pack</h6>
-                          <p class="text-muted small mb-2">Words from HSK <%= hskLevels[i] %> level</p>
-                          <span class="badge bg-secondary">Coming soon</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+        <!-- Packs HSK3-6 (coming soon) -->
+        <% const hskLevels = [3, 4, 5, 6]; %>
+        <% for (let i = 0; i < hskLevels.length; i++) { %>
+        <div class="col-md-6 col-lg-4 mb-3">
+          <div class="booster-card card shadow-sm coming-soon h-100">
+            <div class="card-body p-3">
+              <div class="d-flex align-items-center gap-3">
+                <div class="pack-icon-sm" style="background: linear-gradient(135deg, #6c757d, #495057);">
+                  <i class="bi bi-lock fs-5"></i>
                 </div>
+                <div>
+                  <h6 class="card-title fw-bold text-muted mb-1">HSK <%= hskLevels[i] %> Pack</h6>
+                  <p class="text-muted small mb-2">Words from HSK <%= hskLevels[i] %> level</p>
+                  <span class="badge bg-secondary">Coming soon</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <% } %>
+      </div>
+
+      <!-- Words Booster (below thematic packs) -->
+      <div class="row justify-content-center mt-2">
+        <div class="col-12">
+          <h5 class="text-muted mb-3">Word Booster</h5>
+          <div class="booster-card card shadow-sm mb-4">
+            <div class="card-body p-4">
+
+              <!-- Desktop (horizontal) -->
+              <div class="d-none d-md-flex align-items-center gap-3">
+                <div class="pack-icon">
+                  <i class="bi bi-gift"></i>
+                </div>
+                <div class="flex-grow-1">
+                  <h5 class="card-title fw-bold text-primary mb-1">Words Booster</h5>
+                  <p class="text-muted mb-0 small">5 random Chinese words to discover and learn</p>
+                </div>
+                <div class="text-end">
+                  <button id="buyBooster" class="btn btn-primary <%= user.balance < 20 ? 'disabled' : '' %>"
+                    <%= user.balance < 20 ? 'disabled' : '' %>>
+                    <i class="bi bi-cart3 me-2"></i>Buy (20₵)
+                  </button>
+                  <% if (user.balance < 20) { %>
+                  <p class="text-danger small mt-1 mb-0">
+                    <i class="bi bi-exclamation-triangle me-1"></i>Insufficient balance
+                  </p>
+                  <% } %>
+                </div>
+              </div>
+
+              <!-- Mobile (vertical) -->
+              <div class="d-md-none text-center">
+                <div class="pack-icon mx-auto mb-3">
+                  <i class="bi bi-gift"></i>
+                </div>
+                <h5 class="card-title fw-bold text-primary mb-2">Words Booster</h5>
+                <p class="text-muted mb-3">5 random Chinese words to discover and learn</p>
+                <button id="buyBoosterMobile"
+                  class="btn btn-primary w-100 <%= user.balance < 20 ? 'disabled' : '' %>"
+                  <%= user.balance < 20 ? 'disabled' : '' %>>
+                  <i class="bi bi-cart3 me-2"></i>Buy (20₵)
+                </button>
+                <% if (user.balance < 20) { %>
+                <p class="text-danger small mt-2 mb-0">
+                  <i class="bi bi-exclamation-triangle me-1"></i>Insufficient balance
+                </p>
                 <% } %>
-          </div>
-        </div>
+              </div>
 
-        <!-- Modal de confirmation achat pack HSK1 -->
-        <div class="modal fade" id="confirmBuyModal" tabindex="-1" aria-hidden="true">
-          <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title">Confirm Purchase</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-              </div>
-              <div class="modal-body text-center" id="confirmBuyBody">
-                <p>You are about to buy the <strong>HSK 1 Pack</strong>.</p>
-                <p class="mb-1"><span id="missingWords">...</span> new word(s) will be added to your collection.</p>
-                <p class="fw-bold text-danger">Price: 200 ₵</p>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="confirmBuyBtn">Buy Now</button>
-              </div>
             </div>
           </div>
         </div>
-
-        <!-- Booster opening section -->
-        <div id="openingSection" class="d-none">
-          <div class="booster-opening text-white text-center p-3 pb-1 p-md-4 pb-md-2 mx-2 mx-md-3 mb-2">
-            <h3 class="fw-bold mb-3">Open your booster!</h3>
-            <p class="mb-3">Click on the pack to discover your new words</p>
-
-            <div class="booster-pack-animation" id="boosterPack" style="font-size: 7rem;">
-              <i class="bi bi-gift"></i>
-            </div>
-          </div>
-        </div>
-
-        <!-- Cards reveal section -->
-        <div id="revealSection" class="d-none">
-          <div class="text-center mb-4">
-            <h3 class="fw-bold text-dark mb-2">Your new words</h3>
-            <p class="text-muted">Discover the words you just acquired</p>
-          </div>
-
-          <div class="card-carousel mb-4" id="cardCarousel">
-            <!-- Cards will be added here dynamically -->
-          </div>
-
-          <div class="text-center">
-            <button id="captureWords" class="btn btn-success btn-lg w-100 w-md-auto">
-              <i class="bi bi-download me-2"></i>
-              Capture these words
-            </button>
-          </div>
-        </div>
       </div>
 
-      <!-- Modal de confirmation personnalisée -->
-      <div id="confirmPopup" class="confirm-popup" style="display: none;">
-        <div class="confirm-popup-content">
-          <h5 class="mb-3">Confirmation</h5>
-          <p id="confirmMessage" class="mb-4">Buy Words Booster for 20₵?</p>
-          <div class="d-flex justify-content-end gap-2">
-            <button id="confirmCancel" class="btn btn-outline-secondary">Cancel</button>
-            <button id="confirmOk" class="btn btn-primary">Confirm</button>
-          </div>
+    </div>
+    <!-- /storeSection -->
+
+    <!-- ====== BOOSTER OPENING SECTION ====== -->
+    <div id="openingSection" class="d-none">
+      <div class="booster-opening text-white text-center p-3 pb-1 p-md-4 pb-md-2 mb-2">
+        <h3 class="fw-bold mb-3">Open your booster!</h3>
+        <p class="mb-3">Click on the pack to discover your new words</p>
+        <div class="booster-pack-animation" id="boosterPack" style="font-size: 7rem;">
+          <i class="bi bi-gift"></i>
         </div>
       </div>
+    </div>
 
-      <!-- Success animation -->
-      <div id="successAnimation" class="success-animation">
-        <div class="checkmark">
-          <i class="bi bi-check"></i>
+    <!-- ====== CARDS REVEAL SECTION ====== -->
+    <div id="revealSection" class="d-none">
+      <div class="text-center mb-4">
+        <h3 class="fw-bold text-dark mb-2">Your new words</h3>
+        <p class="text-muted">Discover the words you just acquired</p>
+      </div>
+      <div class="card-carousel mb-4" id="cardCarousel"></div>
+      <div class="text-center">
+        <button id="captureWords" class="btn btn-success btn-lg w-100 w-md-auto">
+          <i class="bi bi-download me-2"></i>Capture these words
+        </button>
+      </div>
+    </div>
+
+  </div>
+  <!-- /container -->
+
+  <!-- ====== POPUP — Words Booster confirmation ====== -->
+  <div id="confirmPopup" class="confirm-popup" style="display: none;">
+    <div class="confirm-popup-content">
+      <div class="modal-header-row">
+        <h5><i class="bi bi-gift text-primary me-2"></i>Confirmation</h5>
+        <button type="button" class="btn-close" id="confirmCancel" style="font-size: 1rem;"></button>
+      </div>
+      <p id="confirmMessage" class="mb-4" style="color: #2c3e50; font-size: 1.05rem;">Buy Words Booster for 20₵?</p>
+      <div style="display: flex; gap: 12px;">
+        <button id="confirmCancelBtn" class="modal-btn-secondary">Cancel</button>
+        <button id="confirmOk" class="modal-btn-primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== POPUP — HSK Pack confirmation (shared for all levels) ====== -->
+  <div id="confirmBuyModal" class="confirm-popup" style="display: none;">
+    <div class="confirm-popup-content">
+      <div class="modal-header-row">
+        <h5><i class="bi bi-cart-fill text-primary me-2"></i>Confirm Purchase</h5>
+        <button type="button" class="btn-close" id="confirmBuyClose" style="font-size: 1rem;"></button>
+      </div>
+      <div class="section-label">Pack details</div>
+      <div class="word-info">
+        <div class="word-info-row">
+          <span class="word-info-label">Pack</span>
+          <span class="word-info-value" id="modalPackName">—</span>
+        </div>
+        <div class="word-info-row">
+          <span class="word-info-label">New words</span>
+          <span class="word-info-value"><span id="missingWords">...</span></span>
+        </div>
+        <div class="word-info-row">
+          <span class="word-info-label">Price</span>
+          <span class="word-info-value fw-bold text-danger" id="modalPackPrice">—</span>
         </div>
       </div>
+      <div style="display: flex; gap: 12px;">
+        <button type="button" class="modal-btn-secondary" id="confirmBuyCancel">Cancel</button>
+        <button type="button" class="modal-btn-primary" id="confirmBuyBtn">
+          <i class="bi bi-check-lg me-2"></i>Buy Now
+        </button>
+      </div>
+    </div>
+  </div>
 
-      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-      <script>
-        let currentBalance = <%= user.balance %>;
-        let currentWords = [];
-        let currentCardIndex = 0;
+  <!-- Success animation -->
+  <div id="successAnimation" class="success-animation">
+    <div class="checkmark">
+      <i class="bi bi-check"></i>
+    </div>
+  </div>
 
-        // Initialization
-        document.addEventListener('DOMContentLoaded', () => {
-          // Initialisation du bouton Booster (desktop + mobile)
-          const buyBooster = document.getElementById('buyBooster');
-          const buyBoosterMobile = document.getElementById('buyBoosterMobile');
-          if (buyBooster) buyBooster.addEventListener('click', purchaseBooster);
-          if (buyBoosterMobile) buyBoosterMobile.addEventListener('click', purchaseBooster);
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let currentBalance = <%= user.balance %>;
+    let currentWords = [];
+    let currentCardIndex = 0;
+    let currentPackLevel = null;
 
-          // Vérification de l'état du pack HSK1
-          checkHSK1Pack();
+    document.addEventListener('DOMContentLoaded', () => {
+      const buyBooster = document.getElementById('buyBooster');
+      const buyBoosterMobile = document.getElementById('buyBoosterMobile');
+      if (buyBooster) buyBooster.addEventListener('click', purchaseBooster);
+      if (buyBoosterMobile) buyBoosterMobile.addEventListener('click', purchaseBooster);
+
+      // Check all active packs
+      checkPackStatus(1, 'buyHSK1Btn', 200);
+      checkPackStatus(2, 'buyHSK2Btn', 400);
+
+      // Pack buy buttons (generic)
+      document.querySelectorAll('.pack-buy-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const level = parseInt(btn.dataset.level);
+          const price = parseInt(btn.dataset.price);
+          openPackModal(level, price, btn);
         });
+      });
 
-        async function checkHSK1Pack() {
-          const btn = document.getElementById('buyHSK1Btn');
-          if (!btn) return;
+      // Close HSK pack popup
+      document.getElementById('confirmBuyClose').addEventListener('click', closePackModal);
+      document.getElementById('confirmBuyCancel').addEventListener('click', closePackModal);
 
-          try {
-            const response = await fetch('/api/pack-info/1');
-            if (!response.ok) return;
+      // Close booster popup via × button
+      document.getElementById('confirmCancel').addEventListener('click', () => {
+        document.getElementById('confirmPopup').style.display = 'none';
+      });
+    });
 
-            const data = await response.json();
-            if (data.missing === 0) {
-              // L'utilisateur possède déjà tous les mots
-              btn.classList.add('text-muted', 'disabled');
-              btn.style.pointerEvents = 'none';
-              btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Already owned';
-            } else {
-              btn.classList.remove('text-muted', 'disabled');
-              btn.style.pointerEvents = 'auto';
-              btn.innerHTML = '<i class="bi bi-cart-fill me-1"></i>Buy for 200 ₵';
-            }
-          } catch (err) {
-            console.error('Erreur pack info:', err);
-          }
+    // ── HSK Packs ──────────────────────────────────────────────────────────────
+
+    async function checkPackStatus(level, btnId, price) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      try {
+        const response = await fetch(`/api/pack-info/${level}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.missing === 0) {
+          btn.classList.add('text-muted');
+          btn.style.pointerEvents = 'none';
+          btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Already owned';
+        } else {
+          btn.classList.remove('text-muted');
+          btn.style.pointerEvents = 'auto';
+          btn.innerHTML = `<i class="bi bi-cart-fill me-1"></i>Buy for ${price} ₵`;
         }
+      } catch (err) {
+        console.error(`Pack ${level} info error:`, err);
+      }
+    }
 
-        async function purchaseBooster() {
-          // Vérification rapide du solde (déjà gérée par l'attribut disabled)
-          if (currentBalance < 20) return;
+    async function openPackModal(level, price, triggerBtn) {
+      if (triggerBtn.dataset.processing === 'true') return;
+      triggerBtn.dataset.processing = 'true';
+      triggerBtn.style.pointerEvents = 'none';
+      currentPackLevel = level;
 
-          // Afficher la popup de confirmation
-          const popup = document.getElementById('confirmPopup');
-          const message = document.getElementById('confirmMessage');
-          message.textContent = 'Buy Words Booster for 20₵?';
-          popup.style.display = 'flex';
+      // Update modal content
+      document.getElementById('modalPackName').textContent = `HSK ${level} Pack`;
+      document.getElementById('modalPackPrice').textContent = `${price} ₵`;
+      document.getElementById('missingWords').textContent = '...';
 
-          // Attendre la réponse de l'utilisateur
-          const userChoice = await new Promise((resolve) => {
-            const onConfirm = () => {
-              cleanup();
-              resolve(true);
-            };
-            const onCancel = () => {
-              cleanup();
-              resolve(false);
-            };
-            const cleanup = () => {
-              popup.style.display = 'none';
-              document.getElementById('confirmOk').removeEventListener('click', onConfirm);
-              document.getElementById('confirmCancel').removeEventListener('click', onCancel);
-            };
+      // Fetch missing word count
+      try {
+        const infoResponse = await fetch(`/api/pack-info/${level}`);
+        document.getElementById('missingWords').textContent =
+          infoResponse.ok ? (await infoResponse.json()).missing : '?';
+      } catch {
+        document.getElementById('missingWords').textContent = '?';
+      }
 
-            document.getElementById('confirmOk').addEventListener('click', onConfirm, {
-              once: true
-            });
-            document.getElementById('confirmCancel').addEventListener('click', onCancel, {
-              once: true
-            });
+      // Reset confirm button
+      const confirmBtn = document.getElementById('confirmBuyBtn');
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Buy Now';
+
+      document.getElementById('confirmBuyModal').style.display = 'flex';
+
+      confirmBtn.onclick = async () => {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Buying...';
+        try {
+          const res = await fetch('/api/purchase-pack', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ level })
           });
-
-          if (!userChoice) {
-            resetBuyButtons(); // Réactiver les boutons
-            return;
-          }
-
-          // --- Suite de l’achat (inchangée) ---
-          const buyButton = document.getElementById('buyBooster');
-          const buyButtonMobile = document.getElementById('buyBoosterMobile');
-
-          buyButton.disabled = true;
-          buyButtonMobile.disabled = true;
-
-          buyButton.innerHTML = `
-        <div class="d-flex align-items-center justify-content-center">
-            <div class="spinner-border spinner-border-sm me-2" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            Processing...
-        </div>
-    `;
-          buyButtonMobile.innerHTML = buyButton.innerHTML;
-
-          try {
-            const response = await fetch('/api/acheter-booster', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              }
-            });
-            const result = await response.json();
-
-            if (result.success) {
-              currentBalance = result.newBalance;
-              currentWords = result.words;
-              document.getElementById('storeSection').classList.add('d-none');
-              document.getElementById('openingSection').classList.remove('d-none');
-            } else {
-              showAlert('Error: ' + result.message, 'danger');
-              resetBuyButtons();
-            }
-          } catch (error) {
-            console.error('Purchase error:', error);
-            showAlert('Purchase error', 'danger');
-            resetBuyButtons();
-          }
-        }
-
-        // Reset buy buttons
-        function resetBuyButtons() {
-          const buyButton = document.getElementById('buyBooster');
-          const buyButtonMobile = document.getElementById('buyBoosterMobile');
-
-          buyButton.disabled = currentBalance < 20;
-          buyButtonMobile.disabled = currentBalance < 20;
-
-          buyButton.innerHTML = '<i class="bi bi-cart3 me-2"></i>Buy (20₵)';
-          buyButtonMobile.innerHTML = '<i class="bi bi-cart3 me-2"></i>Buy (20₵)';
-        }
-
-        // Start cards reveal
-        function startCardReveal() {
-          document.getElementById('openingSection').classList.add('d-none');
-          document.getElementById('revealSection').classList.remove('d-none');
-
-          createCardCarousel();
-          showCard(0);
-        }
-
-        // Create cards carousel
-        function createCardCarousel() {
-          const carousel = document.getElementById('cardCarousel');
-          carousel.innerHTML = '';
-
-          currentWords.forEach((word, index) => {
-            const card = document.createElement('div');
-            card.className = `carousel-card card ${index === 0 ? 'active' : ''}`;
-            card.innerHTML = `
-                <div class="card-body text-center p-4">
-                    <h4 class="fw-bold text-primary mb-3">${word.chinese}</h4>
-                    <p class="text-muted mb-2">${word.pinyin || ''}</p>
-                    <p class="h5 text-dark mb-3">${word.english}</p>
-                    ${word.description ? `<p class="small text-muted">${word.description}</p>` : ''}
-                    ${word.hsk ? `<span class="badge bg-success">HSK ${word.hsk}</span>` : ''}
-                </div>
-            `;
-            carousel.appendChild(card);
-          });
-        }
-
-        // Show specific card
-        function showCard(index) {
-          const cards = document.querySelectorAll('.carousel-card');
-
-          cards.forEach((card, i) => {
-            card.classList.remove('active', 'previous', 'next');
-
-            if (i === index) {
-              card.classList.add('active');
-            } else if (i === (index - 1 + cards.length) % cards.length) {
-              card.classList.add('previous');
-            } else if (i === (index + 1) % cards.length) {
-              card.classList.add('next');
-            }
-          });
-
-          currentCardIndex = index;
-
-          // Auto-advance every 3 seconds
-          clearTimeout(window.cardTimeout);
-          if (cards.length > 1) {
-            window.cardTimeout = setTimeout(() => {
-              showCard((index + 1) % cards.length);
-            }, 3000);
-          }
-        }
-
-        // Redirect to collection
-        function redirectToCollection() {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Purchase failed');
+          closePackModal();
           showSuccessAnimation();
-          setTimeout(() => {
-            window.location.href = '/collection';
-          }, 1000);
-        }
-
-        // Success animation
-        function showSuccessAnimation() {
-          const successAnim = document.getElementById('successAnimation');
-          successAnim.classList.add('show');
-
-          setTimeout(() => {
-            successAnim.classList.remove('show');
-          }, 1000);
-        }
-
-        // Show alert
-        function showAlert(message, type) {
-          const alert = document.createElement('div');
-          alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-          alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 250px;';
-          alert.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-          document.body.appendChild(alert);
-          setTimeout(() => alert.remove(), 4000);
-        }
-
-        // Gestion du bouton d'achat HSK1 – CORRIGÉE
-        document.getElementById('buyHSK1Btn').addEventListener('click', async (e) => {
-          e.preventDefault(); // ⚠️ Empêche le lien de naviguer vers #
-
-          // Désactiver le lien immédiatement pour éviter les doubles clics
-          const link = document.getElementById('buyHSK1Btn');
-          if (link.dataset.processing === 'true') return;
-          link.dataset.processing = 'true';
-          link.style.pointerEvents = 'none';
-
-          const confirmModal = new bootstrap.Modal(document.getElementById('confirmBuyModal'));
-
-          // Récupérer le nombre de mots manquants
-          try {
-            const infoResponse = await fetch('/api/pack-info/1');
-            if (infoResponse.ok) {
-              const info = await infoResponse.json();
-              document.getElementById('missingWords').textContent = info.missing;
-            } else {
-              document.getElementById('missingWords').textContent = '?';
-            }
-          } catch {
-            document.getElementById('missingWords').textContent = '?';
-          }
-
-          // Réinitialiser le bouton de confirmation avant d'ouvrir
-          const confirmBtn = document.getElementById('confirmBuyBtn');
+          setTimeout(() => location.reload(), 1000);
+        } catch (err) {
+          showAlert('❌ ' + err.message, 'danger');
           confirmBtn.disabled = false;
-          confirmBtn.innerHTML = 'Buy Now';
+          confirmBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Buy Now';
+        }
+      };
 
-          confirmModal.show();
+      // Store trigger btn ref for cleanup on close
+      document.getElementById('confirmBuyModal').dataset.triggerBtnId = triggerBtn.id;
+    }
 
-          // Gestion de la confirmation (assignation UNIQUE)
-          confirmBtn.onclick = async () => {
-            confirmBtn.disabled = true;
-            confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Buying...';
+    function closePackModal() {
+      document.getElementById('confirmBuyModal').style.display = 'none';
+      const modal = document.getElementById('confirmBuyModal');
+      const btnId = modal.dataset.triggerBtnId;
+      if (btnId) {
+        const btn = document.getElementById(btnId);
+        if (btn) {
+          btn.dataset.processing = 'false';
+          btn.style.pointerEvents = 'auto';
+        }
+      }
+    }
 
-            try {
-              const res = await fetch('/api/purchase-pack', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ level: 1 }) // cohérent avec ton backend
-              });
-              const data = await res.json();
+    // ── Words Booster ──────────────────────────────────────────────────────────
 
-              if (!res.ok) throw new Error(data.error || 'Purchase failed');
+    async function purchaseBooster() {
+      if (currentBalance < 20) return;
 
-              // Succès : fermer la modale et recharger
-              confirmModal.hide();
-              alert(`✅ ${data.message}`);
-              location.reload();   // met à jour solde et collection
-            } catch (err) {
-              alert('❌ ' + err.message);
-            } finally {
-              // Réactiver le bouton de confirmation (pour un éventuel réessai)
-              confirmBtn.disabled = false;
-              confirmBtn.innerHTML = 'Buy Now';
-            }
-          };
+      const popup = document.getElementById('confirmPopup');
+      document.getElementById('confirmMessage').textContent = 'Buy Words Booster for 20₵?';
+      popup.style.display = 'flex';
 
-          // Quand la modale se ferme (annulation ou clic extérieur), réactiver le lien d'accueil
-          document.getElementById('confirmBuyModal').addEventListener('hidden.bs.modal', () => {
-            link.dataset.processing = 'false';
-            link.style.pointerEvents = 'auto';
-          }, { once: true });
+      const userChoice = await new Promise((resolve) => {
+        const onConfirm = () => { cleanup(); resolve(true); };
+        const onCancel  = () => { cleanup(); resolve(false); };
+        const cleanup = () => {
+          popup.style.display = 'none';
+          document.getElementById('confirmOk').removeEventListener('click', onConfirm);
+          document.getElementById('confirmCancelBtn').removeEventListener('click', onCancel);
+        };
+        document.getElementById('confirmOk').addEventListener('click', onConfirm, { once: true });
+        document.getElementById('confirmCancelBtn').addEventListener('click', onCancel, { once: true });
+      });
+
+      if (!userChoice) { resetBuyButtons(); return; }
+
+      const buyButton = document.getElementById('buyBooster');
+      const buyButtonMobile = document.getElementById('buyBoosterMobile');
+      buyButton.disabled = true;
+      buyButtonMobile.disabled = true;
+      const spinner = `<div class="d-flex align-items-center justify-content-center"><div class="spinner-border spinner-border-sm me-2" role="status"><span class="visually-hidden">Loading...</span></div>Processing...</div>`;
+      buyButton.innerHTML = spinner;
+      buyButtonMobile.innerHTML = spinner;
+
+      try {
+        const response = await fetch('/api/acheter-booster', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
         });
-        
-      </script>
+        const result = await response.json();
+        if (result.success) {
+          currentBalance = result.newBalance;
+          currentWords = result.words;
+          document.getElementById('storeSection').classList.add('d-none');
+          document.getElementById('openingSection').classList.remove('d-none');
+        } else {
+          showAlert('Error: ' + result.message, 'danger');
+          resetBuyButtons();
+        }
+      } catch (error) {
+        console.error('Purchase error:', error);
+        showAlert('Purchase error', 'danger');
+        resetBuyButtons();
+      }
+    }
+
+    function resetBuyButtons() {
+      const buyButton = document.getElementById('buyBooster');
+      const buyButtonMobile = document.getElementById('buyBoosterMobile');
+      buyButton.disabled = currentBalance < 20;
+      buyButtonMobile.disabled = currentBalance < 20;
+      buyButton.innerHTML = '<i class="bi bi-cart3 me-2"></i>Buy (20₵)';
+      buyButtonMobile.innerHTML = '<i class="bi bi-cart3 me-2"></i>Buy (20₵)';
+    }
+
+    // ── Card carousel ──────────────────────────────────────────────────────────
+
+    function startCardReveal() {
+      document.getElementById('openingSection').classList.add('d-none');
+      document.getElementById('revealSection').classList.remove('d-none');
+      createCardCarousel();
+      showCard(0);
+    }
+
+    function createCardCarousel() {
+      const carousel = document.getElementById('cardCarousel');
+      carousel.innerHTML = '';
+      currentWords.forEach((word, index) => {
+        const card = document.createElement('div');
+        card.className = `carousel-card card ${index === 0 ? 'active' : ''}`;
+        card.innerHTML = `
+          <div class="card-body text-center p-4">
+            <h4 class="fw-bold text-primary mb-3">${word.chinese}</h4>
+            <p class="text-muted mb-2">${word.pinyin || ''}</p>
+            <p class="h5 text-dark mb-3">${word.english}</p>
+            ${word.description ? `<p class="small text-muted">${word.description}</p>` : ''}
+            ${word.hsk ? `<span class="badge bg-success">HSK ${word.hsk}</span>` : ''}
+          </div>`;
+        carousel.appendChild(card);
+      });
+    }
+
+    function showCard(index) {
+      const cards = document.querySelectorAll('.carousel-card');
+      cards.forEach((card, i) => {
+        card.classList.remove('active', 'previous', 'next');
+        if (i === index) card.classList.add('active');
+        else if (i === (index - 1 + cards.length) % cards.length) card.classList.add('previous');
+        else if (i === (index + 1) % cards.length) card.classList.add('next');
+      });
+      currentCardIndex = index;
+      clearTimeout(window.cardTimeout);
+      if (cards.length > 1) {
+        window.cardTimeout = setTimeout(() => showCard((index + 1) % cards.length), 3000);
+      }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    function redirectToCollection() {
+      showSuccessAnimation();
+      setTimeout(() => { window.location.href = '/collection'; }, 1000);
+    }
+
+    function showSuccessAnimation() {
+      const el = document.getElementById('successAnimation');
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 1000);
+    }
+
+    function showAlert(message, type) {
+      const alert = document.createElement('div');
+      alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+      alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 250px;';
+      alert.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
+      document.body.appendChild(alert);
+      setTimeout(() => alert.remove(), 4000);
+    }
+  </script>
 </body>
 
 </html>

@@ -9,18 +9,24 @@
       </span>
 
       <!-- Badge Free/Premium -->
-      <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border 
-               <%= isPremium ? 'text-primary border-primary' : 'text-secondary border-secondary' %>">
-        <%= isPremium ? 'PREMIUM' : 'FREE' %>
-      </span>
+      <a href="/pricing" class="text-decoration-none">
+        <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border
+               <%= isPremium ? 'text-primary border-primary' : 'text-secondary border-secondary' %>"
+               style="cursor: pointer;">
+          <%= isPremium ? 'PREMIUM' : 'FREE' %>
+        </span>
+      </a>
     </div>
     <% } else { %>
       <!-- Sur le dashboard : badge seul -->
       <div class="d-flex align-items-center">
-        <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border 
-               <%= user.planName === 'premium' ? 'text-primary border-primary' : 'text-secondary border-secondary' %>">
-          <%= user.planName==='premium' ? 'PREMIUM' : 'FREE' %>
-        </span>
+        <a href="/pricing" class="text-decoration-none">
+          <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border
+                 <%= user.planName === 'premium' ? 'text-primary border-primary' : 'text-secondary border-secondary' %>"
+                 style="cursor: pointer;">
+            <%= user.planName==='premium' ? 'PREMIUM' : 'FREE' %>
+          </span>
+        </a>
       </div>
       <% } %>
 

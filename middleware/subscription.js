@@ -134,7 +134,7 @@ exports.canAddWord = async (req, res, next) => {
     );
 
     const currentCount = parseInt(rows[0].count);
-    const maxWords = user.isPremium ? 100000 : 100; // ← Limites simples
+    const maxWords = user.isPremium ? 100000 : 350; // ← Limites simples
 
     console.log(`🔍 [canAddWord] Limite: ${currentCount}/${maxWords} (Premium: ${user.isPremium})`);
 

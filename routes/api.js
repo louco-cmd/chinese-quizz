@@ -803,7 +803,8 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     const now = new Date();
 
     const availableWords = allWords.filter(w => {
-      if (!w.last_seen) return true;
+      // Never-tested words (nb_quiz=0) always bypass cooldown regardless of last_seen
+      if (!w.last_seen || w.nb_quiz === 0) return true;
       const diffHours = (now - new Date(w.last_seen)) / (1000 * 60 * 60);
       return diffHours >= COOLDOWN_HOURS;
     });
@@ -885,34 +886,27 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     let selected = [];
 
     if (difficulty === 'balanced') {
-      // Balanced : mots entre 30 et 80 (inclus)
-      const targetWords = finalPool.filter(w => w.score >= 30 && w.score <= 80);
+      // Never-tested words (nb_quiz=0) are always included in balanced — they need their first pass
+      const newWords    = finalPool.filter(w => w.nb_quiz === 0);
+      const targetWords = finalPool.filter(w => w.nb_quiz > 0 && w.score >= 30 && w.score <= 80);
 
-      if (targetWords.length >= requestedCount) {
-        // Assez de mots dans la fourchette → on prend uniquement ceux-là
-        selected = pickRandom(targetWords, requestedCount);
-      } else {
-        // Pas assez → on prend tous les targetWords
-        selected = [...targetWords];
-        const remaining = requestedCount - targetWords.length;
+      // Reserve up to 30% of slots for new words so they get introduced progressively
+      const newSlots    = Math.min(newWords.length, Math.floor(requestedCount * 0.3));
+      const targetSlots = requestedCount - newSlots;
 
-        // Priorité aux mots "proches" (25-30 et 80-85) pour rester cohérent
-        const closeWords = finalPool.filter(w =>
-          (w.score >= 25 && w.score < 30) || (w.score > 80 && w.score <= 85)
-        ).filter(w => !selected.includes(w));
+      selected = [
+        ...pickRandom(newWords, newSlots),
+        ...pickRandom(targetWords, targetSlots)
+      ];
 
-        if (closeWords.length >= remaining) {
-          selected.push(...pickRandom(closeWords, remaining));
-        } else {
-          selected.push(...closeWords);
-          const stillNeeded = remaining - closeWords.length;
-          // En dernier recours : tous les autres mots
-          const otherWords = finalPool.filter(w => !selected.includes(w));
-          selected.push(...pickRandom(otherWords, Math.min(stillNeeded, otherWords.length)));
-        }
+      // If still short, fill with anything remaining
+      if (selected.length < requestedCount) {
+        const usedIds  = new Set(selected.map(w => w.id));
+        const fallback = finalPool.filter(w => !usedIds.has(w.id));
+        selected.push(...pickRandom(fallback, requestedCount - selected.length));
       }
 
-      console.log(`⚖️ Balanced → ${selected.length} mots (dont ${selected.filter(w => w.score >= 30 && w.score <= 80).length} dans la cible)`);
+      console.log(`⚖️ Balanced → ${selected.length} mots (${newSlots} new, ${selected.filter(w => w.score >= 30 && w.score <= 80).length} dans cible 30-80)`);
 
     } else if (difficulty === 'revision') {
       // Revision : uniquement des mots avec score >= 70
@@ -942,17 +936,25 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
       console.log(`📚 Revision → ${selected.length} mots (dont ${selected.filter(w => w.score >= 70).length} avec score >=70)`);
 
     } else if (difficulty === 'discovery') {
-      // Discovery : 100% des mots avec score <= 50
-      const weakWords = finalPool.filter(w => w.score <= 50);
+      // Discovery : mots jamais testés (nb_quiz=0) en priorité, puis score <= 30
+      const neverTested = finalPool.filter(w => w.nb_quiz === 0);
+      const weakTested  = finalPool.filter(w => w.nb_quiz > 0 && w.score <= 30);
 
-      if (weakWords.length >= requestedCount) {
-        selected = pickRandom(weakWords, requestedCount);
-      } else {
-        // Pas assez de mots faibles : on prend tous ceux disponibles (sans ajouter de mots plus forts)
-        selected = [...weakWords];
+      selected = pickRandom(neverTested, Math.min(neverTested.length, requestedCount));
+
+      if (selected.length < requestedCount) {
+        const stillNeeded = requestedCount - selected.length;
+        selected.push(...pickRandom(weakTested, Math.min(weakTested.length, stillNeeded)));
       }
 
-      console.log(`🔍 Discovery → ${selected.length} mots (tous <=50)`);
+      // If still short (e.g. all words are already well-known), extend to score <= 50
+      if (selected.length < requestedCount) {
+        const usedIds    = new Set(selected.map(w => w.id));
+        const mediumWeak = finalPool.filter(w => !usedIds.has(w.id) && w.score <= 50);
+        selected.push(...pickRandom(mediumWeak, requestedCount - selected.length));
+      }
+
+      console.log(`🔍 Discovery → ${selected.length} mots (${neverTested.length} jamais testés, ${weakTested.length} score<=30 disponibles)`);
 
     } else {
       // Fallback (difficulty inconnue) → aléatoire pur
@@ -999,7 +1001,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
 
     // Ajout d'un avertissement si le nombre demandé n'est pas atteint en mode discovery
     if (difficulty === 'discovery' && selected.length < requestedCount) {
-      const warningMsg = `Nombre de mots insuffisant dans la plage de score demandée (<=50). Seuls ${selected.length} mots ont été sélectionnés.`;
+      const warningMsg = `Nombre insuffisant de mots nouveaux ou faibles (nb_quiz=0 ou score<=50). Seuls ${selected.length} mots ont été sélectionnés.`;
       response.warning = response.warning ? `${response.warning} ${warningMsg}` : warningMsg;
     }
 
@@ -1153,11 +1155,19 @@ router.get('/api/difficult-words', ensureAuth, async (req, res) => {
 });
 
 
+// Prix par niveau HSK
+const PACK_PRICES = { 1: 200, 2: 400 };
+
 // Packs et gestion d'achat
 router.post('/api/purchase-pack', ensureAuth, async (req, res) => {
   const userId = req.user.id;
-  const packPrice = 200;
-  const hskLevel = 1;
+  const hskLevel = parseInt(req.body.level);
+
+  if (!PACK_PRICES[hskLevel]) {
+    return res.status(400).json({ error: 'Invalid pack level' });
+  }
+
+  const packPrice = PACK_PRICES[hskLevel];
 
   const client = await pool.connect();
 
