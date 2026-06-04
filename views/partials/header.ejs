@@ -1025,8 +1025,10 @@ async function performDeleteAccount() {
 <script>
 // ====== PWA INSTALL LOGIC ======
 (function () {
-  const DISMISS_KEY = 'pwa_banner_dismissed';
-  const DISMISS_DAYS = 7;
+  // Separate dismiss keys per platform so closing on iOS doesn't block Android and vice versa
+  const DISMISS_KEY_IOS     = 'pwa_dismissed_ios';
+  const DISMISS_KEY_ANDROID = 'pwa_dismissed_android';
+  const DISMISS_DAYS = 3; // retry sooner (3 days instead of 7)
 
   // Already installed (running in standalone mode) → never show
   const isStandalone =
@@ -1034,12 +1036,12 @@ async function performDeleteAccount() {
     window.navigator.standalone === true;
   if (isStandalone) return;
 
-  // Dismissed recently → skip
-  const dismissed = localStorage.getItem(DISMISS_KEY);
-  if (dismissed && Date.now() - parseInt(dismissed) < DISMISS_DAYS * 86400000) return;
-
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isAndroidChrome = /android/i.test(navigator.userAgent) && /chrome/i.test(navigator.userAgent);
+
+  function wasDismissedRecently(key) {
+    const ts = localStorage.getItem(key);
+    return ts && Date.now() - parseInt(ts) < DISMISS_DAYS * 86400000;
+  }
 
   let deferredPrompt = null;
 
@@ -1047,13 +1049,14 @@ async function performDeleteAccount() {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    showBanner('android');
+    if (!wasDismissedRecently(DISMISS_KEY_ANDROID)) {
+      showBanner('android');
+    }
   });
 
-  // iOS: show manual guide banner
-  if (isIos && !isStandalone) {
-    // Small delay so the page header renders first
-    setTimeout(() => showBanner('ios'), 1500);
+  // iOS Safari: show manual guide banner
+  if (isIos && !wasDismissedRecently(DISMISS_KEY_IOS)) {
+    setTimeout(() => showBanner('ios'), 1200);
   }
 
   function showBanner(platform) {
@@ -1079,7 +1082,6 @@ async function performDeleteAccount() {
     const platform = banner ? banner.dataset.platform : null;
 
     if (platform === 'ios') {
-      // Show the iOS guide popup
       const modal = document.getElementById('pwa-ios-modal');
       if (modal) modal.style.display = 'flex';
       return;
@@ -1091,6 +1093,9 @@ async function performDeleteAccount() {
       deferredPrompt.userChoice.then((choice) => {
         if (choice.outcome === 'accepted') {
           dismissPwaBanner();
+        } else {
+          // User declined — store dismiss so we don't re-ask immediately
+          localStorage.setItem(DISMISS_KEY_ANDROID, Date.now().toString());
         }
         deferredPrompt = null;
       });
@@ -1099,8 +1104,11 @@ async function performDeleteAccount() {
 
   window.dismissPwaBanner = function () {
     const banner = document.getElementById('pwa-banner');
-    if (banner) banner.style.display = 'none';
-    localStorage.setItem(DISMISS_KEY, Date.now().toString());
+    if (!banner) return;
+    const platform = banner.dataset.platform;
+    banner.style.display = 'none';
+    const key = platform === 'ios' ? DISMISS_KEY_IOS : DISMISS_KEY_ANDROID;
+    localStorage.setItem(key, Date.now().toString());
   };
 
   window.closePwaIosModal = function () {
@@ -1108,9 +1116,12 @@ async function performDeleteAccount() {
     if (modal) modal.style.display = 'none';
   };
 
-  // Hide banner once app is installed
+  // Hide banner and mark installed when the OS confirms install
   window.addEventListener('appinstalled', () => {
-    dismissPwaBanner();
+    const banner = document.getElementById('pwa-banner');
+    if (banner) banner.style.display = 'none';
+    localStorage.setItem(DISMISS_KEY_ANDROID, Date.now().toString());
+    localStorage.setItem(DISMISS_KEY_IOS, Date.now().toString());
     console.log('✅ PWA installed');
   });
 })();
