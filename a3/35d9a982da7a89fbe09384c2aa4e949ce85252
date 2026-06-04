@@ -1,0 +1,22 @@
+views/install-app.ejs
+  s_5aad6c6484d886::t_fb065314e8c867 423-424,428-433
+  s_5aad6c6484d886::t_dbd1d653614787 425-426,434,436,439,442,446
+  s_5aad6c6484d886::t_3216c1861f3dc4 396-400,402-405,407-411,422,427,437-438,440-441,443-445,447-456
+  s_5aad6c6484d886::t_d52b35fac795ca 293,296-298
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "a335d9a982da7a89fbe09384c2aa4e949ce85252",
+  "prompts": {},
+  "sessions": {
+    "s_5aad6c6484d886": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6ab31de5-a48c-4a7e-bf2d-1acd6bc04a39",
+        "model": "us.anthropic.claude-sonnet-4-6"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
