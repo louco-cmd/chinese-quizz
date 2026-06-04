@@ -1,0 +1,66 @@
+views/forgot-password.ejs
+  s_5aad6c6484d886::t_8748484f33591b 6
+views/quiz.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/pricing.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/partials/header.ejs
+  s_5aad6c6484d886::t_fbd0957ba9da3f 159-162
+views/quiz-play.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/account.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/collection.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+server.js
+  s_5aad6c6484d886::t_a931dbed3d3dbd 1392-1400
+views/bank.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/partials/meta.ejs
+  s_5aad6c6484d886::t_c1a2b7a7426fc9 1-21
+views/error.ejs
+  s_5aad6c6484d886::t_8748484f33591b 7
+views/index.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/leaderboard.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/duels.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/duel-detail.ejs
+  s_5aad6c6484d886::t_8748484f33591b 7
+views/install-app.ejs
+  s_5aad6c6484d886::t_caf92b260ffebb 1-6,8-434
+  s_5aad6c6484d886::t_8748484f33591b 7
+views/legal.ejs
+  s_5aad6c6484d886::t_8748484f33591b 7
+views/reset-password.ejs
+  s_5aad6c6484d886::t_8748484f33591b 7
+views/dashboard.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/tutorial.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/store.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/user-profile.ejs
+  s_5aad6c6484d886::t_8748484f33591b 10
+views/welcome-jiayou-premium.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+views/duel-play.ejs
+  s_5aad6c6484d886::t_8748484f33591b 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "13b15226f371e760406543d9dfbc0cb174b331a6",
+  "prompts": {},
+  "sessions": {
+    "s_5aad6c6484d886": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6ab31de5-a48c-4a7e-bf2d-1acd6bc04a39",
+        "model": "global.anthropic.claude-sonnet-4-6"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
