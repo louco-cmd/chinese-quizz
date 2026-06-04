@@ -1389,6 +1389,15 @@ app.get('/store', ensureAuth, async (req, res) => {
   }
 });
 
+// Install app guide
+app.get('/install-app', (req, res) => {
+  res.render('install-app', {
+    user: req.user || null,
+    balance: req.user?.balance || 0,
+    currentPage: 'install'
+  });
+});
+
 // Page de pricing
 app.get('/pricing', ensureAuth, async (req, res) => {
   try {

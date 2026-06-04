@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jiayou - Install the app</title>
+  <%- include('partials/meta', { pageTitle: 'Jiayou · Install the App', pageDescription: 'Install Jiayou on your phone or desktop — works offline, launches like a native app.' }) %>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <style>
+    html, body { overflow-x: hidden; }
+
+    /* Hero */
+    .install-hero {
+      background:#0d6efd;
+      color: white;
+      padding: 40px 24px 52px;
+      text-align: center;
+      position: relative;
+    }
+    .install-hero::after {
+      content: '';
+      position: absolute;
+      bottom: -2px; left: 0; right: 0;
+      height: 28px;
+      background: #f8f9fa;
+      border-radius: 28px 28px 0 0;
+    }
+
+    /* Device selector tabs */
+    .device-tabs {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+    .device-tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 14px 20px;
+      border-radius: 16px;
+      border: 2px solid #e0e0e0;
+      background: white;
+      color: #555;
+      font-weight: 600;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-width: 80px;
+    }
+    .device-tab i { font-size: 1.5rem; }
+    .device-tab:hover { border-color: #0d6efd; color: #0d6efd; background: #f0f6ff; }
+    .device-tab.active {
+      border-color: #0d6efd;
+      background: #e7f1ff;
+      color: #0d6efd;
+    }
+
+    /* Instruction card */
+    .install-card {
+      border: 2px solid #e8ecf0;
+      border-radius: 20px;
+      background: white;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+      overflow: hidden;
+    }
+    .install-card-header {
+      background: linear-gradient(135deg, #0d6efd 0%, #6610f2 100%);
+      color: white;
+      padding: 20px 28px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .install-card-header i { font-size: 1.8rem; }
+    .install-card-header h5 { margin: 0; font-weight: 700; font-size: 1.1rem; }
+    .install-card-header p { margin: 0; opacity: 0.85; font-size: 0.82rem; }
+
+    /* Steps */
+    .steps-list { padding: 24px 28px; }
+    .step-item {
+      display: flex;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid #f3f3f3;
+    }
+    .step-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .step-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #0d6efd, #6610f2);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-text { font-size: 0.93rem; color: #333; line-height: 1.6; }
+    .step-text strong { color: #1d1d1f; }
+    .step-note {
+      font-size: 0.78rem;
+      color: #888;
+      margin-top: 3px;
+    }
+
+    /* Tip box */
+    .tip-box {
+      margin: 0 28px 24px;
+      background: #fffbea;
+      border: 1px solid #ffe082;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: #5a4a00;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .tip-box i { color: #f59e0b; margin-top: 2px; flex-shrink: 0; }
+
+    /* Already installed banner */
+    .installed-banner {
+      background: #d1fae5;
+      border: 1px solid #6ee7b7;
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.9rem;
+      color: #065f46;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    /* CTA button */
+    .btn-install-cta {
+      width: 100%;
+      padding: 14px;
+      border-radius: 14px;
+      font-weight: 700;
+      border: none;
+      background: linear-gradient(135deg, #0d6efd, #6610f2);
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      display: block;
+      text-decoration: none;
+    }
+    .btn-install-cta:hover { filter: brightness(1.08); transform: translateY(-1px); color: white; }
+
+    .section-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #aaa;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body class="bg-light">
+<%- include('partials/header', {currentPage: 'install', user: user, balance: balance}) %>
+<%- include('partials/navbar', {currentPage: 'install', user: user}) %>
+
+<!-- Hero -->
+<div class="install-hero">
+  <div style="font-size: 2.8rem; margin-bottom: 10px;">📲</div>
+  <h1 class="fw-bold mb-2" style="font-size: clamp(1.4rem, 5vw, 2rem);">Install Jiayou on your device</h1>
+  <p style="opacity: 0.85; font-size: 0.95rem; max-width: 380px; margin: 0 auto;">
+    Get the full app experience — works offline, launches like a native app.
+  </p>
+</div>
+
+<div class="container py-4" style="max-width: 560px;">
+
+  <!-- Already installed notice (shown only in standalone mode) -->
+  <div id="alreadyInstalled" style="display: none;">
+    <div class="installed-banner">
+      <i class="bi bi-check-circle-fill fs-4 text-success"></i>
+      <span>Jiayou is already installed on this device!</span>
+    </div>
+  </div>
+
+  <!-- Device tabs -->
+  <div class="section-label">Choose your device</div>
+  <div class="device-tabs">
+    <button class="device-tab" id="tab-iphone" onclick="showDevice('iphone')">
+      <i class="bi bi-phone"></i>iPhone
+    </button>
+    <button class="device-tab" id="tab-android" onclick="showDevice('android')">
+      <i class="bi bi-android2"></i>Android
+    </button>
+    <button class="device-tab" id="tab-mac" onclick="showDevice('mac')">
+      <i class="bi bi-laptop"></i>Mac
+    </button>
+    <button class="device-tab" id="tab-windows" onclick="showDevice('windows')">
+      <i class="bi bi-windows"></i>Windows
+    </button>
+  </div>
+
+  <!-- ── iPhone ── -->
+  <div id="device-iphone" class="device-panel install-card" style="display: none;">
+    <div class="install-card-header">
+      <i class="bi bi-phone"></i>
+      <div>
+        <h5>iPhone / iPad</h5>
+        <p>iOS 16.4+ · Safari required</p>
+      </div>
+    </div>
+    <div class="steps-list">
+      <div class="step-item">
+        <div class="step-number">1</div>
+        <div class="step-text">
+          <strong>Open this page in Safari</strong>
+          <div class="step-note">Chrome and Firefox on iOS cannot install PWAs — Safari only.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">2</div>
+        <div class="step-text">
+          Tap the <strong>Share button</strong> <span style="font-size: 1.2rem; vertical-align: middle;">⎋</span> at the bottom centre of the screen
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">3</div>
+        <div class="step-text">
+          Scroll down in the share sheet and tap <strong>"Add to Home Screen"</strong>
+          <div class="step-note">The icon looks like a square with a plus sign.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">4</div>
+        <div class="step-text">
+          Tap <strong>"Add"</strong> in the top-right — Jiayou appears on your home screen immediately!
+        </div>
+      </div>
+    </div>
+    <div class="tip-box">
+      <i class="bi bi-lightbulb-fill"></i>
+      <span>The app will open full screen without the Safari address bar, just like a native app.</span>
+    </div>
+  </div>
+
+  <!-- ── Android ── -->
+  <div id="device-android" class="device-panel install-card" style="display: none;">
+    <div class="install-card-header">
+      <i class="bi bi-android2"></i>
+      <div>
+        <h5>Android</h5>
+        <p>Chrome recommended</p>
+      </div>
+    </div>
+    <div class="steps-list">
+      <div class="step-item">
+        <div class="step-number">1</div>
+        <div class="step-text">
+          <strong>Open this page in Chrome</strong>
+          <div class="step-note">Samsung Internet and Edge also support PWA install.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">2</div>
+        <div class="step-text">
+          Tap the <strong>⋮ menu</strong> (three dots) in the top-right corner of Chrome
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">3</div>
+        <div class="step-text">
+          Tap <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong>
+          <div class="step-note">If the option isn't visible, look for a small install banner at the bottom of the screen.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">4</div>
+        <div class="step-text">
+          Tap <strong>"Install"</strong> — the app icon will appear on your home screen and in your app drawer.
+        </div>
+      </div>
+    </div>
+    <div style="padding: 0 28px 24px;">
+      <button id="androidInstallBtn" class="btn-install-cta" onclick="triggerAndroidInstall()" style="display: none;">
+        <i class="bi bi-download me-2"></i>Install Jiayou now
+      </button>
+    </div>
+    <div class="tip-box" style="margin-top: 0;">
+      <i class="bi bi-lightbulb-fill"></i>
+      <span>Chrome may show an automatic install prompt when you visit the app — tap it to install instantly.</span>
+    </div>
+  </div>
+
+  <!-- ── Mac ── -->
+  <div id="device-mac" class="device-panel install-card" style="display: none;">
+    <div class="install-card-header">
+      <i class="bi bi-laptop"></i>
+      <div>
+        <h5>Mac</h5>
+        <p>macOS · Chrome or Edge</p>
+      </div>
+    </div>
+    <div class="steps-list">
+      <div class="step-item">
+        <div class="step-number">1</div>
+        <div class="step-text">
+          <strong>Open this page in Chrome or Edge</strong>
+          <div class="step-note">Safari on macOS does not yet support PWA installation.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">2</div>
+        <div class="step-text">
+          Look for the <strong>install icon</strong> <i class="bi bi-download"></i> in the address bar (far right)
+          <div class="step-note">In Edge, it may appear as a plus sign in the address bar.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">3</div>
+        <div class="step-text">
+          Click it and select <strong>"Install"</strong>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">4</div>
+        <div class="step-text">
+          Jiayou opens in its own window. You'll find it in your <strong>Applications folder</strong> and Launchpad.
+        </div>
+      </div>
+    </div>
+    <div class="tip-box">
+      <i class="bi bi-lightbulb-fill"></i>
+      <span>Alternatively: Chrome menu (⋮) → <strong>"Save and share"</strong> → <strong>"Install page as app"</strong>.</span>
+    </div>
+  </div>
+
+  <!-- ── Windows ── -->
+  <div id="device-windows" class="device-panel install-card" style="display: none;">
+    <div class="install-card-header">
+      <i class="bi bi-windows"></i>
+      <div>
+        <h5>Windows</h5>
+        <p>Windows 10 / 11 · Chrome or Edge</p>
+      </div>
+    </div>
+    <div class="steps-list">
+      <div class="step-item">
+        <div class="step-number">1</div>
+        <div class="step-text">
+          <strong>Open this page in Chrome or Edge</strong>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">2</div>
+        <div class="step-text">
+          Look for the <strong>install icon</strong> <i class="bi bi-download"></i> on the right side of the address bar
+          <div class="step-note">In Edge, it's a blue "+" icon. In Chrome it looks like a monitor with a down arrow.</div>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">3</div>
+        <div class="step-text">
+          Click it and confirm with <strong>"Install"</strong>
+        </div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">4</div>
+        <div class="step-text">
+          Jiayou launches as a standalone window. A shortcut is added to your <strong>Desktop</strong> and <strong>Start Menu</strong>.
+        </div>
+      </div>
+    </div>
+    <div class="tip-box">
+      <i class="bi bi-lightbulb-fill"></i>
+      <span>Edge menu (…) → <strong>"Apps"</strong> → <strong>"Install this site as an app"</strong> also works.</span>
+    </div>
+  </div>
+
+  <div style="height: 24px;"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Auto-detect device on load
+  (function () {
+    const ua = navigator.userAgent;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+    if (isStandalone) {
+      document.getElementById('alreadyInstalled').style.display = 'block';
+    }
+
+    if (/iphone|ipad|ipod/i.test(ua))        showDevice('iphone');
+    else if (/android/i.test(ua))             showDevice('android');
+    else if (/mac/i.test(ua) && !(/iphone|ipad/i.test(ua))) showDevice('mac');
+    else                                       showDevice('windows');
+  })();
+
+  function showDevice(id) {
+    document.querySelectorAll('.device-panel').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.device-tab').forEach(t => t.classList.remove('active'));
+    const panel = document.getElementById('device-' + id);
+    const tab   = document.getElementById('tab-' + id);
+    if (panel) panel.style.display = 'block';
+    if (tab)   tab.classList.add('active');
+  }
+
+  // Android: show native install button if prompt is available
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const btn = document.getElementById('androidInstallBtn');
+    if (btn) btn.style.display = 'block';
+  });
+
+  function triggerAndroidInstall() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+  }
+</script>
+</body>
+</html>
