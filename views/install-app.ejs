@@ -290,9 +290,12 @@
       </div>
     </div>
     <div style="padding: 0 28px 24px;">
-      <button id="androidInstallBtn" class="btn-install-cta" onclick="triggerAndroidInstall()" style="display: none;">
+      <button id="androidInstallBtn" class="btn-install-cta" onclick="triggerAndroidInstall()">
         <i class="bi bi-download me-2"></i>Install Jiayou now
       </button>
+      <div id="androidManualHint" style="display:none; text-align:center; font-size:0.82rem; color:#888; margin-top:10px;">
+        Can't see the button? Follow the steps below.
+      </div>
     </div>
     <div class="tip-box" style="margin-top: 0;">
       <i class="bi bi-lightbulb-fill"></i>
@@ -390,20 +393,22 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-  // Auto-detect device on load
-  (function () {
-    const ua = navigator.userAgent;
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  const ua         = navigator.userAgent;
+  const isIos      = /iphone|ipad|ipod/i.test(ua);
+  const isAndroid  = /android/i.test(ua);
+  const isMac      = /mac/i.test(ua) && !isIos;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
-    if (isStandalone) {
-      document.getElementById('alreadyInstalled').style.display = 'block';
-    }
+  // Show "already installed" banner
+  if (isStandalone) {
+    document.getElementById('alreadyInstalled').style.display = 'block';
+  }
 
-    if (/iphone|ipad|ipod/i.test(ua))        showDevice('iphone');
-    else if (/android/i.test(ua))             showDevice('android');
-    else if (/mac/i.test(ua) && !(/iphone|ipad/i.test(ua))) showDevice('mac');
-    else                                       showDevice('windows');
-  })();
+  // Auto-select tab based on device
+  if (isIos)           showDevice('iphone');
+  else if (isAndroid)  showDevice('android');
+  else if (isMac)      showDevice('mac');
+  else                 showDevice('windows');
 
   function showDevice(id) {
     document.querySelectorAll('.device-panel').forEach(p => p.style.display = 'none');
@@ -414,14 +419,41 @@
     if (tab)   tab.classList.add('active');
   }
 
-  // Android: show native install button if prompt is available
+  // Reset dismiss keys so banner can reappear on future page visits
+  localStorage.removeItem('pwa_dismissed_ios');
+  localStorage.removeItem('pwa_dismissed_android');
+
+  // iOS: auto-open the install guide popup
+  if (isIos && !isStandalone) {
+    setTimeout(() => {
+      const modal = document.getElementById('pwa-ios-modal');
+      if (modal) modal.style.display = 'flex';
+    }, 600);
+  }
+
+  // Android: native button if beforeinstallprompt fires, hint otherwise
   let deferredPrompt = null;
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    const btn = document.getElementById('androidInstallBtn');
-    if (btn) btn.style.display = 'block';
-  });
+
+  if (isAndroid && !isStandalone) {
+    const hint       = document.getElementById('androidManualHint');
+    const installBtn = document.getElementById('androidInstallBtn');
+
+    // Show hint after 2s if Chrome's native prompt hasn't fired (cooldown after previous dismiss)
+    const checkTimer = setTimeout(() => {
+      if (!deferredPrompt) {
+        if (installBtn) installBtn.style.display = 'none';
+        if (hint) hint.style.display = 'block';
+      }
+    }, 2000);
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      clearTimeout(checkTimer);
+      if (installBtn) installBtn.style.display = 'block';
+      if (hint) hint.style.display = 'none';
+    });
+  }
 
   function triggerAndroidInstall() {
     if (!deferredPrompt) return;
