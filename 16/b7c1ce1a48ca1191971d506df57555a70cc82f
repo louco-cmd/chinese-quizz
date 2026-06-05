@@ -1,0 +1,21 @@
+public/manifest.json
+  s_8d2ffa3daa2c6c::t_f82e4723c240e6 2,5-6,13,15-16,19,21-22,26-28
+  s_8d2ffa3daa2c6c::t_4cd0e46aa6366f 25
+  s_8d2ffa3daa2c6c::t_9d8ad1268a029a 33,37,40,43-44,47,50-51,54,57-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "16b7c1ce1a48ca1191971d506df57555a70cc82f",
+  "prompts": {},
+  "sessions": {
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "us.anthropic.claude-sonnet-4-6"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
