@@ -1,0 +1,27 @@
+public/sw.js
+  s_5aad6c6484d886::t_480f8a8e0edd31 2,10
+views/partials/meta.ejs
+  s_5aad6c6484d886::t_eb2409ba79bd3d 22-29
+views/dashboard.ejs
+  s_5aad6c6484d886::t_359c81f7ae4d50 1199,1201,1203-1205,1209,1211-1213
+  s_5aad6c6484d886::t_ef3cfdcc5a0bda 1202,1210
+views/partials/header.ejs
+  s_5aad6c6484d886::t_d09fd39ea74740 1008
+  s_5aad6c6484d886::t_218fc1e58f9f45 750-757,759-775,779-782
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "9aeae3f24961e4ee8a6b9b93f237c3b3084524a6",
+  "prompts": {},
+  "sessions": {
+    "s_5aad6c6484d886": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6ab31de5-a48c-4a7e-bf2d-1acd6bc04a39",
+        "model": "us.anthropic.claude-sonnet-4-6"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
