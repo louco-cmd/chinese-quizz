@@ -212,275 +212,175 @@
   <div class="container py-3 py-md-4">
     <div class="row g-3 g-md-4">
       <div class="col-12">
-        <% if (players && players.length> 0) { %>
-        <%- include('partials/ranking', { 
-            players: players, 
-            currentUserId: user.id, 
-            rankingLimit: 20, 
-            showFullRankingLink: false, 
-            rankingTitle: 'Player Ranking ' + new Date().getFullYear() 
-          }) %>
-        <% } else { %>
-        <div class="alert alert-warning">
-          <p><strong>Debug Info:</strong></p>
-          <p>Players variable type: <%= typeof players %>
-          </p>
-          <p>Players count: <%= players ? players.length : 0 %>
-          </p>
+        <div class="card">
+          <div class="card-header d-flex align-items-center justify-content-between">
+            <h6 class="mb-0 d-flex align-items-center text-dark">
+              <i class="bi bi-trophy me-2"></i>
+              Player Ranking <%= new Date().getFullYear() %>
+            </h6>
+            <span class="text-muted small" id="players-count"></span>
+          </div>
+
+          <div class="card-body p-0">
+            <!-- En-tête desktop -->
+            <div class="table-header d-none d-md-flex">
+              <div class="header-player">Player</div>
+              <div class="header-stat">Words</div>
+              <div class="header-stat">Wins</div>
+              <div class="header-stat">Losses</div>
+              <div class="header-stat">Ratio</div>
+            </div>
+
+            <!-- Contenu -->
+            <div id="leaderboard-container">
+              <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="mt-2 text-muted small">Loading ranking...</p>
+              </div>
+            </div>
+
+            <!-- Pagination -->
+            <div id="pagination-bar" class="d-flex align-items-center justify-content-between px-3 py-2 border-top" style="display:none!important;">
+              <span class="text-muted small" id="pagination-info"></span>
+              <div class="d-flex gap-1" id="pagination-btns"></div>
+            </div>
+          </div>
         </div>
-        <% } %>
       </div>
     </div>
-  </div>
-
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     let allPlayers = [];
-    let originalRanks = new Map();
     const currentUserId = <%= user.id %>;
+    const PAGE_SIZE = 20;
+    let currentPage = 1;
 
-    // ✅ DÉCLARER getFlagEmoji EN PREMIER
     function getFlagEmoji(countryCode) {
-      if (!countryCode || countryCode.trim() === '') {
-        return '';
-      }
-
+      if (!countryCode || countryCode.trim() === '') return '';
       try {
-        const codePoints = countryCode.toUpperCase().trim().split('').map(char =>
-          127397 + char.charCodeAt()
-        );
-        return String.fromCodePoint(...codePoints);
-      } catch (error) {
-        console.warn('Error generating flag emoji:', error);
-        return '';
-      }
+        return countryCode.toUpperCase().trim().split('').map(c => String.fromCodePoint(127397 + c.charCodeAt())).join('');
+      } catch { return ''; }
     }
 
-    // Fonction helper pour échapper le HTML
-    function escapeHtml(unsafe) {
-      if (!unsafe) return '';
-      return unsafe
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    function escapeHtml(s) {
+      if (!s) return '';
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
 
-    // Initialisation
-    document.addEventListener('DOMContentLoaded', function() {
-      loadLeaderboard();
-    });
+    document.addEventListener('DOMContentLoaded', loadLeaderboard);
 
-    // Charger le classement
     async function loadLeaderboard() {
       try {
-        const container = document.getElementById('leaderboard-container');
-        if (!container) return;
-
-        container.innerHTML = `
-                <div class="text-center py-4 py-md-5">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2 text-muted small">Chargement du classement...</p>
-                </div>
-            `;
-
         const response = await fetch('/api/players/stats');
-
-        if (!response.ok) {
-          throw new Error(`Erreur HTTP: ${response.status}`);
-        }
-
-        const players = await response.json();
-
-        // DEBUG
-        console.log('👥 Données joueurs reçues:', players.length, 'joueurs');
-        if (players.length > 0) {
-          console.log('🔍 Premier joueur:', {
-            name: players[0].name,
-            tagline: players[0].tagline,
-            country: players[0].country,
-            flag: getFlagEmoji(players[0].country) // Test immédiat
-          });
-        }
-
-        if (!Array.isArray(players)) {
-          throw new Error('Format de données invalide');
-        }
-
-        allPlayers = players;
-        originalRanks.clear();
-        players.forEach((player, index) => {
-          originalRanks.set(player.id, index + 1);
-        });
-
-        displayPlayers(players);
-
-      } catch (error) {
-        console.error('Erreur classement:', error);
-        const container = document.getElementById('leaderboard-container');
-        if (container) {
-          container.innerHTML = `
-                    <div class="text-center py-4 text-muted">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        <p class="mt-2 small">Erreur de chargement</p>
-                        <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadLeaderboard()">
-                            Réessayer
-                        </button>
-                    </div>
-                `;
-        }
+        if (!response.ok) throw new Error();
+        allPlayers = await response.json();
+        if (!Array.isArray(allPlayers)) throw new Error();
+        document.getElementById('players-count').textContent = allPlayers.length + ' players';
+        currentPage = 1;
+        renderPage();
+      } catch {
+        document.getElementById('leaderboard-container').innerHTML = `
+          <div class="text-center py-4 text-muted">
+            <i class="bi bi-exclamation-triangle"></i>
+            <p class="mt-2 small">Loading error</p>
+            <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadLeaderboard()">Retry</button>
+          </div>`;
       }
     }
 
-    // Afficher les joueurs
-    function displayPlayers(players) {
+    function renderPage() {
+      const totalPages = Math.ceil(allPlayers.length / PAGE_SIZE);
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const slice = allPlayers.slice(start, start + PAGE_SIZE);
       const container = document.getElementById('leaderboard-container');
-      const isFiltered = players.length !== allPlayers.length;
 
-      container.innerHTML = players.map((player, index) => {
-        const originalRank = originalRanks.get(player.id);
-        const displayRank = isFiltered ? originalRank : (index + 1);
+      container.innerHTML = slice.map((player, i) => {
+        const rank = start + i + 1;
         const isCurrentUser = player.id === currentUserId;
+        const flag = getFlagEmoji(player.country);
+        const tagline = escapeHtml(player.tagline);
+        const name = escapeHtml(player.name);
+        const rankClass = rank <= 3 ? `rank-${rank}` : '';
 
-        // Helper pour le drapeau
-        const countryFlag = player.country && player.country.trim() !== '' ?
-          getFlagEmoji(player.country) : '';
+        const playerInfo = `
+          <div class="rank-badge me-3">${rank}</div>
+          <div class="flex-grow-1">
+            <div class="fw-medium text-dark d-flex align-items-center gap-2 mb-1">
+              ${name}
+              ${flag ? `<span class="fs-6">${flag}</span>` : ''}
+              ${isCurrentUser ? '<span class="badge bg-primary ms-1">You</span>' : ''}
+            </div>
+            ${tagline ? `<div class="text-muted small text-truncate" style="max-width:200px;"><i class="bi bi-quote me-1 opacity-50"></i>${tagline}</div>` : ''}
+          </div>`;
 
-        // Helper pour la catch phrase
-        const catchPhrase = player.tagline && player.tagline.trim() !== '' ?
-          escapeHtml(player.tagline) : '';
+        const desktop = `
+          <div class="table-row d-none d-md-flex ${rankClass}" onclick="location.href='/user/${player.id}'" onmouseover="this.style.backgroundColor='#f8f9fa'" onmouseout="this.style.backgroundColor=''">
+            <div class="player-info d-flex align-items-center">${playerInfo}</div>
+            <div class="stat-item stats-number words">${player.total_words || 0}</div>
+            <div class="stat-item stats-number wins">${player.wins || 0}</div>
+            <div class="stat-item stats-number losses">${player.losses || 0}</div>
+            <div class="stat-item stats-number ratio">${player.win_ratio || player.ratio || 0}%</div>
+          </div>`;
 
-        // Version Desktop
-        const desktopRow = `
-                <div class="table-row d-none d-md-flex rank-${displayRank <= 3 ? displayRank : ''}"
-                     onclick="viewUserProfile(${player.id})"
-                     onmouseover="this.style.backgroundColor='#f8f9fa'"
-                     onmouseout="this.style.backgroundColor=''">
-                    
-                    <div class="player-info d-flex align-items-center">
-                        <div class="rank-badge me-3">
-                            ${displayRank}
-                        </div>
-                        <div class="d-flex align-items-center flex-grow-1">
-                            <div class="me-3 text-muted">
-                                <i class="bi bi-person-circle"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="fw-medium text-dark d-flex align-items-center gap-2 mb-1">
-                                    ${escapeHtml(player.name)}
-                                    ${countryFlag ? `<span class="fs-6">${countryFlag}</span>` : ''}
-                                    ${isCurrentUser ? '<span class="badge bg-primary ms-2">You</span>' : ''}
-                                </div>
-                                ${catchPhrase ? `
-                                    <div class="text-muted small text-truncate" style="max-width: 200px;">
-                                        <i class="bi bi-quote me-1 opacity-50"></i>${catchPhrase}
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                    </div>
+        const mobile = `
+          <div class="player-card-mobile border-bottom p-3 player-row ${rankClass}" onclick="location.href='/user/${player.id}'" style="cursor:pointer;">
+            <div class="d-flex align-items-center mb-2">${playerInfo}</div>
+            <div class="row g-0 mobile-stats">
+              <div class="col-3 mobile-stat"><span class="value words">${player.total_words || 0}</span><span class="label">Words</span></div>
+              <div class="col-3 mobile-stat"><span class="value wins">${player.wins || 0}</span><span class="label">Wins</span></div>
+              <div class="col-3 mobile-stat"><span class="value losses">${player.losses || 0}</span><span class="label">Losses</span></div>
+              <div class="col-3 mobile-stat"><span class="value ratio">${player.win_ratio || player.ratio || 0}%</span><span class="label">Ratio</span></div>
+            </div>
+          </div>`;
 
-                    <div class="stat-item stats-number words">
-                        ${player.total_words || 0}
-                    </div>
-                    <div class="stat-item stats-number wins">
-                        ${player.wins || 0}
-                    </div>
-                    <div class="stat-item stats-number losses">
-                        ${player.losses || 0}
-                    </div>
-                    <div class="stat-item stats-number ratio">
-                        ${player.win_ratio || 0}%
-                    </div>
-                </div>
-            `;
-
-        // Version Mobile
-        const mobileCard = `
-                <div class="player-card-mobile border-bottom p-3 player-row rank-${displayRank <= 3 ? displayRank : ''}"
-                     onclick="viewUserProfile(${player.id})"
-                     style="cursor: pointer; transition: background-color 0.2s;">
-                    
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div class="d-flex align-items-center flex-grow-1">
-                            <div class="rank-badge me-3">
-                                ${displayRank}
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="fw-medium text-dark d-flex align-items-center gap-2 mb-1">
-                                    ${escapeHtml(player.name)}
-                                    ${countryFlag ? `<span class="fs-6">${countryFlag}</span>` : ''}
-                                    ${isCurrentUser ? '<span class="badge bg-primary ms-1">You</span>' : ''}
-                                </div>
-                                ${catchPhrase ? `
-                                    <div class="text-muted small text-truncate">
-                                        <i class="bi bi-quote me-1 opacity-50"></i>${catchPhrase}
-                                    </div>
-                                ` : ''}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row g-0 mobile-stats">
-                        <div class="col-3 mobile-stat">
-                            <span class="value words">${player.total_words || 0}</span>
-                            <span class="label">Words</span>
-                        </div>
-                        <div class="col-3 mobile-stat">
-                            <span class="value wins">${player.wins || 0}</span>
-                            <span class="label">Victories</span>
-                        </div>
-                        <div class="col-3 mobile-stat">
-                            <span class="value losses">${player.losses || 0}</span>
-                            <span class="label">Defeat</span>
-                        </div>
-                        <div class="col-3 mobile-stat">
-                            <span class="value ratio">${player.win_ratio || 0}%</span>
-                            <span class="label">Ratio</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-        return desktopRow + mobileCard;
+        return desktop + mobile;
       }).join('');
-    }
 
-    // Filtrer les joueurs
-    function filterPlayers() {
-      const searchTerm = document.getElementById('player-search').value.toLowerCase().trim();
-
-      if (!searchTerm) {
-        displayPlayers(allPlayers);
+      // Pagination bar
+      const bar = document.getElementById('pagination-bar');
+      if (totalPages <= 1) {
+        bar.style.display = 'none';
         return;
       }
+      bar.style.removeProperty('display');
 
-      const filteredPlayers = allPlayers.filter(player =>
-        player.name.toLowerCase().includes(searchTerm) ||
-        (player.email && player.email.toLowerCase().includes(searchTerm))
-      );
+      document.getElementById('pagination-info').textContent =
+        `${start + 1}–${Math.min(start + PAGE_SIZE, allPlayers.length)} of ${allPlayers.length}`;
 
-      filteredPlayers.sort((a, b) => {
-        const rankA = originalRanks.get(a.id);
-        const rankB = originalRanks.get(b.id);
-        return rankA - rankB;
+      const btns = document.getElementById('pagination-btns');
+      let html = `<button class="btn btn-sm btn-outline-secondary" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}><i class="bi bi-chevron-left"></i></button>`;
+
+      const pages = pageRange(currentPage, totalPages);
+      pages.forEach(p => {
+        if (p === '…') {
+          html += `<span class="btn btn-sm disabled">…</span>`;
+        } else {
+          html += `<button class="btn btn-sm ${p === currentPage ? 'btn-primary' : 'btn-outline-secondary'}" onclick="goToPage(${p})">${p}</button>`;
+        }
       });
 
-      displayPlayers(filteredPlayers);
+      html += `<button class="btn btn-sm btn-outline-secondary" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}><i class="bi bi-chevron-right"></i></button>`;
+      btns.innerHTML = html;
     }
 
-    // Voir le profil d'un joueur
-    function viewUserProfile(userId) {
-      window.location.href = `/user/${userId}`;
+    function goToPage(p) {
+      const totalPages = Math.ceil(allPlayers.length / PAGE_SIZE);
+      if (p < 1 || p > totalPages) return;
+      currentPage = p;
+      renderPage();
+      document.querySelector('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // Auto-refresh
-    setInterval(() => {
-      loadLeaderboard();
-    }, 120000);
+    function pageRange(current, total) {
+      if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+      if (current <= 4) return [1, 2, 3, 4, 5, '…', total];
+      if (current >= total - 3) return [1, '…', total-4, total-3, total-2, total-1, total];
+      return [1, '…', current - 1, current, current + 1, '…', total];
+    }
+
+    setInterval(loadLeaderboard, 120000);
   </script>
 </body>
 

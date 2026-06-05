@@ -64,7 +64,7 @@
 
     .image-mock {
       display: flex;
-      height: 350px;
+      height: clamp(180px, 38vh, 350px);
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -463,7 +463,7 @@
     <section class="slide" id="slide1">
       <div class="card-tutorial">
         <div class="image-mock">
-          <img src="/screenshots/screenshot 01.png" alt="Tutoriel">
+          <img src="/screenshots/screenshot-01.png" alt="Tutoriel">
         </div>
         <h1 class="slide-title">Welcome to Jiayou!</h1>
         <p class="text-secondary-custom fs-5 fw-light mb-3">A collaborative Chinese app with 3 core features.</p>
@@ -474,11 +474,11 @@
     <section class="slide" id="slide2">
       <div class="card-tutorial">
         <div class="image-mock">
-          <img src="/screenshots/screenshot 02.png" alt="Tutoriel">
+          <img src="/screenshots/screenshot-02.png" alt="Tutoriel">
         </div>
         <h2 class="slide-title">Add a word</h2>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">Build you vocabulary list based on share data with all
-          users. <br>A Chinese keyboard is requiered to play.</p>
+        <p class="text-secondary-custom fs-5 fw-light mb-3">Build your vocabulary list based on shared data with all
+          users. <br>A Chinese keyboard is required to play.</p>
       </div>
     </section>
 
@@ -486,11 +486,11 @@
     <section class="slide" id="slide3">
       <div class="card-tutorial">
         <div class="image-mock">
-          <img src="/screenshots/screenshot 03.png" alt="Tutoriel">
+          <img src="/screenshots/screenshot-03.png" alt="Tutoriel">
         </div>
         <h2 class="slide-title">Quiz</h2>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">Test yourself with persionalized quizzes, earn coins to
-          capture new words or challenge your friends.</p>
+        <p class="text-secondary-custom fs-5 fw-light mb-3">Test yourself with personalized quizzes, earn coins to
+          unlock new words or challenge your friends.</p>
       </div>
     </section>
 
@@ -498,7 +498,7 @@
     <section class="slide" id="slide4">
       <div class="card-tutorial">
         <div class="image-mock">
-          <img src="/screenshots/screenshot 04.png" alt="Tutoriel">
+          <img src="/screenshots/screenshot-04.png" alt="Tutoriel">
         </div>
         <h2 class="slide-title">Duels</h2>
         <p class="text-secondary-custom fs-5 fw-light mb-3">Challenge a friend in various duel modes and show them who
@@ -511,125 +511,111 @@
     (function () {
       "use strict";
 
-      // ----- ÉLÉMENTS -----
       const container = document.getElementById('slidesContainer');
-      const slides = document.querySelectorAll('.slide');
-      const prevBtn = document.getElementById('prevSlide');
-      const nextBtn = document.getElementById('nextSlide');
-      const dots = document.querySelectorAll('.dot');
-      const actionRight = document.getElementById('actionRight');
+      const slides    = document.querySelectorAll('.slide');
+      const prevBtn   = document.getElementById('prevSlide');
+      const nextBtn   = document.getElementById('nextSlide');
+      const dots      = document.querySelectorAll('.dot');
       const actionCenter = document.getElementById('actionCenter');
-      const navArrows = document.getElementById('navArrows');
+      const navArrows    = document.getElementById('navArrows');
 
       let currentIndex = 0;
       const totalSlides = slides.length;
 
-      // ----- FONCTION POUR AJUSTER LES HAUTEURS EN PIXELS -----
+      // Set viewport height on all slides (fixes iOS 100vh issue)
       function setHeights() {
-        const vh = window.innerHeight; // hauteur réelle de la fenêtre
+        const vh = window.innerHeight;
         container.style.height = vh + 'px';
-        slides.forEach(slide => slide.style.height = vh + 'px');
-        // Recalcule la translation pour la slide courante
+        slides.forEach(slide => (slide.style.height = vh + 'px'));
         container.style.transform = `translateY(-${currentIndex * vh}px)`;
       }
 
-      // ----- MISE À JOUR DE L'INTERFACE (MODIFIÉE) -----
       function goToSlide(index) {
         if (index < 0) index = 0;
         if (index >= totalSlides) index = totalSlides - 1;
-        if (index === currentIndex) return;
 
         currentIndex = index;
-        const vh = window.innerHeight; // utilise la hauteur actuelle
+        const vh = window.innerHeight;
         container.style.transform = `translateY(-${currentIndex * vh}px)`;
 
-        // Mise à jour des points
-        dots.forEach((dot, i) => {
-          dot.classList.toggle('active', i === currentIndex);
-        });
+        // Dots
+        dots.forEach((dot, i) => dot.classList.toggle('active', i === currentIndex));
 
-        // Gestion des flèches
+        // Up arrow: hidden on slide 1
+        prevBtn.classList.toggle('hidden', currentIndex === 0);
         prevBtn.classList.toggle('disabled', currentIndex === 0);
+
+        // Down arrow: hidden on last slide
         nextBtn.classList.toggle('disabled', currentIndex === totalSlides - 1);
 
-        if (currentIndex === 0) {
-          prevBtn.classList.add('hidden');
-        } else {
-          prevBtn.classList.remove('hidden');
-        }
+        const isLast = currentIndex === totalSlides - 1;
 
-        // ----- CONFIGURATION SPÉCIFIQUE SELON LA SLIDE -----
-        const isLastSlide = (currentIndex === totalSlides - 1);
-
-        if (isLastSlide) {
-          if (actionRight) actionRight.classList.add('hidden');
+        if (isLast) {
           actionCenter.classList.remove('hidden');
           navArrows.classList.add('hidden');
 
+          // Floating back arrow on last slide
           let upOnly = document.querySelector('.nav-btn.up-only');
           if (!upOnly) {
             upOnly = document.createElement('a');
             upOnly.className = 'nav-btn up-only';
-            upOnly.id = 'prevSlideOnly';
             upOnly.title = 'Previous';
             upOnly.innerHTML = '<i class="bi bi-arrow-up-short"></i>';
             upOnly.addEventListener('click', (e) => {
               e.preventDefault();
               goToSlide(currentIndex - 1);
             });
+            Object.assign(upOnly.style, {
+              position: 'fixed', right: '28px', bottom: '34px', left: 'auto', transform: 'none'
+            });
             document.body.appendChild(upOnly);
           }
-
           upOnly.classList.remove('hidden');
-          upOnly.style.position = 'fixed';
-          upOnly.style.right = '28px';
-          upOnly.style.bottom = '34px';
-          upOnly.style.left = 'auto';
-          upOnly.style.transform = 'none';
-
         } else {
-          if (actionRight) actionRight.classList.add('hidden');
           actionCenter.classList.add('hidden');
           navArrows.classList.remove('hidden');
-
           const upOnly = document.querySelector('.nav-btn.up-only');
           if (upOnly) upOnly.classList.add('hidden');
         }
       }
 
-      // ----- ÉVÉNEMENTS DE NAVIGATION -----
-      prevBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        goToSlide(currentIndex - 1);
-      });
+      // Button navigation
+      prevBtn.addEventListener('click', (e) => { e.preventDefault(); goToSlide(currentIndex - 1); });
+      nextBtn.addEventListener('click', (e) => { e.preventDefault(); goToSlide(currentIndex + 1); });
 
-      nextBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        goToSlide(currentIndex + 1);
-      });
-
-      // ----- BLOCAGE DU SCROLL NATUREL -----
-      window.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
-      window.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+      // Keyboard
       window.addEventListener('keydown', (e) => {
-        if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) {
-          e.preventDefault();
+        if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.key)) e.preventDefault();
+        if (e.key === 'ArrowDown' || e.key === 'PageDown') goToSlide(currentIndex + 1);
+        if (e.key === 'ArrowUp'   || e.key === 'PageUp')   goToSlide(currentIndex - 1);
+      });
+
+      // Swipe gesture (mobile)
+      let touchStartY = 0;
+      let touchStartX = 0;
+      container.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+      }, { passive: true });
+
+      container.addEventListener('touchend', (e) => {
+        const dy = touchStartY - e.changedTouches[0].clientY;
+        const dx = Math.abs(touchStartX - e.changedTouches[0].clientX);
+        // Only register vertical swipes (not horizontal, which might be scrolling inside card)
+        if (Math.abs(dy) > 50 && Math.abs(dy) > dx) {
+          if (dy > 0) goToSlide(currentIndex + 1);
+          else         goToSlide(currentIndex - 1);
         }
-        if (e.key === 'ArrowDown') goToSlide(currentIndex + 1);
-        if (e.key === 'ArrowUp') goToSlide(currentIndex - 1);
-      });
+      }, { passive: true });
 
-      // ----- INITIALISATION -----
-      setHeights(); // définit les hauteurs initiales
-      goToSlide(0); // positionne la première slide
+      // Block native scroll (prevent bounce / scroll interference)
+      window.addEventListener('wheel',      (e) => e.preventDefault(), { passive: false });
+      window.addEventListener('touchmove',  (e) => e.preventDefault(), { passive: false });
 
-      // Recalculer les hauteurs lors du redimensionnement
-      window.addEventListener('resize', () => {
-        setHeights();
-        // La translation est déjà recalculée dans setHeights()
-      });
+      // Resize
+      window.addEventListener('resize', setHeights);
 
-      // ----- GESTION DU BOUTON START -----
+      // Start button
       document.getElementById('startBtn').addEventListener('click', async (e) => {
         e.preventDefault();
         try {
@@ -637,15 +623,15 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
           });
-          if (res.ok) {
-            window.location.href = '/dashboard';
-          } else {
-            console.error('Erreur lors de la mise à jour');
-          }
-        } catch (err) {
-          console.error('Erreur réseau', err);
+          window.location.href = res.ok ? '/dashboard' : '/dashboard';
+        } catch {
+          window.location.href = '/dashboard';
         }
       });
+
+      // Init
+      setHeights();
+      goToSlide(0);
 
     })();
   </script>
