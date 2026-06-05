@@ -1,0 +1,29 @@
+views/leaderboard.ejs
+  s_5aad6c6484d886::t_1505ef1ef67aae 257-258,261,263-264,267-269,272,277-289,293-296,299-300,302-338,341-344,347-350,352-353,355-361,364-373,376-380,383
+  s_5aad6c6484d886::t_996c6b0f618044 215-247
+views/bank.ejs
+  s_5aad6c6484d886::t_7722702738c9a5 2,4-6,8-14,16-198,202-274,276-408
+views/tutorial.ejs
+  s_5aad6c6484d886::t_bcf2e24efab465 489,492-493
+  s_5aad6c6484d886::t_7eac2976fd0bd7 501
+  s_5aad6c6484d886::t_0854c36679757e 515-518,520,525,527,529,538,541-542,544-545,548-549,551,553,557,568-570,582-584,586-590,593-607,609,611-613,615-616,618,626-628,632-634
+  s_5aad6c6484d886::t_358c429ebdf638 477,480-481
+  s_5aad6c6484d886::t_17992d709da33c 466
+  s_5aad6c6484d886::t_be85d5e240a1fc 67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "f1b8718f6717cd9e046868515be07a1c6d2ef82d",
+  "prompts": {},
+  "sessions": {
+    "s_5aad6c6484d886": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6ab31de5-a48c-4a7e-bf2d-1acd6bc04a39",
+        "model": "global.anthropic.claude-sonnet-4-6"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
