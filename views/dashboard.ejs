@@ -1196,21 +1196,21 @@
           }
         }
 
-        // Fonctions utilitaires simples - version sans toasters
+        // Toast notifications — uses the global NotificationManager from header.ejs
         function showSuccess(message) {
-          // Option 1: Utiliser le statusMessage
-          showStatus(message, 'success');
-
-          // Option 2: Log seulement
-          console.log('✅', message);
+          if (window.notificationManager) {
+            window.notificationManager.success(message, '', { duration: 3000 });
+          } else {
+            showStatus(message, 'success');
+          }
         }
 
         function showError(message) {
-          // Option 1: Utiliser le statusMessage
-          showStatus(message, 'error');
-
-          // Option 2: Log seulement
-          console.error('❌', message);
+          if (window.notificationManager) {
+            window.notificationManager.error(message, '', { duration: 4000 });
+          } else {
+            showStatus(message, 'error');
+          }
         }
 
         function clearAllMessages() {

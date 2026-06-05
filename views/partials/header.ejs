@@ -747,26 +747,39 @@
     }
 
     createNotificationElement(notification) {
-      // Créer l'élément
+      const colors = {
+        success: { border: '#198754', bg: '#f0fdf4', text: '#166534', icon: '✓' },
+        error:   { border: '#dc3545', bg: '#fff5f5', text: '#991b1b', icon: '✕' },
+        warning: { border: '#f59e0b', bg: '#fffbeb', text: '#92400e', icon: '!' },
+        info:    { border: '#0d6efd', bg: '#eff6ff', text: '#1e40af', icon: 'i' },
+      };
+      const c = colors[notification.type] || colors.info;
+
       const notificationElement = document.createElement('div');
-      notificationElement.className = `position-fixed top-0 end-0 mt-5 me-3 p-3 bg-white border border-${notification.type === 'success' ? 'success' : notification.type === 'error' ? 'danger' : notification.type === 'warning' ? 'warning' : 'primary'} rounded shadow-sm`;
-      notificationElement.style.zIndex = '1060';
-      notificationElement.style.maxWidth = '300px';
-      notificationElement.style.animation = 'slideDown 0.3s ease-out';
+      notificationElement.style.cssText = `
+        position: fixed;
+        top: 72px;
+        right: 16px;
+        z-index: 2000;
+        max-width: 300px;
+        min-width: 200px;
+        background: ${c.bg};
+        border: 1.5px solid ${c.border};
+        border-radius: 12px;
+        padding: 12px 14px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        animation: slideDown 0.25s ease-out;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      `;
       notificationElement.setAttribute('data-notification-id', notification.id);
 
-      // Contenu en anglais
       notificationElement.innerHTML = `
-      <div class="d-flex justify-content-between align-items-start">
-        <div>
-          <div class="fw-bold mb-1">${notification.title}</div>
-          <div class="text-muted small">${notification.message}</div>
-        </div>
-        <button type="button" class="btn-close btn-close-sm ms-2" 
-                onclick="window.notificationManager.hide(${notification.id})"
-                aria-label="Close"></button>
-      </div>
-    `;
+        <span style="width:20px;height:20px;border-radius:50%;background:${c.border};color:white;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:800;flex-shrink:0;">${c.icon}</span>
+        <span style="flex:1;font-size:0.86rem;color:${c.text};font-weight:600;line-height:1.35;">${notification.title || notification.message}</span>
+        <button onclick="window.notificationManager.hide(${notification.id})" style="background:none;border:none;color:${c.text};opacity:0.5;cursor:pointer;padding:0;font-size:1rem;line-height:1;flex-shrink:0;">×</button>
+      `;
 
       // Ajouter au body
       document.body.appendChild(notificationElement);
@@ -992,38 +1005,7 @@ async function performDeleteAccount() {
 </script>
 
 <script>
-  // Enregistrement SIMPLE et ROBUSTE du SW
-  if ('serviceWorker' in navigator && window.location.hostname === 'app.jiayou.fr') {
-
-    // Petit délai pour éviter toute compétition au chargement
-    setTimeout(() => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(registration => {
-          console.log('✅ SW enregistré avec succès.');
-
-          // Optionnel : Vérifie s'il y a une mise à jour en attente
-          if (registration.waiting) {
-            console.log('🔄 Un nouveau SW est en attente.');
-            // Ici, vous pourriez afficher un bouton "Mettre à jour" discret
-          }
-
-          // Écoute les messages du SW (comme SW_READY)
-          navigator.serviceWorker.addEventListener('message', event => {
-            if (event.data.type === 'SW_READY') {
-              console.log(`🟢 SW ${event.data.version} est prêt.`);
-            }
-          });
-
-        })
-        .catch(err => {
-          console.error('❌ Échec de l‘enregistrement SW:', err);
-          // En cas d'erreur grave, on nettoie pour repartir à zéro
-          navigator.serviceWorker.getRegistrations()
-            .then(regs => Promise.all(regs.map(r => r.unregister())))
-            .then(() => console.log('🧹 Anciens SW désinscrits.'));
-        });
-    }, 500); // Délai réduit à 500ms
-  }
+  // SW registration is handled by partials/meta.ejs on every page
 </script>
 
 <script>

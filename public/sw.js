@@ -1,5 +1,5 @@
 // sw.js - VERSION CORRIGÉE & SIMPLIFIÉE
-const CACHE_NAME = 'jiayou-v1'; // 🔥 CHANGEZ CE NOM MAINTENANT
+const CACHE_NAME = 'jiayou-v5';
 const OFFLINE_URL = '/offline.html';
 
 const urlsToCache = [
@@ -7,7 +7,7 @@ const urlsToCache = [
   '/css/accountandduels.css',
   '/js/global.js',
   '/js/saveQuiz.js',
-  '/js/card-functions.js',
+  '/js/card-function.js',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
