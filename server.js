@@ -73,6 +73,9 @@ app.use('/webhook', express.raw({
 }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
+app.use('/vendor/bootstrap/css', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/css')));
+app.use('/vendor/bootstrap/js', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/js')));
+app.use('/vendor/bootstrap-icons/font', express.static(path.join(__dirname, 'node_modules/bootstrap-icons/font')));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(session({
@@ -1180,7 +1183,7 @@ app.get('/user/:id', ensureAuth, async (req, res) => {
     res.status(500).send(`
       <!DOCTYPE html>
       <html>
-      <head><title>Erreur</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"></head>
+      <head><title>Erreur</title><link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet"></head>
       <body class="container mt-5">
         <div class="alert alert-danger">
           <h4>Erreur serveur</h4>
