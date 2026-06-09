@@ -1,0 +1,19 @@
+routes/api.js
+  s_504897d4a04bb5::t_0a6d96edede06f 895-898
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "ae70ca04dd5ead606e479d7182e73384f17f8430",
+  "prompts": {},
+  "sessions": {
+    "s_504897d4a04bb5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b3c02e5-38fc-4de4-8b26-b87f19ed5f63",
+        "model": "global.anthropic.claude-sonnet-4-6"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
