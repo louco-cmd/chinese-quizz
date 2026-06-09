@@ -888,7 +888,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     if (difficulty === 'balanced') {
       // Never-tested words (nb_quiz=0) are always included in balanced — they need their first pass
       const newWords    = finalPool.filter(w => w.nb_quiz === 0);
-      const targetWords = finalPool.filter(w => w.nb_quiz > 0 && w.score >= 30 && w.score <= 80);
+      const targetWords = finalPool.filter(w => w.nb_quiz > 0 && w.score >= 30 && w.score <= 60);
 
       // Reserve up to 30% of slots for new words so they get introduced progressively
       const newSlots    = Math.min(newWords.length, Math.floor(requestedCount * 0.3));
@@ -899,14 +899,14 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
         ...pickRandom(targetWords, targetSlots)
       ];
 
-      // If still short, fill with anything remaining
+      // If still short, widen range but never include score=100 (revision) or nb_quiz=0 (discovery)
       if (selected.length < requestedCount) {
         const usedIds  = new Set(selected.map(w => w.id));
-        const fallback = finalPool.filter(w => !usedIds.has(w.id));
+        const fallback = finalPool.filter(w => !usedIds.has(w.id) && w.nb_quiz > 0 && w.score < 100);
         selected.push(...pickRandom(fallback, requestedCount - selected.length));
       }
 
-      console.log(`⚖️ Balanced → ${selected.length} mots (${newSlots} new, ${selected.filter(w => w.score >= 30 && w.score <= 80).length} dans cible 30-80)`);
+      console.log(`⚖️ Balanced → ${selected.length} mots (${newSlots} new, ${selected.filter(w => w.nb_quiz > 0 && w.score >= 30 && w.score <= 60).length} dans cible 30-60)`);
 
     } else if (difficulty === 'revision') {
       // Revision : uniquement des mots avec score >= 70
