@@ -1,0 +1,29 @@
+config/connexion.js
+  s_504897d4a04bb5::t_678c36df6037f2 16
+routes/api.js
+  s_504897d4a04bb5::t_17bfc5901a32a2 555,561,568
+  s_504897d4a04bb5::t_c0d52f3aad13f1 550-551,553-554,556-560,562-567,569-571
+views/collection.ejs
+  s_504897d4a04bb5::t_0d2cfcecff149a 709,714-720
+views/dashboard.ejs
+  s_504897d4a04bb5::t_6aa3aaf1023f79 923,935-939
+middleware/index.js
+  s_504897d4a04bb5::t_81b67d0abfd8af 49-56
+  s_504897d4a04bb5::t_95cc2adcd2fe52 464
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "fd26fc31732b1dd25de7d5a6c5bd7f1a745f8a19",
+  "prompts": {},
+  "sessions": {
+    "s_504897d4a04bb5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b3c02e5-38fc-4de4-8b26-b87f19ed5f63",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/kh3mlhvjeex4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
