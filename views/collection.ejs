@@ -706,11 +706,18 @@
             description: editDescription.value
           };
           try {
-            await fetch(`/update/${editId.value}`, {
+            const res = await fetch(`/update/${editId.value}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
             });
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              alert(data.message || 'Only administrators can modify word translations.');
+              const bsModal = bootstrap.Modal.getInstance(editModal);
+              if (bsModal) bsModal.hide();
+              return;
+            }
             words[idx] = { ...words[idx], ...payload };
             showCard();
             showList();

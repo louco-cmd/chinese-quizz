@@ -13,7 +13,7 @@ passport.deserializeUser(async (id, done) => {
   try {
     console.log('🔓 Désérialisation:', id);
     const res = await pool.query(
-      "SELECT id, email, name FROM users WHERE id = $1", 
+      "SELECT id, email, name, is_admin FROM users WHERE id = $1",
       [id]
     );
     

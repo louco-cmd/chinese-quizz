@@ -920,7 +920,7 @@
 
               if (hasBeenModified) {
                 showStatus('Updating word in database...', 'info');
-                await fetch(`/update/${existingWordData.id}`, {
+                const updateRes = await fetch(`/update/${existingWordData.id}`, {
                   method: 'PUT',
                   headers: {
                     'Content-Type': 'application/json'
@@ -932,6 +932,11 @@
                     description
                   })
                 });
+                if (!updateRes.ok) {
+                  const data = await updateRes.json().catch(() => ({}));
+                  showStatus(data.message || 'Only administrators can modify word translations.', 'error');
+                  return;
+                }
               }
             }
 

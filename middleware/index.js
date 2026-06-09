@@ -46,7 +46,14 @@ function ensureAuth(req, res, next) {
   return res.redirect('/');
 }
 
-// Au début de routes/api.js, après les imports
+function ensureAdmin(req, res, next) {
+  if (req.user?.is_admin) return next();
+  return res.status(403).json({
+    error: 'forbidden',
+    message: 'Only administrators can modify word translations.'
+  });
+}
+
 function isValidEmail(email) {
   if (!email || typeof email !== 'string') return false;
   
@@ -454,6 +461,7 @@ async function sendPasswordResetEmail(email, token) {
 module.exports = {
   // Authentification
   ensureAuth,
+  ensureAdmin,
   isValidEmail,
   //sendPasswordResetEmail,
   

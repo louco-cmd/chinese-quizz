@@ -547,7 +547,28 @@ router.get("/liste", ensureAuth, async (req, res) => {
 router.put("/update/:id", ensureAuth, async (req, res) => {
   const { id } = req.params;
   const { chinese, pinyin, english, description, hsk } = req.body;
+  const isAdmin = req.user?.is_admin;
+
   try {
+    if (!isAdmin) {
+      const { rows } = await pool.query(
+        "SELECT chinese, pinyin, english, hsk FROM mots WHERE id=$1",
+        [id]
+      );
+      if (rows.length === 0) return res.status(404).json({ error: "Word not found" });
+      const current = rows[0];
+
+      if (current.hsk !== null && (chinese !== current.chinese || pinyin !== current.pinyin || english !== current.english)) {
+        return res.status(403).json({
+          error: 'forbidden',
+          message: 'Only Admin can modify translation/pinyin/characters of verified HSK words, if you got feedback, please contact support.'
+        });
+      }
+
+      await pool.query("UPDATE mots SET chinese=$1,pinyin=$2,english=$3,description=$4 WHERE id=$5", [chinese, pinyin, english, description, id]);
+      return res.json({ success: true });
+    }
+
     await pool.query(
       "UPDATE mots SET chinese=$1,pinyin=$2,english=$3,description=$4,hsk=$5 WHERE id=$6",
       [chinese, pinyin, english, description, hsk, id]
