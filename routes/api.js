@@ -885,81 +885,44 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
 
     let selected = [];
 
-    if (difficulty === 'balanced') {
-      // Never-tested words (nb_quiz=0) are always included in balanced — they need their first pass
-      const newWords    = finalPool.filter(w => w.nb_quiz === 0);
-      const targetWords = finalPool.filter(w => w.nb_quiz > 0 && w.score >= 30 && w.score <= 60);
-
-      // Reserve up to 30% of slots for new words so they get introduced progressively
-      const newSlots    = Math.min(newWords.length, Math.floor(requestedCount * 0.3));
-      const targetSlots = requestedCount - newSlots;
-
-      selected = [
-        ...pickRandom(newWords, newSlots),
-        ...pickRandom(targetWords, targetSlots)
-      ];
-
-      // If still short, widen range but never include score=100 (revision) or nb_quiz=0 (discovery)
-      if (selected.length < requestedCount) {
-        const usedIds  = new Set(selected.map(w => w.id));
-        const fallback = finalPool.filter(w => !usedIds.has(w.id) && w.nb_quiz > 0 && w.score < 100);
-        selected.push(...pickRandom(fallback, requestedCount - selected.length));
+    // Sélectionne n mots depuis un pool trié par score croissant (discovery) ou décroissant (revision)
+    // En élargissant les limites par paliers si pas assez de mots dans le range primaire
+    const selectByRange = (pool, ranges) => {
+      for (const { min, max } of ranges) {
+        const candidates = pool.filter(w => w.score >= min && w.score <= max);
+        if (candidates.length >= requestedCount) return pickRandom(candidates, requestedCount);
       }
+      // Dernier recours : tout le pool (cooldown déjà géré en amont)
+      return pickRandom(pool, Math.min(pool.length, requestedCount));
+    };
 
-      console.log(`⚖️ Balanced → ${selected.length} mots (${newSlots} new, ${selected.filter(w => w.nb_quiz > 0 && w.score >= 30 && w.score <= 60).length} dans cible 30-60)`);
+    if (difficulty === 'revision') {
+      selected = selectByRange(finalPool, [
+        { min: 80, max: 100 },
+        { min: 60, max: 100 },
+        { min: 40, max: 100 },
+      ]);
+      console.log(`📚 Revision → ${selected.length} mots (score >80 prioritaire)`);
 
-    } else if (difficulty === 'revision') {
-      // Revision : uniquement des mots avec score >= 70
-      const strongWords = finalPool.filter(w => w.score >= 70);
-
-      if (strongWords.length >= requestedCount) {
-        selected = pickRandom(strongWords, requestedCount);
-      } else {
-        // Pas assez → on prend tous les strongWords
-        selected = [...strongWords];
-        const remaining = requestedCount - strongWords.length;
-
-        // On complète avec les mots les plus proches (score entre 60 et 70)
-        const nearStrong = finalPool.filter(w => w.score >= 60 && w.score < 70).filter(w => !selected.includes(w));
-
-        if (nearStrong.length >= remaining) {
-          selected.push(...pickRandom(nearStrong, remaining));
-        } else {
-          selected.push(...nearStrong);
-          const stillNeeded = remaining - nearStrong.length;
-          // Dernier recours : tous les autres mots
-          const otherWords = finalPool.filter(w => !selected.includes(w));
-          selected.push(...pickRandom(otherWords, Math.min(stillNeeded, otherWords.length)));
-        }
-      }
-
-      console.log(`📚 Revision → ${selected.length} mots (dont ${selected.filter(w => w.score >= 70).length} avec score >=70)`);
+    } else if (difficulty === 'balanced') {
+      selected = selectByRange(finalPool, [
+        { min: 30, max: 80 },
+        { min: 15, max: 90 },
+        { min: 5,  max: 95 },
+      ]);
+      console.log(`⚖️ Balanced → ${selected.length} mots (score 30-80 prioritaire)`);
 
     } else if (difficulty === 'discovery') {
-      // Discovery : mots jamais testés (nb_quiz=0) en priorité, puis score <= 30
-      const neverTested = finalPool.filter(w => w.nb_quiz === 0);
-      const weakTested  = finalPool.filter(w => w.nb_quiz > 0 && w.score <= 30);
-
-      selected = pickRandom(neverTested, Math.min(neverTested.length, requestedCount));
-
-      if (selected.length < requestedCount) {
-        const stillNeeded = requestedCount - selected.length;
-        selected.push(...pickRandom(weakTested, Math.min(weakTested.length, stillNeeded)));
-      }
-
-      // If still short (e.g. all words are already well-known), extend to score <= 50
-      if (selected.length < requestedCount) {
-        const usedIds    = new Set(selected.map(w => w.id));
-        const mediumWeak = finalPool.filter(w => !usedIds.has(w.id) && w.score <= 50);
-        selected.push(...pickRandom(mediumWeak, requestedCount - selected.length));
-      }
-
-      console.log(`🔍 Discovery → ${selected.length} mots (${neverTested.length} jamais testés, ${weakTested.length} score<=30 disponibles)`);
+      selected = selectByRange(finalPool, [
+        { min: 0, max: 29 },
+        { min: 0, max: 49 },
+        { min: 0, max: 69 },
+      ]);
+      console.log(`🔍 Discovery → ${selected.length} mots (score <30 prioritaire)`);
 
     } else {
-      // Fallback (difficulty inconnue) → aléatoire pur
-      selected = pickRandom(finalPool, requestedCount);
-      console.log(`🎲 Fallback (difficulty inconnue) → ${selected.length} mots aléatoires`);
+      selected = pickRandom(finalPool, Math.min(finalPool.length, requestedCount));
+      console.log(`🎲 Fallback → ${selected.length} mots aléatoires`);
     }
 
     // Mélange final pour éviter un ordre artificiel
