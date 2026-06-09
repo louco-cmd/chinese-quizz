@@ -892,8 +892,10 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
         const candidates = pool.filter(w => w.score >= min && w.score <= max);
         if (candidates.length >= requestedCount) return pickRandom(candidates, requestedCount);
       }
-      // Dernier recours : tout le pool (cooldown déjà géré en amont)
-      return pickRandom(pool, Math.min(pool.length, requestedCount));
+      // Pas assez même avec le palier le plus large : on retourne ce qu'on a, sans dépasser le range
+      const widest = ranges[ranges.length - 1];
+      const candidates = pool.filter(w => w.score >= widest.min && w.score <= widest.max);
+      return pickRandom(candidates, Math.min(candidates.length, requestedCount));
     };
 
     if (difficulty === 'revision') {
