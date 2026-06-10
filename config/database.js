@@ -69,21 +69,17 @@ const pool = new Pool({
     `);
     console.log("✅ Colonne 'special_guest' vérifiée ou créée sur 'users'.");
 
-    // ── Migration: aligner stripe_status & status ─────────────────────────────
-    // S'assure que les deux colonnes existent (au cas où la table est ancienne)
-    await pool.query(`
-      ALTER TABLE user_subscriptions
-      ADD COLUMN IF NOT EXISTS stripe_status TEXT
-    `).catch(() => {});
-    // Resync au démarrage : si status = 'active' et stripe_status NULL, aligner
+    // ── Migration: resync stripe_status depuis plan_name + status ─────────────
+    // Corrige les cas où stripe_status est resté 'active' alors que
+    // status ou plan_name indiquent que l'abonnement est terminé.
     await pool.query(`
       UPDATE user_subscriptions
-      SET stripe_status = status
-      WHERE stripe_status IS NULL AND status IS NOT NULL
+      SET stripe_status = status, updated_at = NOW()
+      WHERE
+        stripe_status = 'active'
+        AND (status <> 'active' OR plan_name <> 'premium')
     `);
-
-    console.log("✅ Table 'session' vérifiée ou créée.");
-    console.log("✅ Tables 'mots' et 'users' vérifiées ou créées.");
+    console.log("✅ Resync stripe_status / status effectué au démarrage.");
 
   } catch (err) {
     console.error("❌ Erreur lors de l'initialisation :", err);

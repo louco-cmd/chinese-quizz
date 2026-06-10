@@ -22,12 +22,12 @@ exports.withSubscription = async (req, res, next) => {
     // Récupérer l'abonnement ET le flag special_guest en une seule requête
     const { rows } = await pool.query(`
       SELECT
+        us.plan_name,
         us.status,
         us.stripe_status,
         us.cancel_at_period_end,
         us.current_period_end,
         us.stripe_subscription_id,
-        us.updated_at,
         u.special_guest
       FROM users u
       LEFT JOIN user_subscriptions us ON us.user_id = u.id
@@ -40,41 +40,44 @@ exports.withSubscription = async (req, res, next) => {
     const periodEnd = row.current_period_end ? new Date(row.current_period_end) : null;
 
     // ── Calcul isPremium ────────────────────────────────────────────────────
-    // Ordre de priorité :
-    //   1. special_guest → toujours premium
-    //   2. stripe_status = 'active' → premium si période non expirée
-    //   3. sinon free
+    // Règle : premium si ET SEULEMENT SI :
+    //   special_guest = true
+    //   OU (plan_name = 'premium' ET status = 'active' ET stripe_status = 'active'
+    //       ET période non expirée)
+    // On exige l'accord des 3 colonnes pour éviter qu'une seule désalignée
+    // fasse croire à un abonnement actif.
 
     let isPremium = false;
 
     if (isSpecialGuest) {
       isPremium = true;
       console.log(`⭐ [SUBSCRIPTION] User ${userId} est SPECIAL GUEST`);
-    } else if (!row.stripe_status && !row.status) {
-      // Aucun abonnement en base
+    } else if (!row.status && !row.stripe_status) {
       isPremium = false;
       console.log(`🔍 [SUBSCRIPTION] Aucun abonnement — user ${userId} = FREE`);
     } else {
-      const stripeStatus = row.stripe_status || row.status;
-      if (stripeStatus === 'active') {
-        // Vérification de sécurité : si la période est expirée côté DB
-        // et que le webhook n'a pas encore mis à jour, on passe en free
+      const allActive = row.plan_name === 'premium'
+        && row.status        === 'active'
+        && row.stripe_status === 'active';
+
+      if (allActive) {
         if (periodEnd && periodEnd < now) {
-          console.log(`⚠️ [SUBSCRIPTION] Période expirée pour user ${userId}, passage en free`);
-          // Mise à jour silencieuse (le webhook aurait dû le faire)
+          // Période dépassée sans webhook → on corrige et on passe en free
+          console.log(`⚠️ [SUBSCRIPTION] Période expirée pour user ${userId} → correction en base`);
           await pool.query(`
             UPDATE user_subscriptions
-            SET stripe_status = 'expired', status = 'expired', updated_at = NOW()
-            WHERE user_id = $1 AND (stripe_status = 'active' OR status = 'active')
+            SET stripe_status = 'expired', status = 'expired', plan_name = 'free', updated_at = NOW()
+            WHERE user_id = $1
           `, [userId]);
           isPremium = false;
         } else {
           isPremium = true;
         }
       } else {
+        // status ou stripe_status divergent → pas premium
+        console.log(`🔴 [SUBSCRIPTION] User ${userId} non premium — plan_name=${row.plan_name}, status=${row.status}, stripe_status=${row.stripe_status}`);
         isPremium = false;
       }
-      console.log(`🔍 [SUBSCRIPTION] stripe_status=${stripeStatus} → isPremium=${isPremium}`);
     }
 
     // ── Peupler req.user ────────────────────────────────────────────────────

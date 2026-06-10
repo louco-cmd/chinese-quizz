@@ -121,6 +121,7 @@ app.use(async (req, res, next) => {
       SELECT
         u.balance,
         u.special_guest,
+        us.plan_name,
         us.stripe_status,
         us.status         AS sub_status,
         us.current_period_end
@@ -131,10 +132,13 @@ app.use(async (req, res, next) => {
 
     const row = rows[0] || {};
     const isSpecialGuest = row.special_guest === true;
-    const stripeStatus   = row.stripe_status || row.sub_status;
     const periodEnd      = row.current_period_end ? new Date(row.current_period_end) : null;
     const periodOk       = !periodEnd || periodEnd >= new Date();
-    const isPremium      = isSpecialGuest || (stripeStatus === 'active' && periodOk);
+    // Exige l'accord des 3 colonnes (plan_name + status + stripe_status)
+    const allActive      = row.plan_name === 'premium'
+                        && row.sub_status  === 'active'
+                        && row.stripe_status === 'active';
+    const isPremium      = isSpecialGuest || (allActive && periodOk);
 
     req.user.isPremium      = isPremium;
     req.user.isSpecialGuest = isSpecialGuest;
