@@ -11,9 +11,9 @@
       <!-- Badge Free / Premium / Special Guest -->
       <a href="/pricing" class="text-decoration-none">
         <% if (isSpecialGuest) { %>
-          <span class="badge px-3 py-2 fw-semibold rounded-pill special-guest-badge"
+          <span class="badge px-3 py-2 fw-semibold special-guest-badge"
                 style="cursor: pointer;">
-            ⭐ SPECIAL GUEST
+            SPECIAL GUEST
           </span>
         <% } else if (isPremium) { %>
           <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-primary border-primary"
@@ -33,9 +33,9 @@
       <div class="d-flex align-items-center">
         <a href="/pricing" class="text-decoration-none">
           <% if (isSpecialGuest) { %>
-            <span class="badge px-3 py-2 fw-semibold rounded-pill special-guest-badge"
+            <span class="badge px-3 py-2 fw-semibold special-guest-badge"
                   style="cursor: pointer;">
-              ⭐ SPECIAL GUEST
+              SPECIAL GUEST
             </span>
           <% } else if (user.planName === 'premium') { %>
             <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-primary border-primary"
@@ -522,12 +522,11 @@
 
   /* Badge Special Guest : dégradé doré */
   .special-guest-badge {
-    border-radius: 12px !important;
-    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
-    border-color: #f59e0b !important;
-    color: #fff !important;
-    animation: shimmer 2.5s infinite;
-    background-size: 200% auto;
+    border-radius: 999px !important;
+    background: #fef3c7 !important;
+    border: 1.5px solid #fcd34d !important;
+    color: #92400e !important;
+    animation: none;
   }
 
   @keyframes shimmer {
