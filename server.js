@@ -106,37 +106,45 @@ app.use(checker);
 app.use(security);
 app.use(reauth);
 app.use(requestLogger);
-// Expose isPremium + balance aux vues EJS (lecture seule, jamais de downgrade auto)
+// Expose isPremium / isSpecialGuest / balance aux vues EJS
 app.use(async (req, res, next) => {
-  // Valeurs par défaut toujours définies pour les templates
-  res.locals.isPremium = false;
-  res.locals.balance = 0;
-  res.locals.user = req.user || null;
+  res.locals.isPremium      = false;
+  res.locals.isSpecialGuest = false;
+  res.locals.balance        = 0;
+  res.locals.user           = req.user || null;
 
-  if (!req.isAuthenticated()) {
-    return next();
-  }
+  if (!req.isAuthenticated()) return next();
 
   try {
-    const subResult = await pool.query(
-      `SELECT stripe_status FROM user_subscriptions WHERE user_id = $1`,
-      [req.user.id]
-    );
+    // Une seule requête : abonnement + special_guest + balance
+    const { rows } = await pool.query(`
+      SELECT
+        u.balance,
+        u.special_guest,
+        us.stripe_status,
+        us.status         AS sub_status,
+        us.current_period_end
+      FROM users u
+      LEFT JOIN user_subscriptions us ON us.user_id = u.id
+      WHERE u.id = $1
+    `, [req.user.id]);
 
-    const isPremium = subResult.rows[0]?.stripe_status === 'active';
+    const row = rows[0] || {};
+    const isSpecialGuest = row.special_guest === true;
+    const stripeStatus   = row.stripe_status || row.sub_status;
+    const periodEnd      = row.current_period_end ? new Date(row.current_period_end) : null;
+    const periodOk       = !periodEnd || periodEnd >= new Date();
+    const isPremium      = isSpecialGuest || (stripeStatus === 'active' && periodOk);
 
-    req.user.isPremium = isPremium;
-    req.user.planName = isPremium ? 'premium' : 'free';
-    res.locals.isPremium = isPremium;
+    req.user.isPremium      = isPremium;
+    req.user.isSpecialGuest = isSpecialGuest;
+    req.user.planName       = isSpecialGuest ? 'special_guest' : (isPremium ? 'premium' : 'free');
 
-    const balanceResult = await pool.query(
-      'SELECT balance FROM users WHERE id = $1',
-      [req.user.id]
-    );
-    res.locals.balance = balanceResult.rows[0]?.balance || 0;
+    res.locals.isPremium      = isPremium;
+    res.locals.isSpecialGuest = isSpecialGuest;
+    res.locals.balance        = row.balance || 0;
   } catch (err) {
-    console.error('Erreur lecture abonnement:', err);
-    // On garde les valeurs par défaut (free / 0)
+    console.error('Erreur lecture abonnement global:', err);
   }
 
   next();
@@ -1838,7 +1846,23 @@ app.post('/webhook',
           await handleSubscriptionEvent(event.data.object, event.type);
           break;
 
-        // ... autres cas ...
+        // Paiement échoué → passer en past_due / free
+        case 'invoice.payment_failed':
+          console.log('💸 invoice.payment_failed:', event.data.object.subscription);
+          await handleInvoicePaymentFailed(event.data.object);
+          break;
+
+        // Paiement requis (3DS, etc.) → même traitement
+        case 'invoice.payment_action_required':
+          console.log('⚠️ invoice.payment_action_required:', event.data.object.subscription);
+          await handleInvoicePaymentFailed(event.data.object);
+          break;
+
+        // Abonnement mis en pause
+        case 'customer.subscription.paused':
+          console.log('⏸️ Subscription paused:', event.data.object.id);
+          await handleSubscriptionEvent(event.data.object, event.type);
+          break;
       }
 
       console.log('=== WEBHOOK RÉUSSI ===');
@@ -2116,21 +2140,60 @@ async function handleSubscriptionEvent(subscription, eventType) {
   }
 }
 
+/**
+ * Gère invoice.payment_failed et invoice.payment_action_required
+ * Met stripe_status à 'past_due' → l'utilisateur passe en free
+ */
+async function handleInvoicePaymentFailed(invoice) {
+  try {
+    const subscriptionId = invoice.subscription;
+    if (!subscriptionId) {
+      console.warn('⚠️ handleInvoicePaymentFailed: pas de subscription_id dans la facture');
+      return;
+    }
+
+    const result = await pool.query(`
+      UPDATE user_subscriptions
+      SET
+        stripe_status = 'past_due',
+        status        = 'past_due',
+        plan_name     = 'free',
+        updated_at    = NOW()
+      WHERE stripe_subscription_id = $1
+      RETURNING user_id, stripe_status
+    `, [subscriptionId]);
+
+    if (result.rowCount > 0) {
+      console.log(`💸 Paiement échoué → user ${result.rows[0].user_id} repassé en FREE (past_due)`);
+    } else {
+      console.warn(`⚠️ handleInvoicePaymentFailed: subscription ${subscriptionId} introuvable en base`);
+    }
+  } catch (err) {
+    console.error('💥 ERREUR handleInvoicePaymentFailed:', err.message);
+    throw err;
+  }
+}
+
 async function expireFinishedSubscriptions() {
   try {
     console.log('🕐 Vérification des abonnements à expirer...');
 
     const result = await pool.query(`
       UPDATE user_subscriptions
-      SET 
-        plan_name = 'free',
-        status = 'expired',
+      SET
+        plan_name     = 'free',
+        status        = 'expired',
         stripe_status = 'expired',
-        updated_at = NOW()
-      WHERE 
-        plan_name = 'premium'
-        AND status = 'active_canceling'
-        AND current_period_end < NOW()
+        updated_at    = NOW()
+      WHERE
+        current_period_end < NOW()
+        AND (
+          -- Annulation programmée arrivée à terme
+          (status = 'active_canceling')
+          OR
+          -- Abonnement actif dont la période est passée sans webhook (filet de sécurité)
+          (stripe_status = 'active' AND current_period_end IS NOT NULL)
+        )
       RETURNING user_id, current_period_end, stripe_subscription_id
     `);
 

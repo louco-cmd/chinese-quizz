@@ -8,24 +8,46 @@
         加油！
       </span>
 
-      <!-- Badge Free/Premium -->
+      <!-- Badge Free / Premium / Special Guest -->
       <a href="/pricing" class="text-decoration-none">
-        <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border
-               <%= isPremium ? 'text-primary border-primary' : 'text-secondary border-secondary' %>"
-               style="cursor: pointer;">
-          <%= isPremium ? 'PREMIUM' : 'FREE' %>
-        </span>
+        <% if (isSpecialGuest) { %>
+          <span class="badge px-3 py-2 fw-semibold rounded-pill special-guest-badge"
+                style="cursor: pointer;">
+            ⭐ SPECIAL GUEST
+          </span>
+        <% } else if (isPremium) { %>
+          <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-primary border-primary"
+                style="cursor: pointer;">
+            PREMIUM
+          </span>
+        <% } else { %>
+          <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-secondary border-secondary"
+                style="cursor: pointer;">
+            FREE
+          </span>
+        <% } %>
       </a>
     </div>
     <% } else { %>
       <!-- Sur le dashboard : badge seul -->
       <div class="d-flex align-items-center">
         <a href="/pricing" class="text-decoration-none">
-          <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border
-                 <%= user.planName === 'premium' ? 'text-primary border-primary' : 'text-secondary border-secondary' %>"
-                 style="cursor: pointer;">
-            <%= user.planName==='premium' ? 'PREMIUM' : 'FREE' %>
-          </span>
+          <% if (isSpecialGuest) { %>
+            <span class="badge px-3 py-2 fw-semibold rounded-pill special-guest-badge"
+                  style="cursor: pointer;">
+              ⭐ SPECIAL GUEST
+            </span>
+          <% } else if (user.planName === 'premium') { %>
+            <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-primary border-primary"
+                  style="cursor: pointer;">
+              PREMIUM
+            </span>
+          <% } else { %>
+            <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-secondary border-secondary"
+                  style="cursor: pointer;">
+              FREE
+            </span>
+          <% } %>
         </a>
       </div>
       <% } %>
@@ -496,6 +518,22 @@
   .trial-badge {
     border-radius: 10px !important;
     animation: pulse 2s infinite;
+  }
+
+  /* Badge Special Guest : dégradé doré */
+  .special-guest-badge {
+    border-radius: 12px !important;
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    border-color: #f59e0b !important;
+    color: #fff !important;
+    animation: shimmer 2.5s infinite;
+    background-size: 200% auto;
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: 0% center; }
+    50%  { background-position: 100% center; }
+    100% { background-position: 0% center; }
   }
 
   @keyframes pulse {

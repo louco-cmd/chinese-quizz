@@ -1,110 +1,108 @@
 // middleware/subscription.js
 const { pool } = require('../config/database');
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Retourne true si la ligne user_subscriptions correspond à un abonnement actif */
+function isActiveSubscription(sub) {
+  if (!sub) return false;
+  // stripe_status est la source de vérité ; on accepte aussi status pour compatibilité
+  const stripeStatus = sub.stripe_status || sub.status;
+  return stripeStatus === 'active';
+}
+
+// ─── withSubscription ─────────────────────────────────────────────────────────
 exports.withSubscription = async (req, res, next) => {
-  if (!req.isAuthenticated()) {
-    return next();
-  }
+  if (!req.isAuthenticated()) return next();
 
   try {
     const userId = req.user.id;
+    console.log(`🔍 [SUBSCRIPTION] Vérification pour user: ${userId}`);
 
-    console.log(`🔍 [SUBSCRIPTION] Vérification abonnement pour user: ${userId}`);
-
-    // Récupérer l'abonnement
-    const subscriptionResult = await pool.query(`
-      SELECT 
-        status,
-        cancel_at_period_end,
-        current_period_end,
-        stripe_subscription_id,
-        updated_at
-      FROM user_subscriptions 
-      WHERE user_id = $1
+    // Récupérer l'abonnement ET le flag special_guest en une seule requête
+    const { rows } = await pool.query(`
+      SELECT
+        us.status,
+        us.stripe_status,
+        us.cancel_at_period_end,
+        us.current_period_end,
+        us.stripe_subscription_id,
+        us.updated_at,
+        u.special_guest
+      FROM users u
+      LEFT JOIN user_subscriptions us ON us.user_id = u.id
+      WHERE u.id = $1
     `, [userId]);
 
-    let currentSubscription = subscriptionResult.rows[0];
+    const row = rows[0] || {};
+    const isSpecialGuest = row.special_guest === true;
+    const now = new Date();
+    const periodEnd = row.current_period_end ? new Date(row.current_period_end) : null;
 
-    if (!currentSubscription) {
-      console.log(`🔍 [SUBSCRIPTION] Aucun abonnement - user ${userId} = FREE`);
-      req.user.isPremium = false;
-      req.user.planName = 'free';
-      req.user.subscription = {
-        plan_name: 'free',
-        status: 'free',
-        isValid: true
-      };
+    // ── Calcul isPremium ────────────────────────────────────────────────────
+    // Ordre de priorité :
+    //   1. special_guest → toujours premium
+    //   2. stripe_status = 'active' → premium si période non expirée
+    //   3. sinon free
+
+    let isPremium = false;
+
+    if (isSpecialGuest) {
+      isPremium = true;
+      console.log(`⭐ [SUBSCRIPTION] User ${userId} est SPECIAL GUEST`);
+    } else if (!row.stripe_status && !row.status) {
+      // Aucun abonnement en base
+      isPremium = false;
+      console.log(`🔍 [SUBSCRIPTION] Aucun abonnement — user ${userId} = FREE`);
     } else {
-      const now = new Date();
-      const periodEnd = currentSubscription.current_period_end ?
-        new Date(currentSubscription.current_period_end) : null;
-
-      let isPremium = false;
-      let isValid = true;
-
-      if (currentSubscription.status === 'active') {
-        // Logique SIMPLIFIÉE: Si stripe_status est 'active', c'est premium
-        isPremium = true;
-        isValid = true;
-
-        console.log(`✅ [SUBSCRIPTION] Statut 'active' - User ${userId} est Premium`);
+      const stripeStatus = row.stripe_status || row.status;
+      if (stripeStatus === 'active') {
+        // Vérification de sécurité : si la période est expirée côté DB
+        // et que le webhook n'a pas encore mis à jour, on passe en free
+        if (periodEnd && periodEnd < now) {
+          console.log(`⚠️ [SUBSCRIPTION] Période expirée pour user ${userId}, passage en free`);
+          // Mise à jour silencieuse (le webhook aurait dû le faire)
+          await pool.query(`
+            UPDATE user_subscriptions
+            SET stripe_status = 'expired', status = 'expired', updated_at = NOW()
+            WHERE user_id = $1 AND (stripe_status = 'active' OR status = 'active')
+          `, [userId]);
+          isPremium = false;
+        } else {
+          isPremium = true;
+        }
       } else {
-        // Statut non actif (canceled, past_due, etc.)
-        isValid = false;
         isPremium = false;
       }
-
-      console.log(`🔍 [SUBSCRIPTION] User ${userId}:`, {
-        stripe_status: currentSubscription.status,
-        cancel_at_period_end: currentSubscription.cancel_at_period_end,
-        periodEnd: periodEnd?.toISOString(),
-        isPremium: isPremium,
-        isValid: isValid
-      });
-
-      req.user.isPremium = isPremium;
-      req.user.planName = isPremium ? 'premium' : 'free';
-      req.user.subscription = {
-        plan_name: isPremium ? 'premium' : 'free',
-        status: currentSubscription.status,
-        stripe_status: currentSubscription.status,
-        cancel_at_period_end: currentSubscription.cancel_at_period_end,
-        current_period_end: currentSubscription.current_period_end,
-        isValid: isValid
-      };
-
-      // ⚠️ SUPPRIMEZ CE BLOC - Ne marquez pas automatiquement comme expiré
-      // C'est Stripe qui doit gérer ça via les webhooks
-      /*
-      if (currentSubscription.stripe_status === 'active' && periodEnd && periodEnd < now) {
-        console.log(`🧹 [SUBSCRIPTION] Nettoyage abonnement expiré pour user ${userId}`);
-        await pool.query(`
-          UPDATE user_subscriptions 
-          SET stripe_status = 'expired', updated_at = NOW()
-          WHERE user_id = $1
-        `, [userId]);
-      }
-      */
+      console.log(`🔍 [SUBSCRIPTION] stripe_status=${stripeStatus} → isPremium=${isPremium}`);
     }
 
-    console.log(`✅ [SUBSCRIPTION] Résultat pour ${userId}: Premium=${req.user.isPremium}, Plan=${req.user.planName}`);
+    // ── Peupler req.user ────────────────────────────────────────────────────
+    req.user.isPremium    = isPremium;
+    req.user.isSpecialGuest = isSpecialGuest;
+    req.user.planName     = isSpecialGuest ? 'special_guest' : (isPremium ? 'premium' : 'free');
+    req.user.subscription = {
+      plan_name:            req.user.planName,
+      status:               row.stripe_status || row.status || 'none',
+      stripe_status:        row.stripe_status || row.status || 'none',
+      cancel_at_period_end: row.cancel_at_period_end || false,
+      current_period_end:   row.current_period_end || null,
+      isValid:              isPremium,
+      isSpecialGuest,
+    };
+
+    console.log(`✅ [SUBSCRIPTION] User ${userId}: isPremium=${isPremium}, plan=${req.user.planName}`);
     next();
 
   } catch (err) {
     console.error('❌ [SUBSCRIPTION] Erreur:', err);
-    // Fallback sûr
-    req.user.isPremium = false;
-    req.user.planName = 'free';
-    req.user.subscription = {
-      plan_name: 'free',
-      status: 'active',
-      isValid: true
-    };
+    req.user.isPremium     = false;
+    req.user.isSpecialGuest = false;
+    req.user.planName      = 'free';
+    req.user.subscription  = { plan_name: 'free', status: 'free', isValid: true };
     next();
   }
 };
-
-// Supprime la fonction checkIfSubscriptionIsValid (plus utilisée)
 
 // MIDDLEWARE canAddWord - VERSION SIMPLIFIÉE
 exports.canAddWord = async (req, res, next) => {
