@@ -716,186 +716,204 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
     }
 
     // =============================
-    // 2. COMPTAGE TOTAL (avec filtres HSK)
+    // 2. DÉTERMINER LES RANGES DE SCORE SELON LA DIFFICULTÉ
     // =============================
-    let countQuery = `
-      SELECT COUNT(*) as total_count
-      FROM user_mots um
-      INNER JOIN mots m ON um.mot_id = m.id
-      WHERE um.user_id = $1
-    `;
-    let countParams = [userId];
-    let paramIndex = 2;
-
-    // Construire la clause WHERE pour HSK
-    let hskConditions = [];
-    if (hskMin !== null && hskMax !== null) {
-      hskConditions.push(`m.hsk BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
-      countParams.push(hskMin, hskMax);
-      paramIndex += 2;
-    }
-    if (includeStreet) {
-      hskConditions.push(`m.hsk IS NULL`);
-    }
-    if (hskParam === 'street') {
-      hskConditions.push(`m.hsk IS NULL`);
-    }
-
-    if (hskConditions.length > 0) {
-      countQuery += ` AND (` + hskConditions.join(' OR ') + `)`;
-    }
-
-    const countResult = await pool.query(countQuery, countParams);
-    const totalInCollection = parseInt(countResult.rows[0].total_count);
-
-    console.log(`📊 Total mots dans la collection (HSK ${hskParam}): ${totalInCollection}`);
-
-    // Vérification initiale
-    if (totalInCollection < requestedCount) {
-      return res.status(400).json({
-        success: false,
-        error: 'not_enough_words_in_collection',
-        message: `Vous avez ${totalInCollection} mots dans votre collection.`,
-        requested: requestedCount,
-        available: totalInCollection,
-        hskLevel: hskParam,
-        suggestion: `Ajoutez ${requestedCount - totalInCollection} mots supplémentaires.`
-      });
-    }
+    // Les ranges sont ordonnés par priorité : on tente le plus strict d'abord,
+    // puis on élargit progressivement si pas assez de mots.
+    const difficultyRanges = {
+      discovery: [
+        { scoreMin: 0, scoreMax: 29 },
+        { scoreMin: 0, scoreMax: 49 },
+        { scoreMin: 0, scoreMax: 69 },
+        { scoreMin: 0, scoreMax: 100 }, // fallback total
+      ],
+      balanced: [
+        { scoreMin: 30, scoreMax: 80 },
+        { scoreMin: 15, scoreMax: 90 },
+        { scoreMin: 5,  scoreMax: 95 },
+        { scoreMin: 0,  scoreMax: 100 },
+      ],
+      revision: [
+        { scoreMin: 80, scoreMax: 100 },
+        { scoreMin: 60, scoreMax: 100 },
+        { scoreMin: 40, scoreMax: 100 },
+        { scoreMin: 0,  scoreMax: 100 },
+      ],
+    };
+    const activeRanges = difficultyRanges[difficulty] || [{ scoreMin: 0, scoreMax: 100 }];
 
     // =============================
-    // 3. RÉCUPÉRATION DES MOTS (avec filtres HSK)
+    // Helper : construit les clauses WHERE HSK (réutilisé 2 fois)
     // =============================
-    const fetchLimit = Math.min(totalInCollection, requestedCount * 3);
-
-    let wordsQuery = `
-      SELECT
-        m.*,
-        COALESCE(um.score, 0) AS score,
-        COALESCE(um.nb_quiz, 0) AS nb_quiz,
-        um.last_seen
-      FROM user_mots um
-      INNER JOIN mots m ON um.mot_id = m.id
-      WHERE um.user_id = $1
-    `;
-    let wordsParams = [userId];
-    paramIndex = 2;
-
-    // Réappliquer les mêmes conditions HSK
-    hskConditions = [];
-    if (hskMin !== null && hskMax !== null) {
-      hskConditions.push(`m.hsk BETWEEN $${paramIndex} AND $${paramIndex + 1}`);
-      wordsParams.push(hskMin, hskMax);
-      paramIndex += 2;
-    }
-    if (includeStreet) {
-      hskConditions.push(`m.hsk IS NULL`);
-    }
-    if (hskParam === 'street') {
-      hskConditions.push(`m.hsk IS NULL`);
-    }
-
-    if (hskConditions.length > 0) {
-      wordsQuery += ` AND (` + hskConditions.join(' OR ') + `)`;
-    }
-
-    wordsQuery += `
-      ORDER BY
-        CASE
-          WHEN um.last_seen IS NULL THEN 1
-          WHEN EXTRACT(EPOCH FROM (NOW() - um.last_seen)) > 12 * 3600 THEN 2
-          ELSE 3
-        END,
-        RANDOM()
-        LIMIT $${paramIndex}
-    `;
-    wordsParams.push(fetchLimit);
-
-    console.log('📋 SQL Query (optimisé):', wordsQuery);
-    console.log('📋 Query params:', wordsParams);
-
-    const { rows: allWords } = await pool.query(wordsQuery, wordsParams);
-    console.log(`📥 Mots récupérés: ${allWords.length}`);
+    const buildHskClause = (paramStart) => {
+      const conditions = [];
+      const params = [];
+      let idx = paramStart;
+      if (hskMin !== null && hskMax !== null) {
+        conditions.push(`m.hsk BETWEEN $${idx} AND $${idx + 1}`);
+        params.push(hskMin, hskMax);
+        idx += 2;
+      }
+      if (includeStreet || hskParam === 'street') {
+        conditions.push(`m.hsk IS NULL`);
+      }
+      return { conditions, params, nextIdx: idx };
+    };
 
     // =============================
-    // 4. FILTRE TEMPOREL INTELLIGENT (MODIFIÉ)
+    // 3. BOUCLE : trouver le range de score qui donne assez de mots
     // =============================
+    // On pousse le filtre score + HSK + cooldown directement en SQL pour
+    // éviter de récupérer des centaines de mots en mémoire pour en jeter 80%.
+
     const COOLDOWN_HOURS = 12;
-    const now = new Date();
-
-    const availableWords = allWords.filter(w => {
-      // Never-tested words (nb_quiz=0) always bypass cooldown regardless of last_seen
-      if (!w.last_seen || w.nb_quiz === 0) return true;
-      const diffHours = (now - new Date(w.last_seen)) / (1000 * 60 * 60);
-      return diffHours >= COOLDOWN_HOURS;
-    });
-
-    console.log(`⏰ Après filtre temporel (${COOLDOWN_HOURS}h): ${availableWords.length}/${allWords.length}`);
-
-    // ===== NOUVEAU GARDE-FOU =====
-    // Si TOUS les mots sont en cooldown, on ignore complètement le cooldown
-    let finalPool;
+    let finalPool = [];
     let bypassedCooldown = false;
     let cooldownBypassReason = null;
+    let usedRange = activeRanges[activeRanges.length - 1]; // pour les logs
 
-    if (availableWords.length === 0 && allWords.length > 0) {
-      // Cas critique : tous les mots ont été vus récemment
-      console.log(`⚠️ Tous les ${allWords.length} mots sont en cooldown. Cooldown ignoré pour cette session.`);
-      finalPool = allWords;
-      bypassedCooldown = true;
-      cooldownBypassReason = 'all_words_in_cooldown';
-    } else if (availableWords.length >= requestedCount) {
-      // Cas normal : assez de mots frais
-      finalPool = availableWords;
-    } else if (availableWords.length >= requestedCount * 0.5) {
-      // Cas mixte : on complète avec quelques mots en cooldown
-      finalPool = availableWords;
-      const needed = requestedCount - availableWords.length;
-      const cooldownWords = allWords.filter(w => {
-        if (!w.last_seen) return false;
-        const diffHours = (now - new Date(w.last_seen)) / (1000 * 60 * 60);
-        return diffHours < COOLDOWN_HOURS;
-      });
-      cooldownWords.sort((a, b) => {
-        const aHours = a.last_seen ? (now - new Date(a.last_seen)) / (1000 * 60 * 60) : 0;
-        const bHours = b.last_seen ? (now - new Date(b.last_seen)) / (1000 * 60 * 60) : 0;
-        return aHours - bHours;
-      });
-      finalPool.push(...cooldownWords.slice(0, needed));
-      bypassedCooldown = true;
-      cooldownBypassReason = 'insufficient_fresh_words';
-    } else {
-      // Cas où très peu de mots frais
-      finalPool = allWords;
-      bypassedCooldown = true;
-      cooldownBypassReason = 'insufficient_fresh_words';
+    for (const range of activeRanges) {
+      const { conditions: hskConds, params: hskParams, nextIdx } = buildHskClause(4);
+
+      // Requête principale : on filtre score + HSK + cooldown en SQL
+      let q = `
+        SELECT
+          m.*,
+          COALESCE(um.score, 0)            AS score,
+          COALESCE(um.nb_quiz, 0)          AS nb_quiz,
+          um.last_seen
+        FROM user_mots um
+        INNER JOIN mots m ON um.mot_id = m.id
+        WHERE um.user_id = $1
+          AND COALESCE(um.score, 0) BETWEEN $2 AND $3
+          AND (
+            um.last_seen IS NULL
+            OR um.nb_quiz = 0
+            OR EXTRACT(EPOCH FROM (NOW() - um.last_seen)) > ${ COOLDOWN_HOURS } * 3600
+          )
+      `;
+      const qParams = [userId, range.scoreMin, range.scoreMax];
+
+      if (hskConds.length > 0) {
+        q += ` AND (` + hskConds.join(' OR ') + `)`;
+        qParams.push(...hskParams);
+      }
+
+      q += ` ORDER BY RANDOM() LIMIT $${qParams.length + 1}`;
+      qParams.push(requestedCount * 5); // large buffer pour avoir de la variété
+
+      const { rows: freshWords } = await pool.query(q, qParams);
+      console.log(`🔍 Range score [${range.scoreMin}-${range.scoreMax}] → ${freshWords.length} mots frais`);
+
+      if (freshWords.length >= requestedCount) {
+        finalPool = freshWords;
+        usedRange = range;
+        break;
+      }
+
+      // Pas assez de mots frais : on essaie sans le filtre cooldown pour ce range
+      if (freshWords.length > 0 || range === activeRanges[activeRanges.length - 1]) {
+        // Compléter avec des mots en cooldown si nécessaire
+        const needed = requestedCount - freshWords.length;
+        const { conditions: hskConds2, params: hskParams2 } = buildHskClause(3);
+
+        let q2 = `
+          SELECT
+            m.*,
+            COALESCE(um.score, 0)   AS score,
+            COALESCE(um.nb_quiz, 0) AS nb_quiz,
+            um.last_seen
+          FROM user_mots um
+          INNER JOIN mots m ON um.mot_id = m.id
+          WHERE um.user_id = $1
+            AND COALESCE(um.score, 0) BETWEEN ${ range.scoreMin } AND ${ range.scoreMax }
+            AND (um.last_seen IS NOT NULL AND um.nb_quiz > 0
+                 AND EXTRACT(EPOCH FROM (NOW() - um.last_seen)) <= ${ COOLDOWN_HOURS } * 3600)
+            AND m.id <> ALL($2::int[])
+        `;
+        const q2Params = [userId, freshWords.map(w => w.id)];
+
+        if (hskConds2.length > 0) {
+          q2 += ` AND (` + hskConds2.join(' OR ') + `)`;
+          q2Params.push(...hskParams2);
+        }
+
+        q2 += ` ORDER BY um.last_seen ASC LIMIT $${q2Params.length + 1}`;
+        q2Params.push(needed);
+
+        const { rows: cooldownWords } = await pool.query(q2, q2Params);
+
+        const combined = [...freshWords, ...cooldownWords];
+        if (combined.length >= requestedCount) {
+          finalPool = combined;
+          usedRange = range;
+          bypassedCooldown = cooldownWords.length > 0;
+          cooldownBypassReason = 'insufficient_fresh_words';
+          console.log(`⚠️ Complété avec ${cooldownWords.length} mots en cooldown`);
+          break;
+        }
+
+        // Même en ajoutant les cooldown on n'a pas assez : on garde quand même et continue l'élargissement
+        if (combined.length > finalPool.length) {
+          finalPool = combined;
+          usedRange = range;
+          bypassedCooldown = cooldownWords.length > 0;
+          cooldownBypassReason = 'insufficient_fresh_words';
+        }
+      }
     }
 
-    console.log(`📦 Pool final: ${finalPool.length} mots${bypassedCooldown ? ` (cooldown ignoré: ${cooldownBypassReason})` : ''}`);
+    console.log(`📦 Pool final: ${finalPool.length} mots (range score [${usedRange.scoreMin}-${usedRange.scoreMax}]${bypassedCooldown ? `, cooldown ignoré: ${cooldownBypassReason}` : ''})`);
 
-    // Vérification finale
+    // =============================
+    // 4. COMPTAGE RÉEL DISPONIBLE (pour message d'erreur précis)
+    // =============================
     if (finalPool.length < requestedCount) {
-      const actualCount = Math.min(finalPool.length, requestedCount);
+      // Compter combien de mots sont réellement dispo dans cette catégorie (sans filtre score)
+      const { conditions: hskConds3, params: hskParams3 } = buildHskClause(2);
+      let totalQ = `SELECT COUNT(*) AS total FROM user_mots um INNER JOIN mots m ON um.mot_id = m.id WHERE um.user_id = $1`;
+      const totalParams = [userId];
+      if (hskConds3.length > 0) {
+        totalQ += ` AND (` + hskConds3.join(' OR ') + `)`;
+        totalParams.push(...hskParams3);
+      }
+      const { rows: totalRows } = await pool.query(totalQ, totalParams);
+      const totalInCollection = parseInt(totalRows[0].total);
+
+      if (finalPool.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'not_enough_words_in_collection',
+          message: `Vous avez ${totalInCollection} mots HSK ${hskParam} mais aucun ne correspond à la difficulté "${difficulty}".`,
+          requested: requestedCount,
+          available: 0,
+          hskLevel: hskParam,
+        });
+      }
+
+      // On retourne ce qu'on a avec un warning
+      const actualCount = finalPool.length;
       return res.json({
         success: true,
-        words: finalPool.slice(0, actualCount),
-        warning: `Quiz limité à ${actualCount} mots sur ${requestedCount} demandés`,
-        bypassedCooldown: bypassedCooldown,
+        words: finalPool.slice(0, actualCount).sort(() => Math.random() - 0.5),
+        warning: `Quiz limité à ${actualCount} mots (difficulté "${difficulty}" — seuls ${actualCount} mots correspondent sur ${totalInCollection} dans HSK ${hskParam})`,
+        bypassedCooldown,
+        count: actualCount,
+        requestedCount,
+        hskLevel: hskParam,
+        difficulty,
         stats: {
-          requested: requestedCount,
+          totalInCollection,
+          freshWords: finalPool.filter(w => !w.last_seen || w.nb_quiz === 0).length,
           delivered: actualCount,
-          freshWords: availableWords.length,
-          totalInPool: finalPool.length
         }
       });
     }
 
     // =============================
-    // 5. SÉLECTION SELON LA DIFFICULTÉ
+    // 5. SÉLECTION FINALE
     // =============================
     const pickRandom = (arr, n) => {
-      if (n <= 0) return [];
-      // Mélange aléatoire efficace (Fisher-Yates)
       const shuffled = [...arr];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -904,57 +922,13 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
       return shuffled.slice(0, n);
     };
 
-    let selected = [];
-
-    // Sélectionne n mots depuis un pool trié par score croissant (discovery) ou décroissant (revision)
-    // En élargissant les limites par paliers si pas assez de mots dans le range primaire
-    const selectByRange = (pool, ranges) => {
-      for (const { min, max } of ranges) {
-        const candidates = pool.filter(w => w.score >= min && w.score <= max);
-        if (candidates.length >= requestedCount) return pickRandom(candidates, requestedCount);
-      }
-      // Pas assez même avec le palier le plus large : on retourne ce qu'on a, sans dépasser le range
-      const widest = ranges[ranges.length - 1];
-      const candidates = pool.filter(w => w.score >= widest.min && w.score <= widest.max);
-      return pickRandom(candidates, Math.min(candidates.length, requestedCount));
-    };
-
-    if (difficulty === 'revision') {
-      selected = selectByRange(finalPool, [
-        { min: 80, max: 100 },
-        { min: 60, max: 100 },
-        { min: 40, max: 100 },
-      ]);
-      console.log(`📚 Revision → ${selected.length} mots (score >80 prioritaire)`);
-
-    } else if (difficulty === 'balanced') {
-      selected = selectByRange(finalPool, [
-        { min: 30, max: 80 },
-        { min: 15, max: 90 },
-        { min: 5,  max: 95 },
-      ]);
-      console.log(`⚖️ Balanced → ${selected.length} mots (score 30-80 prioritaire)`);
-
-    } else if (difficulty === 'discovery') {
-      selected = selectByRange(finalPool, [
-        { min: 0, max: 29 },
-        { min: 0, max: 49 },
-        { min: 0, max: 69 },
-      ]);
-      console.log(`🔍 Discovery → ${selected.length} mots (score <30 prioritaire)`);
-
-    } else {
-      selected = pickRandom(finalPool, Math.min(finalPool.length, requestedCount));
-      console.log(`🎲 Fallback → ${selected.length} mots aléatoires`);
-    }
-
-    // Mélange final pour éviter un ordre artificiel
-    selected.sort(() => Math.random() - 0.5);
+    const selected = pickRandom(finalPool, requestedCount);
+    console.log(`✅ Sélection finale: ${selected.length} mots (difficulté: ${difficulty}, HSK: ${hskParam})`);
 
     // Mise à jour last_seen
     if (selected.length > 0) {
       await pool.query(
-        `UPDATE user_mots 
+        `UPDATE user_mots
          SET last_seen = NOW()
          WHERE user_id = $1 AND mot_id = ANY($2)`,
         [userId, selected.map(w => w.id)]
@@ -966,15 +940,15 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
       success: true,
       words: selected,
       count: selected.length,
-      requestedCount: requestedCount,
+      requestedCount,
       hskLevel: hskParam,
-      difficulty: difficulty,
-      bypassedCooldown: bypassedCooldown,
+      difficulty,
+      bypassedCooldown,
       stats: {
-        totalInCollection: totalInCollection,
-        freshWords: availableWords.length,
+        scoreRange: `${usedRange.scoreMin}-${usedRange.scoreMax}`,
+        freshWords: finalPool.filter(w => !w.last_seen || w.nb_quiz === 0).length,
         distribution: {
-          weak: selected.filter(w => w.score < 40).length,
+          weak:   selected.filter(w => w.score < 40).length,
           medium: selected.filter(w => w.score >= 40 && w.score < 75).length,
           strong: selected.filter(w => w.score >= 75).length
         }
@@ -983,12 +957,6 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
 
     if (bypassedCooldown) {
       response.warning = "Certains mots ont été réutilisés avant la fin du délai de repos";
-    }
-
-    // Ajout d'un avertissement si le nombre demandé n'est pas atteint en mode discovery
-    if (difficulty === 'discovery' && selected.length < requestedCount) {
-      const warningMsg = `Nombre insuffisant de mots nouveaux ou faibles (nb_quiz=0 ou score<=50). Seuls ${selected.length} mots ont été sélectionnés.`;
-      response.warning = response.warning ? `${response.warning} ${warningMsg}` : warningMsg;
     }
 
     res.json(response);
