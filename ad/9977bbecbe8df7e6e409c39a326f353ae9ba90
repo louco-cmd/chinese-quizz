@@ -1,0 +1,19 @@
+views/legal.ejs
+  s_8d2ffa3daa2c6c::t_008c4a1550d36b 4-205,209-252,255-271,273-280,282-290,292-310,312-330,332-407,409-426,428-445,447-466,468-482,484-501,503-512,514-528,530-547,549-551,553-598,600-808,811-816,819,821
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "ad9977bbecbe8df7e6e409c39a326f353ae9ba90",
+  "prompts": {},
+  "sessions": {
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/kh3mlhvjeex4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
