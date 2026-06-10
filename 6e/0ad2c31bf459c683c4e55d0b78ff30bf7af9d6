@@ -1,0 +1,24 @@
+config/database.js
+  s_8d2ffa3daa2c6c::t_26a379c32c0873 72-74,77-80,82
+server.js
+  s_8d2ffa3daa2c6c::t_a2c33159bad9cb 124,137-141
+middleware/subscription.js
+  s_8d2ffa3daa2c6c::t_d513f5dd3e503a 43-48,55,59-63,65-66,69-70,77-78
+  s_8d2ffa3daa2c6c::t_74ab0a9cee5b64 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "6e0ad2c31bf459c683c4e55d0b78ff30bf7af9d6",
+  "prompts": {},
+  "sessions": {
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/kh3mlhvjeex4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
