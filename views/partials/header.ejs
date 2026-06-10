@@ -13,7 +13,7 @@
         <% if (isSpecialGuest) { %>
           <span class="badge px-3 py-2 fw-semibold special-guest-badge"
                 style="cursor: pointer;">
-            SPECIAL GUEST
+            ◆ GUEST
           </span>
         <% } else if (isPremium) { %>
           <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-primary border-primary"
@@ -35,7 +35,7 @@
           <% if (isSpecialGuest) { %>
             <span class="badge px-3 py-2 fw-semibold special-guest-badge"
                   style="cursor: pointer;">
-              SPECIAL GUEST
+              ◆ GUEST
             </span>
           <% } else if (user.planName === 'premium') { %>
             <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-primary border-primary"
@@ -523,9 +523,9 @@
   /* Badge Special Guest : dégradé doré */
   .special-guest-badge {
     border-radius: 999px !important;
-    background: #fef3c7 !important;
-    border: 1.5px solid #fcd34d !important;
-    color: #92400e !important;
+    background: white !important;
+    border: 1.5px solid rgba(255,255,255,0.6) !important;
+    color: #333 !important;
     animation: none;
   }
 
