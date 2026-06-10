@@ -1,0 +1,20 @@
+routes/api.js
+  s_8d2ffa3daa2c6c::t_c8768b6369d2ab 931,943,945-946,948-949,951
+  s_8d2ffa3daa2c6c::t_353577f5cf5d90 719,721-743,745-761,764,766-767,769-773,775-776,778-800,802-803,805-806,808-812,814-839,841-842,844-863,866,868-870,872-895,898-904,906-907,914,925-926
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "9eecfdfe4a36b59f2c5db7ec3768a0709a4e93e4",
+  "prompts": {},
+  "sessions": {
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/kh3mlhvjeex4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
