@@ -1,132 +1,821 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jiayou - Legal notice</title>
-  <%- include('partials/meta', { pageTitle: 'Jiayou · Legal', pageDescription: 'Terms of service and privacy policy for Jiayou.' }) %>
-    <style>
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            line-height: 1.6;
-            color: #000;
-            background-color: #ffffff;
-            margin: 0;
-            padding: 40px 20px;
-            max-width: 900px;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jiayou - Legal & Privacy</title>
+  <%- include('partials/meta', { pageTitle: 'Jiayou · Legal & Privacy', pageDescription: 'Terms of service and privacy policy for Jiayou — the Chinese learning app.' }) %>
+  <style>
+    * { box-sizing: border-box; }
 
-        .back-button-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background-color: #fff; /* Fond blanc pour le bouton */
-            padding: 10px 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Optionnel : pour un peu d'ombre */
-        }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      line-height: 1.75;
+      color: #1a1a1a;
+      background-color: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
 
-        .back-button {
-            text-decoration: none;
-            color: #000;
-            font-size: 14px;
-            border: 1px solid #000;
-            padding: 6px 10px;
-        }
+    .back-bar {
+      position: sticky;
+      top: 0;
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 10px 24px;
+      z-index: 100;
+    }
 
-        .back-button:hover {
-            background-color: #000;
-            color: #fff;
-        }
+    .back-button {
+      text-decoration: none;
+      color: #374151;
+      font-size: 0.875rem;
+      border: 1px solid #d1d5db;
+      padding: 6px 12px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
 
-        h1, h2, h3 {
-            font-weight: bold;
-        }
+    .back-button:hover {
+      background: #f3f4f6;
+    }
 
-        h1 {
-            margin-top: 60px;
-        }
+    .container {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
 
-        a {
-            color: #000;
-            text-decoration: underline;
-        }
+    .page-title {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #111827;
+      margin-bottom: 4px;
+    }
 
-        .footer {
-            margin-top: 60px;
-            font-size: 14px;
-        }
-    </style>
+    .subtitle {
+      color: #6b7280;
+      font-size: 0.95rem;
+      margin-bottom: 48px;
+    }
+
+    /* Table of contents */
+    .toc {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 48px;
+    }
+
+    .toc h3 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #9ca3af;
+      margin: 0 0 12px;
+      font-weight: 700;
+    }
+
+    .toc-cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 32px;
+    }
+
+    @media (max-width: 560px) {
+      .toc-cols { grid-template-columns: 1fr; }
+    }
+
+    .toc a {
+      color: #2563eb;
+      text-decoration: none;
+      font-size: 0.88rem;
+      display: block;
+      padding: 3px 0;
+    }
+
+    .toc a:hover { text-decoration: underline; }
+
+    /* Sections */
+    .section {
+      margin-bottom: 56px;
+      scroll-margin-top: 80px;
+    }
+
+    .section-label {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #2563eb;
+      background: #eff6ff;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #111827;
+      margin: 0 0 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #f3f4f6;
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #374151;
+      margin: 28px 0 8px;
+    }
+
+    p { margin: 0 0 12px; color: #374151; font-size: 0.95rem; }
+
+    ul, ol {
+      margin: 0 0 12px 0;
+      padding-left: 24px;
+      color: #374151;
+      font-size: 0.95rem;
+    }
+
+    li { margin-bottom: 6px; }
+
+    .notice {
+      background: #fefce8;
+      border-left: 4px solid #f59e0b;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 16px 0;
+      font-size: 0.88rem;
+      color: #78350f;
+    }
+
+    .info-box {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 16px 0;
+      font-size: 0.88rem;
+      color: #1e40af;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      margin: 16px 0;
+    }
+
+    th {
+      background: #f3f4f6;
+      text-align: left;
+      padding: 10px 14px;
+      font-weight: 700;
+      color: #374151;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f3f4f6;
+      color: #4b5563;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    a { color: #2563eb; }
+
+    .footer {
+      margin-top: 64px;
+      padding-top: 24px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 0.82rem;
+      color: #9ca3af;
+    }
+
+    .footer strong { color: #6b7280; }
+  </style>
 </head>
 <body>
 
-    <div class="back-button-container">
-        <a href="javascript:history.back()" class="back-button">← Back</a>
+  <div class="back-bar">
+    <a href="javascript:history.back()" class="back-button">← Back</a>
+  </div>
+
+  <div class="container">
+
+    <div class="page-title">加油！ Legal & Privacy</div>
+    <p class="subtitle">
+      Last updated: <strong>June 10, 2026</strong> &nbsp;·&nbsp;
+      Questions? <a href="mailto:info@jiayou.fr">info@jiayou.fr</a>
+    </p>
+
+    <!-- Table of contents -->
+    <div class="toc">
+      <h3>Contents</h3>
+      <div class="toc-cols">
+        <div>
+          <a href="#terms">Terms of Use</a>
+          <a href="#eligibility">1. Eligibility</a>
+          <a href="#accounts">2. User Accounts</a>
+          <a href="#service">3. The Service</a>
+          <a href="#conduct">4. User Conduct</a>
+          <a href="#premium">5. Premium & Payments</a>
+          <a href="#virtual">6. Virtual Currency (Coins)</a>
+          <a href="#ip">7. Intellectual Property</a>
+          <a href="#disclaimer">8. Disclaimers</a>
+          <a href="#liability">9. Limitation of Liability</a>
+          <a href="#termination">10. Termination</a>
+          <a href="#changes">11. Changes to Terms</a>
+          <a href="#law">12. Governing Law</a>
+        </div>
+        <div>
+          <a href="#privacy">Privacy Policy</a>
+          <a href="#data-collected">1. Data We Collect</a>
+          <a href="#how-we-use">2. How We Use Your Data</a>
+          <a href="#third-parties">3. Third-Party Services</a>
+          <a href="#cookies">4. Cookies & Local Storage</a>
+          <a href="#retention">5. Data Retention</a>
+          <a href="#security">6. Security</a>
+          <a href="#gdpr">7. Your Rights (GDPR)</a>
+          <a href="#minors">8. Children's Privacy</a>
+          <a href="#contact">9. Contact</a>
+        </div>
+      </div>
     </div>
 
-    <h1>Legal Information</h1>
-    <p>Welcome to 加油！(Jiayou!). This page contains our Terms of Use and Privacy Policy. Please read them carefully.</p>
+    <!-- ═══════════════════════════════════════════
+         TERMS OF USE
+    ════════════════════════════════════════════ -->
+    <div class="section" id="terms">
+      <span class="section-label">Terms of Use</span>
+      <h2>Terms of Use</h2>
+      <p>
+        By accessing or using the <strong>加油！(Jiayou!)</strong> application or website at
+        <a href="https://jiayou.fr" target="_blank" rel="noopener">jiayou.fr</a>
+        (collectively "the Service"), you agree to be bound by these Terms of Use ("Terms").
+        If you do not agree to these Terms, please do not use the Service.
+      </p>
+      <p>
+        The Service is operated by <strong>Jiayou</strong> ("we", "us", or "our"),
+        reachable at <a href="https://jiayou.fr" target="_blank" rel="noopener">jiayou.fr</a>
+        and <a href="mailto:info@jiayou.fr">info@jiayou.fr</a>.
+      </p>
 
-    <h2 id="terms">Terms of Use</h2>
-    <p><strong>Last updated:</strong> February 27, 2026</p>
+      <div class="notice">
+        <strong>HSK Disclaimer.</strong> 加油！is an independent educational game and is
+        <strong>not affiliated with, endorsed by, or connected to</strong> the official HSK
+        (Hanyu Shuiping Kaoshi) examination or any of its governing bodies (Hanban / Chinese
+        International Chinese Education Foundation). HSK level labels are used solely as a
+        reference framework for vocabulary difficulty.
+      </div>
+    </div>
 
-    <h3>1. Agreement to Terms</h3>
-    <p>By accessing or using the 加油！ application ("the Service"), you agree to be bound by these Terms of Use. If you disagree with any part of the terms, you may not access the Service. The Service is operated by <strong>Louis Cochet</strong> ("I", "me", or "my").</p>
+    <!-- 1. Eligibility -->
+    <div class="section" id="eligibility">
+      <h3>1. Eligibility</h3>
+      <p>
+        You must be at least <strong>13 years old</strong> to use the Service. If you are
+        under 18, you confirm that you have obtained parental or guardian consent. By using
+        the Service, you represent that you meet these age requirements.
+      </p>
+    </div>
 
-    <p><strong>Important notice regarding HSK:</strong> 加油！(Jiayou!) is an independent educational game and is not affiliated with or endorsed by the official HSK examination or its governing bodies.</p>
+    <!-- 2. Accounts -->
+    <div class="section" id="accounts">
+      <h3>2. User Accounts</h3>
+      <p>
+        You may create an account using Google Sign-In (OAuth 2.0) or email/password. When
+        you create an account, you agree to:
+      </p>
+      <ul>
+        <li>Provide accurate and up-to-date information.</li>
+        <li>Keep your login credentials confidential.</li>
+        <li>Notify us immediately of any unauthorized use of your account at
+          <a href="mailto:info@jiayou.fr">info@jiayou.fr</a>.</li>
+        <li>Take responsibility for all activities that occur under your account.</li>
+      </ul>
+      <p>
+        We reserve the right to suspend or terminate accounts that violate these Terms or that
+        have been inactive for more than <strong>24 months</strong>, with prior notice by email.
+      </p>
+    </div>
 
-    <h3>2. Eligibility</h3>
-    <p>You must be at least 13 years old to use the Service.</p>
+    <!-- 3. The Service -->
+    <div class="section" id="service">
+      <h3>3. The Service</h3>
+      <p>
+        Jiayou is a Chinese language learning application offering:
+      </p>
+      <ul>
+        <li><strong>Vocabulary quizzes</strong> based on HSK levels 1–6, with configurable difficulty modes (Discovery, Balanced, Revision).</li>
+        <li><strong>Personal word collections</strong> — add and manage words you want to learn.</li>
+        <li><strong>Duels</strong> — real-time vocabulary challenges with other users.</li>
+        <li><strong>Progress tracking</strong> — quiz history, mastery scores, contributions heatmap.</li>
+        <li><strong>Virtual coins</strong> — earned through quiz performance (see Section 6).</li>
+        <li><strong>Progressive Web App (PWA)</strong> — installable on mobile and desktop for offline-compatible access.</li>
+      </ul>
+      <p>
+        The Service is provided "as is". Features may evolve over time. We will communicate
+        significant changes via the app or by email.
+      </p>
+    </div>
 
-    <h3>3. User Accounts</h3>
-    <p>You are responsible for maintaining the confidentiality of your account and all activities under your account.</p>
+    <!-- 4. Conduct -->
+    <div class="section" id="conduct">
+      <h3>4. User Conduct</h3>
+      <p>You agree not to:</p>
+      <ul>
+        <li>Use the Service for any unlawful purpose or in violation of applicable regulations.</li>
+        <li>Attempt to gain unauthorized access to any part of the Service, its servers, or databases.</li>
+        <li>Reverse-engineer, decompile, or disassemble any part of the Service.</li>
+        <li>Scrape, harvest, or collect user data without authorization.</li>
+        <li>Use automated tools (bots, scripts) to interact with the Service in a way that disrupts its normal operation.</li>
+        <li>Upload or transmit viruses, malware, or any other harmful code.</li>
+        <li>Impersonate another person or entity.</li>
+        <li>Manipulate quiz scores, duel results, or the virtual coin system through any technical means.</li>
+        <li>Harass, abuse, or harm other users through the duel or messaging features.</li>
+      </ul>
+      <p>
+        Violation of these rules may result in immediate account suspension without refund of
+        any subscription fees paid.
+      </p>
+    </div>
 
-    <h3>4. User Conduct</h3>
-    <ul>
-        <li>Do not violate any laws.</li>
-        <li>Do not infringe intellectual property rights.</li>
-        <li>Do not attempt unauthorized access.</li>
-    </ul>
+    <!-- 5. Premium & Payments -->
+    <div class="section" id="premium">
+      <h3>5. Premium Subscriptions & Payments</h3>
 
-    <h3>5. Intellectual Property</h3>
-    <p>The Service and its content remain the exclusive property of Louis Cochet.</p>
+      <h3>5.1 Plans</h3>
+      <p>
+        Jiayou offers a <strong>Free</strong> plan and a <strong>Premium</strong> paid plan.
+        Premium features include, but are not limited to: unlimited vocabulary words, unlimited
+        daily quizzes, unlimited duels, and offline access.
+      </p>
 
-    <h3>6. Premium and Payments</h3>
-    <p>Payments are handled by third-party providers such as Stripe. Subscription plans auto-renew unless canceled.</p>
+      <h3>5.2 Payment Processing</h3>
+      <p>
+        Payments are processed by <strong>Stripe, Inc.</strong> — a PCI-DSS compliant
+        third-party payment provider. Jiayou does not store your credit card details.
+        By subscribing, you also agree to
+        <a href="https://stripe.com/en-fr/legal/ssa" target="_blank" rel="noopener">Stripe's Terms of Service</a>.
+      </p>
 
-    <h3>7. Limitation of Liability</h3>
-    <p>To the maximum extent permitted by law, Louis Cochet shall not be liable for indirect or consequential damages.</p>
+      <h3>5.3 Billing & Auto-Renewal</h3>
+      <p>
+        Subscriptions are billed on a recurring basis (monthly or annual, depending on the plan
+        chosen) and <strong>renew automatically</strong> unless cancelled before the renewal date.
+        You will receive an email reminder before each renewal.
+      </p>
 
-    <h3>8. Governing Law</h3>
-    <p>These Terms are governed by the laws of France.</p>
+      <h3>5.4 Cancellation</h3>
+      <p>
+        You may cancel your subscription at any time from your account settings or by contacting
+        <a href="mailto:info@jiayou.fr">info@jiayou.fr</a>. Cancellation takes effect at the
+        end of the current billing period. You retain Premium access until that date.
+      </p>
 
-    <h2 id="privacy">Privacy Policy</h2>
-    <p><strong>Last updated:</strong> February 27, 2026</p>
+      <h3>5.5 Refunds</h3>
+      <p>
+        In accordance with French consumer law (<em>Code de la consommation</em>), you have a
+        <strong>14-day right of withdrawal</strong> from the date of your first subscription
+        purchase, provided you have not actively started using the Premium features. To request
+        a refund, contact <a href="mailto:info@jiayou.fr">info@jiayou.fr</a> within this period.
+        After 14 days, refunds are issued at our sole discretion.
+      </p>
 
-    <h3>1. Data Collected</h3>
-    <p>I may collect your email address and usage data to operate and improve the Service.</p>
+      <h3>5.6 Price Changes</h3>
+      <p>
+        We reserve the right to modify subscription prices. We will notify you by email at
+        least <strong>30 days in advance</strong> of any price change. If you do not cancel
+        before the new price takes effect, you consent to the updated price.
+      </p>
 
-    <h3>2. Purpose</h3>
-    <ul>
-        <li>Provide and maintain the Service</li>
-        <li>Manage accounts and subscriptions</li>
-        <li>Improve the Service</li>
-    </ul>
+      <h3>5.7 Failed Payments</h3>
+      <p>
+        If a payment fails, we will attempt to notify you by email. Your account may be
+        downgraded to the Free plan if payment cannot be collected after retry attempts.
+      </p>
+    </div>
 
-    <h3>3. Data Retention</h3>
-    <p>Your data is retained only as long as necessary. Deleted accounts are removed within 30 days unless legally required otherwise.</p>
+    <!-- 6. Virtual Currency -->
+    <div class="section" id="virtual">
+      <h3>6. Virtual Currency (Coins ₵)</h3>
+      <p>
+        Jiayou uses a virtual in-app currency called <strong>Coins (₵)</strong>, earned by
+        completing quizzes and achieving good scores. Coins are used for in-app features and
+        rankings.
+      </p>
+      <div class="info-box">
+        <strong>Important:</strong> Coins have <strong>no monetary value</strong>, cannot be
+        exchanged for real money, transferred between accounts, or refunded. They are a
+        purely virtual reward mechanism with no commercial value outside the app.
+      </div>
+      <p>
+        We reserve the right to adjust coin earning rates or reset balances at any time, with
+        reasonable notice provided in-app.
+      </p>
+    </div>
 
-    <h3>4. Your Rights (GDPR)</h3>
-    <p>You may request access, correction, or deletion of your data at any time by contacting:</p>
-    <p><a href="mailto:info@jiayou.fr">info@jiayou.fr</a></p>
+    <!-- 7. IP -->
+    <div class="section" id="ip">
+      <h3>7. Intellectual Property</h3>
+      <p>
+        All content, design, software, and trademarks of the Service — including the name
+        "Jiayou", the logo, quiz content, and vocabulary databases — are the exclusive
+        property of <strong>Jiayou</strong> and are protected by applicable intellectual
+        property laws.
+      </p>
+      <p>
+        You are granted a limited, non-exclusive, non-transferable, revocable license to use
+        the Service for personal, non-commercial purposes only.
+      </p>
+      <p>
+        You may not copy, modify, distribute, sell, or create derivative works of any part of
+        the Service without our prior written permission.
+      </p>
+    </div>
 
-    <h3>5. Third-Party Services</h3>
-    <p>The Service may use third-party providers for payments and analytics.</p>
+    <!-- 8. Disclaimers -->
+    <div class="section" id="disclaimer">
+      <h3>8. Disclaimers</h3>
+      <p>
+        The Service is provided <strong>"as is"</strong> and <strong>"as available"</strong>
+        without warranties of any kind, whether express or implied, including but not limited
+        to fitness for a particular purpose, accuracy, or uninterrupted availability.
+      </p>
+      <p>
+        We do not guarantee that:
+      </p>
+      <ul>
+        <li>The Service will be error-free or uninterrupted.</li>
+        <li>Quiz results or mastery scores accurately reflect your real-world Chinese proficiency.</li>
+        <li>The vocabulary content is exhaustive or equivalent to official HSK syllabi.</li>
+      </ul>
+      <p>
+        Learning outcomes depend on individual effort and are not guaranteed by the Service.
+      </p>
+    </div>
+
+    <!-- 9. Liability -->
+    <div class="section" id="liability">
+      <h3>9. Limitation of Liability</h3>
+      <p>
+        To the maximum extent permitted by applicable law, Jiayou shall not be liable for
+        any indirect, incidental, special, consequential, or punitive damages, including but
+        not limited to loss of data, loss of profits, or service interruption, arising from
+        your use of the Service.
+      </p>
+      <p>
+        Our total liability to you for any claim arising from these Terms or your use of the
+        Service shall not exceed the amount you paid to Jiayou in the <strong>12 months</strong>
+        preceding the event giving rise to the claim.
+      </p>
+    </div>
+
+    <!-- 10. Termination -->
+    <div class="section" id="termination">
+      <h3>10. Termination</h3>
+      <p>
+        You may delete your account at any time from your account settings. Upon deletion:
+      </p>
+      <ul>
+        <li>Your personal data will be deleted within <strong>30 days</strong>, except where
+          retention is required by law (e.g., financial records).</li>
+        <li>Your virtual coin balance and quiz history will be permanently erased.</li>
+        <li>Any active Premium subscription will be cancelled and no refund will be issued for
+          the remaining period, unless required by law.</li>
+      </ul>
+      <p>
+        We may suspend or terminate your account without notice if you materially breach
+        these Terms, engage in fraudulent activity, or if required by law.
+      </p>
+    </div>
+
+    <!-- 11. Changes -->
+    <div class="section" id="changes">
+      <h3>11. Changes to These Terms</h3>
+      <p>
+        We may update these Terms from time to time. When we make material changes, we will
+        notify you by email or via an in-app notification at least <strong>15 days</strong>
+        before the changes take effect. Continued use of the Service after the effective date
+        constitutes acceptance of the updated Terms.
+      </p>
+    </div>
+
+    <!-- 12. Governing Law -->
+    <div class="section" id="law">
+      <h3>12. Governing Law & Dispute Resolution</h3>
+      <p>
+        These Terms are governed by the laws of <strong>France</strong>. Any dispute arising
+        from or relating to these Terms shall first be subject to good-faith negotiation. If
+        unresolved, disputes shall be submitted to the exclusive jurisdiction of the competent
+        courts of France.
+      </p>
+      <p>
+        If you are a consumer in the EU, you may also use the
+        <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">
+          EU Online Dispute Resolution platform</a>.
+      </p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         PRIVACY POLICY
+    ════════════════════════════════════════════ -->
+    <div class="section" id="privacy" style="margin-top: 72px;">
+      <span class="section-label">Privacy Policy</span>
+      <h2>Privacy Policy</h2>
+      <p>
+        This Privacy Policy explains how <strong>Jiayou</strong> collects, uses, stores, and
+        protects your personal data when you use the Service at
+        <a href="https://jiayou.fr" target="_blank" rel="noopener">jiayou.fr</a>.
+        We are committed to complying with the
+        <strong>General Data Protection Regulation (GDPR)</strong> (EU 2016/679) and applicable
+        French data protection law.
+      </p>
+      <p>
+        <strong>Data Controller:</strong> Jiayou — <a href="mailto:info@jiayou.fr">info@jiayou.fr</a>
+      </p>
+    </div>
+
+    <!-- 1. Data Collected -->
+    <div class="section" id="data-collected">
+      <h3>1. Data We Collect</h3>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Data</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Account</strong></td>
+            <td>Email address, display name, profile picture URL</td>
+            <td>Google OAuth or registration form</td>
+          </tr>
+          <tr>
+            <td><strong>Authentication</strong></td>
+            <td>OAuth tokens (not stored in plain text), session identifiers</td>
+            <td>Google Sign-In / Passport.js</td>
+          </tr>
+          <tr>
+            <td><strong>Learning activity</strong></td>
+            <td>Quiz history (score, ratio, words used, date), word collection, mastery scores per word</td>
+            <td>In-app activity</td>
+          </tr>
+          <tr>
+            <td><strong>Subscription</strong></td>
+            <td>Plan name, subscription status, billing period dates</td>
+            <td>Stripe webhook events</td>
+          </tr>
+          <tr>
+            <td><strong>Payments</strong></td>
+            <td>Stripe Customer ID (reference only — card details are held by Stripe)</td>
+            <td>Stripe</td>
+          </tr>
+          <tr>
+            <td><strong>Usage</strong></td>
+            <td>Duel results, coin balance, last login timestamp</td>
+            <td>In-app activity</td>
+          </tr>
+          <tr>
+            <td><strong>Technical</strong></td>
+            <td>IP address (for security), session data stored server-side</td>
+            <td>Server logs</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        We do <strong>not</strong> collect sensitive personal data (health, financial account
+        numbers, government IDs), and we do not build advertising profiles.
+      </p>
+    </div>
+
+    <!-- 2. How We Use -->
+    <div class="section" id="how-we-use">
+      <h3>2. How We Use Your Data</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Purpose</th>
+            <th>Legal Basis (GDPR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Provide and operate the Service (authentication, quiz logic, progress tracking)</td>
+            <td>Performance of a contract (Art. 6(1)(b))</td>
+          </tr>
+          <tr>
+            <td>Process payments and manage subscriptions</td>
+            <td>Performance of a contract (Art. 6(1)(b))</td>
+          </tr>
+          <tr>
+            <td>Send transactional emails (subscription confirmations, renewal reminders)</td>
+            <td>Performance of a contract (Art. 6(1)(b))</td>
+          </tr>
+          <tr>
+            <td>Detect fraud, abuse, and security incidents</td>
+            <td>Legitimate interests (Art. 6(1)(f))</td>
+          </tr>
+          <tr>
+            <td>Improve the Service through aggregated, anonymised analytics</td>
+            <td>Legitimate interests (Art. 6(1)(f))</td>
+          </tr>
+          <tr>
+            <td>Comply with legal obligations (e.g., accounting, tax records)</td>
+            <td>Legal obligation (Art. 6(1)(c))</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 3. Third Parties -->
+    <div class="section" id="third-parties">
+      <h3>3. Third-Party Services</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Provider</th>
+            <th>Purpose</th>
+            <th>Privacy Policy</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Google (OAuth)</strong></td>
+            <td>Authentication — we receive your email and name from Google when you sign in</td>
+            <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a></td>
+          </tr>
+          <tr>
+            <td><strong>Stripe</strong></td>
+            <td>Payment processing — handles your card data securely (PCI-DSS Level 1)</td>
+            <td><a href="https://stripe.com/en-fr/privacy" target="_blank" rel="noopener">stripe.com/privacy</a></td>
+          </tr>
+          <tr>
+            <td><strong>Hosting / Cloud</strong></td>
+            <td>Server and database infrastructure (data may be processed in the EU or US under Standard Contractual Clauses)</td>
+            <td>Available on request</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        We do not sell, rent, or share your personal data with third parties for marketing purposes.
+      </p>
+    </div>
+
+    <!-- 4. Cookies -->
+    <div class="section" id="cookies">
+      <h3>4. Cookies & Local Storage</h3>
+      <p>We use the following technologies to store data on your device:</p>
+      <ul>
+        <li>
+          <strong>Session cookie</strong> — a strictly necessary cookie that keeps you logged in
+          during your visit. It is deleted when you close your browser or log out.
+        </li>
+        <li>
+          <strong>IndexedDB / localStorage</strong> — used by the PWA to cache vocabulary data
+          for offline use and to store your quiz progress locally. This data stays on your device
+          and is not transmitted to our servers except during sync operations.
+        </li>
+        <li>
+          <strong>Service Worker cache</strong> — stores app assets (HTML, CSS, JS, images) for
+          offline access. No personal data is included in the cache.
+        </li>
+      </ul>
+      <p>
+        We do not use third-party tracking cookies or advertising cookies.
+        The session cookie is strictly necessary; no consent banner is required for its use under
+        the ePrivacy Directive.
+      </p>
+    </div>
+
+    <!-- 5. Retention -->
+    <div class="section" id="retention">
+      <h3>5. Data Retention</h3>
+      <ul>
+        <li><strong>Account data</strong> — retained for as long as your account is active. Deleted within <strong>30 days</strong> of account deletion.</li>
+        <li><strong>Quiz history & learning data</strong> — retained for the life of your account. Deleted with your account.</li>
+        <li><strong>Payment records</strong> — retained for <strong>10 years</strong> as required by French accounting law (<em>Code de commerce, Art. L123-22</em>). Only transaction references (not card details) are stored by us.</li>
+        <li><strong>Server logs (IP addresses)</strong> — retained for a maximum of <strong>12 months</strong> for security purposes.</li>
+        <li><strong>Inactive accounts</strong> — accounts with no login for <strong>24 consecutive months</strong> may be deleted after prior email notice.</li>
+      </ul>
+    </div>
+
+    <!-- 6. Security -->
+    <div class="section" id="security">
+      <h3>6. Security</h3>
+      <p>
+        We implement appropriate technical and organisational measures to protect your data,
+        including:
+      </p>
+      <ul>
+        <li>HTTPS (TLS) for all data in transit.</li>
+        <li>Password hashing using bcrypt (for local accounts).</li>
+        <li>Server-side session management with encrypted session tokens.</li>
+        <li>No storage of plain-text credentials or payment card data.</li>
+        <li>Regular database backups.</li>
+      </ul>
+      <p>
+        Despite these measures, no system is completely secure. In the event of a data breach
+        affecting your rights, we will notify you and the relevant supervisory authority
+        (CNIL) within 72 hours as required by GDPR Art. 33.
+      </p>
+    </div>
+
+    <!-- 7. GDPR Rights -->
+    <div class="section" id="gdpr">
+      <h3>7. Your Rights (GDPR)</h3>
+      <p>Under the GDPR, you have the following rights:</p>
+      <table>
+        <thead>
+          <tr><th>Right</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Access (Art. 15)</strong></td>
+            <td>Request a copy of the personal data we hold about you.</td>
+          </tr>
+          <tr>
+            <td><strong>Rectification (Art. 16)</strong></td>
+            <td>Request correction of inaccurate or incomplete data.</td>
+          </tr>
+          <tr>
+            <td><strong>Erasure (Art. 17)</strong></td>
+            <td>Request deletion of your personal data ("right to be forgotten").</td>
+          </tr>
+          <tr>
+            <td><strong>Portability (Art. 20)</strong></td>
+            <td>Request your data in a structured, machine-readable format (e.g., JSON export of your word collection and quiz history).</td>
+          </tr>
+          <tr>
+            <td><strong>Restriction (Art. 18)</strong></td>
+            <td>Request that we restrict processing of your data in certain circumstances.</td>
+          </tr>
+          <tr>
+            <td><strong>Objection (Art. 21)</strong></td>
+            <td>Object to processing based on legitimate interests.</td>
+          </tr>
+          <tr>
+            <td><strong>Withdraw consent</strong></td>
+            <td>Where processing is based on consent, you may withdraw it at any time without affecting the lawfulness of prior processing.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        To exercise any of these rights, contact us at
+        <a href="mailto:info@jiayou.fr">info@jiayou.fr</a>. We will respond within
+        <strong>30 days</strong>. You may also lodge a complaint with the
+        <strong>CNIL</strong> (Commission Nationale de l'Informatique et des Libertés):
+        <a href="https://www.cnil.fr" target="_blank" rel="noopener">cnil.fr</a>.
+      </p>
+    </div>
+
+    <!-- 8. Minors -->
+    <div class="section" id="minors">
+      <h3>8. Children's Privacy</h3>
+      <p>
+        The Service is not directed at children under 13. We do not knowingly collect personal
+        data from children under 13 without verifiable parental consent. If you believe a child
+        under 13 has created an account without consent, please contact us at
+        <a href="mailto:info@jiayou.fr">info@jiayou.fr</a> and we will delete the account
+        promptly.
+      </p>
+    </div>
+
+    <!-- 9. Contact -->
+    <div class="section" id="contact">
+      <h3>9. Contact & Data Controller</h3>
+      <p>
+        For any questions, requests, or concerns regarding these Terms or our Privacy Policy:
+      </p>
+      <ul>
+        <li><strong>Email:</strong> <a href="mailto:info@jiayou.fr">info@jiayou.fr</a></li>
+        <li><strong>Website:</strong> <a href="https://jiayou.fr" target="_blank" rel="noopener">jiayou.fr</a></li>
+      </ul>
+    </div>
 
     <div class="footer">
-        <p>© 2026 Louis Cochet. All rights reserved.</p>
-        <p>This is a legal document. For serious legal concerns, consult a professional.</p>
+      <p>© 2026 <strong>Jiayou</strong> · <a href="https://jiayou.fr">jiayou.fr</a></p>
+      <p>
+        These Terms and Privacy Policy were last updated on <strong>June 10, 2026</strong>.
+        This document is provided for informational purposes. For complex legal matters,
+        we recommend consulting a qualified professional.
+      </p>
     </div>
 
+  </div>
 </body>
 </html>
