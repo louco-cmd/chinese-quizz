@@ -1,11 +1,12 @@
 // sw.js - VERSION CORRIGÉE & SIMPLIFIÉE
-const CACHE_NAME = 'jiayou-v6';
+const CACHE_NAME = 'jiayou-v7';
 const OFFLINE_URL = '/offline.html';
 
+// Ne PAS mettre global.js en cache : il doit toujours être rechargé depuis le réseau
+// pour que les mises à jour soient instantanées.
 const urlsToCache = [
   '/',
   '/css/accountandduels.css',
-  '/js/global.js',
   '/js/saveQuiz.js',
   '/js/card-function.js',
   '/manifest.json',

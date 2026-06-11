@@ -133,7 +133,7 @@ window.convertirPinyin = function(texteChinois) {
 //
 (function() {
   const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
-  console.log('[openExternal] global.js v6 chargé | isMobile=' + isMobile + ' | UA=' + navigator.userAgent.slice(0, 80));
+  console.log('[openExternal] global.js v7 chargé | isMobile=' + isMobile + ' | UA=' + navigator.userAgent.slice(0, 80));
 
   window.openExternal = function(url, closeCallback) {
     console.log('[openExternal] appelé | url=' + url + ' | isMobile=' + isMobile);
