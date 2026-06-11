@@ -131,31 +131,24 @@ window.convertirPinyin = function(texteChinois) {
 //   Android Chrome navigue vers l'URL (back button pour revenir).
 // Sur desktop uniquement, on ouvre un nouvel onglet classique.
 //
-(function() {
-  const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
-  console.log('[openExternal] global.js v7 chargé | isMobile=' + isMobile + ' | UA=' + navigator.userAgent.slice(0, 80));
-
-  window.openExternal = function(url, closeCallback) {
-    console.log('[openExternal] appelé | url=' + url + ' | isMobile=' + isMobile);
-    if (typeof closeCallback === 'function') closeCallback();
-    // Sur mobile : location.href navigue dans l'onglet courant (impossible à bloquer).
-    // Sur desktop : window.open() ouvre un nouvel onglet.
-    if (isMobile) {
-      console.log('[openExternal] → location.href');
-      window.location.href = url;
-    } else {
-      console.log('[openExternal] → window.open');
-      window.open(url, '_blank', 'noopener,noreferrer');
-    }
-  };
-})();
+// ── Ouvre un lien externe ────────────────────────────────────────────────────
+// Le href contient le vrai URL (pas javascript:void(0)).
+// Sur mobile : location.href navigue dans l'onglet courant.
+// Sur desktop : window.open ouvre un nouvel onglet.
+// Si JS ne charge pas, le href natif fonctionne quand même.
+window.openExternal = function(url) {
+  var isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
+  if (isMobile) {
+    window.location.href = url;
+  } else {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+};
 
 // Délègue tous les clics sur [data-external] → openExternal
 document.addEventListener('click', function(e) {
-  const el = e.target.closest('[data-external]');
+  var el = e.target.closest('[data-external]');
   if (!el) return;
-  console.log('[data-external] click intercepté | url=' + el.dataset.external);
   e.preventDefault();
-  e.stopPropagation();
   openExternal(el.dataset.external);
 });
