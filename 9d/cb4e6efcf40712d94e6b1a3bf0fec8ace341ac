@@ -1,0 +1,35 @@
+views/duels.ejs
+  s_8d2ffa3daa2c6c::t_7ebb576c892244 1197-1198
+views/dashboard.ejs
+  s_8d2ffa3daa2c6c::t_eb6423ae3e0ea0 1135,1137
+views/partials/header.ejs
+  s_8d2ffa3daa2c6c::t_b5c1d25dd531d9 21,38,166
+views/duel-detail.ejs
+  s_8d2ffa3daa2c6c::t_e98a74a52e0276 378
+public/js/global.js
+  s_8d2ffa3daa2c6c::t_7a3fd2ecf2465c 109,113,126-145
+views/quiz-play.ejs
+  s_8d2ffa3daa2c6c::t_b5c1d25dd531d9 173
+views/pricing.ejs
+  s_8d2ffa3daa2c6c::t_b5c1d25dd531d9 324,328,332,435,463
+views/user-profile.ejs
+  s_8d2ffa3daa2c6c::t_696e584c0159b6 701-702
+views/quiz.ejs
+  s_8d2ffa3daa2c6c::t_a1dc4d5e652f33 838
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "9dcb4e6efcf40712d94e6b1a3bf0fec8ace341ac",
+  "prompts": {},
+  "sessions": {
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/kh3mlhvjeex4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
