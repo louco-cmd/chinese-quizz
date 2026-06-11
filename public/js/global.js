@@ -133,12 +133,18 @@ window.convertirPinyin = function(texteChinois) {
 //
 (function() {
   const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
+  console.log('[openExternal] global.js v6 chargé | isMobile=' + isMobile + ' | UA=' + navigator.userAgent.slice(0, 80));
 
   window.openExternal = function(url, closeCallback) {
+    console.log('[openExternal] appelé | url=' + url + ' | isMobile=' + isMobile);
     if (typeof closeCallback === 'function') closeCallback();
+    // Sur mobile : location.href navigue dans l'onglet courant (impossible à bloquer).
+    // Sur desktop : window.open() ouvre un nouvel onglet.
     if (isMobile) {
+      console.log('[openExternal] → location.href');
       window.location.href = url;
     } else {
+      console.log('[openExternal] → window.open');
       window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
@@ -148,6 +154,8 @@ window.convertirPinyin = function(texteChinois) {
 document.addEventListener('click', function(e) {
   const el = e.target.closest('[data-external]');
   if (!el) return;
+  console.log('[data-external] click intercepté | url=' + el.dataset.external);
   e.preventDefault();
+  e.stopPropagation();
   openExternal(el.dataset.external);
 });
