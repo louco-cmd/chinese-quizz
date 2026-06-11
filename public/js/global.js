@@ -124,16 +124,20 @@ window.convertirPinyin = function(texteChinois) {
 };
 
 // ── Ouvre un lien externe hors de la capsule PWA ─────────────────────────────
-// En mode standalone (PWA installée), target="_blank" reste parfois dans la
-// même WebView. On utilise window.open() avec une feature string explicite
-// pour forcer le navigateur système.
+// window.open() lancé hors d'un gestionnaire synchrone (ou depuis un délégué)
+// est bloqué par Safari iOS et Chrome Android en mode standalone : la fenêtre
+// s'ouvre sur about:blank. La technique fiable est de créer un <a> temporaire
+// et d'appeler .click() directement dans le même tick.
 window.openExternal = function(url) {
-  // Méthode 1 : window.open avec noreferrer (force onglet système sur la plupart des PWA)
-  const w = window.open(url, '_blank', 'noreferrer,noopener');
-  // Méthode 2 (fallback) : si la fenêtre n'a pas pu s'ouvrir (bloqueur de popups)
-  if (!w || w.closed || typeof w.closed === 'undefined') {
-    window.location.href = url;
-  }
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  // Insérer brièvement dans le DOM (requis par certains navigateurs)
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 };
 
 // Délègue tous les clics sur [data-external] → openExternal
