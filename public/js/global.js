@@ -124,33 +124,21 @@ window.convertirPinyin = function(texteChinois) {
 };
 
 // ── Ouvre un lien externe hors de la capsule PWA ─────────────────────────────
-// iOS (Safari + PWA standalone) : window.open() et a.click() programmatique
-//   ouvrent tous les deux about:blank. La seule méthode fiable est
-//   window.location.href vers un domaine externe : iOS Safari intercepte
-//   la navigation cross-origin et l'ouvre dans Safari.
-//   L'utilisateur peut revenir à la PWA via le switcher d'apps.
-//
-// Android standalone / navigateur normal :
-//   window.open() avec noreferrer ouvre bien un nouvel onglet.
+// Sur mobile (iOS + Android), window.open() et a.click() programmatiques sont
+// bloqués par les navigateurs mobiles (popup blocker, restriction WebView PWA).
+// → window.location.href est la seule méthode 100% fiable sur mobile :
+//   iOS Safari intercepte le cross-origin et ouvre Safari natif.
+//   Android Chrome navigue vers l'URL (back button pour revenir).
+// Sur desktop uniquement, on ouvre un nouvel onglet classique.
 //
 (function() {
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone = window.navigator.standalone === true
-                    || window.matchMedia('(display-mode: standalone)').matches;
+  const isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
 
   window.openExternal = function(url, closeCallback) {
     if (typeof closeCallback === 'function') closeCallback();
-
-    if (isIOS) {
-      // iOS (standalone OU Safari normal) : location.href est la seule
-      // méthode fiable. iOS Safari intercepte le cross-origin et ouvre Safari.
-      setTimeout(function() { window.location.href = url; }, 30);
-    } else if (isStandalone) {
-      // Android TWA / standalone non-iOS : location.href aussi (plus fiable
-      // que window.open dans les WebViews Android).
-      setTimeout(function() { window.location.href = url; }, 30);
+    if (isMobile) {
+      window.location.href = url;
     } else {
-      // Navigateur desktop/Android normal : ouvrir un nouvel onglet.
       window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
