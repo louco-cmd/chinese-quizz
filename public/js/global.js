@@ -124,26 +124,42 @@ window.convertirPinyin = function(texteChinois) {
 };
 
 // ── Ouvre un lien externe hors de la capsule PWA ─────────────────────────────
-// window.open() lancé hors d'un gestionnaire synchrone (ou depuis un délégué)
-// est bloqué par Safari iOS et Chrome Android en mode standalone : la fenêtre
-// s'ouvre sur about:blank. La technique fiable est de créer un <a> temporaire
-// et d'appeler .click() directement dans le même tick.
-window.openExternal = function(url) {
-  const a = document.createElement('a');
-  a.href = url;
-  a.target = '_blank';
-  a.rel = 'noopener noreferrer';
-  // Insérer brièvement dans le DOM (requis par certains navigateurs)
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-};
+// iOS (Safari + PWA standalone) : window.open() et a.click() programmatique
+//   ouvrent tous les deux about:blank. La seule méthode fiable est
+//   window.location.href vers un domaine externe : iOS Safari intercepte
+//   la navigation cross-origin et l'ouvre dans Safari.
+//   L'utilisateur peut revenir à la PWA via le switcher d'apps.
+//
+// Android standalone / navigateur normal :
+//   window.open() avec noreferrer ouvre bien un nouvel onglet.
+//
+(function() {
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true
+                    || window.matchMedia('(display-mode: standalone)').matches;
+
+  window.openExternal = function(url, closeCallback) {
+    if (typeof closeCallback === 'function') closeCallback();
+
+    if (isIOS) {
+      // iOS (standalone OU Safari normal) : location.href est la seule
+      // méthode fiable. iOS Safari intercepte le cross-origin et ouvre Safari.
+      setTimeout(function() { window.location.href = url; }, 30);
+    } else if (isStandalone) {
+      // Android TWA / standalone non-iOS : location.href aussi (plus fiable
+      // que window.open dans les WebViews Android).
+      setTimeout(function() { window.location.href = url; }, 30);
+    } else {
+      // Navigateur desktop/Android normal : ouvrir un nouvel onglet.
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+})();
 
 // Délègue tous les clics sur [data-external] → openExternal
 document.addEventListener('click', function(e) {
   const el = e.target.closest('[data-external]');
   if (!el) return;
   e.preventDefault();
-  openExternal(el.dataset.external || el.href);
+  openExternal(el.dataset.external);
 });

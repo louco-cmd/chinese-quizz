@@ -835,7 +835,7 @@
         Free users are limited to ${max} quizzes per day.
       </div>
       <div style="display:flex; flex-direction:column; gap:10px;">
-        <a href="javascript:void(0)" onclick="this.closest('.quiz-limit-popup')?.remove(); openExternal('https://jiayou.fr/pricing')"
+        <a href="https://jiayou.fr/pricing" onclick="event.preventDefault(); this.closest('.quiz-limit-popup')?.remove(); openExternal('https://jiayou.fr/pricing')"
            style="display:block; text-align:center; background:#007AFF; color:white; padding:12px; border-radius:10px; text-decoration:none; font-weight:500;">
           <i class="bi bi-box-arrow-up-right me-2"></i>Go Premium on jiayou.fr
         </a>
