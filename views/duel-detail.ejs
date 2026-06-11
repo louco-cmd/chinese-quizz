@@ -375,7 +375,9 @@
                 <div style="text-align:center; margin-bottom:16px; font-size:1.1rem; font-weight:600;">Daily Duel Limit</div>
                 <div style="text-align:center; color:#666; font-size:0.94rem; margin-bottom:28px;">You've already played <strong>${current}</strong> duel today.<br>Free users are limited to ${max} duel per day.</div>
                 <div style="display:flex; flex-direction:column; gap:10px;">
-                    <a href="/pricing" onclick="this.closest('.duel-limit-popup')?.remove()" style="display:block; text-align:center; background:#007AFF; color:white; padding:12px; border-radius:10px; text-decoration:none;">Upgrade to Premium</a>
+                    <a href="https://jiayou.fr/pricing" target="_blank" rel="noopener" onclick="this.closest('.duel-limit-popup')?.remove()" style="display:block; text-align:center; background:#007AFF; color:white; padding:12px; border-radius:10px; text-decoration:none;">
+                      <i class="bi bi-box-arrow-up-right me-1"></i>Go Premium on jiayou.fr
+                    </a>
                     <button onclick="this.closest('.duel-limit-popup')?.remove()" style="background:transparent; border:1.5px solid #D1D1D6; padding:12px; border-radius:10px;">OK</button>
                 </div>
             `;

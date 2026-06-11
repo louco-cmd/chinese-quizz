@@ -9,46 +9,36 @@
       </span>
 
       <!-- Badge Free / Premium / Special Guest -->
-      <a href="/pricing" class="text-decoration-none">
-        <% if (isSpecialGuest) { %>
-          <span class="badge px-3 py-2 fw-semibold special-guest-badge"
-                style="cursor: pointer;">
-            GUEST
-          </span>
-        <% } else if (isPremium) { %>
-          <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-primary border-primary"
-                style="cursor: pointer;">
-            PREMIUM
-          </span>
-        <% } else { %>
-          <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-secondary border-secondary"
-                style="cursor: pointer;">
-            FREE
-          </span>
-        <% } %>
-      </a>
+      <% if (isSpecialGuest) { %>
+        <a href="/pricing" class="text-decoration-none">
+          <span class="badge px-3 py-2 fw-semibold special-guest-badge" style="cursor: pointer;">GUEST</span>
+        </a>
+      <% } else if (isPremium) { %>
+        <a href="/pricing" class="text-decoration-none">
+          <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-primary border-primary" style="cursor: pointer;">PREMIUM</span>
+        </a>
+      <% } else { %>
+        <a href="https://jiayou.fr/pricing" target="_blank" rel="noopener" class="text-decoration-none">
+          <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-secondary border-secondary" style="cursor: pointer;">FREE ↗</span>
+        </a>
+      <% } %>
     </div>
     <% } else { %>
       <!-- Sur le dashboard : badge seul -->
       <div class="d-flex align-items-center">
-        <a href="/pricing" class="text-decoration-none">
-          <% if (isSpecialGuest) { %>
-            <span class="badge px-3 py-2 fw-semibold special-guest-badge"
-                  style="cursor: pointer;">
-              GUEST
-            </span>
-          <% } else if (user.planName === 'premium') { %>
-            <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-primary border-primary"
-                  style="cursor: pointer;">
-              PREMIUM
-            </span>
-          <% } else { %>
-            <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-secondary border-secondary"
-                  style="cursor: pointer;">
-              FREE
-            </span>
-          <% } %>
-        </a>
+        <% if (isSpecialGuest) { %>
+          <a href="/pricing" class="text-decoration-none">
+            <span class="badge px-3 py-2 fw-semibold special-guest-badge" style="cursor: pointer;">GUEST</span>
+          </a>
+        <% } else if (user.planName === 'premium') { %>
+          <a href="/pricing" class="text-decoration-none">
+            <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-primary border-primary" style="cursor: pointer;">PREMIUM</span>
+          </a>
+        <% } else { %>
+          <a href="https://jiayou.fr/pricing" target="_blank" rel="noopener" class="text-decoration-none">
+            <span class="badge px-3 py-2 fw-semibold rounded-pill bg-white border text-secondary border-secondary" style="cursor: pointer;">FREE ↗</span>
+          </a>
+        <% } %>
       </div>
       <% } %>
 
@@ -173,8 +163,8 @@
       <div class="settings-section-label">Account</div>
 
       <% if (user.planName !=='premium' ) { %>
-        <a href="/pricing" class="settings-btn settings-btn-primary" onclick="closeSettingsDrawer()">
-          <i class="bi bi-arrow-up-circle me-2"></i>Upgrade to Premium
+        <a href="https://jiayou.fr/pricing" target="_blank" rel="noopener" class="settings-btn settings-btn-primary" onclick="closeSettingsDrawer()">
+          <i class="bi bi-box-arrow-up-right me-2"></i>Go Premium on jiayou.fr
         </a>
         <% } else { %>
           <a href="/pricing" class="settings-btn settings-btn-secondary" onclick="closeSettingsDrawer()">

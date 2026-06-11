@@ -321,23 +321,21 @@
               </button>
             </form>
           <% } else if (userSubscription && (subscriptionStatus === 'past_due' || subscriptionStatus === 'unpaid')) { %>
-            <form action="/create-portal-session" method="POST" class="portal-form">
-              <button type="submit" class="btn-plan-primary" style="background: linear-gradient(135deg,#ffc107,#ff9800);">
-                <i class="bi bi-credit-card me-2"></i>Update payment method
-              </button>
-            </form>
+            <a href="https://jiayou.fr/pricing" target="_blank" rel="noopener" class="btn-plan-primary" style="background: linear-gradient(135deg,#ffc107,#ff9800);">
+              <i class="bi bi-credit-card me-2"></i>Update payment method
+            </a>
           <% } else if (userSubscription) { %>
-            <a href="/subscribe?plan=premium" class="btn-plan-primary">
-              <i class="bi bi-arrow-clockwise me-2"></i>Resubscribe to Premium
+            <a href="https://jiayou.fr/pricing" target="_blank" rel="noopener" class="btn-plan-primary">
+              <i class="bi bi-arrow-clockwise me-2"></i>Resubscribe — €5/mo on jiayou.fr
             </a>
           <% } else { %>
-            <a href="/subscribe?plan=premium" class="btn-plan-primary">
+            <a href="https://jiayou.fr/pricing" target="_blank" rel="noopener" class="btn-plan-primary">
               <i class="bi bi-rocket-takeoff me-2"></i>Start Premium — €5/mo
             </a>
           <% } %>
 
           <p style="text-align: center; color: #aaa; font-size: 0.75rem; margin-top: 10px; margin-bottom: 0;">
-            <i class="bi bi-shield-check me-1"></i>Cancel anytime · Secure payment via Stripe
+            <i class="bi bi-globe me-1"></i>Subscription managed on jiayou.fr · Cancel anytime
           </p>
         </div>
       </div>
@@ -400,9 +398,9 @@
 
   <!-- Trust strip -->
   <div class="trust-strip mb-5">
-    <div class="trust-item"><i class="bi bi-shield-lock-fill text-success"></i> Secure payments via Stripe</div>
+    <div class="trust-item"><i class="bi bi-shield-lock-fill text-success"></i> Secure payment on jiayou.fr</div>
     <div class="trust-item"><i class="bi bi-arrow-counterclockwise text-primary"></i> Cancel anytime</div>
-    <div class="trust-item"><i class="bi bi-people-fill text-warning"></i> Trusted by learners worldwide</div>
+    <div class="trust-item"><i class="bi bi-globe text-primary"></i> Managed at jiayou.fr</div>
   </div>
 
   <!-- ── FAQ ── -->
@@ -429,12 +427,14 @@
           <div class="accordion-item">
             <h2 class="accordion-header">
               <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
-                What payment methods are accepted?
+                How does payment work?
               </button>
             </h2>
             <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
               <div class="accordion-body">
-                We accept all major credit cards (Visa, Mastercard, Amex) through Stripe — a globally trusted, PCI-compliant payment processor.
+                Subscriptions are managed securely on <a href="https://jiayou.fr/pricing" target="_blank" rel="noopener">jiayou.fr</a>.
+                Tapping "Start Premium" opens your browser where you can pay with any major credit card (Visa, Mastercard, Amex).
+                Your Premium access syncs back to the app automatically once payment is confirmed.
               </div>
             </div>
           </div>
@@ -460,7 +460,7 @@
             </h2>
             <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
               <div class="accordion-body">
-                Yes! Just click "Resubscribe to Premium" above. Your access is restored immediately and billing resumes from your saved payment method.
+                Yes! Just tap "Resubscribe" above to be taken to <a href="https://jiayou.fr/pricing" target="_blank" rel="noopener">jiayou.fr</a>. Your Premium access is restored immediately after payment.
               </div>
             </div>
           </div>

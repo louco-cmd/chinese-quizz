@@ -1487,7 +1487,15 @@ app.get('/pricing', ensureAuth, async (req, res) => {
   }
 });
 
-app.get('/subscribe', ensureAuth, async (req, res) => {
+app.get('/subscribe', async (req, res) => {
+  // Si non connecté : sauvegarder la destination et rediriger vers login
+  if (!req.isAuthenticated() && !req.user) {
+    const returnTo = `/subscribe?plan=${req.query.plan || 'premium'}`;
+    if (req.session) req.session.returnTo = returnTo;
+    console.log(`🔐 Utilisateur non connecté → returnTo: ${returnTo}`);
+    return res.redirect('/');
+  }
+
   try {
     const { plan } = req.query;
 
@@ -1653,35 +1661,58 @@ app.get('/welcome-jiayou-premium', ensureAuth, async (req, res) => {
           // Le paiement est OK, créer l'abonnement en base
           console.log(`💰 Paiement confirmé, création abonnement pour user ${req.user.id}`);
 
+          // Récupérer les dates de période depuis Stripe
+          let periodStart = null, periodEnd = null;
+          try {
+            const stripeSub = await stripe.subscriptions.retrieve(session.subscription);
+            periodStart = stripeSub.current_period_start
+              ? new Date(stripeSub.current_period_start * 1000)
+              : null;
+            periodEnd = stripeSub.current_period_end
+              ? new Date(stripeSub.current_period_end * 1000)
+              : null;
+          } catch (e) {
+            console.warn('⚠️ Impossible de récupérer les dates de période:', e.message);
+          }
+
           await pool.query(`
             INSERT INTO user_subscriptions (
               user_id,
               plan_name,
               status,
+              stripe_status,
               stripe_customer_id,
               stripe_subscription_id,
+              current_period_start,
+              current_period_end,
               metadata,
               created_at,
               updated_at
-            ) VALUES ($1, 'premium', 'active', $2, $3, $4, NOW(), NOW())
-            ON CONFLICT (user_id) 
+            ) VALUES ($1, 'premium', 'active', 'active', $2, $3, $4, $5, $6, NOW(), NOW())
+            ON CONFLICT (user_id)
             DO UPDATE SET
               plan_name = 'premium',
               status = 'active',
+              stripe_status = 'active',
               stripe_customer_id = EXCLUDED.stripe_customer_id,
               stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+              current_period_start = COALESCE(EXCLUDED.current_period_start, user_subscriptions.current_period_start),
+              current_period_end   = COALESCE(EXCLUDED.current_period_end,   user_subscriptions.current_period_end),
               metadata = EXCLUDED.metadata,
               updated_at = NOW()
           `, [
             req.user.id,
             session.customer,
             session.subscription,
+            periodStart,
+            periodEnd,
             JSON.stringify({
               created_via: 'welcome_page',
               session_id: session_id,
               payment_date: new Date().toISOString()
             })
           ]);
+          console.log(`✅ Abonnement activé (stripe_status=active) pour user ${req.user.id}`);
         }
       } catch (stripeError) {
         console.error('Erreur Stripe:', stripeError.message);

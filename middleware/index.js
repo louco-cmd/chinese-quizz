@@ -42,6 +42,12 @@ function ensureAuth(req, res, next) {
     });
   }
 
+  // Sauvegarder l'URL cible pour y revenir après login
+  if (req.session && req.originalUrl && req.originalUrl !== '/') {
+    req.session.returnTo = req.originalUrl;
+    console.log(`💾 returnTo sauvegardé: ${req.originalUrl}`);
+  }
+
   // Si page
   return res.redirect('/');
 }

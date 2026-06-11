@@ -1,65 +1,325 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to Jiayou Premium</title>
+  <title>Welcome to Jiayou Premium 🎉</title>
   <%- include('partials/meta', { pageTitle: 'Jiayou · Welcome Premium!', pageDescription: 'Welcome to Jiayou Premium — all features are now unlocked!' }) %>
   <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
-  <link href="/css/accountandduels.css" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      background: linear-gradient(135deg, #eff6ff 0%, #f5f3ff 100%);
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      margin: 0;
+    }
+
+    .welcome-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .welcome-card {
+      background: white;
+      border-radius: 28px;
+      padding: 52px 40px 44px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.1);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .welcome-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 5px;
+      background: linear-gradient(90deg, #0d6efd, #6610f2, #0d6efd);
+      background-size: 200% 100%;
+      animation: shimmer 2.5s linear infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% center; }
+      100% { background-position: -200% center; }
+    }
+
+    /* Confetti */
+    .confetti-emoji {
+      font-size: 3.5rem;
+      margin-bottom: 16px;
+      display: block;
+      animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes popIn {
+      0%   { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .welcome-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    .welcome-subtitle {
+      color: #6b7280;
+      font-size: 0.97rem;
+      margin-bottom: 32px;
+      line-height: 1.55;
+    }
+
+    /* Status box */
+    .status-box {
+      border-radius: 14px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+
+    .status-box.confirming {
+      background: #fefce8;
+      border: 1px solid #fde68a;
+    }
+    .status-box.confirming .status-icon { color: #f59e0b; font-size: 1.4rem; }
+    .status-box.confirming .status-text { color: #78350f; }
+
+    .status-box.success {
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+    }
+    .status-box.success .status-icon { color: #16a34a; font-size: 1.4rem; }
+    .status-box.success .status-text { color: #166534; }
+
+    .status-spinner {
+      width: 20px; height: 20px;
+      border: 2.5px solid #fde68a;
+      border-top-color: #f59e0b;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Feature pills */
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+
+    .feature-pill {
+      background: #f8faff;
+      border: 1px solid #e0e9ff;
+      border-radius: 12px;
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    .feature-pill .icon {
+      font-size: 1.2rem;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .feature-pill .label {
+      font-weight: 700;
+      color: #1d1d1f;
+      display: block;
+      font-size: 0.82rem;
+    }
+
+    .feature-pill .desc {
+      color: #888;
+      font-size: 0.76rem;
+    }
+
+    /* CTA */
+    .btn-go {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #0d6efd, #6610f2);
+      color: white;
+      font-weight: 800;
+      font-size: 1rem;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 12px;
+    }
+    .btn-go:hover { filter: brightness(1.07); transform: translateY(-2px); color: white; }
+    .btn-go:disabled { background: #c5c8cc; cursor: not-allowed; transform: none; }
+
+    .btn-go-outline {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      border-radius: 14px;
+      background: white;
+      border: 2px solid #e5e7eb;
+      color: #374151;
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-go-outline:hover { background: #f9fafb; color: #111827; }
+
+    .footer-note {
+      margin-top: 20px;
+      font-size: 0.75rem;
+      color: #aaa;
+    }
+  </style>
 </head>
-
 <body>
-    <% // Variables locales 
-    const currentUser = locals.user || null; 
-    const currentBalance = locals.balance || 0; 
-    const isPremium = locals.isPremium || false;
-    const hasInactiveSubscription = locals.hasInactiveSubscription || false;
-    const subscriptionStatus = locals.subscriptionStatus || 'none';
-    const userSubscription = locals.userSubscription || null;
-  %>
+<%
+  const currentUser  = locals.user  || null;
+  const currentBalance = locals.balance || 0;
+  const isPremiumNow = locals.isPremium || false;
+  const sessionId    = locals.sessionId || null;
+%>
 
-  <%- include('partials/header', {currentPage: 'pricing', user: currentUser, balance: currentBalance}) %>
-  <%- include('partials/navbar', {currentPage: 'pricing', user: currentUser}) %>
+<div class="welcome-wrap">
+  <div class="welcome-card">
 
-  <main class="container">
-    <div class="row justify-content-center mt-5">
-      <div class="col-12 col-md-8 col-lg-6 text-center">
-        
-        <!-- Logo -->
-        <div class="mb-4">
-          <h1 class="display-1 fw-bold">加油</h1>
+    <!-- Icon -->
+    <span class="confetti-emoji">🎉</span>
+
+    <!-- Title -->
+    <div class="welcome-title">Welcome to Premium!</div>
+    <p class="welcome-subtitle">
+      加油！Your subscription is now active.<br>
+      All limits have been lifted.
+    </p>
+
+    <!-- Status box: confirming or confirmed -->
+    <div class="status-box <%= isPremiumNow ? 'success' : 'confirming' %>" id="statusBox">
+      <% if (isPremiumNow) { %>
+        <i class="bi bi-patch-check-fill status-icon"></i>
+        <div>
+          <div class="fw-bold status-text">Premium active ✓</div>
+          <div class="status-text" style="font-size: 0.82rem; opacity: 0.8;">All features are unlocked on your account.</div>
         </div>
-        
-        <!-- Welcome Message -->
-        <div class="mb-5">
-          <h2 class="display-6 fw-bold text-primary mb-3">
-            Welcome to Jiayou Premium
-          </h2>
-          <p class="lead text-muted fs-4">
-            Happy to count you with us!
-          </p>
-          <p class="fs-5 text-secondary">
-            Enjoy your experience here
-          </p>
+      <% } else { %>
+        <div class="status-spinner" id="statusSpinner"></div>
+        <div>
+          <div class="fw-bold status-text" id="statusTitle">Confirming payment…</div>
+          <div class="status-text" id="statusDesc" style="font-size: 0.82rem; opacity: 0.8;">This usually takes a few seconds.</div>
         </div>
-        
-        <!-- Button -->
-        <div class="mt-5">
-          <a href="/dashboard" class="btn btn-primary btn-lg px-5 py-3">
-            <i class="bi bi-rocket-takeoff me-2"></i>
-            Go to Dashboard
-          </a>
-        </div>
-        
+      <% } %>
+    </div>
+
+    <!-- Features -->
+    <div class="features-grid">
+      <div class="feature-pill">
+        <span class="icon">∞</span>
+        <span class="label">Unlimited words</span>
+        <span class="desc">No vocabulary cap</span>
+      </div>
+      <div class="feature-pill">
+        <span class="icon">🎯</span>
+        <span class="label">Unlimited quizzes</span>
+        <span class="desc">Practice endlessly</span>
+      </div>
+      <div class="feature-pill">
+        <span class="icon">⚔️</span>
+        <span class="label">Unlimited duels</span>
+        <span class="desc">Challenge anyone</span>
+      </div>
+      <div class="feature-pill">
+        <span class="icon">📚</span>
+        <span class="label">All HSK packs</span>
+        <span class="desc">Levels 1 to 6</span>
       </div>
     </div>
-  </main>
 
-  <!-- Bootstrap JS -->
-  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <!-- CTA -->
+    <a href="/dashboard" class="btn-go" id="dashBtn">
+      <i class="bi bi-rocket-takeoff me-2"></i>Go to my Dashboard
+    </a>
+    <a href="/collection" class="btn-go-outline">
+      <i class="bi bi-book me-2"></i>Start adding words
+    </a>
+
+    <p class="footer-note">
+      Manage your subscription anytime from your account settings.<br>
+      Questions? <a href="mailto:info@jiayou.fr" style="color: #0d6efd;">info@jiayou.fr</a>
+    </p>
+
+  </div>
+</div>
+
+<script>
+  // Polling si le statut n'est pas encore confirmé côté serveur
+  // (le webhook Stripe peut arriver quelques secondes après le redirect)
+  const isPremiumNow = <%= isPremiumNow ? 'true' : 'false' %>;
+
+  if (!isPremiumNow) {
+    let attempts = 0;
+    const maxAttempts = 12;   // 12 × 3s = 36s max
+    const interval = 3000;
+
+    const statusBox    = document.getElementById('statusBox');
+    const statusTitle  = document.getElementById('statusTitle');
+    const statusDesc   = document.getElementById('statusDesc');
+    const statusSpinner = document.getElementById('statusSpinner');
+
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const res  = await fetch('/api/subscription-status', { credentials: 'include' });
+        const data = await res.json();
+
+        if (data.isPremium) {
+          clearInterval(poll);
+
+          // Passer en vert
+          statusBox.className = 'status-box success';
+          statusBox.innerHTML = `
+            <i class="bi bi-patch-check-fill status-icon" style="color: #16a34a; font-size: 1.4rem;"></i>
+            <div>
+              <div class="fw-bold" style="color: #166534;">Premium active ✓</div>
+              <div style="color: #166534; font-size: 0.82rem; opacity: 0.8;">All features are unlocked on your account.</div>
+            </div>
+          `;
+          return;
+        }
+
+        // Mise à jour du texte selon le nombre d'essais
+        if (attempts >= maxAttempts) {
+          clearInterval(poll);
+          statusTitle.textContent = 'Taking longer than usual…';
+          statusDesc.textContent  = 'Your Premium will activate once the payment is confirmed. You can safely go to your dashboard.';
+          statusSpinner.style.display = 'none';
+        } else {
+          statusTitle.textContent = `Confirming payment… (${attempts}/${maxAttempts})`;
+        }
+
+      } catch (e) {
+        // Silently ignore network errors
+      }
+    }, interval);
+  }
+</script>
 </body>
-
 </html>

@@ -2141,4 +2141,46 @@ router.get('/api/transactions', ensureAuth, async (req, res) => {
 });
 
 
+// ── Statut d'abonnement (polling post-paiement) ─────────────────────────────
+// Utilisé par la page welcome-jiayou-premium pour confirmer l'activation
+router.get('/api/subscription-status', ensureAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        us.plan_name,
+        us.status,
+        us.stripe_status,
+        us.cancel_at_period_end,
+        us.current_period_end,
+        u.special_guest
+      FROM users u
+      LEFT JOIN user_subscriptions us ON us.user_id = u.id
+      WHERE u.id = $1
+    `, [req.user.id]);
+
+    const row = rows[0] || {};
+    const isSpecialGuest = row.special_guest === true;
+    const now = new Date();
+    const periodEnd = row.current_period_end ? new Date(row.current_period_end) : null;
+
+    const allActive = row.plan_name === 'premium'
+                   && row.status        === 'active'
+                   && row.stripe_status === 'active';
+    const periodOk  = !periodEnd || periodEnd > now;
+    const isPremium = isSpecialGuest || (allActive && periodOk);
+
+    res.json({
+      isPremium,
+      isSpecialGuest,
+      planName: isSpecialGuest ? 'special_guest' : (isPremium ? 'premium' : 'free'),
+      stripeStatus: row.stripe_status || 'none',
+      status: row.status || 'none'
+    });
+  } catch (err) {
+    console.error('❌ subscription-status:', err);
+    res.status(500).json({ isPremium: false, error: 'server_error' });
+  }
+});
+
+
 module.exports = router;
