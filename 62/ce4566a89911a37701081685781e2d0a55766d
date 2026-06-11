@@ -1,0 +1,25 @@
+views/quiz.ejs
+  s_8d2ffa3daa2c6c::t_7f763790857da9 838
+views/duel-detail.ejs
+  s_8d2ffa3daa2c6c::t_7f763790857da9 378
+public/js/global.js
+  s_8d2ffa3daa2c6c::t_f384f836a2538d 127-131,133-134,144-151,153-154
+  s_8d2ffa3daa2c6c::t_edecc1d05ea548 141-143
+  s_8d2ffa3daa2c6c::t_5691e4fe19d86e 132,135-139,152,155-157,164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "62ce4566a89911a37701081685781e2d0a55766d",
+  "prompts": {},
+  "sessions": {
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/kh3mlhvjeex4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
