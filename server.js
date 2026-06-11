@@ -1576,10 +1576,7 @@ app.get('/subscribe', async (req, res) => {
     console.log('✅ Stripe session created:', session.id);
     console.log('🔗 URL de checkout:', session.url);
 
-    // Répondre JSON pour que le client ouvre dans le navigateur externe (PWA-safe)
-    if (req.headers.accept && req.headers.accept.includes('application/json')) {
-      return res.json({ url: session.url });
-    }
+    // REDIRIGER vers l'URL de checkout !!!
     res.redirect(session.url);
 
   } catch (error) {
