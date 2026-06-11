@@ -1,0 +1,47 @@
+views/partials/header.ejs
+  s_8d2ffa3daa2c6c::t_6159ce59c7e0a3 29-41
+  s_8d2ffa3daa2c6c::t_2dfb7978d5b6b2 12-24
+  s_8d2ffa3daa2c6c::t_d08cbfb20e6f93 166-167
+views/pricing.ejs
+  s_8d2ffa3daa2c6c::t_d623b4cf059766 324-326,328-329,332,338
+  s_8d2ffa3daa2c6c::t_a7f4c8eb7a4981 401,403
+  s_8d2ffa3daa2c6c::t_0976fcd8544d07 430,435-437
+  s_8d2ffa3daa2c6c::t_a7510e7a73bf8c 463
+views/duels.ejs
+  s_8d2ffa3daa2c6c::t_3569201ee00e98 1197-1198,1212
+views/dashboard.ejs
+  s_8d2ffa3daa2c6c::t_c76f13973bad43 1135-1137,1144
+views/quiz.ejs
+  s_8d2ffa3daa2c6c::t_5836b31eb50ab6 838,840
+views/quiz-play.ejs
+  s_8d2ffa3daa2c6c::t_6f9c05f6a42fa1 173-174
+views/user-profile.ejs
+  s_8d2ffa3daa2c6c::t_e828d5a2fb5d78 701-702,716
+server.js
+  s_8d2ffa3daa2c6c::t_dff50afcd53e50 1664-1677,1683,1686-1687,1691-1692,1696,1699-1700,1707-1708,1715
+  s_8d2ffa3daa2c6c::t_24d26df5a64716 1490-1498
+middleware/index.js
+  s_8d2ffa3daa2c6c::t_17cb6aff32c809 45-50
+views/welcome-jiayou-premium.ejs
+  s_8d2ffa3daa2c6c::t_303c0c1dd8d7df 6,10-185,187-193,195-221,223-227,229-252,256-285,287-325
+views/duel-detail.ejs
+  s_8d2ffa3daa2c6c::t_d12e91bbc6c6ac 378-380
+routes/api.js
+  s_8d2ffa3daa2c6c::t_79d92513c3a317 2144-2185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10-trip",
+  "base_commit_sha": "b605643bc516e5d6f8e59eda33d2ddf10807180d",
+  "prompts": {},
+  "sessions": {
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/kh3mlhvjeex4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
