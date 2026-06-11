@@ -106,11 +106,11 @@ window.convertirPinyin = function(texteChinois) {
       return ''; // Retourne vide si échec
     });
   }
-  
+
   if (!texteChinois || typeof texteChinois !== 'string') {
     return '';
   }
-  
+
   try {
     return pinyinPro.pinyin(texteChinois, {
       toneType: 'symbol',
@@ -123,3 +123,23 @@ window.convertirPinyin = function(texteChinois) {
   }
 };
 
+// ── Ouvre un lien externe hors de la capsule PWA ─────────────────────────────
+// En mode standalone (PWA installée), target="_blank" reste parfois dans la
+// même WebView. On utilise window.open() avec une feature string explicite
+// pour forcer le navigateur système.
+window.openExternal = function(url) {
+  // Méthode 1 : window.open avec noreferrer (force onglet système sur la plupart des PWA)
+  const w = window.open(url, '_blank', 'noreferrer,noopener');
+  // Méthode 2 (fallback) : si la fenêtre n'a pas pu s'ouvrir (bloqueur de popups)
+  if (!w || w.closed || typeof w.closed === 'undefined') {
+    window.location.href = url;
+  }
+};
+
+// Délègue tous les clics sur [data-external] → openExternal
+document.addEventListener('click', function(e) {
+  const el = e.target.closest('[data-external]');
+  if (!el) return;
+  e.preventDefault();
+  openExternal(el.dataset.external || el.href);
+});
