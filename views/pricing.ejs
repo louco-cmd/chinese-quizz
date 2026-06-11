@@ -315,23 +315,21 @@
 
           <!-- CTA -->
           <% if (isPremium) { %>
-            <form action="/create-portal-session" method="POST" class="portal-form">
-              <button type="submit" class="btn-plan-outline">
-                <i class="bi bi-gear me-2"></i>Manage subscription
-              </button>
-            </form>
+            <button class="btn-plan-outline" onclick="openPortal(this)">
+              <i class="bi bi-gear me-2"></i>Manage subscription
+            </button>
           <% } else if (userSubscription && (subscriptionStatus === 'past_due' || subscriptionStatus === 'unpaid')) { %>
-            <a href="javascript:void(0)" data-external="https://jiayou.fr/pricing" target="_blank" rel="noopener" class="btn-plan-primary" style="background: linear-gradient(135deg,#ffc107,#ff9800);">
+            <button class="btn-plan-primary" style="background: linear-gradient(135deg,#ffc107,#ff9800);" onclick="openCheckout(this)">
               <i class="bi bi-credit-card me-2"></i>Update payment method
-            </a>
+            </button>
           <% } else if (userSubscription) { %>
-            <a href="javascript:void(0)" data-external="https://jiayou.fr/pricing" target="_blank" rel="noopener" class="btn-plan-primary">
-              <i class="bi bi-arrow-clockwise me-2"></i>Resubscribe — €5/mo on jiayou.fr
-            </a>
+            <button class="btn-plan-primary" onclick="openCheckout(this)">
+              <i class="bi bi-arrow-clockwise me-2"></i>Resubscribe to Premium
+            </button>
           <% } else { %>
-            <a href="javascript:void(0)" data-external="https://jiayou.fr/pricing" target="_blank" rel="noopener" class="btn-plan-primary">
+            <button class="btn-plan-primary" onclick="openCheckout(this)">
               <i class="bi bi-rocket-takeoff me-2"></i>Start Premium — €5/mo
-            </a>
+            </button>
           <% } %>
 
           <p style="text-align: center; color: #aaa; font-size: 0.75rem; margin-top: 10px; margin-bottom: 0;">
@@ -474,34 +472,50 @@
 
 <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script>
-  document.querySelectorAll('.portal-form').forEach(form => {
-    form.addEventListener('submit', async function (e) {
-      e.preventDefault();
-      const btn = this.querySelector('button[type="submit"]');
-      const orig = btn.innerHTML;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
-      btn.disabled = true;
-      try {
-        const res = await fetch('/create-portal-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include'
-        });
-        const data = await res.json();
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          alert('Unable to load subscription management. Please try again.');
-          btn.innerHTML = orig;
-          btn.disabled = false;
-        }
-      } catch {
-        alert('An error occurred. Please try again.');
-        btn.innerHTML = orig;
-        btn.disabled = false;
+  async function openCheckout(btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/subscribe?plan=premium', {
+        headers: { 'Accept': 'application/json' },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.open(data.url, '_blank', 'noopener,noreferrer');
+      } else {
+        alert('Unable to start checkout. Please try again.');
       }
-    });
-  });
+    } catch {
+      alert('An error occurred. Please try again.');
+    }
+    btn.innerHTML = orig;
+    btn.disabled = false;
+  }
+
+  async function openPortal(btn) {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading...';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.open(data.url, '_blank', 'noopener,noreferrer');
+      } else {
+        alert('Unable to load subscription management. Please try again.');
+      }
+    } catch {
+      alert('An error occurred. Please try again.');
+    }
+    btn.innerHTML = orig;
+    btn.disabled = false;
+  }
 </script>
 </body>
 </html>
