@@ -377,6 +377,53 @@
     .shake {
       animation: shake 0.6s ease-in-out;
     }
+
+    /* ── Start a duel card ── */
+    .duel-start-card {
+      background: linear-gradient(135deg, #1a7a4a, #0f5132);
+      border-radius: 16px;
+      color: #fff;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .duel-start-arrow {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 1.2rem;
+      color: rgba(255,255,255,0.7);
+      transition: transform 0.25s ease, color 0.25s ease;
+      pointer-events: none;
+    }
+    .duel-start-icon {
+      font-size: 2rem;
+      margin-bottom: 0.4rem;
+      display: block;
+    }
+    .duel-start-title {
+      font-weight: 700;
+      font-size: 1.1rem;
+      margin-bottom: 2px;
+    }
+    .duel-start-text {
+      font-size: 0.85rem;
+      opacity: 0.85;
+    }
+    @media (hover: hover) {
+      .duel-start-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 22px rgba(0,0,0,0.18);
+      }
+      .duel-start-card:hover .duel-start-arrow {
+        transform: translateX(4px);
+        color: #fff;
+      }
+    }
+    .duel-start-card:active {
+      transform: scale(0.97);
+    }
+    #recent-opponents-tags::-webkit-scrollbar { display: none; }
   </style>
 </head>
 
@@ -413,30 +460,18 @@
             </div>
           </div>
 
-          <!-- ── RIGHT COLUMN: search, recent duels, bullies ── -->
+          <!-- ── RIGHT COLUMN: start duel card, recent duels, bullies ── -->
           <div class="col-lg-7 col-xl-8">
-            <!-- Recherche -->
-            <div class="card duels-card">
-              <div class="card-header">
-                <h6 class="mb-0">
-                  <i class="bi bi-search me-2 text-muted"></i>
-                  Search a duelist
-                </h6>
-              </div>
-              <div class="card-body">
-                <div class="input-group">
-                  <input type="text" id="duelist-search" class="form-control" placeholder="Search a name..."
-                    onkeypress="handleSearchKeyPress(event)" oninput="handleSearchInput()">
-                  <button class="btn btn-primary" type="button" onclick="searchDuelists()">
-                    <i class="bi bi-search" id="search-icon"></i>
-                    <span class="spinner-border spinner-border-sm d-none" id="search-spinner"></span>
-                  </button>
-                </div>
-                <div id="search-suggestions" class="mt-2" style="display: none;">
-                  <div class="list-group list-group-flush small">
-                    <!-- Suggestions -->
-                  </div>
-                </div>
+            <!-- Start a duel card (quiz.ejs style) -->
+            <div class="duel-start-card quiz-card-clickable mb-3 mb-lg-4"
+                 role="button" tabindex="0"
+                 onclick="openStartDuelPopup()"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openStartDuelPopup();}">
+              <i class="duel-start-arrow bi bi-arrow-right-circle-fill"></i>
+              <div class="text-center py-3 px-3">
+                <i class="bi bi-sword duel-start-icon"></i>
+                <div class="duel-start-title">Start a duel</div>
+                <div class="duel-start-text">Challenge a player</div>
               </div>
             </div>
 
@@ -481,87 +516,97 @@
 
       <!-- Popup de défi améliorée -->
       <div id="duelPopup" class="confirm-popup" style="display: none;">
-        <div class="confirm-popup-content" style="max-width: 440px; padding: 32px;">
+        <div class="confirm-popup-content" style="max-width: 400px; padding: 24px; max-height: 90vh; overflow-y: auto;">
           <!-- En-tête -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-            <h5 style="font-weight: 600; font-size: 1.3rem; margin: 0;">Challenge <span id="opponentName"></span></h5>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+            <h5 style="font-weight: 600; font-size: 1.15rem; margin: 0;">Challenge <span id="opponentName">a player</span></h5>
             <button type="button" class="btn-close" onclick="closeDuelPopup()" style="font-size: 1rem;"></button>
           </div>
 
           <form id="duelForm">
             <input type="hidden" id="opponentId">
 
+            <!-- Recherche du compétiteur -->
+            <div style="margin-bottom: 20px;">
+              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;">OPPONENT</div>
+              <div class="input-group">
+                <input type="text" id="duelist-search" class="form-control" placeholder="Search a name..."
+                  onkeypress="handleSearchKeyPress(event)" oninput="handleSearchInput()"
+                  style="border-radius: 12px 0 0 12px; border: 2px solid #e0e0e0; padding: 10px;">
+                <button class="btn btn-primary" type="button" onclick="searchDuelists()"
+                  style="border-radius: 0 12px 12px 0;">
+                  <i class="bi bi-search" id="search-icon"></i>
+                  <span class="spinner-border spinner-border-sm d-none" id="search-spinner"></span>
+                </button>
+              </div>
+              <div id="search-suggestions" class="mt-2" style="display: none;">
+                <div class="list-group list-group-flush small"></div>
+              </div>
+              <!-- Tags adversaires récents -->
+              <div id="recent-opponents-tags" class="mt-2" style="display: none; flex-wrap: nowrap; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; -ms-overflow-style: none;"></div>
+            </div>
+
             <!-- Type de duel : boutons avec icônes -->
-            <div style="margin-bottom: 32px;">
-              <div
-                style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 12px; letter-spacing: 0.5px;">
-                DUEL TYPE</div>
-              <div style="display: flex; gap: 16px;">
+            <div style="margin-bottom: 18px;">
+              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;">DUEL TYPE</div>
+              <div style="display: flex; gap: 12px;">
                 <!-- Random -->
                 <label class="duel-type-label" style="flex: 1; cursor: pointer;">
                   <input type="radio" name="duelType" value="classic" checked style="display: none;">
                   <div class="duel-type-card"
-                    style="border: 2px solid #e0e0e0; border-radius: 18px; padding: 18px 8px; text-align: center; background-color: #f9f9f9; transition: all 0.2s;">
-                    <div style="font-size: 2.2rem; margin-bottom: 8px;">🎲</div>
-                    <div style="font-weight: 600; margin-bottom: 6px; font-size: 1rem;">Random</div>
-                    <div style="font-size: 0.8rem; color: #666; line-height: 1.3;">half your words<br>half your
-                      partner's</div>
+                    style="border: 2px solid #e0e0e0; border-radius: 14px; padding: 12px 8px; text-align: center; background-color: #f9f9f9; transition: all 0.2s;">
+                    <div style="font-size: 1.6rem; margin-bottom: 4px;">🎲</div>
+                    <div style="font-weight: 600; margin-bottom: 4px; font-size: 0.9rem;">Random</div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.3;">half your words<br>half your partner's</div>
                   </div>
                 </label>
                 <!-- AA -->
                 <label class="duel-type-label" style="flex: 1; cursor: pointer;">
                   <input type="radio" name="duelType" value="match_aa" style="display: none;">
                   <div class="duel-type-card"
-                    style="border: 2px solid #e0e0e0; border-radius: 18px; padding: 18px 8px; text-align: center; background-color: #f9f9f9; transition: all 0.2s;">
-                    <div style="font-size: 2.2rem; margin-bottom: 8px;">🤝</div>
-                    <div style="font-weight: 600; margin-bottom: 6px; font-size: 1rem;">AA</div>
-                    <div style="font-size: 0.8rem; color: #666; line-height: 1.3;">only words you<br>have in common
-                    </div>
+                    style="border: 2px solid #e0e0e0; border-radius: 14px; padding: 12px 8px; text-align: center; background-color: #f9f9f9; transition: all 0.2s;">
+                    <div style="font-size: 1.6rem; margin-bottom: 4px;">🤝</div>
+                    <div style="font-weight: 600; margin-bottom: 4px; font-size: 0.9rem;">AA</div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.3;">only words you<br>have in common</div>
                   </div>
                 </label>
               </div>
             </div>
 
-            <!-- Nombre de mots : radios plus gros -->
-            <div style="margin-bottom: 32px;">
-              <div
-                style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 12px; letter-spacing: 0.5px;">
-                NUMBER OF WORDS</div>
-              <div style="display: flex; gap: 12px;">
+            <!-- Nombre de mots -->
+            <div style="margin-bottom: 18px;">
+              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;">NUMBER OF WORDS</div>
+              <div style="display: flex; gap: 10px;">
                 <label class="word-count-label"
-                  style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid #e0e0e0; border-radius: 14px; padding: 14px; cursor: pointer; background-color: #f9f9f9; transition: all 0.2s;">
-                  <input type="radio" name="wordCount" value="10" style="transform: scale(1.3);"> <span
-                    style="font-weight: 600; font-size: 1.2rem;">10</span>
+                  style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; border: 2px solid #e0e0e0; border-radius: 12px; padding: 10px; cursor: pointer; background-color: #f9f9f9; transition: all 0.2s;">
+                  <input type="radio" name="wordCount" value="10" style="transform: scale(1.2);"> <span style="font-weight: 600; font-size: 1.1rem;">10</span>
                 </label>
                 <label class="word-count-label"
-                  style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid #007bff; border-radius: 14px; padding: 14px; cursor: pointer; background-color: #e7f1ff; transition: all 0.2s;">
-                  <input type="radio" name="wordCount" value="20" checked style="transform: scale(1.3);"> <span
-                    style="font-weight: 600; font-size: 1.2rem;">20</span>
+                  style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; border: 2px solid #007bff; border-radius: 12px; padding: 10px; cursor: pointer; background-color: #e7f1ff; transition: all 0.2s;">
+                  <input type="radio" name="wordCount" value="20" checked style="transform: scale(1.2);"> <span
+                    style="font-weight: 600; font-size: 1.1rem;">20</span>
                 </label>
                 <label class="word-count-label"
-                  style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid #e0e0e0; border-radius: 14px; padding: 14px; cursor: pointer; background-color: #f9f9f9; transition: all 0.2s;">
-                  <input type="radio" name="wordCount" value="30" style="transform: scale(1.3);"> <span
-                    style="font-weight: 600; font-size: 1.2rem;">30</span>
+                  style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; border: 2px solid #e0e0e0; border-radius: 12px; padding: 10px; cursor: pointer; background-color: #f9f9f9; transition: all 0.2s;">
+                  <input type="radio" name="wordCount" value="30" style="transform: scale(1.2);"> <span
+                    style="font-weight: 600; font-size: 1.1rem;">30</span>
                 </label>
               </div>
             </div>
 
             <!-- Mise -->
-            <div style="margin-bottom: 32px;">
-              <div
-                style="font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;">
-                BET (coins)</div>
+            <div style="margin-bottom: 18px;">
+              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;">BET (coins)</div>
               <input type="number" id="betAmount" class="form-control" min="0" value="0"
-                style="padding: 14px; border-radius: 14px; border: 2px solid #e0e0e0; font-size: 1rem;">
+                style="padding: 10px; border-radius: 12px; border: 2px solid #e0e0e0; font-size: 1rem;">
             </div>
 
             <!-- Boutons d'action -->
-            <div style="display: flex; gap: 12px;">
+            <div style="display: flex; gap: 10px;">
               <button type="button" class="btn btn-outline-secondary" onclick="closeDuelPopup()"
-                style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; border: 2px solid #e0e0e0;">Cancel</button>
+                style="flex: 1; padding: 11px; border-radius: 12px; font-weight: 600; border: 2px solid #e0e0e0;">Cancel</button>
               <button type="button" class="btn btn-primary" onclick="createDuel()"
-                style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; background: linear-gradient(135deg, #007bff, #0056b3); border: none;">Send
-                a duel</button>
+                style="flex: 1; padding: 11px; border-radius: 12px; font-weight: 600; background: linear-gradient(135deg, #007bff, #0056b3); border: none;">Send a duel</button>
             </div>
             <!-- Zone d'erreur -->
             <div id="duelPopupError" class="alert alert-danger"
@@ -941,6 +986,67 @@
 
         function playDuel(duelId) {
           window.location.href = `/duel-play/${duelId}`;
+        }
+
+        function openStartDuelPopup() {
+          currentOpponent = null;
+          document.getElementById('opponentName').textContent = 'a player';
+          document.getElementById('opponentId').value = '';
+          document.getElementById('duelist-search').value = '';
+          document.getElementById('search-suggestions').style.display = 'none';
+          document.getElementById('duelPopup').style.display = 'flex';
+          initDuelPopupUI();
+          const errorDiv = document.getElementById('duelPopupError');
+          errorDiv.style.display = 'none';
+          errorDiv.textContent = '';
+          loadRecentOpponentTags();
+          setTimeout(() => document.getElementById('duelist-search').focus(), 100);
+        }
+
+        async function loadRecentOpponentTags() {
+          const tagsContainer = document.getElementById('recent-opponents-tags');
+          tagsContainer.style.display = 'none';
+          tagsContainer.innerHTML = '';
+          try {
+            const currentUserId = <%= user.id %>;
+            const res = await fetch('/api/duels/history?limit=20');
+            if (!res.ok) return;
+            const duels = await res.json();
+
+            // Dédupliquer les adversaires, garder les 4 plus récents
+            const seen = new Set();
+            const opponents = [];
+            for (const d of duels) {
+              const isChallenger = d.challenger_id === currentUserId;
+              const id   = isChallenger ? d.opponent_id   : d.challenger_id;
+              const name = isChallenger ? d.opponent_name : d.challenger_name;
+              if (id && name && !seen.has(id)) {
+                seen.add(id);
+                opponents.push({ id, name });
+                if (opponents.length === 4) break;
+              }
+            }
+
+            if (opponents.length === 0) return;
+
+            tagsContainer.innerHTML = opponents.map(o => `
+              <button type="button"
+                onclick="selectRecentOpponent(${o.id}, '${o.name.replace(/'/g, "\\'")}')"
+                style="background:#f0f4ff; border:1.5px solid #c7d7fd; color:#3b5bdb; border-radius:999px; padding:4px 12px; font-size:0.8rem; font-weight:600; cursor:pointer; white-space:nowrap; transition:all 0.15s;"
+                onmouseover="this.style.background='#dde5ff'" onmouseout="this.style.background='#f0f4ff'">
+                ${o.name}
+              </button>`).join('');
+            tagsContainer.style.display = 'flex';
+          } catch (e) { /* silencieux */ }
+        }
+
+        function selectRecentOpponent(id, name) {
+          document.getElementById('duelist-search').value = name;
+          document.getElementById('opponentId').value = id;
+          document.getElementById('opponentName').textContent = name;
+          currentOpponent = id;
+          document.getElementById('search-suggestions').style.display = 'none';
+          document.getElementById('recent-opponents-tags').style.display = 'none';
         }
 
         function openDuelPopup(opponentId, opponentName) {

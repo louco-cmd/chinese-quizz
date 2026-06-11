@@ -7,16 +7,11 @@
   <title>Jiayou — Tutorial</title>
   <%- include('partials/meta', { pageTitle: 'Jiayou · Tutorial', pageDescription: 'Learn how to get the most out of Jiayou in just a few minutes.' }) %>
 
-  <!-- Bootstrap Icons + minimal CSS -->
   <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css">
 
   <style>
-    /* --------------------------------------------
-   RESET & BASE
--------------------------------------------- */
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -26,391 +21,244 @@
       font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     }
 
-    /* --------------------------------------------
-   SLIDES CONTAINER & SLIDES
--------------------------------------------- */
+    /* ── SLIDES ── */
     .slides-container {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       width: 100%;
-      height: 100%;
-      transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+      transition: transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1);
       will-change: transform;
     }
 
     .slide {
       flex: 0 0 auto;
-      height: auto;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      /* safe zones: 72px top (logo) + 80px bottom (bar) */
+      padding: 72px 24px 80px;
       box-sizing: border-box;
-
-    }
-
-    /* --------------------------------------------
-   CARTE TUTORIEL
--------------------------------------------- */
-    .card-tutorial {
-      max-width: 700px;
-      width: 100%;
-      background: white;
-      border: 1px solid rgba(0, 0, 0, 0.02);
-      border-radius: 40px;
-      padding: 40px 36px;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.05);
-    }
-
-    .image-mock {
-      display: flex;
-      height: clamp(180px, 38vh, 350px);
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(180deg, #1772F5 0%, #1EBCEE 100%);
-      ;
-      border: 1px dashed #cbd5e1;
-      border-radius: 24px;
-      color: #6c7a89;
       overflow: hidden;
     }
 
-    .image-mock img {
-      max-height: 100%;
-      object-fit: contain;
-      display: block;
-      /* Évite un petit espace sous l'image */
-    }
-
-    .image-mock i {
-      margin-bottom: 8px;
-      font-size: 2.4rem;
-      color: #94a3b8;
-    }
-
-    .image-mock span {
-      padding: 4px 16px;
-      background: #eef2f6;
-      border-radius: 40px;
-      font-size: 0.75rem;
-      font-weight: 500;
-      color: #475569;
-      letter-spacing: 0.5px;
-    }
-
-    /* ----- TYPOGRAPHIE ----- */
-    .slide-title {
-      margin-top: 20px;
-      margin-bottom: 20px;
-      font-size: 2.2rem;
-      font-weight: 600;
-      line-height: 1.2;
-      color: #0d6efd;
-      letter-spacing: -0.5px;
-    }
-
-    .text-secondary-custom {
-      color: #4b5565;
-    }
-
-    .list-tutorial {
-      margin-top: 20px;
-      padding-left: 0;
-      list-style: none;
-    }
-
-    .list-tutorial li {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 16px;
-      font-size: 1.05rem;
-      color: #2c3e50;
-    }
-
-    .list-tutorial li i {
-      flex-shrink: 0;
-      font-size: 1.2rem;
-      color: #0d6efd;
-    }
-
-    /* --------------------------------------------
-   ÉLÉMENTS FIXES (LOGO, POINTS, BOUTONS)
--------------------------------------------- */
-    .logo-tuto {
-      position: fixed;
-      top: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 30;
-      pointer-events: none;
-      font-size: 3.2rem;
-      font-weight: 700;
-      color: #0d6efd;
-      text-shadow: 0 4px 14px rgba(13, 110, 253, 0.08);
-      letter-spacing: 2px;
-      animation: float 3.2s infinite ease-in-out;
-    }
-
-    @keyframes float {
-
-      0%,
-      100% {
-        transform: translateX(-50%) translateY(0);
-      }
-
-      50% {
-        transform: translateX(-50%) translateY(-6px);
-      }
-    }
-
-    /* ----- INDICATEURS DE PROGRÈS ----- */
-    .progress-dots {
-      position: fixed;
-      top: 50%;
-      left: 28px;
-      transform: translateY(-50%);
-      z-index: 45;
+    /* ── CARD ── */
+    .card-tutorial {
+      max-width: 560px;
+      width: 100%;
+      background: white;
+      border-radius: 32px;
+      padding: 28px 28px 24px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04);
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      overflow: hidden;
+    }
+
+    /* ── IMAGE ── */
+    .image-wrap {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      background: linear-gradient(160deg, #1772F5 0%, #1EBCEE 100%);
+      flex-shrink: 0;
+    }
+
+    .image-skeleton {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, #e8f0fe 25%, #d0e3ff 50%, #e8f0fe 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 20px;
+      transition: opacity 0.3s ease;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .image-wrap img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .image-wrap img.loaded {
+      opacity: 1;
+    }
+
+    .image-wrap img.loaded + .image-skeleton {
+      opacity: 0;
+    }
+
+    /* ── TEXT ── */
+    .slide-title {
+      margin: 18px 0 10px;
+      font-size: 1.9rem;
+      font-weight: 700;
+      line-height: 1.2;
+      color: #0d6efd;
+      letter-spacing: -0.4px;
+    }
+
+    .slide-body {
+      color: #4b5565;
+      font-size: 1rem;
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    /* ── LOGO ── */
+    .logo-tuto {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 30;
+      pointer-events: none;
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: #0d6efd;
+      letter-spacing: 2px;
+      background: white;
+    }
+
+    /* ── BOTTOM BAR ── */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      background: white;
+      border-top: 1px solid #f0f2f5;
+      z-index: 50;
+    }
+
+    /* step counter */
+    .step-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+      min-width: 36px;
+      text-align: center;
+    }
+
+    /* dots */
+    .dots-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
     }
 
     .dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       background: #cbd5e1;
       border-radius: 20px;
-      transition: all 0.2s;
+      transition: all 0.25s ease;
     }
 
     .dot.active {
-      width: 24px;
+      width: 22px;
       background: #0d6efd;
     }
 
-    /* ----- BOUTONS DE NAVIGATION CENTRÉS ----- */
-    .nav-arrows {
-      position: fixed;
-      bottom: 34px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 50;
-      display: flex;
-      gap: 20px;
-      pointer-events: none;
-    }
-
+    /* nav buttons */
     .nav-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 56px;
-      height: 56px;
+      width: 48px;
+      height: 48px;
       border: none;
-      border-radius: 60px;
+      border-radius: 50%;
       background: #0d6efd;
       color: white;
-      font-size: 2rem;
-      text-decoration: none;
+      font-size: 1.6rem;
       cursor: pointer;
-      pointer-events: auto;
-      box-shadow: 0 8px 20px rgba(13, 110, 253, 0.25);
+      box-shadow: 0 6px 18px rgba(13,110,253,0.25);
       transition: all 0.2s;
+      text-decoration: none;
+      flex-shrink: 0;
     }
 
     .nav-btn:hover {
       background: #0b5ed7;
-      transform: scale(1.05);
-      box-shadow: 0 12px 28px rgba(13, 110, 253, 0.35);
+      transform: scale(1.06);
     }
 
-    .nav-btn.disabled {
-      background: #94a3b8;
-      opacity: 0.3;
-      pointer-events: none;
+    .nav-btn.ghost {
+      background: white;
+      color: #0d6efd;
+      border: 1.5px solid #dee2e6;
       box-shadow: none;
     }
 
-    /* Bouton up seul (dernière slide) */
-    .nav-btn.up-only {
-      background: white;
-      color: #0d6efd;
-      border: 1.5px solid #0d6efd;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-    }
-
-    .nav-btn.up-only:hover {
+    .nav-btn.ghost:hover {
       background: #f0f7ff;
+      border-color: #0d6efd;
     }
 
-    /* ----- BOUTONS D'ACTION (SKIP / START) ----- */
-    .action-btn-container,
-    .action-center {
-      position: fixed;
-      bottom: 34px;
-      z-index: 55;
+    .nav-btn.invisible {
+      opacity: 0;
       pointer-events: none;
     }
 
-    .action-btn-container {
-      right: 28px;
-    }
-
-    .action-center {
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 60;
-    }
-
-    .btn-action {
+    /* start button */
+    .btn-start {
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      gap: 10px;
-      padding: 12px 32px;
-      border: 1.5px solid #6c757d;
-      border-radius: 60px;
-      background: transparent;
-      color: #6c757d;
-      font-size: 1.1rem;
-      font-weight: 600;
-      text-decoration: none;
-      letter-spacing: 0.5px;
-      pointer-events: auto;
-      backdrop-filter: blur(4px);
-      transition: all 0.2s;
-    }
-
-    .btn-action:hover {
-      background: #f1f3f5;
-      border-color: #5a6268;
-      color: #5a6268;
-    }
-
-    /* Version primaire (Start playing) */
-    .btn-action-primary {
-      padding: 14px 44px;
+      gap: 8px;
+      padding: 12px 28px;
       border: none;
+      border-radius: 60px;
       background: #0d6efd;
       color: white;
-      box-shadow: 0 10px 26px rgba(13, 110, 253, 0.4);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(13,110,253,0.35);
+      transition: all 0.2s;
+      flex: 1;
+      max-width: 220px;
+      justify-content: center;
     }
 
-    .btn-action-primary:hover {
+    .btn-start:hover {
       background: #0b5ed7;
-      color: white;
+      transform: translateY(-1px);
     }
 
-    /* ----- UTILITAIRES ----- */
-    .hidden {
-      display: none !important;
-    }
+    .hidden { display: none !important; }
 
-    /* --------------------------------------------
-   RESPONSIVE (MOBILE)
--------------------------------------------- */
-    @media (max-width: 768px) {
-
-      /* Slides alignées en haut, padding-top réduit */
-      .slide {
-        align-items: center;
-        padding-top: 0px;
-        /* espace juste sous le logo */
-        /* padding-right et padding-bottom conservés depuis la règle de base (24px) */
-      }
-
-      /* Points en bas, horizontaux */
-      .progress-dots {
-        top: auto;
-        bottom: 110px;
-        left: 50%;
-        transform: translateX(-50%);
-        flex-direction: row;
-        gap: 20px;
-      }
-
-      .dot.active {
-        width: 24px;
-      }
-
-      /* Carte */
-      .card-tutorial {
-        padding: 30px 24px;
-        margin-top: 60px;
-        /* valeur à ajuster selon la hauteur du logo */
-
-      }
-
-      .slide-title {
-        font-size: 1.9rem;
-      }
-
-      /* Navigation centrée */
-      .nav-arrows {
-        bottom: 24px;
-        gap: 16px;
-      }
-
-      .nav-btn {
-        width: 50px;
-        height: 50px;
-        font-size: 1.8rem;
-      }
-
-      /* Bouton d'action à droite (Skip) – au-dessus des flèches */
-      .action-btn-container {
-        bottom: 100px;
-        right: 16px;
-      }
-
-      .action-center {
-        bottom: 24px;
-      }
-
-      .btn-action {
-        padding: 10px 24px;
-        font-size: 1rem;
-      }
-
-      /* Texte court pour "Skip" */
-      .skip-full {
-        display: none;
-      }
-
-      .skip-short {
-        display: inline;
-      }
-    }
-
+    /* ── RESPONSIVE ── */
     @media (max-width: 480px) {
+      .slide {
+        padding: 72px 16px 80px;
+      }
+
       .card-tutorial {
-        padding: 24px 20px;
+        padding: 22px 20px 20px;
+        border-radius: 24px;
       }
 
       .slide-title {
-        font-size: 1.7rem;
-      }
-
-      .list-tutorial li {
-        font-size: 0.95rem;
-      }
-
-      .progress-dots {
-        bottom: 100px;
-      }
-    }
-
-    @media (max-width: 360px) {
-      .nav-btn {
-        width: 44px;
-        height: 44px;
-        font-size: 1.6rem;
-      }
-
-      .btn-action {
-        padding: 8px 18px;
-        font-size: 0.9rem;
+        font-size: 1.65rem;
+        margin: 14px 0 8px;
       }
     }
   </style>
@@ -418,224 +266,192 @@
 
 <body>
 
-  <!-- LOGO FIXE -->
+  <!-- LOGO -->
   <div class="logo-tuto">加油</div>
 
-  <!-- INDICATEURS (POINTS) -->
-  <div class="progress-dots">
-    <div class="dot active" id="dot1"></div>
-    <div class="dot" id="dot2"></div>
-    <div class="dot" id="dot3"></div>
-    <div class="dot" id="dot4"></div>
-  </div>
-
-  <!-- BOUTONS DE NAVIGATION CENTRÉS (UP / DOWN) -->
-  <div class="nav-arrows" id="navArrows">
-    <a class="nav-btn" id="prevSlide" title="Previous">
-      <i class="bi bi-arrow-up-short"></i>
-    </a>
-    <a class="nav-btn" id="nextSlide" title="Next">
-      <i class="bi bi-arrow-down-short"></i>
-    </a>
-  </div>
-
-  <!-- BOUTON D'ACTION À DROITE (SKIP TUTORIAL) - visible sur slides 1-3 
-  <div class="action-btn-container" id="actionRight">
-    <a href="/dashboard" id="skipBtn" class="btn-action">
-      <i class="bi bi-arrow-right-circle"></i>
-      <span class="skip-full">Skip tutorial</span>
-      <span class="skip-short">Skip</span>
-    </a>
-  </div>-->
-
-  <!-- BOUTON START PLAYING CENTRÉ (visible seulement sur la dernière slide) -->
-  <div class="action-center hidden" id="actionCenter">
-    <!-- Au lieu de <a href="/dashboard" id="startBtn" ...> -->
-    <button id="startBtn" class="btn-action btn-action-primary">
-      <i class="bi bi-play-circle-fill"></i> Start playing
-    </button>
-  </div>
-
-  <!-- CONTENEUR DES SLIDES -->
+  <!-- SLIDES -->
   <div class="slides-container" id="slidesContainer">
 
-    <!-- SLIDE 1 : INTRODUCTION -->
     <section class="slide" id="slide1">
       <div class="card-tutorial">
-        <div class="image-mock">
-          <img src="/screenshots/screenshot-01.png" alt="Tutoriel">
+        <div class="image-wrap" style="height: clamp(200px, 38vh, 340px);">
+          <img data-src="/screenshots/screenshot-01.png" alt="Welcome to Jiayou">
+          <div class="image-skeleton"></div>
         </div>
         <h1 class="slide-title">Welcome to Jiayou!</h1>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">A collaborative Chinese app with 3 core features.</p>
+        <p class="slide-body">A collaborative Chinese app with 3 core features.</p>
       </div>
     </section>
 
-    <!-- SLIDE 2 : ADD WORD -->
     <section class="slide" id="slide2">
       <div class="card-tutorial">
-        <div class="image-mock">
-          <img src="/screenshots/screenshot-02.png" alt="Tutoriel">
+        <div class="image-wrap" style="height: clamp(200px, 38vh, 340px);">
+          <img data-src="/screenshots/screenshot-02.png" alt="Add a word">
+          <div class="image-skeleton"></div>
         </div>
         <h2 class="slide-title">Add a word</h2>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">Build your vocabulary list based on shared data with all
-          users. <br>A Chinese keyboard is required to play.</p>
+        <p class="slide-body">Build your vocabulary list based on shared data with all users.<br>A Chinese keyboard is required to play.</p>
       </div>
     </section>
 
-    <!-- SLIDE 3 : QUIZ -->
     <section class="slide" id="slide3">
       <div class="card-tutorial">
-        <div class="image-mock">
-          <img src="/screenshots/screenshot-03.png" alt="Tutoriel">
+        <div class="image-wrap" style="height: clamp(200px, 38vh, 340px);">
+          <img data-src="/screenshots/screenshot-03.png" alt="Quiz">
+          <div class="image-skeleton"></div>
         </div>
         <h2 class="slide-title">Quiz</h2>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">Test yourself with personalized quizzes, earn coins to
-          unlock new words or challenge your friends.</p>
+        <p class="slide-body">Test yourself with personalized quizzes, earn coins to unlock new words or challenge your friends.</p>
       </div>
     </section>
 
-    <!-- SLIDE 4 : DUELS -->
     <section class="slide" id="slide4">
       <div class="card-tutorial">
-        <div class="image-mock">
-          <img src="/screenshots/screenshot-04.png" alt="Tutoriel">
+        <div class="image-wrap" style="height: clamp(200px, 38vh, 340px);">
+          <img data-src="/screenshots/screenshot-04.png" alt="Duels">
+          <div class="image-skeleton"></div>
         </div>
         <h2 class="slide-title">Duels</h2>
-        <p class="text-secondary-custom fs-5 fw-light mb-3">Challenge a friend in various duel modes and show them who
-          is really the best. <br> Careful with coins gambling</p>
+        <p class="slide-body">Challenge a friend in various duel modes and show them who is really the best.<br>Careful with coin gambling!</p>
       </div>
     </section>
+
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar" id="bottomBar">
+    <!-- Left: back button -->
+    <a class="nav-btn ghost invisible" id="prevSlide" title="Previous">
+      <i class="bi bi-arrow-left-short"></i>
+    </a>
+
+    <!-- Center: dots + step label -->
+    <div style="display:flex; flex-direction:column; align-items:center; gap:6px;">
+      <div class="dots-row" id="dotsRow">
+        <div class="dot active"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+      </div>
+      <span class="step-label" id="stepLabel">1 / 4</span>
+    </div>
+
+    <!-- Right: next / start -->
+    <a class="nav-btn" id="nextSlide" title="Next">
+      <i class="bi bi-arrow-right-short"></i>
+    </a>
+    <button class="btn-start hidden" id="startBtn">
+      <i class="bi bi-play-circle-fill"></i> Start playing
+    </button>
   </div>
 
   <script>
     (function () {
       "use strict";
 
-      const container = document.getElementById('slidesContainer');
-      const slides    = document.querySelectorAll('.slide');
-      const prevBtn   = document.getElementById('prevSlide');
-      const nextBtn   = document.getElementById('nextSlide');
-      const dots      = document.querySelectorAll('.dot');
-      const actionCenter = document.getElementById('actionCenter');
-      const navArrows    = document.getElementById('navArrows');
+      const container  = document.getElementById('slidesContainer');
+      const slides     = document.querySelectorAll('.slide');
+      const prevBtn    = document.getElementById('prevSlide');
+      const nextBtn    = document.getElementById('nextSlide');
+      const startBtn   = document.getElementById('startBtn');
+      const dots       = document.querySelectorAll('.dot');
+      const stepLabel  = document.getElementById('stepLabel');
 
       let currentIndex = 0;
       const totalSlides = slides.length;
 
-      // Set viewport height on all slides (fixes iOS 100vh issue)
+      /* ── HEIGHT ── */
       function setHeights() {
         const vh = window.innerHeight;
+        const vw = window.innerWidth;
         container.style.height = vh + 'px';
-        slides.forEach(slide => (slide.style.height = vh + 'px'));
-        container.style.transform = `translateY(-${currentIndex * vh}px)`;
+        slides.forEach(s => {
+          s.style.height = vh + 'px';
+          s.style.width = vw + 'px';
+        });
+        container.style.transform = `translateX(-${currentIndex * vw}px)`;
       }
 
+      /* ── NAVIGATE ── */
       function goToSlide(index) {
-        if (index < 0) index = 0;
-        if (index >= totalSlides) index = totalSlides - 1;
-
+        if (index < 0 || index >= totalSlides) return;
         currentIndex = index;
-        const vh = window.innerHeight;
-        container.style.transform = `translateY(-${currentIndex * vh}px)`;
 
-        // Dots
-        dots.forEach((dot, i) => dot.classList.toggle('active', i === currentIndex));
+        const vw = window.innerWidth;
+        container.style.transform = `translateX(-${currentIndex * vw}px)`;
 
-        // Up arrow: hidden on slide 1
-        prevBtn.classList.toggle('hidden', currentIndex === 0);
-        prevBtn.classList.toggle('disabled', currentIndex === 0);
+        // dots + label
+        dots.forEach((d, i) => d.classList.toggle('active', i === currentIndex));
+        stepLabel.textContent = `${currentIndex + 1} / ${totalSlides}`;
 
-        // Down arrow: hidden on last slide
-        nextBtn.classList.toggle('disabled', currentIndex === totalSlides - 1);
+        // prev button
+        prevBtn.classList.toggle('invisible', currentIndex === 0);
 
+        // last slide: show Start, hide next
         const isLast = currentIndex === totalSlides - 1;
+        nextBtn.classList.toggle('hidden', isLast);
+        startBtn.classList.toggle('hidden', !isLast);
 
-        if (isLast) {
-          actionCenter.classList.remove('hidden');
-          navArrows.classList.add('hidden');
-
-          // Floating back arrow on last slide
-          let upOnly = document.querySelector('.nav-btn.up-only');
-          if (!upOnly) {
-            upOnly = document.createElement('a');
-            upOnly.className = 'nav-btn up-only';
-            upOnly.title = 'Previous';
-            upOnly.innerHTML = '<i class="bi bi-arrow-up-short"></i>';
-            upOnly.addEventListener('click', (e) => {
-              e.preventDefault();
-              goToSlide(currentIndex - 1);
-            });
-            Object.assign(upOnly.style, {
-              position: 'fixed', right: '28px', bottom: '34px', left: 'auto', transform: 'none'
-            });
-            document.body.appendChild(upOnly);
-          }
-          upOnly.classList.remove('hidden');
-        } else {
-          actionCenter.classList.add('hidden');
-          navArrows.classList.remove('hidden');
-          const upOnly = document.querySelector('.nav-btn.up-only');
-          if (upOnly) upOnly.classList.add('hidden');
-        }
+        // preload next image eagerly
+        loadImage(currentIndex);
+        if (currentIndex + 1 < totalSlides) loadImage(currentIndex + 1);
       }
 
-      // Button navigation
-      prevBtn.addEventListener('click', (e) => { e.preventDefault(); goToSlide(currentIndex - 1); });
-      nextBtn.addEventListener('click', (e) => { e.preventDefault(); goToSlide(currentIndex + 1); });
+      /* ── IMAGE LAZY LOAD ── */
+      function loadImage(index) {
+        const slide = slides[index];
+        const img = slide.querySelector('img[data-src]');
+        if (!img) return;
+        const src = img.getAttribute('data-src');
+        if (!src) return;
+        img.removeAttribute('data-src');
+        img.src = src;
+        img.addEventListener('load', () => img.classList.add('loaded'), { once: true });
+      }
 
-      // Keyboard
-      window.addEventListener('keydown', (e) => {
-        if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.key)) e.preventDefault();
-        if (e.key === 'ArrowDown' || e.key === 'PageDown') goToSlide(currentIndex + 1);
-        if (e.key === 'ArrowUp'   || e.key === 'PageUp')   goToSlide(currentIndex - 1);
+      /* ── EVENTS ── */
+      prevBtn.addEventListener('click', e => { e.preventDefault(); goToSlide(currentIndex - 1); });
+      nextBtn.addEventListener('click', e => { e.preventDefault(); goToSlide(currentIndex + 1); });
+
+      startBtn.addEventListener('click', async () => {
+        try {
+          await fetch('/complete-tutorial', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        } catch {}
+        window.location.href = '/dashboard';
       });
 
-      // Swipe gesture (mobile)
-      let touchStartY = 0;
-      let touchStartX = 0;
-      container.addEventListener('touchstart', (e) => {
+      window.addEventListener('keydown', e => {
+        if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+        if (e.key === 'ArrowRight') goToSlide(currentIndex + 1);
+        if (e.key === 'ArrowLeft')  goToSlide(currentIndex - 1);
+      });
+
+      let touchStartY = 0, touchStartX = 0;
+      container.addEventListener('touchstart', e => {
         touchStartY = e.touches[0].clientY;
         touchStartX = e.touches[0].clientX;
       }, { passive: true });
 
-      container.addEventListener('touchend', (e) => {
-        const dy = touchStartY - e.changedTouches[0].clientY;
-        const dx = Math.abs(touchStartX - e.changedTouches[0].clientX);
-        // Only register vertical swipes (not horizontal, which might be scrolling inside card)
-        if (Math.abs(dy) > 50 && Math.abs(dy) > dx) {
-          if (dy > 0) goToSlide(currentIndex + 1);
-          else         goToSlide(currentIndex - 1);
+      container.addEventListener('touchend', e => {
+        const dx = touchStartX - e.changedTouches[0].clientX;
+        const dy = Math.abs(touchStartY - e.changedTouches[0].clientY);
+        if (Math.abs(dx) > 50 && Math.abs(dx) > dy) {
+          goToSlide(dx > 0 ? currentIndex + 1 : currentIndex - 1);
         }
       }, { passive: true });
 
-      // Block native scroll (prevent bounce / scroll interference)
-      window.addEventListener('wheel',      (e) => e.preventDefault(), { passive: false });
-      window.addEventListener('touchmove',  (e) => e.preventDefault(), { passive: false });
-
-      // Resize
+      window.addEventListener('wheel',     e => e.preventDefault(), { passive: false });
+      window.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
       window.addEventListener('resize', setHeights);
 
-      // Start button
-      document.getElementById('startBtn').addEventListener('click', async (e) => {
-        e.preventDefault();
-        try {
-          const res = await fetch('/complete-tutorial', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          });
-          window.location.href = res.ok ? '/dashboard' : '/dashboard';
-        } catch {
-          window.location.href = '/dashboard';
-        }
-      });
-
-      // Init
+      /* ── INIT ── */
       setHeights();
       goToSlide(0);
+      // Preload slide 1 image immediately
+      loadImage(0);
 
     })();
   </script>
 
 </body>
-
 </html>

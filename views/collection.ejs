@@ -138,8 +138,13 @@
       pointer-events: auto;
       transition: opacity 0.2s ease-in-out;
     }
-    
-  
+
+    .translation-hidden {
+      filter: blur(6px);
+      user-select: none;
+      transition: filter 0.2s ease;
+    }
+
   </style>
 
   <!-- Ajoute ces lignes -->
@@ -179,8 +184,9 @@
             </table>
           </div>
 
-          <div class="d-flex justify-content-between w-100 mt-auto buttons-container" style="max-width: 18rem;">
+          <div class="d-flex justify-content-between w-100 mt-auto buttons-container align-items-center" style="max-width: 18rem;">
             <button id="prevBtn" class="btn btn-primary rounded-circle px-3 py-2">‹</button>
+            <button id="hideTranslationBtn" onclick="toggleTranslation()" class="btn btn-link text-secondary p-0" style="font-size: 0.85rem; text-decoration: underline; text-underline-offset: 3px;"><i class="bi bi-eye-slash me-1"></i>hide translation</button>
             <button id="nextBtn" class="btn btn-primary rounded-circle px-3 py-2">›</button>
           </div>
       </section>
@@ -219,6 +225,7 @@
 
         let words = [], idx = 0;
         let touchStartY = 0;
+        let hideTranslation = false;
         const cardContainer = document.getElementById('card-container');
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
@@ -467,9 +474,9 @@
           <div class="flex-grow-1 d-flex flex-column justify-content-between">
               <div>
                   <div class="fs-pinyin fw-bold text-dark mb-1">${word.pinyin || ''}</div>
-                  <div class="fs-5 mb-3 text-primary">${word.english || 'No Translation'}</div>
+                  <div class="fs-5 mb-3 text-primary translation-text">${word.english || 'No Translation'}</div>
                   <div class="pt-3 border-top border-light-subtle">
-                      <div class="text-context">${word.description || 'No description provided.'}</div>
+                      <div class="text-context translation-text">${word.description || 'No description provided.'}</div>
                   </div>
               </div>
               
@@ -621,6 +628,20 @@
           cardContainer.innerHTML = '';
           const newCard = createCardElement(word);
           cardContainer.appendChild(newCard);
+          if (hideTranslation) {
+            newCard.querySelectorAll('.translation-text').forEach(el => el.classList.add('translation-hidden'));
+          }
+        }
+
+        function toggleTranslation() {
+          hideTranslation = !hideTranslation;
+          const btn = document.getElementById('hideTranslationBtn');
+          btn.innerHTML = hideTranslation
+            ? '<i class="bi bi-eye me-1"></i>show translation'
+            : '<i class="bi bi-eye-slash me-1"></i>hide translation';
+          document.querySelectorAll('.translation-text').forEach(el => {
+            el.classList.toggle('translation-hidden', hideTranslation);
+          });
         }
 
         // Navigation
