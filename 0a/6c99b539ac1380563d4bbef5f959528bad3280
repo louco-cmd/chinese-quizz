@@ -1,0 +1,108 @@
+public/sw.js
+  s_8d2ffa3daa2c6c::t_769c55163bbb1d 102-109,111-138
+  s_8d2ffa3daa2c6c::t_3e87f5a7299f5e 110
+  s_8d2ffa3daa2c6c::t_4ff53004b7506d 75,79
+  s_8d2ffa3daa2c6c::t_134d08a6938102 2
+  s_8d2ffa3daa2c6c::t_346bcf373819f8 9
+public/manifest.json
+  s_8d2ffa3daa2c6c::t_34bda66fe67eb2 4,11,44,51,58,62-63,70-91
+package.json
+  s_8d2ffa3daa2c6c::t_99ba71e9114ec6 24-25,28-29
+public/js/global.js
+  s_8d2ffa3daa2c6c::t_77dfa538d3f816 3-12,14-57,59-80
+  s_8d2ffa3daa2c6c::t_93bef5fb960c48 13,58,81-83
+  s_8d2ffa3daa2c6c::t_790df46ded81ed 222
+middleware/push.service.js
+  s_8d2ffa3daa2c6c::t_3e2d74d1d12385 1-78
+views/install-app.ejs
+  s_8d2ffa3daa2c6c::t_9315dcd283b2d9 402,404-406
+config/database.js
+  s_8d2ffa3daa2c6c::t_97e24ad9eaac55 72-88
+views/support.ejs
+  s_8d2ffa3daa2c6c::t_a6cdf2f3c8825e 6-7,12-38,40-43,45-52,54-97,101-209,212-226,229-239,241-242,244-258,261-271,274,276-282,285,287-288
+  s_8d2ffa3daa2c6c::t_bdbfd8e53fe37b 1-5,8-11,39,44,53,98-100,210-211,227-228,240,243,259-260,272-273,275,283-284,286,289-290
+views/partials/header.ejs
+  s_8d2ffa3daa2c6c::t_be1fba90de9ce8 189-196
+  s_8d2ffa3daa2c6c::t_5f4cae59b102f4 197-207
+  s_504897d4a04bb5::t_e0d5f3ecf4f845 2-3,5
+  s_8d2ffa3daa2c6c::t_d31c97bbebb2ac 1173-1185
+  s_8d2ffa3daa2c6c::t_ff6a4689122f9b 1171-1172
+  s_8d2ffa3daa2c6c::t_c7f8d1523df658 185
+  s_504897d4a04bb5::t_5702f198b24820 1,4,6
+public/js/notifications.js
+  s_8d2ffa3daa2c6c::t_00e3e8ae99dcae 1-68,70-79,81-157
+  s_8d2ffa3daa2c6c::t_da123a8b694d84 69
+  s_8d2ffa3daa2c6c::t_97b4b5643b7dac 80
+views/duels.ejs
+  s_504897d4a04bb5::t_0a87004c0632a8 1058-1060
+  s_8d2ffa3daa2c6c::t_02d28951b27682 1107
+  s_8d2ffa3daa2c6c::t_be9d0c47c6e427 988
+  s_8d2ffa3daa2c6c::t_94f87c0fd88c93 993
+views/quiz-play.ejs
+  s_8d2ffa3daa2c6c::t_10fe0e71406b87 666
+  s_8d2ffa3daa2c6c::t_a1a417aed71fe0 668
+  s_8d2ffa3daa2c6c::t_210aa808643621 512
+  s_8d2ffa3daa2c6c::t_37b4173bedcff8 534
+public/offline.html
+  s_8d2ffa3daa2c6c::t_9ca291dd786b36 1-53
+routes/api.js
+  s_8d2ffa3daa2c6c::t_bde818c6b2b2e2 1791-1792,1795-1798
+  s_8d2ffa3daa2c6c::t_bc026ef86abb6d 28
+  s_504897d4a04bb5::t_42c9fa3e20f644 1469,1473-1474,1476-1482,1484-1490,1492-1496,1499-1510,1519
+  s_8d2ffa3daa2c6c::t_3a5d28dcb70556 1793-1794
+  s_8d2ffa3daa2c6c::t_0535186516f8a1 2089-2095,2097,2100,2102-2107
+  s_8d2ffa3daa2c6c::t_dac8c3b53ab9db 2096,2098-2099,2101
+  s_8d2ffa3daa2c6c::t_f5485e8fc2e78a 2224-2298
+views/duel-detail.ejs
+  s_504897d4a04bb5::t_8177a2753dfa5b 2,4-6,8-12,16-22,24-31,54-329,331,333-339,341-347,349-351,372-453,455-480,482-490,492-498,500,502,504-509,511-622,624-627,629
+  s_504897d4a04bb5::t_72d128704f95c7 352-371
+  s_504897d4a04bb5::t_c08a685a169657 348
+  s_504897d4a04bb5::t_ae650db8c6ad4f 23,32-53
+  s_504897d4a04bb5::t_859674f03e45c8 13-15
+public/.well-known/assetlinks.json
+  s_8d2ffa3daa2c6c::t_80542a9a615536 1-10
+views/dashboard.ejs
+  s_8d2ffa3daa2c6c::t_3be1584f02e9eb 750
+  s_8d2ffa3daa2c6c::t_8693cd120e3471 973
+views/collection.ejs
+  s_8d2ffa3daa2c6c::t_9f19f847bab7bf 517
+  s_8d2ffa3daa2c6c::t_2ace0ad4233aca 649-650
+  s_8d2ffa3daa2c6c::t_5682fa4d881529 737,744
+  s_8d2ffa3daa2c6c::t_fbcf68609f83a0 506
+server.js
+  s_8d2ffa3daa2c6c::t_43f369f7217e4c 880-888
+  s_504897d4a04bb5::t_cfffe742b37f49 1128-1129
+  s_8d2ffa3daa2c6c::t_e344ea124fb9ff 30-31
+  s_8d2ffa3daa2c6c::t_0398a833d30fab 77-78
+  s_8d2ffa3daa2c6c::t_94dfd2dd387cf0 118
+views/duel-play.ejs
+  s_8d2ffa3daa2c6c::t_26bb349b0b5df4 315
+  s_8d2ffa3daa2c6c::t_00873978c3c7a5 296
+  s_8d2ffa3daa2c6c::t_cc31371b39af69 353
+views/partials/meta.ejs
+  s_8d2ffa3daa2c6c::t_cfbdccc17d64f1 8-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.17-trip",
+  "base_commit_sha": "0a6c99b539ac1380563d4bbef5f959528bad3280",
+  "prompts": {},
+  "sessions": {
+    "s_504897d4a04bb5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b3c02e5-38fc-4de4-8b26-b87f19ed5f63",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/kh3mlhvjeex4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    },
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/kh3mlhvjeex4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
