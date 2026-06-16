@@ -5,10 +5,14 @@
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "background_color": "#ffffff",
   "theme_color": "#0d6efd",
   "orientation": "portrait",
   "id": "fr.jiayou.app",
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -24,7 +28,7 @@
     },
     {
       "src": "/icons/Icon-app.png",
-      "sizes": "512x512",
+      "sizes": "1000x1000",
       "type": "image/png",
       "purpose": "maskable"
     }
@@ -32,34 +36,29 @@
   "screenshots": [
     {
       "src": "/screenshots/screenshot-01.png",
-      "sizes": "1080x1920",
+      "sizes": "990x990",
       "type": "image/png",
-      "label": "Home screen of Jiayou app",
-      "form_factor": "narrow"
+      "label": "Home screen of Jiayou app"
     },
     {
       "src": "/screenshots/screenshot-02.png",
-      "sizes": "1080x1920",
+      "sizes": "990x990",
       "type": "image/png",
-      "label": "Word collection",
-      "form_factor": "narrow"
+      "label": "Word collection"
     },
     {
       "src": "/screenshots/screenshot-03.png",
-      "sizes": "1080x1920",
+      "sizes": "990x990",
       "type": "image/png",
-      "label": "Quiz mode",
-      "form_factor": "narrow"
+      "label": "Quiz mode"
     },
     {
       "src": "/screenshots/screenshot-04.png",
-      "sizes": "1080x1920",
+      "sizes": "990x990",
       "type": "image/png",
-      "label": "Vocabulary duels",
-      "form_factor": "narrow"
+      "label": "Vocabulary duels"
     }
   ],
-  "related_applications": [],
   "prefer_related_applications": false,
   "categories": [
     "education",
