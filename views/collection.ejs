@@ -145,6 +145,25 @@
       transition: filter 0.2s ease;
     }
 
+    /* ── Swipe animation ── */
+    #card-container {
+      overflow: hidden;
+    }
+    .card-slide-enter-left {
+      animation: slideInLeft 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+    }
+    .card-slide-enter-right {
+      animation: slideInRight 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+    }
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(60px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(-60px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
   </style>
 
   <!-- Ajoute ces lignes -->
@@ -224,7 +243,7 @@
       <script>
 
         let words = [], idx = 0;
-        let touchStartY = 0;
+        let touchStartX = 0, touchStartY = 0;
         let hideTranslation = false;
         const cardContainer = document.getElementById('card-container');
         const prevBtn = document.getElementById('prevBtn');
@@ -622,12 +641,15 @@
           }
         }
 
-        function showCard() {
+        function showCard(direction) {
           if (!words.length) return;
           const word = words[idx];
           if (!word) return;
           cardContainer.innerHTML = '';
           const newCard = createCardElement(word);
+          // Apply slide animation based on direction
+          if (direction === 'next') newCard.classList.add('card-slide-enter-left');
+          else if (direction === 'prev') newCard.classList.add('card-slide-enter-right');
           cardContainer.appendChild(newCard);
           if (hideTranslation) {
             newCard.querySelectorAll('.translation-text').forEach(el => el.classList.add('translation-hidden'));
@@ -646,8 +668,8 @@
         }
 
         // Navigation
-        prevBtn.onclick = () => { haptics.tap(); idx = (idx - 1 + words.length) % words.length; showCard(); toggleView('card'); };
-        nextBtn.onclick = () => { haptics.tap(); idx = (idx + 1) % words.length; showCard(); toggleView('card'); };
+        prevBtn.onclick = () => { haptics.tap(); idx = (idx - 1 + words.length) % words.length; showCard('prev'); toggleView('card'); };
+        nextBtn.onclick = () => { haptics.tap(); idx = (idx + 1) % words.length; showCard('next'); toggleView('card'); };
 
         window.addEventListener('keydown', e => {
           if (e.key === 'ArrowLeft') prevBtn.click();
@@ -696,16 +718,21 @@
         });
 
         cardContainer.addEventListener('touchstart', e => {
+          touchStartX = e.touches[0].clientX;
           touchStartY = e.touches[0].clientY;
-        });
+        }, { passive: true });
 
         cardContainer.addEventListener('touchend', e => {
-          const touchEndY = e.changedTouches[0].clientY;
-          const deltaY = touchEndY - touchStartY;
-          if (Math.abs(deltaY) > 30) {
-            toggleView('list');
+          const dx = e.changedTouches[0].clientX - touchStartX;
+          const dy = e.changedTouches[0].clientY - touchStartY;
+          // Only treat as horizontal swipe if X movement dominates
+          if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+            if (dx < 0) nextBtn.click();   // swipe left → next
+            else        prevBtn.click();   // swipe right → prev
+          } else if (dy < -40 && Math.abs(dy) > Math.abs(dx)) {
+            toggleView('list');            // swipe up → list view
           }
-        });
+        }, { passive: true });
 
         // Modal
         function openEdit(word) {
