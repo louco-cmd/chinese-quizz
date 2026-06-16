@@ -1,3 +1,29 @@
+<%
+  const isChallenger = parseInt(duel.challenger_id) === user.id;
+  const myScore   = isChallenger ? duel.challenger_score : duel.opponent_score;
+  const oppScore  = isChallenger ? duel.opponent_score   : duel.challenger_score;
+  const myName    = isChallenger ? duel.challenger_name  : duel.opponent_name;
+  const oppName   = isChallenger ? duel.opponent_name    : duel.challenger_name;
+  const opponentId = isChallenger ? duel.opponent_id : duel.challenger_id;
+
+  let iWon = false, theyWon = false, isTie = false;
+  if (duel.status === 'completed' && myScore !== null && oppScore !== null) {
+    iWon   = myScore > oppScore;
+    theyWon = oppScore > myScore;
+    isTie  = myScore === oppScore;
+  }
+
+  // Label and CSS class for the status chip
+  let chipClass, chipLabel;
+  if (duel.status === 'completed') {
+    if (iWon)       { chipClass = 'win';  chipLabel = '🏆 Won'; }
+    else if (theyWon) { chipClass = 'lost'; chipLabel = '😵 Lost'; }
+    else             { chipClass = 'even'; chipLabel = '🤝 Draw'; }
+  } else {
+    chipClass = duel.status;
+    chipLabel = duel.status;
+  }
+%>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,6 +31,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jiayou - Duel details</title>
   <%- include('partials/meta', { pageTitle: 'Jiayou · Duel', pageDescription: 'See the details and results of your Chinese vocabulary duel.' }) %>
+  <!-- Theme color adapts to duel outcome: red on defeat, blue otherwise -->
+  <meta name="theme-color" content="<%= theyWon ? '#c0392b' : '#0d6efd' %>">
   <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
@@ -82,7 +110,9 @@
       text-transform: uppercase;
       margin-bottom: 20px;
     }
-    .status-chip.completed  { background: rgba(255,255,255,0.2); color: white; }
+    .status-chip.win        { background: rgba(255,255,255,0.28); color: white; }
+    .status-chip.lost       { background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.85); }
+    .status-chip.even       { background: rgba(255,255,255,0.2); color: white; }
     .status-chip.pending    { background: #ffc107; color: #333; }
     .status-chip.in_progress { background: rgba(255,255,255,0.2); color: white; }
     .status-chip.canceled   { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
@@ -155,22 +185,22 @@
       padding: 24px 16px 80px;
     }
 
-    /* ── Meta pills ── */
+    /* ── Meta strip ── */
     .meta-strip {
       display: flex;
-      gap: 10px;
-      margin-bottom: 24px;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
     }
     .meta-pill {
-      flex: 1;
-      background: white;
-      border: 2px solid #e8ecf0;
-      border-radius: 16px;
-      padding: 12px 8px;
-      text-align: center;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.78rem;
+      color: #888;
+      font-weight: 600;
     }
-    .meta-pill i { font-size: 1.1rem; color: #0d6efd; display: block; margin-bottom: 4px; }
-    .meta-pill span { font-size: 0.75rem; color: #666; font-weight: 600; }
+    .meta-pill i { font-size: 0.9rem; color: #0d6efd; }
 
     /* ── Rematch button ── */
     .btn-rematch {
@@ -330,20 +360,6 @@
 </head>
 
 <body class="bg-light">
-<%
-  const isChallenger = parseInt(duel.challenger_id) === user.id;
-  const myScore   = isChallenger ? duel.challenger_score : duel.opponent_score;
-  const oppScore  = isChallenger ? duel.opponent_score   : duel.challenger_score;
-  const myName    = isChallenger ? duel.challenger_name  : duel.opponent_name;
-  const oppName   = isChallenger ? duel.opponent_name    : duel.challenger_name;
-  const opponentId = isChallenger ? duel.opponent_id : duel.challenger_id;
-
-  let iWon = false, theyWon = false;
-  if (duel.status === 'completed' && myScore !== null && oppScore !== null) {
-    iWon   = myScore > oppScore;
-    theyWon = oppScore > myScore;
-  }
-%>
 
 <%- include('partials/header', {currentPage: 'duels', user: user, balance: balance, headerClass: theyWon ? 'header-defeat' : ''}) %>
 <%- include('partials/navbar', {currentPage: 'duels', user: user}) %>
@@ -372,7 +388,7 @@
   <a href="/duels" class="back-btn"><i class="bi bi-arrow-left"></i></a>
 
   <div>
-    <span class="status-chip <%= duel.status %>"><%= duel.status %></span>
+    <span class="status-chip <%= chipClass %>"><%= chipLabel %></span>
   </div>
 
   <div class="vs-row">
@@ -407,8 +423,8 @@
 <!-- Content -->
 <div class="content-wrap">
 
-  <!-- Meta pills -->
-  <div class="meta-strip" style="margin-top: 28px;">
+  <!-- Meta strip -->
+  <div class="meta-strip" style="margin-top: 12px;">
     <div class="meta-pill">
       <i class="bi bi-sword"></i>
       <span><%= duel.duel_type === 'classic' ? 'Random' : 'AA Match' %></span>
