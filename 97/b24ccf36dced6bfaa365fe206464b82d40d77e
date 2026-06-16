@@ -1,0 +1,23 @@
+views/collection.ejs
+  s_8d2ffa3daa2c6c::t_8a45929f2395c0 148-166
+  s_8d2ffa3daa2c6c::t_596a3d719e2501 644,650-652
+  s_8d2ffa3daa2c6c::t_7fd612c986d9da 246
+  s_8d2ffa3daa2c6c::t_cef201d5385b70 721,723,726-733,735
+  s_8d2ffa3daa2c6c::t_897d6bae3f179d 671-672
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.17-trip",
+  "base_commit_sha": "97b24ccf36dced6bfaa365fe206464b82d40d77e",
+  "prompts": {},
+  "sessions": {
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "arn:aws:bedrock:us-west-2:671660153913:application-inference-profile/kh3mlhvjeex4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
