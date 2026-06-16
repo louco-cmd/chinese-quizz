@@ -1,13 +1,14 @@
 {
   "name": "Jiayou 加油！",
   "short_name": "Jiayou",
-  "description": "add oil on your Chinese learning journey!",
+  "description": "Learn Chinese vocabulary the fun way. Build your word collection, quiz yourself with pinyin or characters, challenge friends to real-time duels, and track your HSK progress — all in one app.",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0d6efd",
   "orientation": "portrait",
+  "id": "fr.jiayou.app",
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -40,29 +41,51 @@
       "src": "/screenshots/screenshot-02.png",
       "sizes": "1080x1920",
       "type": "image/png",
-      "label": "Word feature",
+      "label": "Word collection",
       "form_factor": "narrow"
     },
     {
       "src": "/screenshots/screenshot-03.png",
       "sizes": "1080x1920",
       "type": "image/png",
-      "label": "Quiz feature",
+      "label": "Quiz mode",
       "form_factor": "narrow"
     },
     {
       "src": "/screenshots/screenshot-04.png",
       "sizes": "1080x1920",
       "type": "image/png",
-      "label": "Duel feature",
+      "label": "Vocabulary duels",
       "form_factor": "narrow"
     }
   ],
+  "related_applications": [],
+  "prefer_related_applications": false,
   "categories": [
     "education",
     "games",
     "productivity"
   ],
   "lang": "en",
-  "dir": "auto"
+  "dir": "auto",
+  "shortcuts": [
+    {
+      "name": "My Collection",
+      "url": "/collection",
+      "description": "View and manage your word collection",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Start a Quiz",
+      "url": "/quiz",
+      "description": "Test your Chinese vocabulary",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Duels",
+      "url": "/duels",
+      "description": "Challenge friends to a duel",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
 }

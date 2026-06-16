@@ -399,9 +399,11 @@
   const isMac      = /mac/i.test(ua) && !isIos;
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
-  // Show "already installed" banner
+  // Show "already installed" banner — or redirect if running as app/capsule
   if (isStandalone) {
-    document.getElementById('alreadyInstalled').style.display = 'block';
+    // On est dans la capsule : cette page n'a pas de sens, retour au dashboard
+    window.location.replace('/dashboard');
+    return;
   }
 
   // Auto-select tab based on device

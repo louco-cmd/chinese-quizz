@@ -5,6 +5,10 @@
 <!-- PWA -->
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#0d6efd">
+<!-- VAPID public key pour les notifications push -->
+<% if (typeof vapidPublicKey !== 'undefined' && vapidPublicKey) { %>
+<meta name="vapid-key" content="<%= vapidPublicKey %>">
+<% } %>
 <!-- SEO -->
 <meta name="description" content="<%= pageDescription %>">
 <!-- Open Graph -->

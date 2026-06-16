@@ -1,11 +1,12 @@
 // sw.js - VERSION CORRIGÉE & SIMPLIFIÉE
-const CACHE_NAME = 'jiayou-v7';
+const CACHE_NAME = 'jiayou-v8';
 const OFFLINE_URL = '/offline.html';
 
 // Ne PAS mettre global.js en cache : il doit toujours être rechargé depuis le réseau
 // pour que les mises à jour soient instantanées.
 const urlsToCache = [
   '/',
+  '/offline.html',
   '/css/accountandduels.css',
   '/js/saveQuiz.js',
   '/js/card-function.js',
@@ -71,12 +72,11 @@ self.addEventListener('fetch', (event) => {
     return; // Laisser passer au réseau
   }
   
-  // Pour les navigations (pages) : Réseau d'abord, puis cache
+  // Pour les navigations (pages) : Réseau d'abord, puis cache offline
   if (isNav) {
     event.respondWith(
       fetch(event.request)
-        .catch(() => caches.match('/')) // En échec, servir la homepage
-        .catch(() => new Response('Hors ligne'))
+        .catch(() => caches.match('/offline.html'))
     );
     return;
   }
@@ -99,4 +99,41 @@ self.addEventListener('message', (event) => {
   if (event.data === 'skipWaiting') {
     self.skipWaiting();
   }
+});
+
+// ========== PUSH NOTIFICATIONS ==========
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch {}
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Jiayou', {
+      body:  data.body  || '',
+      icon:  '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      data:  { url: data.url || '/duels' },
+      tag:   data.tag  || 'jiayou-duel',
+      renotify: true,
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || '/duels';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      // Si une fenêtre est déjà ouverte, la focus et naviguer
+      for (const client of list) {
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client) client.navigate(targetUrl);
+          return;
+        }
+      }
+      // Sinon ouvrir un nouvel onglet
+      if (clients.openWindow) return clients.openWindow(targetUrl);
+    })
+  );
 });

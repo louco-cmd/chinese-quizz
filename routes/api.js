@@ -25,6 +25,7 @@ const {
   isValidEmail
 } = require('../middleware/index');
 const { withSubscription, canPlayDuel, canAddWord, canTakeQuiz } = require('../middleware/subscription');
+const { sendPushToUser } = require('../middleware/push.service');
 const dailyCache = new Map(); // ⬅️ AJOUTER CECI EN HAUT
 
 
@@ -1465,38 +1466,48 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
     console.log('✅ Connexion DB OK:', testQuery.rows[0].time);
 
     const result = await pool.query(`
-      SELECT 
+      SELECT
         u.id,
         u.name,
         u.email,
-        u.tagline,           -- ⬅️ NOUVEAU : phrase d'accroche
-        u.country,           -- ⬅️ NOUVEAU : pays
+        u.tagline,
+        u.country,
         COUNT(DISTINCT uw.mot_id) as total_words,
-        COUNT(DISTINCT CASE 
-          WHEN d.status = 'completed' AND (
-            (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
-            (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
-          ) THEN d.id
+        COUNT(DISTINCT CASE
+          WHEN d.status = 'completed'
+            AND EXTRACT(YEAR FROM d.completed_at) = EXTRACT(YEAR FROM NOW())
+            AND (
+              (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+              (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+            ) THEN d.id
         END) as wins,
-        COUNT(DISTINCT CASE 
-          WHEN d.status = 'completed' AND (
-            (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
-            (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
-          ) THEN d.id
+        COUNT(DISTINCT CASE
+          WHEN d.status = 'completed'
+            AND EXTRACT(YEAR FROM d.completed_at) = EXTRACT(YEAR FROM NOW())
+            AND (
+              (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
+              (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
+            ) THEN d.id
         END) as losses,
-        CASE 
-          WHEN COUNT(DISTINCT CASE 
-            WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN d.id
+        CASE
+          WHEN COUNT(DISTINCT CASE
+            WHEN d.status = 'completed'
+              AND EXTRACT(YEAR FROM d.completed_at) = EXTRACT(YEAR FROM NOW())
+              AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN d.id
           END) > 0 THEN
             ROUND(
-              (COUNT(DISTINCT CASE 
-                WHEN d.status = 'completed' AND (
-                  (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
-                  (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
-                ) THEN d.id
-              END) * 100.0) / 
-              COUNT(DISTINCT CASE 
-                WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN d.id
+              (COUNT(DISTINCT CASE
+                WHEN d.status = 'completed'
+                  AND EXTRACT(YEAR FROM d.completed_at) = EXTRACT(YEAR FROM NOW())
+                  AND (
+                    (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
+                    (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
+                  ) THEN d.id
+              END) * 100.0) /
+              COUNT(DISTINCT CASE
+                WHEN d.status = 'completed'
+                  AND EXTRACT(YEAR FROM d.completed_at) = EXTRACT(YEAR FROM NOW())
+                  AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN d.id
               END)
             , 1)
           ELSE 0
@@ -1505,7 +1516,7 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
       LEFT JOIN user_mots uw ON u.id = uw.user_id
       LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id)
       WHERE u.id IN (SELECT DISTINCT user_id FROM user_mots)
-      GROUP BY u.id, u.name, u.email, u.tagline, u.country  -- ⬅️ AJOUTER tagline et country
+      GROUP BY u.id, u.name, u.email, u.tagline, u.country
       ORDER BY wins DESC, total_words DESC, losses ASC
     `);
 
@@ -1776,6 +1787,14 @@ router.post('/api/duels/create', ensureAuth, withSubscription, canPlayDuel, asyn
 
     await client.query('COMMIT');
     console.log('[Création Duel] Transaction commitée');
+
+    // 🔔 Notification push à l'adversaire (fire-and-forget)
+    sendPushToUser(opponent_id, {
+      title: '⚔️ New duel challenge!',
+      body: `${req.user.name} is challenging you — accept the duel!`,
+      url: '/duels',
+      tag: 'jiayou-duel-new',
+    }).catch(() => {});
 
     res.json({
       success: true,
@@ -2067,6 +2086,25 @@ router.post('/api/duels/:id/submit', ensureAuth, async (req, res) => {
     await client.query('COMMIT');
     console.log('✅ Transaction commitée');
 
+    // 🔔 Notification push quand le duel est terminé (les deux ont joué)
+    if (bothPlayed) {
+      // Notifier le joueur adverse (celui qui avait soumis en premier)
+      const otherPlayerId = isChallenger ? currentDuel.opponent_id : currentDuel.challenger_id;
+      const myScore = isChallenger ? currentDuel.challenger_score : currentDuel.opponent_score;
+      const otherScore = isChallenger ? currentDuel.opponent_score : currentDuel.challenger_score;
+      const resultText = winnerId === req.user.id
+        ? `You lost ${myScore} vs ${otherScore} — play again!`
+        : winnerId === otherPlayerId
+          ? `You won ${otherScore} vs ${myScore}! 🎉`
+          : `It's a tie — ${myScore} vs ${otherScore}!`;
+      sendPushToUser(otherPlayerId, {
+        title: '🏆 Duel result!',
+        body: resultText,
+        url: `/duel/${duelId}`,
+        tag: `jiayou-duel-result-${duelId}`,
+      }).catch(() => {});
+    }
+
     res.json({
       success: true,
       duel_completed: bothPlayed,
@@ -2179,6 +2217,81 @@ router.get('/api/subscription-status', ensureAuth, async (req, res) => {
   } catch (err) {
     console.error('❌ subscription-status:', err);
     res.status(500).json({ isPremium: false, error: 'server_error' });
+  }
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 🔔 NOTIFICATIONS PUSH
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Enregistrer une subscription push
+router.post('/api/notifications/subscribe', ensureAuth, async (req, res) => {
+  const { endpoint, keys } = req.body;
+  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    return res.status(400).json({ error: 'Subscription invalide' });
+  }
+  try {
+    await pool.query(`
+      INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, enabled)
+      VALUES ($1, $2, $3, $4, true)
+      ON CONFLICT (endpoint) DO UPDATE
+        SET user_id = EXCLUDED.user_id,
+            p256dh = EXCLUDED.p256dh,
+            auth = EXCLUDED.auth,
+            enabled = true
+    `, [req.user.id, endpoint, keys.p256dh, keys.auth]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Push] Erreur subscribe:', err.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Supprimer une subscription push
+router.post('/api/notifications/unsubscribe', ensureAuth, async (req, res) => {
+  const { endpoint } = req.body;
+  if (!endpoint) return res.status(400).json({ error: 'Endpoint manquant' });
+  try {
+    await pool.query(
+      'DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2',
+      [req.user.id, endpoint]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[Push] Erreur unsubscribe:', err.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Statut des notifications pour l'utilisateur courant
+router.get('/api/notifications/status', ensureAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT enabled FROM push_subscriptions WHERE user_id = $1 LIMIT 1',
+      [req.user.id]
+    );
+    const subscribed = result.rows.length > 0;
+    const enabled = subscribed && result.rows[0].enabled;
+    res.json({ subscribed, enabled });
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Activer / désactiver toutes les subscriptions de l'utilisateur
+router.patch('/api/notifications/toggle', ensureAuth, async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled (boolean) requis' });
+  try {
+    await pool.query(
+      'UPDATE push_subscriptions SET enabled = $1 WHERE user_id = $2',
+      [enabled, req.user.id]
+    );
+    res.json({ ok: true, enabled });
+  } catch (err) {
+    console.error('[Push] Erreur toggle:', err.message);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 

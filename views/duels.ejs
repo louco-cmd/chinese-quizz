@@ -985,10 +985,12 @@
         }
 
         function playDuel(duelId) {
+          haptics.tap();
           window.location.href = `/duel-play/${duelId}`;
         }
 
         function openStartDuelPopup() {
+          haptics.tap();
           currentOpponent = null;
           document.getElementById('opponentName').textContent = 'a player';
           document.getElementById('opponentId').value = '';
@@ -1053,9 +1055,11 @@
           currentOpponent = opponentId;
           document.getElementById('opponentName').textContent = opponentName;
           document.getElementById('opponentId').value = opponentId;
+          document.getElementById('duelist-search').value = opponentName;
+          document.getElementById('search-suggestions').style.display = 'none';
+          document.getElementById('recent-opponents-tags').style.display = 'none';
           document.getElementById('duelPopup').style.display = 'flex';
           initDuelPopupUI();
-          // Cacher l'erreur précédente
           const errorDiv = document.getElementById('duelPopupError');
           errorDiv.style.display = 'none';
           errorDiv.textContent = '';
@@ -1100,6 +1104,7 @@
             const result = await response.json();
 
             if (response.ok && result.success) {
+              haptics.celebrate();
               closeDuelPopup();
               showAlert('Duel launched!', 'success');
               loadRecentDuels();

@@ -13,15 +13,19 @@
     "express-session": "^1.18.2",
     "google-auth-library": "^10.4.0",
     "nodemailer": "^7.0.12",
-    "nodemon": "^3.1.11",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.16.3",
     "pinyin-pro": "^3.28.1",
     "resend": "^6.9.3",
-    "stripe": "^20.2.0"
+    "stripe": "^20.2.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
   },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   }
 }

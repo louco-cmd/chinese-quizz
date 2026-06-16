@@ -69,6 +69,23 @@ const pool = new Pool({
     `);
     console.log("✅ Colonne 'special_guest' vérifiée ou créée sur 'users'.");
 
+    // ── Table push_subscriptions (Web Push Notifications) ────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        endpoint TEXT UNIQUE NOT NULL,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id)
+    `);
+    console.log("✅ Table 'push_subscriptions' vérifiée ou créée.");
+
     // ── Migration: resync stripe_status depuis plan_name + status ─────────────
     // Corrige les cas où stripe_status est resté 'active' alors que
     // status ou plan_name indiquent que l'abonnement est terminé.

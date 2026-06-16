@@ -503,7 +503,7 @@
 
           card.querySelector('.delete-btn').onclick = async () => {
             if (!confirm(`Are you sure you want delete "${word.chinese}" from your collection ?`)) return;
-
+            haptics.tap();
             try {
               const response = await fetch('/mes-mots/delete', {
                 method: 'POST',
@@ -514,6 +514,7 @@
               const data = await response.json();
 
               if (response.ok) {
+                haptics.success();
                 alert(data.message || 'Word has been successfully deleted');
                 // Supprimer localement pour mise à jour rapide
                 words = words.filter(w => w.id !== word.id);
@@ -645,8 +646,8 @@
         }
 
         // Navigation
-        prevBtn.onclick = () => { idx = (idx - 1 + words.length) % words.length; showCard(); toggleView('card'); };
-        nextBtn.onclick = () => { idx = (idx + 1) % words.length; showCard(); toggleView('card'); };
+        prevBtn.onclick = () => { haptics.tap(); idx = (idx - 1 + words.length) % words.length; showCard(); toggleView('card'); };
+        nextBtn.onclick = () => { haptics.tap(); idx = (idx + 1) % words.length; showCard(); toggleView('card'); };
 
         window.addEventListener('keydown', e => {
           if (e.key === 'ArrowLeft') prevBtn.click();
@@ -733,12 +734,14 @@
               body: JSON.stringify(payload)
             });
             if (!res.ok) {
+              haptics.error();
               const data = await res.json().catch(() => ({}));
               alert(data.message || 'Only administrators can modify word translations.');
               const bsModal = bootstrap.Modal.getInstance(editModal);
               if (bsModal) bsModal.hide();
               return;
             }
+            haptics.success();
             words[idx] = { ...words[idx], ...payload };
             showCard();
             showList();

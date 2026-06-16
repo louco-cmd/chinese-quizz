@@ -1,5 +1,86 @@
 // public/js/global.js
 
+// ── Haptics (Vibration API + Capacitor Taptic Engine) ────────────────────────
+// Android Chrome  → navigator.vibrate() — actif, pas de permission requise
+// iOS Capacitor   → @capacitor/haptics — Taptic Engine natif (léger/moyen/fort)
+// iOS Safari PWA  → silencieux (Apple bloque vibrate sur le web)
+// Desktop         → silencieux
+//
+// Les niveaux Capacitor :
+//   ImpactStyle : Light | Medium | Heavy
+//   NotificationType : Success | Warning | Error
+//
+window.haptics = (function () {
+  // ── Chemin Capacitor (iOS App Store via Capacitor wrapper) ──────────────────
+  // window.Capacitor est injecté par le runtime Capacitor dans la WKWebView.
+  // @capacitor/haptics doit être installé dans le projet Capacitor :
+  //   npm install @capacitor/haptics && npx cap sync
+  var cap = null;
+  function getCapHaptics() {
+    if (cap !== null) return cap;
+    try {
+      if (window.Capacitor && window.Capacitor.isPluginAvailable('Haptics')) {
+        cap = window.Capacitor.Plugins.Haptics;
+      } else {
+        cap = false;
+      }
+    } catch (e) { cap = false; }
+    return cap;
+  }
+
+  // ── Chemin Web (Android Chrome + PWA Android) ───────────────────────────────
+  var vib = navigator.vibrate ? navigator.vibrate.bind(navigator) : null;
+
+  function impact(style) {
+    var h = getCapHaptics();
+    if (h) {
+      // ImpactStyle disponible via window.Capacitor.Plugins.Haptics
+      try { h.impact({ style: style }); } catch (e) {}
+    } else if (vib) {
+      // Fallback vibration patterns par intensité
+      var ms = style === 'Heavy' ? 80 : style === 'Medium' ? 50 : 30;
+      vib(ms);
+    }
+  }
+
+  function notification(type) {
+    var h = getCapHaptics();
+    if (h) {
+      try { h.notification({ type: type }); } catch (e) {}
+    } else if (vib) {
+      var pattern = type === 'Success' ? [60, 40, 60]
+                  : type === 'Error'   ? [100, 50, 100]
+                  :                      [80];
+      vib(pattern);
+    }
+  }
+
+  return {
+    // Léger — bouton / navigation / ouverture popup
+    tap:       function () { impact('Light'); },
+    // Très discret — ouverture modale
+    soft:      function () { impact('Light'); },
+    // Succès — action réussie, mot ajouté
+    success:   function () { notification('Success'); },
+    // Erreur — mauvaise réponse, échec
+    error:     function () { notification('Error'); },
+    // Célébration — fin de quiz / duel envoyé / victoire
+    celebrate: function () {
+      var h = getCapHaptics();
+      if (h) {
+        // Triple impact croissant
+        try {
+          h.impact({ style: 'Light' });
+          setTimeout(function () { h.impact({ style: 'Medium' }); }, 80);
+          setTimeout(function () { h.impact({ style: 'Heavy' });  }, 180);
+        } catch (e) {}
+      } else if (vib) {
+        vib([80, 40, 80, 40, 120]);
+      }
+    },
+  };
+})();
+
 // Protection globale contre les cold starts
 async function safeFetch(url, options = {}) {
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -138,6 +219,7 @@ window.convertirPinyin = function(texteChinois) {
 // Si JS ne charge pas, le href natif fonctionne quand même.
 window.openExternal = function(url) {
   var isMobile = /iphone|ipad|ipod|android/i.test(navigator.userAgent);
+  haptics.tap();
   if (isMobile) {
     window.location.href = url;
   } else {

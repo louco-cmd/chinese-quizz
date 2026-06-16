@@ -509,6 +509,7 @@
 
     // Handle correct answer
     function handleCorrectAnswer() {
+      haptics.success();
       quizResult.textContent = "✅ Correct!";
       quizResult.className = "alert alert-success";
       quizResult.style.display = 'block';
@@ -530,6 +531,7 @@
 
     // Handle incorrect answer
     function handleIncorrectAnswer() {
+      haptics.error();
       if (!hasSecondChance) {
         wrongCount++;
         updateScore();
@@ -661,9 +663,9 @@
 
       // Gestion du bouton
       if (coinsEarned > 0) {
-        document.getElementById('collectBtn').addEventListener('click', saveQuizResults);
+        document.getElementById('collectBtn').addEventListener('click', function() { haptics.celebrate(); saveQuizResults(); });
       } else {
-        document.getElementById('finishBtn').addEventListener('click', saveQuizResults);
+        document.getElementById('finishBtn').addEventListener('click', function() { haptics.celebrate(); saveQuizResults(); });
       }
     }
 

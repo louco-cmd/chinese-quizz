@@ -27,6 +27,8 @@ const {
 } = require('./middleware/index');
 const { sendPasswordResetEmail, sendVerificationEmail } = require('./middleware/mail.service');
 const { withSubscription } = require('./middleware/subscription');
+const { initVapid } = require('./middleware/push.service');
+initVapid();
 require('dotenv').config();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
@@ -72,7 +74,8 @@ app.use('/webhook', express.raw({
   }
 }));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
+// dotfiles: 'allow' pour servir .well-known/assetlinks.json (requis pour Android TWA)
+app.use(express.static(path.join(__dirname, "public"), { dotfiles: 'allow' }));
 app.use('/vendor/bootstrap/css', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/css')));
 app.use('/vendor/bootstrap/js', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/js')));
 app.use('/vendor/bootstrap-icons/font', express.static(path.join(__dirname, 'node_modules/bootstrap-icons/font')));
@@ -112,6 +115,7 @@ app.use(async (req, res, next) => {
   res.locals.isSpecialGuest = false;
   res.locals.balance        = 0;
   res.locals.user           = req.user || null;
+  res.locals.vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
 
   if (!req.isAuthenticated()) return next();
 
@@ -873,7 +877,15 @@ app.get('/tutorial', (req, res) => {
 app.get('/legal', (req, res) => {
   res.render('legal', {
     title: 'Legal Mentions - 加油！',
-    currentPage: 'legal' // pour éventuellement adapter le header
+    currentPage: 'legal'
+  });
+});
+
+// Page support publique — requise pour la soumission App Store / Play Store
+app.get('/support', (req, res) => {
+  res.render('support', {
+    title: 'Support - Jiayou 加油！',
+    currentPage: 'support'
   });
 });
 
@@ -1113,7 +1125,8 @@ app.get('/duel/:id', ensureAuth, async (req, res) => {
       user: req.user,
       duel: duel,
       quizData: quizData,
-      isChallenger: duel.challenger_id === userId
+      isChallenger: parseInt(duel.challenger_id) === userId,
+      balance: req.user.balance || 0
     });
 
   } catch (error) {

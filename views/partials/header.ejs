@@ -1,5 +1,9 @@
-<div class="d-flex justify-content-between align-items-center position-relative bg-primary text-white p-3"
-  style="<%= currentPage === 'dashboard' ? 'background-color: transparent !important; color: inherit !important; padding: 0;' : '' %>">
+<%
+  let _headerStyle = currentPage === 'dashboard' ? 'background-color: transparent !important; color: inherit !important; padding: 0;' : '';
+  let _headerExtraClass = locals.headerClass || '';
+%>
+<div class="d-flex justify-content-between align-items-center position-relative bg-primary text-white p-3 <%= _headerExtraClass %>"
+  style="<%= _headerStyle %>">
 
   <% if (currentPage !=='dashboard' ) { %>
     <!-- Logo/Titre avec badge -->
@@ -178,13 +182,29 @@
               <i class="bi bi-play-circle-fill me-2"></i>Play tutorial
             </a>
 
-            <a href="/install-app" class="settings-btn settings-btn-secondary" onclick="closeSettingsDrawer()">
+            <a href="/install-app" class="settings-btn settings-btn-secondary" onclick="closeSettingsDrawer()" data-hide-in-app>
               <i class="bi bi-download me-2"></i>How to install the app
             </a>
 
-            <a href="/legal" class="settings-link" onclick="closeSettingsDrawer()">
-              <i class="bi bi-info-circle me-1"></i>Legal mentions
-            </a>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;">
+              <a href="/legal" class="settings-btn settings-btn-secondary text-center mb-0" onclick="closeSettingsDrawer()" style="font-size:0.85rem; padding:12px 8px;">
+                <i class="bi bi-file-text d-block mb-1" style="font-size:1.1rem;"></i>Legal
+              </a>
+              <a href="/support" class="settings-btn settings-btn-secondary text-center mb-0" onclick="closeSettingsDrawer()" style="font-size:0.85rem; padding:12px 8px;">
+                <i class="bi bi-life-preserver d-block mb-1" style="font-size:1.1rem;"></i>Help
+              </a>
+            </div>
+
+            <div class="settings-section-label" style="margin-top: 22px;">Notifications</div>
+
+            <div class="settings-btn settings-btn-secondary d-flex justify-content-between align-items-center" style="cursor:default;">
+              <span><i class="bi bi-bell me-2"></i>Duel notifications</span>
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="notifToggle"
+                  style="width:2.2em; height:1.2em; cursor:pointer;"
+                  onchange="handleNotifToggle(this.checked)">
+              </div>
+            </div>
     </div>
 
     <!-- Footer sticky : actions destructrices -->
@@ -1146,6 +1166,21 @@ async function performDeleteAccount() {
     localStorage.setItem(DISMISS_KEY_ANDROID, Date.now().toString());
     localStorage.setItem(DISMISS_KEY_IOS, Date.now().toString());
     console.log('✅ PWA installed');
+  });
+})();
+</script>
+
+<script src="/js/notifications.js"></script>
+
+<script>
+// Cache les éléments [data-hide-in-app] quand l'app tourne en standalone (PWA / store capsule)
+(function () {
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+  if (!isStandalone) return;
+  document.querySelectorAll('[data-hide-in-app]').forEach(function (el) {
+    el.style.display = 'none';
   });
 })();
 </script>

@@ -747,6 +747,7 @@
 
         // ========== MODALE MOT EXISTANT ==========
         function displayExistingWordModal(word) {
+          haptics.soft();
           document.getElementById('previewChinese').textContent = word.chinese;
           document.getElementById('displayPinyin').textContent = word.pinyin || '-';
           document.getElementById('displayEnglish').textContent = word.english || '-';
@@ -969,6 +970,7 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
+              haptics.success();
               showSuccess('Word added! -3 coins');
               showSuccessAnimation();
               enableSubmitButton();

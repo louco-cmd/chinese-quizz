@@ -293,6 +293,7 @@
       const correctAnswer = normalizePinyin(currentWord.pinyin);
 
       if (userAnswer === correctAnswer) {
+        haptics.success();
         quizResult.textContent = "✅ Correct!";
         quizResult.className = "alert alert-success";
         quizResult.style.display = 'block';
@@ -311,6 +312,7 @@
         }, 1200);
       } else {
         if (!hasSecondChance) {
+          haptics.error();
           wrongCount++;
           updateScore();
 
@@ -348,6 +350,7 @@
 
     function endQuiz() {
       quizEnded = true;
+      haptics.celebrate();
       hideCharacterCard();
 
       quizQuestion.textContent = '🎉 Duel finished!';
