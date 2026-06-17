@@ -35,28 +35,53 @@
   ],
   "screenshots": [
     {
-      "src": "/screenshots/screenshot-01.png",
-      "sizes": "990x990",
-      "type": "image/png",
-      "label": "Home screen of Jiayou app"
+      "src": "/screenshots/screen-home.jpg",
+      "sizes": "1080x2400",
+      "type": "image/jpeg",
+      "label": "Home screen",
+      "form_factor": "narrow"
     },
     {
-      "src": "/screenshots/screenshot-02.png",
-      "sizes": "990x990",
-      "type": "image/png",
-      "label": "Word collection"
+      "src": "/screenshots/screen-collection.jpg",
+      "sizes": "1080x2400",
+      "type": "image/jpeg",
+      "label": "Word collection",
+      "form_factor": "narrow"
     },
     {
-      "src": "/screenshots/screenshot-03.png",
-      "sizes": "990x990",
-      "type": "image/png",
-      "label": "Quiz mode"
+      "src": "/screenshots/screen-quiz.jpg",
+      "sizes": "1080x2400",
+      "type": "image/jpeg",
+      "label": "Quiz mode",
+      "form_factor": "narrow"
     },
     {
-      "src": "/screenshots/screenshot-04.png",
-      "sizes": "990x990",
-      "type": "image/png",
-      "label": "Vocabulary duels"
+      "src": "/screenshots/screen-duel.jpg",
+      "sizes": "1080x2400",
+      "type": "image/jpeg",
+      "label": "Vocabulary duels",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshots/screen-duel-rank.jpg",
+      "sizes": "1080x2400",
+      "type": "image/jpeg",
+      "label": "Duel rankings",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshots/screen-stats.jpg",
+      "sizes": "1080x2400",
+      "type": "image/jpeg",
+      "label": "Personal statistics",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshots/screen-coins.jpg",
+      "sizes": "1080x2400",
+      "type": "image/jpeg",
+      "label": "Coins and rewards",
+      "form_factor": "narrow"
     }
   ],
   "prefer_related_applications": false,
