@@ -1,5 +1,5 @@
 {
-  "name": "Jiayou",
+  "name": "Jiayou 加油！",
   "short_name": "Jiayou",
   "description": "Learn Chinese vocabulary the fun way. Build your word collection, quiz yourself with pinyin or characters, challenge friends to real-time duels, and track your HSK progress.",
   "start_url": "/dashboard",
@@ -87,107 +87,6 @@
     "productivity"
   ],
   "lang": "en",
-  "shortcuts": [
-    {
-      "name": "My Collection",
-      "url": "/collection",
-      "description": "View and manage your word collection",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Start a Quiz",
-      "url": "/quiz",
-      "description": "Test your Chinese vocabulary",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Duels",
-      "url": "/duels",
-      "description": "Challenge friends to a duel",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
-    }
-  ]
-}
-
-  "icons": [
-    {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshots/screen-home.jpg",
-      "sizes": "1080x2400",
-      "type": "image/jpeg",
-      "label": "Home screen",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshots/screen-collection.jpg",
-      "sizes": "1080x2400",
-      "type": "image/jpeg",
-      "label": "Word collection",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshots/screen-quiz.jpg",
-      "sizes": "1080x2400",
-      "type": "image/jpeg",
-      "label": "Quiz mode",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshots/screen-duel.jpg",
-      "sizes": "1080x2400",
-      "type": "image/jpeg",
-      "label": "Vocabulary duels",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshots/screen-duel-rank.jpg",
-      "sizes": "1080x2400",
-      "type": "image/jpeg",
-      "label": "Duel rankings",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshots/screen-stats.jpg",
-      "sizes": "1080x2400",
-      "type": "image/jpeg",
-      "label": "Personal statistics",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "/screenshots/screen-coins.jpg",
-      "sizes": "1080x2400",
-      "type": "image/jpeg",
-      "label": "Coins and rewards",
-      "form_factor": "narrow"
-    }
-  ],
-  "prefer_related_applications": false,
-  "categories": [
-    "education",
-    "games",
-    "productivity"
-  ],
-  "lang": "en",
-  "dir": "auto",
   "shortcuts": [
     {
       "name": "My Collection",
