@@ -1,0 +1,19 @@
+public/manifest.json
+  s_8d2ffa3daa2c6c::t_f68647f4b0e7c0 38-42,45-49,52-56,59-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.17-trip",
+  "base_commit_sha": "c98065057bba895408fbe02d28e8da28841e1173",
+  "prompts": {},
+  "sessions": {
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "arn:aws:bedrock:us-west-2:133197901387:application-inference-profile/f1o7fn3rqmi4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
