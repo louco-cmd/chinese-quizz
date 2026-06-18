@@ -1,0 +1,83 @@
+config/database.js
+  s_8d2ffa3daa2c6c::t_1cf4a90a9c0e44 92
+  s_8d2ffa3daa2c6c::t_b3598c707733b7 100-111
+  s_8d2ffa3daa2c6c::t_a92675e67e254d 89-91,93-99
+views/account.ejs
+  s_8d2ffa3daa2c6c::t_927eaf1349e5a7 189-192
+  s_8d2ffa3daa2c6c::t_98e6534c244eef 418,420,422-424,426,436-438
+  s_8d2ffa3daa2c6c::t_7563e494a2e30e 905
+  s_8d2ffa3daa2c6c::t_e9d80750c03c50 419,421,425,427-435
+  s_8d2ffa3daa2c6c::t_03e224dc95d331 904,917
+views/collection.ejs
+  s_8d2ffa3daa2c6c::t_903e4d37947d6c 488-489,493,495
+  s_8d2ffa3daa2c6c::t_7b39f7337d8d03 806-811
+  s_8d2ffa3daa2c6c::t_6407007ec28ab2 470-473,478,481-487,494,496-503,511,516,520,522-523,525,528,539
+  s_8d2ffa3daa2c6c::t_d05b9ad528209f 705-707
+  s_8d2ffa3daa2c6c::t_c6acc3158f22bf 194-198
+  s_8d2ffa3daa2c6c::t_e9e70986854449 189-190
+  s_8d2ffa3daa2c6c::t_b7745c0ee334c3 246
+  s_8d2ffa3daa2c6c::t_c6f8eb4e9fd83a 479-480,491-492
+  s_8d2ffa3daa2c6c::t_b76bbee8760ff4 474-477
+  s_8d2ffa3daa2c6c::t_ff567a2255e62b 490
+config/connexion.js
+  s_8d2ffa3daa2c6c::t_0173f108ca0442 16,19,24
+  s_8d2ffa3daa2c6c::t_71047502a92f34 57-59
+  s_8d2ffa3daa2c6c::t_13e86e37c1ee63 101,103,106-107
+views/duel-play.ejs
+  s_8d2ffa3daa2c6c::t_c957cfa85aa240 317-330,332,373
+  s_8d2ffa3daa2c6c::t_5a57118351a63d 129-148,153-154,158
+  s_8d2ffa3daa2c6c::t_f0f8859e134e17 89-90
+  s_8d2ffa3daa2c6c::t_7d2b2221193114 244-245,248-272,274-276,278
+views/onboarding.ejs
+  s_8d2ffa3daa2c6c::t_5ec264b11176c3 473,476-478
+  s_8d2ffa3daa2c6c::t_5fe6f1d7e24b85 174,176-182
+  s_8d2ffa3daa2c6c::t_678363a427f746 440,444-447,450-453
+  s_8d2ffa3daa2c6c::t_3b770db461f689 1-173,175,183-439,441-443,448-449,454-472,474-475,479-527
+routes/api.js
+  s_8d2ffa3daa2c6c::t_264997afe7bcee 1016-1018,1036-1044,1046-1048,1054-1056,1074-1084
+  s_8d2ffa3daa2c6c::t_9cf95ee8fbb4d8 1674
+  s_8d2ffa3daa2c6c::t_49b13d8e34989f 1049
+  s_8d2ffa3daa2c6c::t_abce0d58b83672 1458,1470,1476,1483,1488
+  s_8d2ffa3daa2c6c::t_7c191250e1244f 1613,1618,1627,1638,1642,1645,1654,1660,1669
+  s_8d2ffa3daa2c6c::t_dd4b31a25f8e4d 1503
+  s_8d2ffa3daa2c6c::t_032b74ad9537ce 1583,1586
+  s_8d2ffa3daa2c6c::t_32bdaca28030cc 1689,1712,1715
+  s_8d2ffa3daa2c6c::t_63c65ee9501d4a 994-1009
+  s_8d2ffa3daa2c6c::t_c99e8717edc8ac 1506-1508,1510,1512
+  s_8d2ffa3daa2c6c::t_c225656b4dbf01 597-615
+views/quiz-play.ejs
+  s_8d2ffa3daa2c6c::t_d3807583851ca9 518-524
+  s_8d2ffa3daa2c6c::t_31b2b022ee9e29 98-99
+  s_8d2ffa3daa2c6c::t_b223193238a143 365-367,370-374,376-403
+  s_8d2ffa3daa2c6c::t_8ad9da16c5fb20 408-413,415,419
+  s_8d2ffa3daa2c6c::t_ca592d584fac12 580-584
+  s_8d2ffa3daa2c6c::t_0bf974d52e8b37 769-791,795-797,801
+server.js
+  s_8d2ffa3daa2c6c::t_73575aaab76cb0 120
+  s_8d2ffa3daa2c6c::t_c5f09105fe4efd 1252,1254,1257,1272,1278,1284,1290-1291,1295,1297-1300,1303
+  s_8d2ffa3daa2c6c::t_99b224e6784332 119
+  s_8d2ffa3daa2c6c::t_301903392cc49e 304-327
+views/dashboard.ejs
+  s_8d2ffa3daa2c6c::t_d478eb334ff1a9 889-892,902
+  s_8d2ffa3daa2c6c::t_ec4ac7173d537c 647
+  s_8d2ffa3daa2c6c::t_a6bbbae687c6a3 741-742,747-758,761,767-771
+  s_8d2ffa3daa2c6c::t_fdf18c012134a2 525-529
+  s_8d2ffa3daa2c6c::t_fcd79dfc41b217 686-699,701-714
+  s_8d2ffa3daa2c6c::t_64f9727d062393 719-735
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.17-trip",
+  "base_commit_sha": "e3d2a5252ca2b59a856d1fdf2dfe25d28d225120",
+  "prompts": {},
+  "sessions": {
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "arn:aws:bedrock:us-west-2:133197901387:application-inference-profile/f1o7fn3rqmi4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
