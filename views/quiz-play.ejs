@@ -95,6 +95,8 @@
     // GLOBAL VARIABLES
     // ==================================================
 
+    const QUIZ_DIRECTION = '<%= quizDirection %>';
+
     let quizWords = [];
     let quizResults = [];
     let quizIdx = 0;
@@ -360,45 +362,61 @@
 
     // Show a pinyin question
     function showPinyinQuestion() {
-      quizQuestion.textContent = `How to say "${currentWord.english}" in pinyin?`;
-
-      // Create fields for each syllable
-      const syllables = currentWord.pinyin.split(' ');
-
-      syllables.forEach((syllable, index) => {
-        const inputGroup = document.createElement('div');
-        inputGroup.className = 'd-flex flex-column align-items-center';
-
+      if (QUIZ_DIRECTION === 'zh→en') {
+        // Affiche le caractère chinois, l'utilisateur tape la traduction anglaise
+        quizQuestion.innerHTML = `What does <strong class="fs-1">${currentWord.chinese}</strong> mean in English?`;
         const inp = document.createElement('input');
         inp.type = 'text';
-        inp.className = 'form-control syllable-input mb-1';
-        // 🔥 CORRECTION : "x letters" au lieu de "x characters"
-        inp.placeholder = `${syllable.length} letters`;
-        inp.maxLength = syllable.length;
-
-        // Auto-focus management
-        inp.addEventListener('input', (e) => {
-          if (e.target.value.length >= e.target.maxLength && quizInputs[index + 1]) {
-            quizInputs[index + 1].focus();
-          }
-        });
-
-        // 🔥 SUPPRESSION : Plus d'indicateur de syllabe
-        inputGroup.appendChild(inp);
-        quizFields.appendChild(inputGroup);
+        inp.className = 'form-control character-input';
+        inp.placeholder = 'English translation...';
+        inp.autocomplete = 'off';
+        inp.spellcheck = false;
+        quizFields.appendChild(inp);
         quizInputs.push(inp);
-      });
+      } else {
+        // Mode par défaut : voit l'anglais, tape le pinyin
+        quizQuestion.textContent = `How to say "${currentWord.english}" in pinyin?`;
+
+        // Create fields for each syllable
+        const syllables = currentWord.pinyin.split(' ');
+
+        syllables.forEach((syllable, index) => {
+          const inputGroup = document.createElement('div');
+          inputGroup.className = 'd-flex flex-column align-items-center';
+
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.className = 'form-control syllable-input mb-1';
+          inp.placeholder = `${syllable.length} letters`;
+          inp.maxLength = syllable.length;
+
+          inp.addEventListener('input', (e) => {
+            if (e.target.value.length >= e.target.maxLength && quizInputs[index + 1]) {
+              quizInputs[index + 1].focus();
+            }
+          });
+
+          inputGroup.appendChild(inp);
+          quizFields.appendChild(inputGroup);
+          quizInputs.push(inp);
+        });
+      }
     }
 
     // Show a character question
     function showCharacterQuestion() {
-      quizQuestion.textContent = `How to write "${currentWord.english}" in Chinese characters?`;
+      if (QUIZ_DIRECTION === 'zh→en') {
+        // Même logique qu'en mode pinyin zh→en : voit chinois, tape anglais
+        quizQuestion.innerHTML = `What does <strong class="fs-1">${currentWord.chinese}</strong> mean in English?`;
+      } else {
+        quizQuestion.textContent = `How to write "${currentWord.english}" in Chinese characters?`;
+      }
 
-      // Single field for characters
+      // Single field
       const inp = document.createElement('input');
       inp.type = 'text';
       inp.className = 'form-control character-input';
-      inp.placeholder = 'Write Chinese characters here...';
+      inp.placeholder = QUIZ_DIRECTION === 'zh→en' ? 'English translation...' : 'Write Chinese characters here...';
       inp.autocomplete = 'off';
       inp.spellcheck = false;
 
@@ -497,7 +515,13 @@
 
     // Check answer
     function checkAnswer() {
-      if (quizType === 'pinyin') {
+      if (QUIZ_DIRECTION === 'zh→en') {
+        // Vérifie si la traduction anglaise correspond
+        const userAnswer = quizInputs[0].value.trim().toLowerCase();
+        const correct = currentWord.english.toLowerCase();
+        // Tolérance slash : "good morning / morning" accepte l'un ou l'autre
+        return correct.split('/').map(s => s.trim()).some(s => s === userAnswer);
+      } else if (quizType === 'pinyin') {
         const userAnswer = normalizePinyin(quizInputs.map(inp => inp.value).join(" "));
         const correctAnswer = normalizePinyin(currentWord.pinyin);
         return userAnswer === correctAnswer;
@@ -553,9 +577,11 @@
 
       } else {
         // Second error
-        quizResult.textContent = quizType === 'pinyin' ?
-          `✅ Correct answer: ${currentWord.pinyin}` :
-          `✅ Correct answer: ${currentWord.chinese}`;
+        quizResult.textContent = QUIZ_DIRECTION === 'zh→en' ?
+          `✅ Correct answer: ${currentWord.english}` :
+          quizType === 'pinyin' ?
+            `✅ Correct answer: ${currentWord.pinyin}` :
+            `✅ Correct answer: ${currentWord.chinese}`;
 
         quizResult.className = "alert alert-warning";
         quizResult.style.display = 'block';
@@ -740,27 +766,39 @@
       const hskLevelDisplay = word.hsk || 'Street';
       const chineseFontSizeClass = word.chinese && word.chinese.length >= 3 ? 'fs-2' : 'fs-1';
 
+      // Affichage adapté à la direction d'apprentissage
+      // zh→en : j'apprends anglais → anglais en grand, chinois + pinyin en dessous
+      // en→zh : j'apprends chinois → chinois en grand, pinyin + anglais en dessous
+      const feedbackContent = QUIZ_DIRECTION === 'zh→en'
+        ? `<div class="fs-3 fw-bold text-primary mb-2">${word.english || ''}</div>
+           <div class="bg-white border rounded-3 p-2 mb-1">
+             <div class="${chineseFontSizeClass} text-dark chinese-clickable"
+                  data-word-id="${word.id}" data-chinese-text="${word.chinese}"
+                  style="min-height: 40px; display: flex; align-items: center; justify-content: center;">
+               ${word.chinese}
+             </div>
+           </div>
+           <div class="mt-1 text-muted small">${word.pinyin || ''}</div>`
+        : `<div class="bg-white border rounded-3 p-3">
+             <div class="${chineseFontSizeClass} text-dark chinese-clickable"
+                  data-word-id="${word.id}" data-chinese-text="${word.chinese}"
+                  style="min-height: 60px; display: flex; align-items: center; justify-content: center;">
+               ${word.chinese}
+             </div>
+           </div>
+           <div class="mt-2 text-muted small">${word.pinyin || ''}</div>
+           <div class="mt-1 fw-bold text-primary small">${word.english || ''}</div>`;
+
       card.innerHTML = `
         <div class="card-body text-center p-0">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="badge bg-secondary">
-                    HSK ${hskLevelDisplay}
-                </span>
-                <button class="btn btn-sm btn-outline-primary btn-audio" 
-                        data-text="${word.chinese}"
-                        title="Listen pronunciation">
+                <span class="badge bg-secondary">HSK ${hskLevelDisplay}</span>
+                <button class="btn btn-sm btn-outline-primary btn-audio"
+                        data-text="${word.chinese}" title="Listen pronunciation">
                     <i class="bi bi-volume-up"></i>
                 </button>
             </div>
-            <div class="bg-white border rounded-3 p-3">
-                <div class="${chineseFontSizeClass} text-dark chinese-clickable" 
-                     data-word-id="${word.id}"
-                     data-chinese-text="${word.chinese}"
-                     style="min-height: 60px; display: flex; align-items: center; justify-content: center;">
-                    ${word.chinese}
-                </div>
-            </div>
-            <div class="mt-2 text-muted small">${word.pinyin}</div>
+            ${feedbackContent}
         </div>
     `;
 

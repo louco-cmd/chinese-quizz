@@ -186,6 +186,10 @@
         align-self: flex-start;
       }
     }
+  .quiz-dir-option:has(.quiz-dir-radio:checked) {
+    border-color: #0d6efd !important;
+    background: #e8f0ff;
+  }
   </style>
 </head>
 
@@ -410,6 +414,27 @@
               <option value="ZM" <%=user.country==='ZM' ? 'selected' : '' %>>🇿🇲 Zambia</option>
               <option value="ZW" <%=user.country==='ZW' ? 'selected' : '' %>>🇿🇼 Zimbabwe</option>
             </select>
+          </div>
+
+          <!-- Learning direction -->
+          <div class="mb-3">
+            <label class="form-label small fw-medium">Learning direction</label>
+            <div class="d-flex gap-2 flex-wrap">
+              <label class="quiz-dir-option flex-fill text-center p-2 border rounded-3 cursor-pointer" style="cursor:pointer">
+                <input type="radio" name="quizDirection" value="en→zh" class="d-none quiz-dir-radio"
+                  <%= (!user.quiz_direction || user.quiz_direction === 'en→zh') ? 'checked' : '' %>>
+                <div class="fs-5">🇬🇧 → 🇨🇳</div>
+                <div class="small fw-semibold mt-1">I'm learning Chinese</div>
+                <div class="small text-muted" style="font-size:0.7rem">See English, type Chinese</div>
+              </label>
+              <label class="quiz-dir-option flex-fill text-center p-2 border rounded-3 cursor-pointer" style="cursor:pointer">
+                <input type="radio" name="quizDirection" value="zh→en" class="d-none quiz-dir-radio"
+                  <%= user.quiz_direction === 'zh→en' ? 'checked' : '' %>>
+                <div class="fs-5">🇨🇳 → 🇬🇧</div>
+                <div class="small fw-semibold mt-1">I'm learning English</div>
+                <div class="small text-muted" style="font-size:0.7rem">See Chinese, type English</div>
+              </label>
+            </div>
           </div>
         </form>
       </div>
@@ -876,6 +901,8 @@
       const name    = document.getElementById('editName').value.trim();
       const tagline = document.getElementById('editTagline').value.trim();
       const country = document.getElementById('editCountry').value;
+      const quizDirEl = document.querySelector('input[name="quizDirection"]:checked');
+      const quiz_direction = quizDirEl ? quizDirEl.value : 'en→zh';
 
       if (!name) { showNotification('Name cannot be empty', 'error'); return; }
 
@@ -887,7 +914,7 @@
         const res = await fetch('/api/user/update-profile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, tagline, country }),
+          body: JSON.stringify({ name, tagline, country, quiz_direction }),
           credentials: 'include'
         });
         const result = await res.json();

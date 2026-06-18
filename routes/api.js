@@ -594,6 +594,25 @@ router.get("/check-mot/:chinese", ensureAuth, async (req, res) => {
   }
 });
 
+// Recherche par mot anglais (mode zh→en : apprendre anglais depuis le chinois)
+router.get("/check-mot-by-english/:english", ensureAuth, async (req, res) => {
+  const english = decodeURIComponent(req.params.english).trim().toLowerCase();
+  try {
+    // Cherche un match exact ou partiel (tolérance slash : "good / fine")
+    const { rows } = await pool.query(
+      "SELECT * FROM mots WHERE LOWER(english) = $1 OR LOWER(english) ILIKE $2 LIMIT 5",
+      [english, `%${english}%`]
+    );
+    if (rows.length > 0) {
+      res.json({ exists: true, mot: rows[0], results: rows });
+    } else {
+      res.json({ exists: false });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
   const userId = req.user.id;
 
@@ -972,13 +991,31 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
   }
 });
 
+// 🔍 DEBUG — état session courant
+router.get('/api/user/me', ensureAuth, async (req, res) => {
+  const dbUser = await pool.query(
+    'SELECT id, name, email, quiz_direction, onboarding_done FROM users WHERE id = $1',
+    [req.user.id]
+  );
+  res.json({
+    session: {
+      id: req.user.id,
+      name: req.user.name,
+      quiz_direction: req.user.quiz_direction,
+    },
+    database: dbUser.rows[0] || null
+  });
+});
+
 router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
 
-    const { name, tagline, country } = req.body;
+    const { name, tagline, country, quiz_direction } = req.body;
+
+    const VALID_DIRECTIONS = ['zh→en', 'en→zh'];
 
     if (!name || name.length > 50) {
       await client.query('ROLLBACK');
@@ -996,15 +1033,26 @@ router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
       });
     }
 
-    // Mettre à jour le profil SANS updated_at
+    if (quiz_direction && !VALID_DIRECTIONS.includes(quiz_direction)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid quiz direction'
+      });
+    }
+
+    // Mettre à jour le profil
     await client.query(
-      `UPDATE users 
-       SET name = $1, tagline = $2, country = $3
-       WHERE id = $4`,
-      [name, tagline, country, req.user.id]
+      `UPDATE users
+       SET name = $1, tagline = $2, country = $3, quiz_direction = $4
+       WHERE id = $5`,
+      [name, tagline, country, quiz_direction || 'en→zh', req.user.id]
     );
 
     await client.query('COMMIT');
+
+    // Mettre à jour req.user en mémoire
+    req.user.quiz_direction = quiz_direction || req.user.quiz_direction;
 
     res.json({
       success: true,
@@ -1020,6 +1068,20 @@ router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
     });
   } finally {
     client.release();
+  }
+});
+
+router.post('/api/user/complete-onboarding', ensureAuth, async (req, res) => {
+  try {
+    await pool.query(
+      'UPDATE users SET onboarding_done = TRUE WHERE id = $1',
+      [req.user.id]
+    );
+    req.user.onboarding_done = true;
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error completing onboarding:', error);
+    res.status(500).json({ success: false, message: 'Error completing onboarding' });
   }
 });
 
@@ -1393,7 +1455,7 @@ router.get('/api/duels/leaderboard', ensureAuth, async (req, res) => {
     console.log('🏆 Chargement classement...');
 
     const result = await pool.query(`
-      SELECT 
+      SELECT
         u.id,
         u.name,
         u.email,
@@ -1405,24 +1467,25 @@ router.get('/api/duels/leaderboard', ensureAuth, async (req, res) => {
           (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
           (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
         ) THEN 1 END) as losses,
-        CASE 
+        CASE
           WHEN COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END) > 0 THEN
             ROUND(
               (COUNT(CASE WHEN d.status = 'completed' AND (
                 (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
                 (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
-              ) THEN 1 END) * 100.0) / 
+              ) THEN 1 END) * 100.0) /
               COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END)
             , 1)
           ELSE 0
         END as ratio
       FROM users u
       LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
+      WHERE u.quiz_direction = $1
       GROUP BY u.id, u.name, u.email
       HAVING COUNT(CASE WHEN d.status = 'completed' THEN 1 END) > 0
       ORDER BY wins DESC, ratio DESC
       LIMIT 50
-    `);
+    `, [req.user.quiz_direction || 'en→zh']);
 
     console.log(`✅ Classement chargé: ${result.rows.length} joueurs`);
     res.json(result.rows);
@@ -1437,15 +1500,16 @@ router.get('/api/duels/leaderboard', ensureAuth, async (req, res) => {
 router.get('/api/duels/search', ensureAuth, async (req, res) => {
   try {
     const searchQuery = `%${req.query.q}%`;
-    console.log('🔍 Recherche utilisateur:', searchQuery);
+    console.log('🔍 Recherche utilisateur:', searchQuery, '| direction:', req.user.quiz_direction);
 
     const result = await pool.query(`
-      SELECT id, name, email 
-      FROM users 
-      WHERE (email ILIKE $1 OR name ILIKE $1) 
+      SELECT id, name, email
+      FROM users
+      WHERE (email ILIKE $1 OR name ILIKE $1)
         AND id != $2
+        AND quiz_direction = $3
       LIMIT 5
-    `, [searchQuery, req.user.id]);
+    `, [searchQuery, req.user.id, req.user.quiz_direction || 'en→zh']);
 
     console.log(`✅ Résultats recherche: ${result.rows.length} utilisateurs`);
     res.json(result.rows);
@@ -1516,9 +1580,10 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
       LEFT JOIN user_mots uw ON u.id = uw.user_id
       LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id)
       WHERE u.id IN (SELECT DISTINCT user_id FROM user_mots)
+        AND u.quiz_direction = $1
       GROUP BY u.id, u.name, u.email, u.tagline, u.country
       ORDER BY wins DESC, total_words DESC, losses ASC
-    `);
+    `, [req.user.quiz_direction || 'en→zh']);
 
     console.log(`✅ ${result.rows.length} joueurs trouvés`);
     if (result.rows.length > 0) {
@@ -1545,11 +1610,12 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
 
 router.get('/api/duels/stats', ensureAuth, async (req, res) => {
   const userId = req.user.id;
+  const quizDirection = req.user.quiz_direction || 'en→zh';
   try {
 
     // 1️⃣ Statistiques personnelles (wins, losses, ratio)
     const statsResult = await pool.query(`
-      SELECT 
+      SELECT
         COUNT(CASE WHEN status = 'completed' AND (
           (challenger_id = $1 AND challenger_score > opponent_score) OR
           (opponent_id = $1 AND opponent_score > challenger_score)
@@ -1558,7 +1624,7 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
           (challenger_id = $1 AND challenger_score < opponent_score) OR
           (opponent_id = $1 AND opponent_score < challenger_score)
         ) THEN 1 END) as losses,
-        CASE 
+        CASE
           WHEN COUNT(CASE WHEN status = 'completed' AND (challenger_id = $1 OR opponent_id = $1) THEN 1 END) > 0 THEN
             ROUND(
               COUNT(CASE WHEN status = 'completed' AND (
@@ -1569,14 +1635,14 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
             , 1)
           ELSE 0
         END as ratio
-      FROM duels 
+      FROM duels
       WHERE (challenger_id = $1 OR opponent_id = $1)
     `, [userId]);
 
-    // 2️⃣ Rang global — logique : wins > total_words > moins de défaites
+    // 2️⃣ Rang parmi les joueurs de même direction — logique : wins > total_words > moins de défaites
     const rankResult = await pool.query(`
       SELECT position FROM (
-        SELECT 
+        SELECT
           id,
           RANK() OVER (
             ORDER BY wins DESC, total_words DESC, losses ASC
@@ -1585,13 +1651,13 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
           SELECT
             u.id,
             COUNT(DISTINCT uw.mot_id) as total_words,
-            COUNT(DISTINCT CASE 
+            COUNT(DISTINCT CASE
               WHEN d.status = 'completed' AND (
                 (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
                 (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
               ) THEN d.id
             END) as wins,
-            COUNT(DISTINCT CASE 
+            COUNT(DISTINCT CASE
               WHEN d.status = 'completed' AND (
                 (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
                 (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
@@ -1600,11 +1666,12 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
           FROM users u
           LEFT JOIN user_mots uw ON u.id = uw.user_id
           LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id)
+          WHERE u.quiz_direction = $2
           GROUP BY u.id
         ) sub
       ) ranked
       WHERE id = $1
-    `, [userId]);
+    `, [userId, quizDirection]);
 
     const stats = statsResult.rows[0] || { wins: 0, losses: 0, ratio: 0 };
     const rank = rankResult.rows.length > 0 ? parseInt(rankResult.rows[0].position) : null;
@@ -1619,6 +1686,7 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
 
 router.get('/api/duels/bullies', ensureAuth, async (req, res) => {
   const userId = req.user.id;
+  const quizDirection = req.user.quiz_direction || 'en→zh';
 
   try {
     const result = await pool.query(`
@@ -1641,9 +1709,10 @@ router.get('/api/duels/bullies', ensureAuth, async (req, res) => {
         AND d.bet_amount > 0
         AND opponent.id != $1
         AND opponent.last_login >= NOW() - INTERVAL '1 month'
+        AND opponent.quiz_direction = $2
       GROUP BY opponent.id, opponent.name
       ORDER BY balance DESC
-    `, [userId]);
+    `, [userId, quizDirection]);
 
     res.json(result.rows);
   } catch (err) {

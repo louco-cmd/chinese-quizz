@@ -86,6 +86,29 @@ const pool = new Pool({
     `);
     console.log("✅ Table 'push_subscriptions' vérifiée ou créée.");
 
+    // ── Migration: quiz_direction + onboarding_done ───────────────────────────
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS quiz_direction VARCHAR(10) NOT NULL DEFAULT 'en→zh'
+    `);
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS onboarding_done BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    console.log("✅ Colonnes 'quiz_direction' et 'onboarding_done' vérifiées ou créées.");
+
+    // ── Fix: tous les users sans onboarding = apprennent le chinois (en→zh) ──
+    // La colonne a été créée avec DEFAULT 'zh→en' dans une version précédente,
+    // ce qui a affecté tous les anciens comptes. On corrige tous sauf ceux
+    // qui ont explicitement fait l'onboarding (donc ont choisi leur direction).
+    await pool.query(`
+      UPDATE users
+      SET quiz_direction = 'en→zh'
+      WHERE onboarding_done = FALSE
+        AND quiz_direction = 'zh→en'
+    `);
+    console.log("✅ Fix quiz_direction : anciens comptes remis à 'en→zh'.");
+
     // ── Migration: resync stripe_status depuis plan_name + status ─────────────
     // Corrige les cas où stripe_status est resté 'active' alors que
     // status ou plan_name indiquent que l'abonnement est terminé.

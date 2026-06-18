@@ -522,7 +522,11 @@
               <div class="input-label">Add a word</div>
 
               <!-- Champ de saisie -->
-              <input type="text" id="chinese" class="chinese-input" placeholder="" maxlength="6" autocomplete="off">
+              <input type="text" id="chinese" class="chinese-input"
+                placeholder="<%= quizDirection === 'zh→en' ? 'Type an English word...' : '' %>"
+                maxlength="<%= quizDirection === 'zh→en' ? '50' : '6' %>"
+                autocomplete="off"
+                <% if (quizDirection !== 'zh→en') { %>inputmode="text"<% } %>>
 
               <!-- Message d'erreur + lien aide clavier -->
               <div id="errorMessage" class="error-message"></div>
@@ -640,6 +644,7 @@
       <script src="/js/pinyin-pro.min.js"></script>
       <script src="/js/global.js"></script>
       <script>
+        const LEARN_DIR = '<%= quizDirection %>'; // 'en→zh' = apprendre chinois | 'zh→en' = apprendre anglais
         let currentChinese = '';
         let existingWordData = null;
         let currentRequestController = null;
@@ -678,50 +683,92 @@
 
         function validateChineseInput(input) {
           const value = input.value;
-          const nonChineseRegex = /[^\u4e00-\u9fff]/g;
-          const nonChineseChars = value.match(nonChineseRegex);
-          if (nonChineseChars) {
-            input.classList.add('invalid');
-            input.classList.remove('valid');
-            errorMessage.textContent = 'Only Chinese characters allowed';
-            document.getElementById('keyboardHelpLink').style.display = 'block';
+
+          if (LEARN_DIR === 'zh\u2192en') {
+            // Mode "apprendre l'anglais" : on saisit des mots anglais, interdire le chinois
+            const chineseRegex = /[\u4e00-\u9fff\u3400-\u4dbf]/;
+            if (chineseRegex.test(value)) {
+              input.classList.add('invalid');
+              input.classList.remove('valid');
+              errorMessage.textContent = '\u8bf7\u7528\u82f1\u6587\u641c\u7d22 \u00b7 Use English words to search';
+              document.getElementById('keyboardHelpLink').style.display = 'none';
+            } else {
+              input.classList.add('valid');
+              input.classList.remove('invalid');
+              errorMessage.textContent = '';
+            }
           } else {
-            input.classList.add('valid');
-            input.classList.remove('invalid');
-            errorMessage.textContent = '';
-            document.getElementById('keyboardHelpLink').style.display = 'none';
+            // Mode "apprendre le chinois" : saisie chinoise obligatoire
+            const nonChineseRegex = /[^\u4e00-\u9fff]/g;
+            const nonChineseChars = value.match(nonChineseRegex);
+            if (nonChineseChars) {
+              input.classList.add('invalid');
+              input.classList.remove('valid');
+              errorMessage.textContent = 'Only Chinese characters allowed';
+              document.getElementById('keyboardHelpLink').style.display = 'block';
+            } else {
+              input.classList.add('valid');
+              input.classList.remove('invalid');
+              errorMessage.textContent = '';
+              document.getElementById('keyboardHelpLink').style.display = 'none';
+            }
           }
         }
 
         chineseInput.addEventListener('beforeinput', (e) => {
-          if (e.data && !/[\u4e00-\u9fff]/.test(e.data)) {
-            e.preventDefault();
-            errorMessage.textContent = 'Only Chinese characters allowed';
-            chineseInput.classList.add('invalid');
-            chineseInput.classList.remove('valid');
-            document.getElementById('keyboardHelpLink').style.display = 'block';
+          if (LEARN_DIR === 'zh\u2192en') {
+            // Bloquer la saisie chinoise
+            if (e.data && /[\u4e00-\u9fff\u3400-\u4dbf]/.test(e.data)) {
+              e.preventDefault();
+              errorMessage.textContent = '\u8bf7\u7528\u82f1\u6587\u641c\u7d22 \u00b7 Use English words to search';
+              chineseInput.classList.add('invalid');
+              chineseInput.classList.remove('valid');
+            }
+          } else {
+            // Bloquer la saisie non-chinoise
+            if (e.data && !/[\u4e00-\u9fff]/.test(e.data)) {
+              e.preventDefault();
+              errorMessage.textContent = 'Only Chinese characters allowed';
+              chineseInput.classList.add('invalid');
+              chineseInput.classList.remove('valid');
+              document.getElementById('keyboardHelpLink').style.display = 'block';
+            }
           }
         });
 
         // ========== RECHERCHE DU MOT ==========
         async function searchAndAddWord() {
-          const chinese = chineseInput.value.trim();
-          if (!chinese) return;
+          const inputVal = chineseInput.value.trim();
+          if (!inputVal) return;
 
           if (currentRequestController) currentRequestController.abort();
           currentRequestController = new AbortController();
 
-          if (/[^\u4e00-\u9fff]/.test(chinese)) {
-            showStatus('Only Chinese characters allowed', 'error');
-            return;
+          if (LEARN_DIR === 'zh\u2192en') {
+            // Mode apprendre anglais : valider que c'est bien de l'anglais
+            if (/[\u4e00-\u9fff\u3400-\u4dbf]/.test(inputVal)) {
+              showStatus('\u8bf7\u7528\u82f1\u6587\u641c\u7d22 \u00b7 Use English words to search', 'error');
+              return;
+            }
+          } else {
+            // Mode apprendre chinois : valider que c'est du chinois
+            if (/[^\u4e00-\u9fff]/.test(inputVal)) {
+              showStatus('Only Chinese characters allowed', 'error');
+              return;
+            }
           }
 
+          const chinese = inputVal; // on garde le nom pour compatibilit\u00e9
           currentChinese = chinese;
           disableSubmitButton();
           showStatus('Searching...', 'info');
 
           try {
-            const res = await fetch(`/check-mot/${encodeURIComponent(chinese)}`, {
+            const endpoint = LEARN_DIR === 'zh\u2192en'
+              ? `/check-mot-by-english/${encodeURIComponent(chinese)}`
+              : `/check-mot/${encodeURIComponent(chinese)}`;
+
+            const res = await fetch(endpoint, {
               signal: currentRequestController.signal
             });
             currentRequestController = null;
@@ -839,7 +886,10 @@
           const englishField = document.getElementById('newEnglish');
           const descriptionField = document.getElementById('newDescription');
 
-          newPreview.textContent = currentChinese;
+          // En mode zh→en, la saisie est en anglais → afficher le chinois trouvé si dispo
+          newPreview.textContent = (existingWordData && LEARN_DIR === 'zh→en')
+            ? existingWordData.chinese
+            : currentChinese;
 
           if (existingWordData) {
             pinyinField.value = existingWordData.pinyin || '';
@@ -849,7 +899,7 @@
             // ✅ Génération automatique du pinyin
             const pinyinAuto = convertirPinyin(currentChinese);
             pinyinField.value = pinyinAuto;
-            englishField.value = '';
+            englishField.value = LEARN_DIR === 'zh→en' ? currentChinese : ''; // pré-remplir anglais si saisi en anglais
             descriptionField.value = '';
           }
 

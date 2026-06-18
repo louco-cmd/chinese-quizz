@@ -186,15 +186,16 @@
 
           <div id="list-container" class="container mt-4 hidden">
             <div class="mb-3" style="max-width: 400px;">
-              <input type="text" id="searchInput" class="form-control" placeholder="Looking for a word...">
+              <input type="text" id="searchInput" class="form-control"
+                placeholder="<%= quizDirection === 'zh→en' ? 'Search in English...' : 'Search Chinese, pinyin...' %>">
             </div>
             <table class="table table-striped">
               <thead>
-                <tr>
-                  <th>Chinese</th>
-                  <th>Pinyin</th>
-                  <th>English</th>
-                </tr>
+                <% if (quizDirection === 'zh→en') { %>
+                <tr><th>English</th><th>Chinese</th><th>Pinyin</th></tr>
+                <% } else { %>
+                <tr><th>Chinese</th><th>Pinyin</th><th>English</th></tr>
+                <% } %>
               </thead>
               <tbody id="listBody"></tbody>
             </table>
@@ -242,6 +243,7 @@
         let words = [], idx = 0;
         let touchStartX = 0, touchStartY = 0;
         let hideTranslation = false;
+        const LEARN_DIR = '<%= quizDirection %>';
         const cardContainer = document.getElementById('card-container');
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
@@ -465,6 +467,40 @@
           const score = word.score || 0;
           const picto = getScorePicto(score);
 
+          // Direction d'apprentissage
+          const isLearnEn = LEARN_DIR === 'zh→en'; // j'apprends l'anglais
+
+          const topBlock = isLearnEn
+            ? `<!-- Mode zh→en : anglais en grand tout en haut, hauteur min 45% de la carte -->
+               <div class="bg-white border rounded-3 mt-3 flex-grow-0 d-flex flex-column justify-content-center align-items-center text-center"
+                    style="min-height:200px; padding: 1rem 1.25rem;">
+                 <div style="font-size:2.4rem; font-weight:800; color:#0d6efd; line-height:1.2; word-break:break-word;">${word.english || 'No Translation'}</div>
+               </div>`
+            : `<!-- Mode en→zh : chinois en grand -->
+               <div class="bg-white border rounded-3 p-4 py-2 mt-3 flex-grow-0">
+                 <div class="text-dark text-center text-box ${chineseFontSizeClass} chinese-clickable"
+                      data-word-id="${word.id}" data-chinese-text="${word.chinese}" title="Cliquer pour écouter">
+                     ${word.chinese}
+                 </div>
+               </div>`;
+
+          const secondaryBlock = isLearnEn
+            ? `<!-- Chinois + pinyin : texte libre sur fond carte, pas d'encart -->
+               <div class="text-center mt-3">
+                 <div class="${chineseFontSizeClass}" style="color:#1a1a2e; line-height:1.1; font-weight:700; font-size:${(word.chinese && word.chinese.length >= 3) ? '2.1rem' : '3.1rem'} !important;">
+                   ${word.chinese}
+                 </div>
+                 <div class="mt-1" style="color:#9ca3af; font-size:1.1rem; font-weight:500;">${word.pinyin || ''}</div>
+               </div>
+               <div class="pt-2 border-top border-light-subtle mt-3">
+                 <div class="text-context translation-text">${word.description || 'No description provided.'}</div>
+               </div>`
+            : `<div class="fs-pinyin fw-bold text-dark mb-1">${word.pinyin || ''}</div>
+               <div class="fs-5 mb-3 text-primary translation-text">${word.english || 'No Translation'}</div>
+               <div class="pt-3 border-top border-light-subtle">
+                   <div class="text-context translation-text">${word.description || 'No description provided.'}</div>
+               </div>`;
+
           card.innerHTML = `
       <div class="card card-custom-bg rounded-4 shadow-lg p-3 mx-auto" style="width: 320px; height: 500px; position: relative;">
 
@@ -472,36 +508,24 @@
               <span class="hsk-tag-custom py-1 px-2 border border-light">HSK : ${hskLevelDisplay}</span>
           </div>
 
-          <!-- 🔥 NOUVEAU : Picto de niveau de connaissance -->
+          <!-- Picto de niveau de connaissance -->
           <div class="position-absolute top-0 start-0 mt-0 ms-3">
               <span class="score-picto fs-4" title="Niveau de connaissance: ${score}%">${picto}</span>
           </div>
 
-          <!-- CARACTÈRE CHINOIS CLIQUABLE -->
-          <div class="bg-white border rounded-3 p-4 py-2 mt-3 flex-grow-0">
-              <div class="text-dark text-center text-box ${chineseFontSizeClass} chinese-clickable" 
-                   data-word-id="${word.id}"
-                   data-chinese-text="${word.chinese}"
-                   title="Cliquer pour écouter">
-                  ${word.chinese}
-              </div>
-          </div>
+          ${topBlock}
 
           <div class="flex-grow-1 d-flex flex-column justify-content-between">
               <div>
-                  <div class="fs-pinyin fw-bold text-dark mb-1">${word.pinyin || ''}</div>
-                  <div class="fs-5 mb-3 text-primary translation-text">${word.english || 'No Translation'}</div>
-                  <div class="pt-3 border-top border-light-subtle">
-                      <div class="text-context translation-text">${word.description || 'No description provided.'}</div>
-                  </div>
+                  ${secondaryBlock}
               </div>
-              
-              <!-- BOUTON AUDIO ADDITIONNEL -->
+
+              <!-- BOUTON AUDIO + OPTIONS -->
               <div class="d-flex justify-content-between align-items-center mt-auto">
-                  <button class="btn btn-sm btn-outline-primary btn-audio" 
+                  <button class="btn btn-sm btn-outline-primary btn-audio"
                     data-text="${word.chinese}"
                     title="listen to pronunciation">
-                    <i class="bi bi-volume-up"></i> 
+                    <i class="bi bi-volume-up"></i>
                   </button>
                   <div class="dropdown">
                     <button class="btn btn-sm btn-outline-primary dropdown-toggle bi bi-gear-fill" type="button" id="dropdownMenuButton${word.id}" data-bs-toggle="dropdown" aria-expanded="false"  style="border: 1px solid #dee2e6;">
@@ -512,7 +536,7 @@
                     </ul>
                 </div>
               </div>
-              
+
           </div>
       </div>
     `;
@@ -678,7 +702,9 @@
           listBody.innerHTML = '';
           words.forEach((word, i) => {
             const row = document.createElement('tr');
-            row.innerHTML = `<td>${word.chinese}</td><td>${word.pinyin || ''}</td><td>${word.english || ''}</td>`;
+            row.innerHTML = LEARN_DIR === 'zh→en'
+              ? `<td>${word.english || ''}</td><td>${word.chinese}</td><td>${word.pinyin || ''}</td>`
+              : `<td>${word.chinese}</td><td>${word.pinyin || ''}</td><td>${word.english || ''}</td>`;
             row.onclick = () => {
               idx = i;
               showCard();
@@ -777,9 +803,12 @@
         //search a specific word in list
         searchInput.addEventListener('input', () => {
           const query = searchInput.value.toLowerCase();
-          document.querySelectorAll('#listBody tr').forEach(row => {
-            const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(query) ? '' : 'none';
+          words.forEach((word, i) => {
+            const haystack = LEARN_DIR === 'zh→en'
+              ? (word.english + ' ' + (word.pinyin || '')).toLowerCase()
+              : (word.chinese + ' ' + (word.pinyin || '') + ' ' + (word.english || '')).toLowerCase();
+            const row = listBody.children[i];
+            if (row) row.style.display = (query === '' || haystack.includes(query)) ? '' : 'none';
           });
         });
 

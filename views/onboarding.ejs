@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Welcome to Jiayou!</title>
+  <%- include('partials/meta', { pageTitle: 'Jiayou · Welcome!', pageDescription: 'Set up your profile and start learning Chinese.' }) %>
+
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: #f0f4ff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .onboarding-container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 32px 20px 80px;
+    }
+
+    .onboarding-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .onboarding-header .logo {
+      font-size: 3rem;
+      font-weight: 800;
+      color: #0d6efd;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .onboarding-header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 6px;
+    }
+
+    .onboarding-header p {
+      color: #6c757d;
+      font-size: 0.95rem;
+    }
+
+    .onboarding-card {
+      background: white;
+      border-radius: 20px;
+      padding: 28px 24px;
+      box-shadow: 0 4px 24px rgba(13, 110, 253, 0.08);
+    }
+
+    .step-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #0d6efd;
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #2c2c3e;
+    }
+
+    .form-control, .form-select {
+      border-radius: 12px;
+      border: 1.5px solid #e0e6ef;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+    }
+
+    .form-control:focus, .form-select:focus {
+      border-color: #0d6efd;
+      box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.12);
+    }
+
+    /* Quiz direction toggle */
+    .dir-options {
+      display: flex;
+      gap: 12px;
+    }
+
+    .dir-option {
+      flex: 1;
+      text-align: center;
+      padding: 16px 12px;
+      border: 2px solid #e0e6ef;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: white;
+    }
+
+    .dir-option input[type="radio"] {
+      display: none;
+    }
+
+    .dir-option:has(input:checked) {
+      border-color: #0d6efd;
+      background: #e8f0ff;
+    }
+
+    .dir-option .dir-emoji {
+      font-size: 1.8rem;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .dir-option .dir-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #2c2c3e;
+    }
+
+    .dir-option .dir-sub {
+      font-size: 0.72rem;
+      color: #6c757d;
+      margin-top: 2px;
+    }
+
+    .dir-option:has(input:checked) .dir-title {
+      color: #0d6efd;
+    }
+
+    /* Example word preview */
+    .quiz-preview {
+      background: #f8faff;
+      border: 1.5px solid #d0deff;
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.88rem;
+    }
+
+    .quiz-preview .preview-word {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #0d6efd;
+    }
+
+    .quiz-preview .preview-arrow {
+      color: #adb5bd;
+    }
+
+    .quiz-preview .preview-input {
+      background: white;
+      border: 1.5px dashed #0d6efd;
+      border-radius: 8px;
+      padding: 4px 10px;
+      color: #6c757d;
+      font-style: italic;
+    }
+
+    .btn-start {
+      width: 100%;
+      padding: 14px;
+      border-radius: 14px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #0d6efd, #0a4fcf);
+      border: none;
+      color: white !important;
+      margin-top: 28px;
+      transition: opacity 0.15s, filter 0.15s;
+    }
+
+    .btn-start:hover:not(:disabled) {
+      color: white !important;
+      filter: brightness(1.1);
+      opacity: 1;
+    }
+
+    .btn-start:disabled {
+      opacity: 0.6;
+    }
+
+    .progress-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 28px;
+    }
+
+    .progress-dots span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #d0deff;
+    }
+
+    .progress-dots span.active {
+      background: #0d6efd;
+      width: 24px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="onboarding-container">
+
+  <div class="onboarding-header">
+    <span class="logo">加油！</span>
+    <h1>Welcome, <%= user.name ? user.name.split(' ')[0] : 'learner' %>!</h1>
+    <p>Let's set up your profile before you start.</p>
+  </div>
+
+
+  <div class="onboarding-card">
+
+    <!-- Name -->
+    <div class="mb-3">
+      <label class="form-label" for="onboardName">Your name <span class="text-danger">*</span></label>
+      <input type="text" id="onboardName" class="form-control"
+             placeholder="How should we call you?"
+             value="<%= user.name || '' %>" maxlength="50">
+    </div>
+
+    <!-- Country -->
+    <div class="mb-3">
+      <label class="form-label" for="onboardCountry">Your country</label>
+      <select id="onboardCountry" class="form-select">
+        <option value="">— Select your country —</option>
+        <option value="AF" <%=user.country==='AF' ? 'selected' : '' %>>🇦🇫 Afghanistan</option>
+        <option value="AL" <%=user.country==='AL' ? 'selected' : '' %>>🇦🇱 Albania</option>
+        <option value="DZ" <%=user.country==='DZ' ? 'selected' : '' %>>🇩🇿 Algeria</option>
+        <option value="AD" <%=user.country==='AD' ? 'selected' : '' %>>🇦🇩 Andorra</option>
+        <option value="AO" <%=user.country==='AO' ? 'selected' : '' %>>🇦🇴 Angola</option>
+        <option value="AG" <%=user.country==='AG' ? 'selected' : '' %>>🇦🇬 Antigua and Barbuda</option>
+        <option value="AR" <%=user.country==='AR' ? 'selected' : '' %>>🇦🇷 Argentina</option>
+        <option value="AM" <%=user.country==='AM' ? 'selected' : '' %>>🇦🇲 Armenia</option>
+        <option value="AU" <%=user.country==='AU' ? 'selected' : '' %>>🇦🇺 Australia</option>
+        <option value="AT" <%=user.country==='AT' ? 'selected' : '' %>>🇦🇹 Austria</option>
+        <option value="AZ" <%=user.country==='AZ' ? 'selected' : '' %>>🇦🇿 Azerbaijan</option>
+        <option value="BS" <%=user.country==='BS' ? 'selected' : '' %>>🇧🇸 Bahamas</option>
+        <option value="BH" <%=user.country==='BH' ? 'selected' : '' %>>🇧🇭 Bahrain</option>
+        <option value="BD" <%=user.country==='BD' ? 'selected' : '' %>>🇧🇩 Bangladesh</option>
+        <option value="BB" <%=user.country==='BB' ? 'selected' : '' %>>🇧🇧 Barbados</option>
+        <option value="BY" <%=user.country==='BY' ? 'selected' : '' %>>🇧🇾 Belarus</option>
+        <option value="BE" <%=user.country==='BE' ? 'selected' : '' %>>🇧🇪 Belgium</option>
+        <option value="BZ" <%=user.country==='BZ' ? 'selected' : '' %>>🇧🇿 Belize</option>
+        <option value="BJ" <%=user.country==='BJ' ? 'selected' : '' %>>🇧🇯 Benin</option>
+        <option value="BT" <%=user.country==='BT' ? 'selected' : '' %>>🇧🇹 Bhutan</option>
+        <option value="BO" <%=user.country==='BO' ? 'selected' : '' %>>🇧🇴 Bolivia</option>
+        <option value="BA" <%=user.country==='BA' ? 'selected' : '' %>>🇧🇦 Bosnia and Herzegovina</option>
+        <option value="BW" <%=user.country==='BW' ? 'selected' : '' %>>🇧🇼 Botswana</option>
+        <option value="BR" <%=user.country==='BR' ? 'selected' : '' %>>🇧🇷 Brazil</option>
+        <option value="BN" <%=user.country==='BN' ? 'selected' : '' %>>🇧🇳 Brunei</option>
+        <option value="BG" <%=user.country==='BG' ? 'selected' : '' %>>🇧🇬 Bulgaria</option>
+        <option value="BF" <%=user.country==='BF' ? 'selected' : '' %>>🇧🇫 Burkina Faso</option>
+        <option value="BI" <%=user.country==='BI' ? 'selected' : '' %>>🇧🇮 Burundi</option>
+        <option value="CV" <%=user.country==='CV' ? 'selected' : '' %>>🇨🇻 Cabo Verde</option>
+        <option value="KH" <%=user.country==='KH' ? 'selected' : '' %>>🇰🇭 Cambodia</option>
+        <option value="CM" <%=user.country==='CM' ? 'selected' : '' %>>🇨🇲 Cameroon</option>
+        <option value="CA" <%=user.country==='CA' ? 'selected' : '' %>>🇨🇦 Canada</option>
+        <option value="CF" <%=user.country==='CF' ? 'selected' : '' %>>🇨🇫 Central African Republic</option>
+        <option value="TD" <%=user.country==='TD' ? 'selected' : '' %>>🇹🇩 Chad</option>
+        <option value="CL" <%=user.country==='CL' ? 'selected' : '' %>>🇨🇱 Chile</option>
+        <option value="CN" <%=user.country==='CN' ? 'selected' : '' %>>🇨🇳 China</option>
+        <option value="CO" <%=user.country==='CO' ? 'selected' : '' %>>🇨🇴 Colombia</option>
+        <option value="KM" <%=user.country==='KM' ? 'selected' : '' %>>🇰🇲 Comoros</option>
+        <option value="CD" <%=user.country==='CD' ? 'selected' : '' %>>🇨🇩 Congo (DRC)</option>
+        <option value="CG" <%=user.country==='CG' ? 'selected' : '' %>>🇨🇬 Congo (Republic)</option>
+        <option value="CR" <%=user.country==='CR' ? 'selected' : '' %>>🇨🇷 Costa Rica</option>
+        <option value="HR" <%=user.country==='HR' ? 'selected' : '' %>>🇭🇷 Croatia</option>
+        <option value="CU" <%=user.country==='CU' ? 'selected' : '' %>>🇨🇺 Cuba</option>
+        <option value="CY" <%=user.country==='CY' ? 'selected' : '' %>>🇨🇾 Cyprus</option>
+        <option value="CZ" <%=user.country==='CZ' ? 'selected' : '' %>>🇨🇿 Czech Republic</option>
+        <option value="DK" <%=user.country==='DK' ? 'selected' : '' %>>🇩🇰 Denmark</option>
+        <option value="DJ" <%=user.country==='DJ' ? 'selected' : '' %>>🇩🇯 Djibouti</option>
+        <option value="DM" <%=user.country==='DM' ? 'selected' : '' %>>🇩🇲 Dominica</option>
+        <option value="DO" <%=user.country==='DO' ? 'selected' : '' %>>🇩🇴 Dominican Republic</option>
+        <option value="EC" <%=user.country==='EC' ? 'selected' : '' %>>🇪🇨 Ecuador</option>
+        <option value="EG" <%=user.country==='EG' ? 'selected' : '' %>>🇪🇬 Egypt</option>
+        <option value="SV" <%=user.country==='SV' ? 'selected' : '' %>>🇸🇻 El Salvador</option>
+        <option value="GQ" <%=user.country==='GQ' ? 'selected' : '' %>>🇬🇶 Equatorial Guinea</option>
+        <option value="ER" <%=user.country==='ER' ? 'selected' : '' %>>🇪🇷 Eritrea</option>
+        <option value="EE" <%=user.country==='EE' ? 'selected' : '' %>>🇪🇪 Estonia</option>
+        <option value="SZ" <%=user.country==='SZ' ? 'selected' : '' %>>🇸🇿 Eswatini</option>
+        <option value="ET" <%=user.country==='ET' ? 'selected' : '' %>>🇪🇹 Ethiopia</option>
+        <option value="FJ" <%=user.country==='FJ' ? 'selected' : '' %>>🇫🇯 Fiji</option>
+        <option value="FI" <%=user.country==='FI' ? 'selected' : '' %>>🇫🇮 Finland</option>
+        <option value="FR" <%=user.country==='FR' ? 'selected' : '' %>>🇫🇷 France</option>
+        <option value="GA" <%=user.country==='GA' ? 'selected' : '' %>>🇬🇦 Gabon</option>
+        <option value="GM" <%=user.country==='GM' ? 'selected' : '' %>>🇬🇲 Gambia</option>
+        <option value="GE" <%=user.country==='GE' ? 'selected' : '' %>>🇬🇪 Georgia</option>
+        <option value="DE" <%=user.country==='DE' ? 'selected' : '' %>>🇩🇪 Germany</option>
+        <option value="GH" <%=user.country==='GH' ? 'selected' : '' %>>🇬🇭 Ghana</option>
+        <option value="GR" <%=user.country==='GR' ? 'selected' : '' %>>🇬🇷 Greece</option>
+        <option value="GD" <%=user.country==='GD' ? 'selected' : '' %>>🇬🇩 Grenada</option>
+        <option value="GT" <%=user.country==='GT' ? 'selected' : '' %>>🇬🇹 Guatemala</option>
+        <option value="GN" <%=user.country==='GN' ? 'selected' : '' %>>🇬🇳 Guinea</option>
+        <option value="GW" <%=user.country==='GW' ? 'selected' : '' %>>🇬🇼 Guinea-Bissau</option>
+        <option value="GY" <%=user.country==='GY' ? 'selected' : '' %>>🇬🇾 Guyana</option>
+        <option value="HT" <%=user.country==='HT' ? 'selected' : '' %>>🇭🇹 Haiti</option>
+        <option value="HN" <%=user.country==='HN' ? 'selected' : '' %>>🇭🇳 Honduras</option>
+        <option value="HU" <%=user.country==='HU' ? 'selected' : '' %>>🇭🇺 Hungary</option>
+        <option value="IS" <%=user.country==='IS' ? 'selected' : '' %>>🇮🇸 Iceland</option>
+        <option value="IN" <%=user.country==='IN' ? 'selected' : '' %>>🇮🇳 India</option>
+        <option value="ID" <%=user.country==='ID' ? 'selected' : '' %>>🇮🇩 Indonesia</option>
+        <option value="IR" <%=user.country==='IR' ? 'selected' : '' %>>🇮🇷 Iran</option>
+        <option value="IQ" <%=user.country==='IQ' ? 'selected' : '' %>>🇮🇶 Iraq</option>
+        <option value="IE" <%=user.country==='IE' ? 'selected' : '' %>>🇮🇪 Ireland</option>
+        <option value="IL" <%=user.country==='IL' ? 'selected' : '' %>>🇮🇱 Israel</option>
+        <option value="IT" <%=user.country==='IT' ? 'selected' : '' %>>🇮🇹 Italy</option>
+        <option value="JM" <%=user.country==='JM' ? 'selected' : '' %>>🇯🇲 Jamaica</option>
+        <option value="JP" <%=user.country==='JP' ? 'selected' : '' %>>🇯🇵 Japan</option>
+        <option value="JO" <%=user.country==='JO' ? 'selected' : '' %>>🇯🇴 Jordan</option>
+        <option value="KZ" <%=user.country==='KZ' ? 'selected' : '' %>>🇰🇿 Kazakhstan</option>
+        <option value="KE" <%=user.country==='KE' ? 'selected' : '' %>>🇰🇪 Kenya</option>
+        <option value="KI" <%=user.country==='KI' ? 'selected' : '' %>>🇰🇮 Kiribati</option>
+        <option value="KW" <%=user.country==='KW' ? 'selected' : '' %>>🇰🇼 Kuwait</option>
+        <option value="KG" <%=user.country==='KG' ? 'selected' : '' %>>🇰🇬 Kyrgyzstan</option>
+        <option value="LA" <%=user.country==='LA' ? 'selected' : '' %>>🇱🇦 Laos</option>
+        <option value="LV" <%=user.country==='LV' ? 'selected' : '' %>>🇱🇻 Latvia</option>
+        <option value="LB" <%=user.country==='LB' ? 'selected' : '' %>>🇱🇧 Lebanon</option>
+        <option value="LS" <%=user.country==='LS' ? 'selected' : '' %>>🇱🇸 Lesotho</option>
+        <option value="LR" <%=user.country==='LR' ? 'selected' : '' %>>🇱🇷 Liberia</option>
+        <option value="LY" <%=user.country==='LY' ? 'selected' : '' %>>🇱🇾 Libya</option>
+        <option value="LI" <%=user.country==='LI' ? 'selected' : '' %>>🇱🇮 Liechtenstein</option>
+        <option value="LT" <%=user.country==='LT' ? 'selected' : '' %>>🇱🇹 Lithuania</option>
+        <option value="LU" <%=user.country==='LU' ? 'selected' : '' %>>🇱🇺 Luxembourg</option>
+        <option value="MG" <%=user.country==='MG' ? 'selected' : '' %>>🇲🇬 Madagascar</option>
+        <option value="MW" <%=user.country==='MW' ? 'selected' : '' %>>🇲🇼 Malawi</option>
+        <option value="MY" <%=user.country==='MY' ? 'selected' : '' %>>🇲🇾 Malaysia</option>
+        <option value="MV" <%=user.country==='MV' ? 'selected' : '' %>>🇲🇻 Maldives</option>
+        <option value="ML" <%=user.country==='ML' ? 'selected' : '' %>>🇲🇱 Mali</option>
+        <option value="MT" <%=user.country==='MT' ? 'selected' : '' %>>🇲🇹 Malta</option>
+        <option value="MH" <%=user.country==='MH' ? 'selected' : '' %>>🇲🇭 Marshall Islands</option>
+        <option value="MR" <%=user.country==='MR' ? 'selected' : '' %>>🇲🇷 Mauritania</option>
+        <option value="MU" <%=user.country==='MU' ? 'selected' : '' %>>🇲🇺 Mauritius</option>
+        <option value="MX" <%=user.country==='MX' ? 'selected' : '' %>>🇲🇽 Mexico</option>
+        <option value="FM" <%=user.country==='FM' ? 'selected' : '' %>>🇫🇲 Micronesia</option>
+        <option value="MD" <%=user.country==='MD' ? 'selected' : '' %>>🇲🇩 Moldova</option>
+        <option value="MC" <%=user.country==='MC' ? 'selected' : '' %>>🇲🇨 Monaco</option>
+        <option value="MN" <%=user.country==='MN' ? 'selected' : '' %>>🇲🇳 Mongolia</option>
+        <option value="ME" <%=user.country==='ME' ? 'selected' : '' %>>🇲🇪 Montenegro</option>
+        <option value="MA" <%=user.country==='MA' ? 'selected' : '' %>>🇲🇦 Morocco</option>
+        <option value="MZ" <%=user.country==='MZ' ? 'selected' : '' %>>🇲🇿 Mozambique</option>
+        <option value="MM" <%=user.country==='MM' ? 'selected' : '' %>>🇲🇲 Myanmar</option>
+        <option value="NA" <%=user.country==='NA' ? 'selected' : '' %>>🇳🇦 Namibia</option>
+        <option value="NR" <%=user.country==='NR' ? 'selected' : '' %>>🇳🇷 Nauru</option>
+        <option value="NP" <%=user.country==='NP' ? 'selected' : '' %>>🇳🇵 Nepal</option>
+        <option value="NL" <%=user.country==='NL' ? 'selected' : '' %>>🇳🇱 Netherlands</option>
+        <option value="NZ" <%=user.country==='NZ' ? 'selected' : '' %>>🇳🇿 New Zealand</option>
+        <option value="NI" <%=user.country==='NI' ? 'selected' : '' %>>🇳🇮 Nicaragua</option>
+        <option value="NE" <%=user.country==='NE' ? 'selected' : '' %>>🇳🇪 Niger</option>
+        <option value="NG" <%=user.country==='NG' ? 'selected' : '' %>>🇳🇬 Nigeria</option>
+        <option value="NO" <%=user.country==='NO' ? 'selected' : '' %>>🇳🇴 Norway</option>
+        <option value="OM" <%=user.country==='OM' ? 'selected' : '' %>>🇴🇲 Oman</option>
+        <option value="PK" <%=user.country==='PK' ? 'selected' : '' %>>🇵🇰 Pakistan</option>
+        <option value="PW" <%=user.country==='PW' ? 'selected' : '' %>>🇵🇼 Palau</option>
+        <option value="PA" <%=user.country==='PA' ? 'selected' : '' %>>🇵🇦 Panama</option>
+        <option value="PG" <%=user.country==='PG' ? 'selected' : '' %>>🇵🇬 Papua New Guinea</option>
+        <option value="PY" <%=user.country==='PY' ? 'selected' : '' %>>🇵🇾 Paraguay</option>
+        <option value="PE" <%=user.country==='PE' ? 'selected' : '' %>>🇵🇪 Peru</option>
+        <option value="PH" <%=user.country==='PH' ? 'selected' : '' %>>🇵🇭 Philippines</option>
+        <option value="PL" <%=user.country==='PL' ? 'selected' : '' %>>🇵🇱 Poland</option>
+        <option value="PT" <%=user.country==='PT' ? 'selected' : '' %>>🇵🇹 Portugal</option>
+        <option value="QA" <%=user.country==='QA' ? 'selected' : '' %>>🇶🇦 Qatar</option>
+        <option value="RO" <%=user.country==='RO' ? 'selected' : '' %>>🇷🇴 Romania</option>
+        <option value="RU" <%=user.country==='RU' ? 'selected' : '' %>>🇷🇺 Russia</option>
+        <option value="RW" <%=user.country==='RW' ? 'selected' : '' %>>🇷🇼 Rwanda</option>
+        <option value="KN" <%=user.country==='KN' ? 'selected' : '' %>>🇰🇳 Saint Kitts and Nevis</option>
+        <option value="LC" <%=user.country==='LC' ? 'selected' : '' %>>🇱🇨 Saint Lucia</option>
+        <option value="VC" <%=user.country==='VC' ? 'selected' : '' %>>🇻🇨 Saint Vincent and the Grenadines</option>
+        <option value="WS" <%=user.country==='WS' ? 'selected' : '' %>>🇼🇸 Samoa</option>
+        <option value="SM" <%=user.country==='SM' ? 'selected' : '' %>>🇸🇲 San Marino</option>
+        <option value="ST" <%=user.country==='ST' ? 'selected' : '' %>>🇸🇹 Sao Tome and Principe</option>
+        <option value="SA" <%=user.country==='SA' ? 'selected' : '' %>>🇸🇦 Saudi Arabia</option>
+        <option value="SN" <%=user.country==='SN' ? 'selected' : '' %>>🇸🇳 Senegal</option>
+        <option value="RS" <%=user.country==='RS' ? 'selected' : '' %>>🇷🇸 Serbia</option>
+        <option value="SC" <%=user.country==='SC' ? 'selected' : '' %>>🇸🇨 Seychelles</option>
+        <option value="SL" <%=user.country==='SL' ? 'selected' : '' %>>🇸🇱 Sierra Leone</option>
+        <option value="SG" <%=user.country==='SG' ? 'selected' : '' %>>🇸🇬 Singapore</option>
+        <option value="SK" <%=user.country==='SK' ? 'selected' : '' %>>🇸🇰 Slovakia</option>
+        <option value="SI" <%=user.country==='SI' ? 'selected' : '' %>>🇸🇮 Slovenia</option>
+        <option value="SB" <%=user.country==='SB' ? 'selected' : '' %>>🇸🇧 Solomon Islands</option>
+        <option value="SO" <%=user.country==='SO' ? 'selected' : '' %>>🇸🇴 Somalia</option>
+        <option value="ZA" <%=user.country==='ZA' ? 'selected' : '' %>>🇿🇦 South Africa</option>
+        <option value="SS" <%=user.country==='SS' ? 'selected' : '' %>>🇸🇸 South Sudan</option>
+        <option value="ES" <%=user.country==='ES' ? 'selected' : '' %>>🇪🇸 Spain</option>
+        <option value="LK" <%=user.country==='LK' ? 'selected' : '' %>>🇱🇰 Sri Lanka</option>
+        <option value="SD" <%=user.country==='SD' ? 'selected' : '' %>>🇸🇩 Sudan</option>
+        <option value="SR" <%=user.country==='SR' ? 'selected' : '' %>>🇸🇷 Suriname</option>
+        <option value="SE" <%=user.country==='SE' ? 'selected' : '' %>>🇸🇪 Sweden</option>
+        <option value="CH" <%=user.country==='CH' ? 'selected' : '' %>>🇨🇭 Switzerland</option>
+        <option value="SY" <%=user.country==='SY' ? 'selected' : '' %>>🇸🇾 Syria</option>
+        <option value="TW" <%=user.country==='TW' ? 'selected' : '' %>>🇹🇼 Taiwan</option>
+        <option value="TJ" <%=user.country==='TJ' ? 'selected' : '' %>>🇹🇯 Tajikistan</option>
+        <option value="TZ" <%=user.country==='TZ' ? 'selected' : '' %>>🇹🇿 Tanzania</option>
+        <option value="TH" <%=user.country==='TH' ? 'selected' : '' %>>🇹🇭 Thailand</option>
+        <option value="TL" <%=user.country==='TL' ? 'selected' : '' %>>🇹🇱 Timor-Leste</option>
+        <option value="TG" <%=user.country==='TG' ? 'selected' : '' %>>🇹🇬 Togo</option>
+        <option value="TO" <%=user.country==='TO' ? 'selected' : '' %>>🇹🇴 Tonga</option>
+        <option value="TT" <%=user.country==='TT' ? 'selected' : '' %>>🇹🇹 Trinidad and Tobago</option>
+        <option value="TN" <%=user.country==='TN' ? 'selected' : '' %>>🇹🇳 Tunisia</option>
+        <option value="TR" <%=user.country==='TR' ? 'selected' : '' %>>🇹🇷 Turkey</option>
+        <option value="TM" <%=user.country==='TM' ? 'selected' : '' %>>🇹🇲 Turkmenistan</option>
+        <option value="TV" <%=user.country==='TV' ? 'selected' : '' %>>🇹🇻 Tuvalu</option>
+        <option value="UG" <%=user.country==='UG' ? 'selected' : '' %>>🇺🇬 Uganda</option>
+        <option value="UA" <%=user.country==='UA' ? 'selected' : '' %>>🇺🇦 Ukraine</option>
+        <option value="AE" <%=user.country==='AE' ? 'selected' : '' %>>🇦🇪 United Arab Emirates</option>
+        <option value="GB" <%=user.country==='GB' ? 'selected' : '' %>>🇬🇧 United Kingdom</option>
+        <option value="US" <%=user.country==='US' ? 'selected' : '' %>>🇺🇸 United States</option>
+        <option value="UY" <%=user.country==='UY' ? 'selected' : '' %>>🇺🇾 Uruguay</option>
+        <option value="UZ" <%=user.country==='UZ' ? 'selected' : '' %>>🇺🇿 Uzbekistan</option>
+        <option value="VU" <%=user.country==='VU' ? 'selected' : '' %>>🇻🇺 Vanuatu</option>
+        <option value="VE" <%=user.country==='VE' ? 'selected' : '' %>>🇻🇪 Venezuela</option>
+        <option value="VN" <%=user.country==='VN' ? 'selected' : '' %>>🇻🇳 Vietnam</option>
+        <option value="YE" <%=user.country==='YE' ? 'selected' : '' %>>🇾🇪 Yemen</option>
+        <option value="ZM" <%=user.country==='ZM' ? 'selected' : '' %>>🇿🇲 Zambia</option>
+        <option value="ZW" <%=user.country==='ZW' ? 'selected' : '' %>>🇿🇼 Zimbabwe</option>
+      </select>
+    </div>
+
+    <!-- Tagline -->
+    <div class="mb-4">
+      <label class="form-label" for="onboardTagline">Your tagline <span class="text-muted fw-normal">(optional)</span></label>
+      <input type="text" id="onboardTagline" class="form-control"
+             placeholder="e.g. Learning Chinese for work!"
+             value="<%= user.tagline || '' %>" maxlength="100">
+    </div>
+
+    <hr class="my-4">
+
+    <!-- Quiz direction -->
+    <div class="step-label"><i class="bi bi-arrow-left-right me-1"></i>What are you learning?</div>
+
+    <div class="dir-options mb-3">
+      <label class="dir-option">
+        <input type="radio" name="onboardDir" value="en→zh" checked>
+        <span class="dir-emoji">🇬🇧 → 🇨🇳</span>
+        <div class="dir-title">I'm learning Chinese</div>
+        <div class="dir-sub">See English, type pinyin or characters</div>
+      </label>
+      <label class="dir-option">
+        <input type="radio" name="onboardDir" value="zh→en">
+        <span class="dir-emoji">🇨🇳 → 🇬🇧</span>
+        <div class="dir-title">I'm learning English</div>
+        <div class="dir-sub">See Chinese, type the English meaning</div>
+      </label>
+    </div>
+
+    <button class="btn btn-start" id="startBtn" onclick="submitOnboarding()">
+      Let's go 加油！🚀
+    </button>
+  </div>
+
+</div>
+
+<script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Live preview update
+  const previewWord  = document.getElementById('previewWord');
+  const previewHint  = document.getElementById('previewHint');
+  const radios = document.querySelectorAll('input[name="onboardDir"]');
+
+  function updatePreview() {
+    const dir = document.querySelector('input[name="onboardDir"]:checked')?.value;
+    if (dir === 'en→zh') {
+      previewWord.textContent = 'hello';
+      previewHint.textContent = 'type "nǐ hǎo"';
+    } else {
+      previewWord.textContent = '你好';
+      previewHint.textContent = 'type "hello"';
+    }
+  }
+
+  radios.forEach(r => r.addEventListener('change', updatePreview));
+
+  async function submitOnboarding() {
+    const name = document.getElementById('onboardName').value.trim();
+    if (!name) {
+      document.getElementById('onboardName').focus();
+      document.getElementById('onboardName').classList.add('is-invalid');
+      return;
+    }
+
+    const tagline      = document.getElementById('onboardTagline').value.trim();
+    const country      = document.getElementById('onboardCountry').value;
+    const quiz_direction = document.querySelector('input[name="onboardDir"]:checked')?.value || 'zh→en';
+
+    const btn = document.getElementById('startBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+      // 1. Save profile
+      const r1 = await fetch('/api/user/update-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, tagline, country, quiz_direction }),
+        credentials: 'include'
+      });
+      if (!r1.ok) throw new Error('Profile save failed');
+
+      // 2. Mark onboarding done
+      const r2 = await fetch('/api/user/complete-onboarding', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (!r2.ok) throw new Error('Onboarding mark failed');
+
+      // 3. Redirect
+      window.location.href = '/dashboard';
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = "Let's go 加油！🚀";
+      alert('Something went wrong. Please try again.');
+    }
+  }
+</script>
+</body>
+</html>

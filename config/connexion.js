@@ -13,15 +13,15 @@ passport.deserializeUser(async (id, done) => {
   try {
     console.log('🔓 Désérialisation:', id);
     const res = await pool.query(
-      "SELECT id, email, name, is_admin FROM users WHERE id = $1",
+      "SELECT id, email, name, is_admin, country, tagline, quiz_direction, onboarding_done FROM users WHERE id = $1",
       [id]
     );
-    
+
     if (res.rows.length === 0) {
       console.log('❌ Utilisateur non trouvé');
       return done(null, false);
     }
-    
+
     const user = res.rows[0];
     console.log('✅ Utilisateur chargé:', user.email);
     done(null, user);
@@ -54,9 +54,9 @@ passport.use(new GoogleStrategy({
       await transaction.query('BEGIN');
 
       let userRes = await transaction.query(
-        `SELECT id, email, name, provider_id, balance FROM users 
-         WHERE provider_id = $1 OR email = $2 
-         ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END 
+        `SELECT id, email, name, provider_id, balance, quiz_direction, onboarding_done FROM users
+         WHERE provider_id = $1 OR email = $2
+         ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END
          LIMIT 1`,
         [id, email]
       );
@@ -98,11 +98,13 @@ passport.use(new GoogleStrategy({
       await transaction.query('COMMIT');
       
       console.log('✅ Authentification réussie pour:', user.email, 'Balance:', user.balance);
-      done(null, { 
+      done(null, {
         id: user.id,
-        email: user.email, 
+        email: user.email,
         name: user.name,
         balance: user.balance,
+        quiz_direction: user.quiz_direction || 'en→zh',
+        onboarding_done: user.onboarding_done || false,
         isNewUser: isNewUser
       });
 

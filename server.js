@@ -116,6 +116,8 @@ app.use(async (req, res, next) => {
   res.locals.balance        = 0;
   res.locals.user           = req.user || null;
   res.locals.vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
+  res.locals.quizDirection  = req.user?.quiz_direction || 'en→zh';
+  res.locals.onboardingDone = req.user?.onboarding_done || false;
 
   if (!req.isAuthenticated()) return next();
 
@@ -298,6 +300,30 @@ app.use(async (req, res, next) => {
   next();
 }); */
 
+
+// ── Onboarding redirect ──────────────────────────────────────────────────────
+// Tout utilisateur connecté sans onboarding_done est redirigé vers /onboarding
+const ONBOARDING_BYPASS = ['/onboarding', '/api', '/logout', '/auth', '/login',
+                           '/webhook', '/vendor', '/icons', '/screenshots', '/js', '/css'];
+app.use((req, res, next) => {
+  if (
+    req.user &&
+    req.user.onboarding_done === false &&
+    !ONBOARDING_BYPASS.some(p => req.path.startsWith(p))
+  ) {
+    return res.redirect('/onboarding');
+  }
+  next();
+});
+
+app.get('/onboarding', ensureAuth, (req, res) => {
+  if (req.user.onboarding_done) return res.redirect('/dashboard');
+  res.render('onboarding', {
+    user: req.user,
+    balance: res.locals.balance || 0,
+    isPremium: res.locals.isPremium || false
+  });
+});
 
 app.use("/", apiRoutes);
 
@@ -1223,11 +1249,12 @@ app.get('/user/:id', ensureAuth, async (req, res) => {
 
 app.get('/leaderboard', ensureAuth, async (req, res) => {
   let players = [];
+  const quizDirection = req.user.quiz_direction || 'en→zh';
   try {
-    console.log('📄 Chargement page classement SIMPLIFIÉ');
+    console.log('📄 Chargement page classement SIMPLIFIÉ, direction:', quizDirection);
     // REQUÊTE ULTRA SIMPLE POUR COMMENCER
     const results = await pool.query(`
-              SELECT 
+              SELECT
           u.id,
           u.name,
           u.email,
@@ -1242,37 +1269,38 @@ app.get('/leaderboard', ensureAuth, async (req, res) => {
               (d.challenger_id = u.id AND d.challenger_score < d.opponent_score) OR
               (d.opponent_id = u.id AND d.opponent_score < d.challenger_score)
           ) THEN 1 END) AS losses,
-          CASE 
+          CASE
               WHEN COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END) > 0 THEN
                   ROUND(
                       (COUNT(CASE WHEN d.status = 'completed' AND (
                           (d.challenger_id = u.id AND d.challenger_score > d.opponent_score) OR
                           (d.opponent_id = u.id AND d.opponent_score > d.challenger_score)
-                      ) THEN 1 END) * 100.0) / 
+                      ) THEN 1 END) * 100.0) /
                       COUNT(CASE WHEN d.status = 'completed' AND (d.challenger_id = u.id OR d.opponent_id = u.id) THEN 1 END)
                   , 1)
               ELSE 0
           END AS ratio
       FROM users u
-      LEFT JOIN duels d 
+      LEFT JOIN duels d
           ON (d.challenger_id = u.id OR d.opponent_id = u.id)
           AND d.status = 'completed'
           -- 🔽 Filtre sur l'année en cours (adaptez le nom de la colonne si nécessaire)
           AND EXTRACT(YEAR FROM d.created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
       LEFT JOIN (
-          SELECT user_id, COUNT(*) AS word_count 
-          FROM user_mots 
+          SELECT user_id, COUNT(*) AS word_count
+          FROM user_mots
           GROUP BY user_id
       ) um ON um.user_id = u.id
       WHERE u.name IS NOT NULL
+        AND u.quiz_direction = $1
       GROUP BY u.id, u.name, u.email, u.country, u.tagline, um.word_count
-      ORDER BY 
-          wins DESC, 
-          total_words DESC, 
-          ratio DESC, 
+      ORDER BY
+          wins DESC,
+          total_words DESC,
+          ratio DESC,
           u.name
       LIMIT 100;
-`);
+`, [quizDirection]);
     players = results.rows;
     console.log(`✅ ${players.rows.length} joueurs chargés (version simple)`);
 
