@@ -1,0 +1,89 @@
+server.js
+  s_8d2ffa3daa2c6c::t_d5334b6d47d3d7 121
+  s_8d2ffa3daa2c6c::t_a82237d52a89d3 1304
+  s_8d2ffa3daa2c6c::t_725340677b4483 1015-1021
+views/quiz.ejs
+  s_8d2ffa3daa2c6c::t_9d2d6bac482a88 429-430,435-436,438,442-456,460-469,472
+  s_8d2ffa3daa2c6c::t_2a09932db8fd27 296,308
+  s_8d2ffa3daa2c6c::t_63fc2d57d8dd9e 389-392
+  s_8d2ffa3daa2c6c::t_f3476614e966b9 428,431-434,437,439-441
+  s_8d2ffa3daa2c6c::t_1d9f979a6e4d8b 387
+  s_8d2ffa3daa2c6c::t_830181b391c875 957-961,963-968,970,984-995
+  s_8d2ffa3daa2c6c::t_a0137ea51defa3 383-386
+  s_8d2ffa3daa2c6c::t_62f7a59df62947 294-295,297-299,306-307,309,311
+  s_8d2ffa3daa2c6c::t_cce8d83852c9be 304-305,312-315
+  s_8d2ffa3daa2c6c::t_f5def13d419c7e 660
+  s_8d2ffa3daa2c6c::t_562753e7cc9dd8 619-622,628-637
+views/quiz-play.ejs
+  s_8d2ffa3daa2c6c::t_de3c8d7d3484e7 801-803
+  s_8d2ffa3daa2c6c::t_3e6d6f82a92908 141-144
+routes/api.js
+  s_8d2ffa3daa2c6c::t_144bc0c54e083c 2378-2380,2383-2391,2398-2410
+  s_8d2ffa3daa2c6c::t_3ca8c99ac4b570 550,569,574-575
+  s_8d2ffa3daa2c6c::t_c03c9c4e0d9ca4 1547
+  s_8d2ffa3daa2c6c::t_021cc542db613b 1519
+  s_8d2ffa3daa2c6c::t_44cfb0a67255ad 601-602,604-605
+  s_8d2ffa3daa2c6c::t_b466723ae744de 998,1006,1012-1042
+  s_8d2ffa3daa2c6c::t_fe64b65f3b090c 1621
+  s_8d2ffa3daa2c6c::t_0ce4a7675dfcb1 1751
+views/partials/voiceOn.ejs
+  s_8d2ffa3daa2c6c::t_fbfba89adf809e 72,76,84-85,87,89-91,98-109,113-114,116,118-123,135,142-144,153-156,159-164,168,185,194,198,211
+views/dashboard.ejs
+  s_8d2ffa3daa2c6c::t_e3bcaec0c2ba83 971-991
+  s_8d2ffa3daa2c6c::t_79b64e6624713a 607-614,618,622
+  s_8d2ffa3daa2c6c::t_76bc8ad340bf44 895,898-908,910-930
+views/collection.ejs
+  s_8d2ffa3daa2c6c::t_d2bf3d75660684 228-231
+  s_8d2ffa3daa2c6c::t_f4ec077d2787ed 264
+  s_8d2ffa3daa2c6c::t_d9547bf8c3cc25 771
+  s_8d2ffa3daa2c6c::t_0f61abdbd653d9 529-530
+  s_8d2ffa3daa2c6c::t_82419a2c7681eb 491,493,496,499,501
+  s_8d2ffa3daa2c6c::t_58b8b2136fb4a4 783-784
+views/account.ejs
+  s_8d2ffa3daa2c6c::t_a8d8a2c3264539 600-601
+  s_8d2ffa3daa2c6c::t_521f1c7e87cab8 686-687,689-693
+  s_8d2ffa3daa2c6c::t_1f04c40b64410a 507,515,518-519,529
+  s_8d2ffa3daa2c6c::t_c4ec81707a378c 532,535-537
+  s_8d2ffa3daa2c6c::t_d2243d1ba9aebd 904
+views/settings.ejs
+  s_8d2ffa3daa2c6c::t_975de6e3972a19 1-499
+config/connexion.js
+  s_8d2ffa3daa2c6c::t_d28aa2506f3c62 16
+  s_8d2ffa3daa2c6c::t_412d7b3f7df508 57
+views/duels.ejs
+  s_8d2ffa3daa2c6c::t_0f9a7c40c641c2 622
+  s_8d2ffa3daa2c6c::t_3de485636d6497 798
+views/partials/header.ejs
+  s_8d2ffa3daa2c6c::t_d0ff7602f340e5 65-71,78
+public/js/notifications.js
+  s_8d2ffa3daa2c6c::t_6a79a05449cb98 136,142-144
+  s_8d2ffa3daa2c6c::t_4ad16aed2b9559 21,29,40-42,45-46,48,54,58,67,70,72,75-77,79-86,90,96,99,104-109,113,119-122,129-135,137,139,141,155
+  s_8d2ffa3daa2c6c::t_9099a55702f6da 151,156-160,162-169
+public/js/card-function.js
+  s_8d2ffa3daa2c6c::t_70e3ebcd64b373 22,37,41-50
+  s_8d2ffa3daa2c6c::t_8106f980b086a5 74,76-77
+  s_8d2ffa3daa2c6c::t_92364c97a8fe14 56,92,94
+  s_8d2ffa3daa2c6c::t_7717a97d6d5625 13,16-21,23-36,38-40,51-52,54,57-73,75,79-81
+views/install-app.ejs
+  s_8d2ffa3daa2c6c::t_7f6282fe76edfe 405,411
+config/database.js
+  s_8d2ffa3daa2c6c::t_c1dca27dc81bd1 114-120
+  s_8d2ffa3daa2c6c::t_e58237e9b52e4f 100-106
+  s_8d2ffa3daa2c6c::t_4be95e89c870ed 107-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.17-trip",
+  "base_commit_sha": "a52160cc3c73ae3828e99e39c88368cd0284c917",
+  "prompts": {},
+  "sessions": {
+    "s_8d2ffa3daa2c6c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d5e5913-1d52-4b71-9082-11b4eb4a832a",
+        "model": "arn:aws:bedrock:us-west-2:133197901387:application-inference-profile/f1o7fn3rqmi4"
+      },
+      "human_author": "Louis Cochet <locochet.08@gmail.com>"
+    }
+  }
+}
