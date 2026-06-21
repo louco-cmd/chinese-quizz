@@ -39,12 +39,14 @@
 
   // Sauvegarde la PRÉFÉRENCE utilisateur (source de vérité du toggle)
   async function savePreference(enabled) {
+    console.log('[Push] savePreference →', enabled);
     const res = await fetch('/api/notifications/preference', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({ enabled }),
     });
+    console.log('[Push] savePreference ←', res.status, res.ok);
     return res.ok;
   }
 
@@ -152,10 +154,12 @@
     const toggle = document.getElementById('notifToggle');
     if (!toggle) return;
 
+    console.log('[Push] initNotifToggle → fetching status...');
     // Source de vérité = préférence serveur
     try {
-      const { enabled } = await window.getNotifStatus();
-      toggle.checked = !!enabled;
+      const data = await window.getNotifStatus();
+      console.log('[Push] initNotifToggle ← status:', data);
+      toggle.checked = !!data.enabled;
     } catch (e) {
       console.warn('[Push] init failed:', e);
     }

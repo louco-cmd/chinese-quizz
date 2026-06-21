@@ -617,22 +617,17 @@
       <!-- SECTION MOTS DIFFICILES DU JOUR -->
       <section class="container my-5">
         <div class="mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
-          <div>
-            <!-- Sous-titre "flashcard" -->
-            <div class="text-uppercase text-white-50 small fw-semibold mb-1" style="letter-spacing: 1px;">flashcard</div>
-            <h2 class="text-dark mb-0">
-              <i class="text-warning"></i>
-              You've struggled on...
-            </h2>
-          </div>
+          <h2 class="text-dark mb-0">
+            Your difficulties
+          </h2>
           <% if (quizDirection !== 'zh→en') { %>
           <!-- Toggle Show Pinyin (mode apprentissage chinois uniquement) -->
-          <div id="showPinyinToggleWrapper">
-            <button id="togglePinyinBtn" onclick="togglePinyin()"
-              class="btn btn-sm btn-outline-secondary"
-              style="border-radius: 20px; font-size: 0.8rem;">
-              <i class="bi bi-eye me-1"></i>Show Pinyin
-            </button>
+          <div id="showPinyinToggleWrapper" class="d-flex align-items-center gap-2">
+            <span class="text-muted small">Pinyin</span>
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" role="switch" id="togglePinyinBtn"
+                onchange="togglePinyin()" style="cursor:pointer; width:2.5em; height:1.3em;">
+            </div>
           </div>
           <% } %>
         </div>
@@ -982,13 +977,8 @@
         }
 
         function togglePinyin() {
-          showPinyinOnFront = !showPinyinOnFront;
-          const btn = document.getElementById('togglePinyinBtn');
-          if (btn) {
-            btn.innerHTML = showPinyinOnFront
-              ? '<i class="bi bi-eye-slash me-1"></i>Hide Pinyin'
-              : '<i class="bi bi-eye me-1"></i>Show Pinyin';
-          }
+          const checkbox = document.getElementById('togglePinyinBtn');
+          showPinyinOnFront = checkbox ? checkbox.checked : !showPinyinOnFront;
           // Met à jour toutes les cartes visibles sans les re-créer
           document.querySelectorAll('#flashcardsContainer .flip-card-front .pinyin').forEach(el => {
             el.style.display = showPinyinOnFront ? '' : 'none';

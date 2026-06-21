@@ -118,7 +118,8 @@ app.use(async (req, res, next) => {
   res.locals.vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
   res.locals.quizDirection  = req.user?.quiz_direction || 'en→zh';
   res.locals.onboardingDone = req.user?.onboarding_done || false;
-  res.locals.ghostMode      = req.user?.ghost_mode || false;
+  res.locals.ghostMode            = req.user?.ghost_mode || false;
+  res.locals.notificationsEnabled = req.user?.notifications_enabled || false;
 
   if (!req.isAuthenticated()) return next();
 

@@ -62,12 +62,14 @@
           </a>
           <% } %>
 
-          <!-- Bouton Settings (accessible depuis toutes les pages) -->
+          <!-- Bouton Settings (page account uniquement) -->
+          <% if (currentPage === 'account') { %>
           <a href="/settings" class="btn btn-link p-0 m-0"
             style="text-decoration: none; color: white; font-size: 1.5rem;"
             title="Settings">
             <i class="bi bi-gear-fill"></i>
           </a>
+          <% } %>
           <% if (currentPage === 'bank') { %>
             <div class="position-relative">
               <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold"
@@ -1168,7 +1170,7 @@ async function performDeleteAccount() {
 })();
 </script>
 
-<script src="/js/notifications.js"></script>
+<script src="/js/notifications.js?v=2"></script>
 
 <script>
 // Cache les éléments [data-hide-in-app] quand l'app tourne en standalone (PWA / store capsule)

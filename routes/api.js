@@ -2375,40 +2375,46 @@ router.post('/api/notifications/unsubscribe', ensureAuth, async (req, res) => {
 // Statut des notifications pour l'utilisateur courant
 router.get('/api/notifications/status', ensureAuth, async (req, res) => {
   try {
-    // La préférence est stockée sur users (persistante)
     const userRes = await pool.query(
       'SELECT notifications_enabled FROM users WHERE id = $1',
       [req.user.id]
     );
+    console.log('[Status] user row:', userRes.rows[0], '| rowCount:', userRes.rowCount);
     const enabled = userRes.rows[0]?.notifications_enabled || false;
 
-    // On vérifie aussi si une subscription push existe en base (pour info)
     const subRes = await pool.query(
       'SELECT endpoint FROM push_subscriptions WHERE user_id = $1 LIMIT 1',
       [req.user.id]
     );
     const subscribed = subRes.rows.length > 0;
 
+    console.log('[Status] → enabled:', enabled, 'subscribed:', subscribed);
     res.json({ subscribed, enabled });
   } catch (err) {
+    console.error('[Status] ERROR:', err.message);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
 
 // Sauvegarder la préférence notifications (indépendamment du push SW)
 router.post('/api/notifications/preference', ensureAuth, async (req, res) => {
+  console.log('[Pref] body:', req.body, '| user_id:', req.user?.id);
   const { enabled } = req.body;
-  if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled (boolean) requis' });
+  if (typeof enabled !== 'boolean') {
+    console.log('[Pref] 400 — enabled not boolean:', typeof enabled, enabled);
+    return res.status(400).json({ error: 'enabled (boolean) requis' });
+  }
   try {
-    await pool.query(
+    const result = await pool.query(
       'UPDATE users SET notifications_enabled = $1 WHERE id = $2',
       [enabled, req.user.id]
     );
+    console.log('[Pref] UPDATE rowCount:', result.rowCount, '| enabled →', enabled);
     req.user.notifications_enabled = enabled;
     res.json({ ok: true, enabled });
   } catch (err) {
-    console.error('[Push] Erreur preference:', err.message);
-    res.status(500).json({ error: 'Erreur serveur' });
+    console.error('[Pref] ERROR:', err.message);
+    res.status(500).json({ error: 'Erreur serveur', detail: err.message });
   }
 });
 
