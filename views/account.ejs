@@ -415,27 +415,6 @@
               <option value="ZW" <%=user.country==='ZW' ? 'selected' : '' %>>🇿🇼 Zimbabwe</option>
             </select>
           </div>
-
-          <!-- Learning direction -->
-          <div class="mb-3">
-            <label class="form-label small fw-medium">Learning direction</label>
-            <div class="d-flex gap-2 flex-wrap">
-              <label class="quiz-dir-option flex-fill text-center p-2 border rounded-3 cursor-pointer" style="cursor:pointer">
-                <input type="radio" name="quizDirection" value="en→zh" class="d-none quiz-dir-radio"
-                  <%= (!user.quiz_direction || user.quiz_direction === 'en→zh') ? 'checked' : '' %>>
-                <div class="fs-5">🇬🇧 → 🇨🇳</div>
-                <div class="small fw-semibold mt-1">I'm learning Chinese</div>
-                <div class="small text-muted" style="font-size:0.7rem">See English, type Chinese</div>
-              </label>
-              <label class="quiz-dir-option flex-fill text-center p-2 border rounded-3 cursor-pointer" style="cursor:pointer">
-                <input type="radio" name="quizDirection" value="zh→en" class="d-none quiz-dir-radio"
-                  <%= user.quiz_direction === 'zh→en' ? 'checked' : '' %>>
-                <div class="fs-5">🇨🇳 → 🇬🇧</div>
-                <div class="small fw-semibold mt-1">I'm learning English</div>
-                <div class="small text-muted" style="font-size:0.7rem">See Chinese, type English</div>
-              </label>
-            </div>
-          </div>
         </form>
       </div>
       <div class="modal-footer">
@@ -525,7 +504,7 @@
                 </div>
               </div>
 
-              <!-- Pinyin progress bar -->
+              <!-- Progress bar (pinyin in en→zh, words in zh→en) -->
               <div class="mb-3">
                 <div class="mastery-track progress">
                   <div class="progress-bar bg-primary" id="MasteredBar" role="progressbar" style="width: 0%"></div>
@@ -533,10 +512,11 @@
                   <div class="progress-bar bg-warning" id="MediumBar" role="progressbar" style="width: 0%"></div>
                   <div class="progress-bar bg-secondary" id="NewBar" role="progressbar" style="width: 0%"></div>
                 </div>
-                <span class="mastery-caption" id="masteryText">0% pinyin mastered</span>
+                <span class="mastery-caption" id="masteryText">0% <% if (quizDirection === 'zh→en') { %>of words mastered<% } else { %>pinyin mastered<% } %></span>
               </div>
 
-              <!-- Characters progress bar -->
+              <% if (quizDirection !== 'zh→en') { %>
+              <!-- Characters progress bar (learning Chinese only) -->
               <div class="mb-4">
                 <div class="mastery-track progress">
                   <div class="progress-bar bg-primary" id="charMasteredBar" role="progressbar" style="width: 0%"></div>
@@ -546,11 +526,15 @@
                 </div>
                 <span class="mastery-caption" id="charMasteryText">0% characters mastered</span>
               </div>
+              <% } %>
 
               <!-- Edit button full-width -->
-              <button class="btn btn-primary" onclick="openEditProfileModal()">
+              <button class="btn btn-primary w-100 mb-2" onclick="openEditProfileModal()">
                 Edit personal info
               </button>
+              <a href="/settings" class="btn btn-outline-secondary w-100">
+                <i class="bi bi-gear me-1"></i>App Settings
+              </a>
             </div>
           </div>
         </div>
@@ -613,6 +597,8 @@
     // ─────────────────────────────────────────────
     // INIT
     // ─────────────────────────────────────────────
+    const LEARN_DIR = '<%= quizDirection %>';
+
     document.addEventListener('DOMContentLoaded', function () {
       loadUserData();
       loadContributionsGrid();
@@ -697,11 +683,14 @@
 
       applyGauge('', pinyinDist);
       document.getElementById('masteryText').textContent =
-        Math.round((pinyinDist.mastered / total) * 100) + '% pinyin mastered';
+        Math.round((pinyinDist.mastered / total) * 100) +
+        (LEARN_DIR === 'zh→en' ? '% of words mastered' : '% pinyin mastered');
 
-      applyGauge('char', charDist);
-      document.getElementById('charMasteryText').textContent =
-        Math.round((charDist.mastered / total) * 100) + '% characters mastered';
+      if (LEARN_DIR !== 'zh→en') {
+        applyGauge('char', charDist);
+        document.getElementById('charMasteryText').textContent =
+          Math.round((charDist.mastered / total) * 100) + '% characters mastered';
+      }
     }
 
     // ─────────────────────────────────────────────
@@ -901,8 +890,6 @@
       const name    = document.getElementById('editName').value.trim();
       const tagline = document.getElementById('editTagline').value.trim();
       const country = document.getElementById('editCountry').value;
-      const quizDirEl = document.querySelector('input[name="quizDirection"]:checked');
-      const quiz_direction = quizDirEl ? quizDirEl.value : 'en→zh';
 
       if (!name) { showNotification('Name cannot be empty', 'error'); return; }
 
@@ -914,7 +901,7 @@
         const res = await fetch('/api/user/update-profile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, tagline, country, quiz_direction }),
+          body: JSON.stringify({ name, tagline, country }),
           credentials: 'include'
         });
         const result = await res.json();

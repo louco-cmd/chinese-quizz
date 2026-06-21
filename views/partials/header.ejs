@@ -62,22 +62,20 @@
           </a>
           <% } %>
 
-          <!-- Bouton Settings (uniquement sur la page /account et /bank) -->
-          <% if (currentPage === 'account' || currentPage === 'bank') { %>
-            <button type="button" class="btn btn-link p-0 m-0" onclick="openSettingsDrawer()"
-              style="text-decoration: none; color: white; font-size: 1.5rem;">
-              <i class="bi bi-gear-fill"></i>
-            </button>
-            <% if (currentPage === 'bank') { %>
+          <!-- Bouton Settings (accessible depuis toutes les pages) -->
+          <a href="/settings" class="btn btn-link p-0 m-0"
+            style="text-decoration: none; color: white; font-size: 1.5rem;"
+            title="Settings">
+            <i class="bi bi-gear-fill"></i>
+          </a>
+          <% if (currentPage === 'bank') { %>
             <div class="position-relative">
               <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold"
                 style="gap: 6px; transition: color 0.3s ease; position: relative;">
                 <i class="bi bi-person-square"></i>
               </a>
             </div>
-            <% } %>
-            <% } else { %>
-              <!-- Mon Compte avec pastille de notifications pour les duels -->
+          <% } else if (currentPage !== 'account') { %>
               <div class="position-relative">
                 <a href="/account" class="d-flex align-items-center text-white text-decoration-none fs-5 fw-semibold"
                   style="gap: 6px; transition: color 0.3s ease; position: relative;">

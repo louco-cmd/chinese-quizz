@@ -225,8 +225,10 @@
                   class="form-control" id="editPinyin"></div>
               <div class="mb-3"><label for="editEnglish" class="form-label">English</label><input type="text"
                   class="form-control" id="editEnglish"></div>
-              <div class="mb-3"><label for="editDescription" class="form-label">Description</label><textarea
-                  class="form-control" id="editDescription" rows="3"></textarea></div>
+              <div class="mb-3"><label for="editDescription" class="form-label">Description (English)</label><textarea
+                  class="form-control" id="editDescription" rows="2"></textarea></div>
+              <div class="mb-3"><label for="editDescriptionZh" class="form-label">Description (中文)</label><textarea
+                  class="form-control" id="editDescriptionZh" rows="2"></textarea></div>
               <div class="text-end">
                 <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
                 <button type="submit" class="btn btn-primary">Save</button>
@@ -259,6 +261,7 @@
         const editPinyin = document.getElementById('editPinyin');
         const editEnglish = document.getElementById('editEnglish');
         const editDescription = document.getElementById('editDescription');
+        const editDescriptionZh = document.getElementById('editDescriptionZh');
 
         // 🎯 VARIABLES POUR LE SYSTÈME DE HOVER
         let hoverModal = null;
@@ -485,17 +488,17 @@
                </div>`;
 
           const secondaryBlock = isLearnEn
-            ? `<!-- Chinois + pinyin : texte libre sur fond carte, pas d'encart -->
+            ? `<!-- Chinois + pinyin : à cacher quand hide translation actif -->
                <div class="text-center mt-3">
-                 <div class="${chineseFontSizeClass}" style="color:#1a1a2e; line-height:1.1; font-weight:700; font-size:${(word.chinese && word.chinese.length >= 3) ? '2.1rem' : '3.1rem'} !important;">
+                 <div class="${chineseFontSizeClass} translation-text" style="color:#1a1a2e; line-height:1.1; font-weight:700; font-size:${(word.chinese && word.chinese.length >= 3) ? '2.1rem' : '3.1rem'} !important;">
                    ${word.chinese}
                  </div>
-                 <div class="mt-1" style="color:#9ca3af; font-size:1.1rem; font-weight:500;">${word.pinyin || ''}</div>
+                 <div class="mt-1 translation-text" style="color:#9ca3af; font-size:1.1rem; font-weight:500;">${word.pinyin || ''}</div>
                </div>
                <div class="pt-2 border-top border-light-subtle mt-3">
-                 <div class="text-context translation-text">${word.description || 'No description provided.'}</div>
+                 <div class="text-context translation-text">${word.description_zh || word.description || ''}</div>
                </div>`
-            : `<div class="fs-pinyin fw-bold text-dark mb-1">${word.pinyin || ''}</div>
+            : `<div class="fs-pinyin fw-bold text-dark mb-1 translation-text">${word.pinyin || ''}</div>
                <div class="fs-5 mb-3 text-primary translation-text">${word.english || 'No Translation'}</div>
                <div class="pt-3 border-top border-light-subtle">
                    <div class="text-context translation-text">${word.description || 'No description provided.'}</div>
@@ -523,7 +526,8 @@
               <!-- BOUTON AUDIO + OPTIONS -->
               <div class="d-flex justify-content-between align-items-center mt-auto">
                   <button class="btn btn-sm btn-outline-primary btn-audio"
-                    data-text="${word.chinese}"
+                    data-text="${isLearnEn ? (word.english || word.chinese) : word.chinese}"
+                    data-lang="${isLearnEn ? 'en-US' : 'zh-CN'}"
                     title="listen to pronunciation">
                     <i class="bi bi-volume-up"></i>
                   </button>
@@ -764,6 +768,7 @@
           editPinyin.value = word.pinyin || '';
           editEnglish.value = word.english || '';
           editDescription.value = word.description || '';
+          editDescriptionZh.value = word.description_zh || '';
           const modal = new bootstrap.Modal(editModal);
           modal.show();
         }
@@ -775,7 +780,8 @@
             chinese: editChinese.value,
             pinyin: editPinyin.value,
             english: editEnglish.value,
-            description: editDescription.value
+            description: editDescription.value,
+            description_zh: editDescriptionZh.value
           };
           try {
             const res = await fetch(`/update/${editId.value}`, {

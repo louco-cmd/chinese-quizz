@@ -604,14 +604,22 @@
 
               <div class="chinese-preview" id="newPreviewChinese"></div>
 
-              <div style="margin-bottom: 16px;">
+              <!-- Mode zh→en : on connaît l'anglais, on demande juste le caractère chinois -->
+              <div id="fieldChinese" style="margin-bottom: 16px; display: none;">
+                <div class="section-label">Chinese characters</div>
+                <input type="text" id="newChinese" class="modal-input" placeholder="汉字...">
+              </div>
+
+              <!-- Mode en→zh : on connaît le chinois, on demande pinyin + anglais -->
+              <div id="fieldPinyin" style="margin-bottom: 16px;">
                 <div class="section-label">Pinyin</div>
                 <input type="text" id="newPinyin" class="modal-input" placeholder="Pinyin...">
               </div>
-              <div style="margin-bottom: 16px;">
+              <div id="fieldEnglish" style="margin-bottom: 16px;">
                 <div class="section-label">English</div>
                 <input type="text" id="newEnglish" class="modal-input" placeholder="English translation..." required>
               </div>
+
               <div style="margin-bottom: 24px;">
                 <div class="section-label">Description (optional)</div>
                 <textarea id="newDescription" class="modal-input" rows="3" placeholder="Add a short description..."></textarea>
@@ -884,32 +892,45 @@
           const newPreview = document.getElementById('newPreviewChinese');
           const pinyinField = document.getElementById('newPinyin');
           const englishField = document.getElementById('newEnglish');
+          const chineseField = document.getElementById('newChinese');
           const descriptionField = document.getElementById('newDescription');
 
-          // En mode zh→en, la saisie est en anglais → afficher le chinois trouvé si dispo
-          newPreview.textContent = (existingWordData && LEARN_DIR === 'zh→en')
-            ? existingWordData.chinese
-            : currentChinese;
+          const fieldChinese = document.getElementById('fieldChinese');
+          const fieldPinyin  = document.getElementById('fieldPinyin');
+          const fieldEnglish = document.getElementById('fieldEnglish');
 
-          if (existingWordData) {
-            pinyinField.value = existingWordData.pinyin || '';
-            englishField.value = existingWordData.english || '';
-            descriptionField.value = existingWordData.description || '';
-          } else {
-            // ✅ Génération automatique du pinyin
-            const pinyinAuto = convertirPinyin(currentChinese);
-            pinyinField.value = pinyinAuto;
-            englishField.value = LEARN_DIR === 'zh→en' ? currentChinese : ''; // pré-remplir anglais si saisi en anglais
+          if (LEARN_DIR === 'zh→en') {
+            // On a tapé un mot anglais → on affiche l'anglais en preview, on demande le chinois
+            newPreview.textContent = currentChinese; // currentChinese = ce qui a été tapé (anglais ici)
+            fieldChinese.style.display = 'block';
+            fieldPinyin.style.display  = 'none';
+            fieldEnglish.style.display = 'none';
+            chineseField.value = '';
             descriptionField.value = '';
+            setTimeout(() => chineseField.focus(), 100);
+          } else {
+            // Mode standard : on connaît le chinois, on demande pinyin + anglais
+            newPreview.textContent = currentChinese;
+            fieldChinese.style.display = 'none';
+            fieldPinyin.style.display  = 'block';
+            fieldEnglish.style.display = 'block';
+            if (existingWordData) {
+              pinyinField.value = existingWordData.pinyin || '';
+              englishField.value = existingWordData.english || '';
+              descriptionField.value = existingWordData.description || '';
+            } else {
+              pinyinField.value = convertirPinyin(currentChinese);
+              englishField.value = '';
+              descriptionField.value = '';
+            }
+            setTimeout(() => {
+              if (!pinyinField.value) pinyinField.focus();
+              else if (!englishField.value) englishField.focus();
+              else descriptionField.focus();
+            }, 100);
           }
 
           document.getElementById('newWordModal').style.display = 'flex';
-
-          setTimeout(() => {
-            if (!pinyinField.value) pinyinField.focus();
-            else if (!englishField.value) englishField.focus();
-            else descriptionField.focus();
-          }, 100);
         }
 
         function closeNewWordModal() {
@@ -947,13 +968,27 @@
         }
 
         async function confirmAddNewWord() {
-          const pinyin = document.getElementById('newPinyin').value.trim();
-          const english = document.getElementById('newEnglish').value.trim();
-          const description = document.getElementById('newDescription').value.trim();
+          let chinese, pinyin, english, description;
 
-          if (!english) {
-            showStatus('English translation required', 'error');
-            return;
+          if (LEARN_DIR === 'zh→en') {
+            // On a tapé l'anglais → l'utilisateur fournit le chinois, pinyin auto-généré
+            chinese = document.getElementById('newChinese').value.trim();
+            english = currentChinese; // currentChinese = mot anglais saisi dans la barre
+            description = document.getElementById('newDescription').value.trim();
+            if (!chinese) {
+              showStatus('Chinese characters required', 'error');
+              return;
+            }
+            pinyin = convertirPinyin(chinese);
+          } else {
+            chinese = currentChinese;
+            pinyin = document.getElementById('newPinyin').value.trim();
+            english = document.getElementById('newEnglish').value.trim();
+            description = document.getElementById('newDescription').value.trim();
+            if (!english) {
+              showStatus('English translation required', 'error');
+              return;
+            }
           }
 
           const addBtn = document.getElementById('confirmAddNewBtn');

@@ -138,6 +138,10 @@
       difficulty = urlParams.get('difficulty') || 'balanced'; // ← important
       window.quizIds = urlParams.get('ids') || ''; // ← liste explicite (quick quiz)
 
+      // En mode zh→en : une seule entrée (anglais), pas de distinction pinyin/character
+      if (QUIZ_DIRECTION === 'zh→en') {
+        quizType = 'character'; // réutilise la logique "un seul champ"
+      }
 
       // Load and start quiz
       updateQuizInfo();
@@ -794,7 +798,9 @@
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="badge bg-secondary">HSK ${hskLevelDisplay}</span>
                 <button class="btn btn-sm btn-outline-primary btn-audio"
-                        data-text="${word.chinese}" title="Listen pronunciation">
+                        data-text="${QUIZ_DIRECTION === 'zh→en' ? (word.english || word.chinese) : word.chinese}"
+                        data-lang="${QUIZ_DIRECTION === 'zh→en' ? 'en-US' : 'zh-CN'}"
+                        title="Listen pronunciation">
                     <i class="bi bi-volume-up"></i>
                 </button>
             </div>

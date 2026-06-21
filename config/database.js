@@ -97,6 +97,27 @@ const pool = new Pool({
     `);
     console.log("✅ Colonnes 'quiz_direction' et 'onboarding_done' vérifiées ou créées.");
 
+    // ── Migration: description_zh sur mots ───────────────────────────────────
+    await pool.query(`
+      ALTER TABLE mots
+      ADD COLUMN IF NOT EXISTS description_zh TEXT
+    `);
+    console.log("✅ Colonne 'description_zh' vérifiée ou créée sur 'mots'.");
+
+    // ── Migration: ghost_mode sur users ──────────────────────────────────────
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS ghost_mode BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    console.log("✅ Colonne 'ghost_mode' vérifiée ou créée sur 'users'.");
+
+    // ── Migration: notifications_enabled sur users ────────────────────────────
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    console.log("✅ Colonne 'notifications_enabled' vérifiée ou créée sur 'users'.");
+
     // ── Fix: tous les users sans onboarding = apprennent le chinois (en→zh) ──
     // La colonne a été créée avec DEFAULT 'zh→en' dans une version précédente,
     // ce qui a affecté tous les anciens comptes. On corrige tous sauf ceux

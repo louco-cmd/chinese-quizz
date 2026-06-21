@@ -13,7 +13,7 @@ passport.deserializeUser(async (id, done) => {
   try {
     console.log('🔓 Désérialisation:', id);
     const res = await pool.query(
-      "SELECT id, email, name, is_admin, country, tagline, quiz_direction, onboarding_done FROM users WHERE id = $1",
+      "SELECT id, email, name, is_admin, country, tagline, quiz_direction, onboarding_done, ghost_mode, notifications_enabled FROM users WHERE id = $1",
       [id]
     );
 
@@ -54,7 +54,7 @@ passport.use(new GoogleStrategy({
       await transaction.query('BEGIN');
 
       let userRes = await transaction.query(
-        `SELECT id, email, name, provider_id, balance, quiz_direction, onboarding_done FROM users
+        `SELECT id, email, name, provider_id, balance, quiz_direction, onboarding_done, ghost_mode FROM users
          WHERE provider_id = $1 OR email = $2
          ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END
          LIMIT 1`,

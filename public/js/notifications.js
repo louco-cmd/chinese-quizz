@@ -18,7 +18,7 @@
     return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
   }
 
-  // ── API ───────────────────────────────────────────────────────────────────
+  // ── API serveur ───────────────────────────────────────────────────────────
 
   async function registerSubscription(subscription) {
     const key = subscription.getKey('p256dh');
@@ -26,6 +26,7 @@
     await fetch('/api/notifications/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         endpoint: subscription.endpoint,
         keys: {
@@ -36,23 +37,25 @@
     });
   }
 
-  async function removeSubscription(subscription) {
-    await fetch('/api/notifications/unsubscribe', {
+  // Sauvegarde la PRÉFÉRENCE utilisateur (source de vérité du toggle)
+  async function savePreference(enabled) {
+    const res = await fetch('/api/notifications/preference', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ endpoint: subscription.endpoint }),
+      credentials: 'include',
+      body: JSON.stringify({ enabled }),
     });
+    return res.ok;
   }
 
   // ── API publique ──────────────────────────────────────────────────────────
 
   /**
-   * Retourne l'état actuel des notifs depuis le serveur.
-   * @returns {{ subscribed: boolean, enabled: boolean }}
+   * Retourne l'état actuel depuis le serveur (préférence user).
    */
   window.getNotifStatus = async function () {
     try {
-      const res = await fetch('/api/notifications/status');
+      const res = await fetch('/api/notifications/status', { credentials: 'include' });
       if (!res.ok) return { subscribed: false, enabled: false };
       return await res.json();
     } catch {
@@ -61,97 +64,108 @@
   };
 
   /**
-   * Demande la permission et enregistre la subscription push.
-   * @returns {boolean} true si succès
+   * Tente l'abonnement push SW (silencieux si non supporté).
    */
   window.subscribePush = async function () {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      alert("Your browser doesn't support push notifications.");
-      return false;
-    }
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
     const vapidKey = getVapidKey();
-    if (!vapidKey) {
-      console.warn('[Push] Clé VAPID absente — notifications non configurées.');
-      return false;
-    }
-
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      alert("Permission denied. Enable notifications in your browser settings.");
-      return false;
-    }
+    if (!vapidKey) return false;
 
     try {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return false;
+
       const reg = await navigator.serviceWorker.ready;
-      const subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey),
-      });
+      // Réutilise une subscription existante ou en crée une
+      let subscription = await reg.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        });
+      }
       await registerSubscription(subscription);
       return true;
     } catch (err) {
-      console.error('[Push] Erreur subscription:', err);
+      console.warn('[Push] SW subscribe failed (non-blocking):', err.message);
       return false;
     }
   };
 
   /**
-   * Supprime la subscription push (côté navigateur + serveur).
-   * @returns {boolean} true si succès
+   * Supprime la subscription push côté navigateur + serveur.
    */
   window.unsubscribePush = async function () {
-    if (!('serviceWorker' in navigator)) return false;
+    if (!('serviceWorker' in navigator)) return;
     try {
       const reg = await navigator.serviceWorker.ready;
       const subscription = await reg.pushManager.getSubscription();
       if (subscription) {
-        await removeSubscription(subscription);
+        await fetch('/api/notifications/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ endpoint: subscription.endpoint }),
+        });
         await subscription.unsubscribe();
       }
-      return true;
     } catch (err) {
-      console.error('[Push] Erreur unsubscription:', err);
-      return false;
+      console.warn('[Push] Unsubscribe error:', err.message);
     }
   };
 
   /**
    * Basculer depuis le toggle UI.
-   * Si l'utilisateur n'est pas encore abonné → subscribe complet.
-   * Si déjà abonné → juste activer/désactiver côté serveur.
+   *
+   * La PRÉFÉRENCE est sauvegardée immédiatement sur users.notifications_enabled
+   * → persiste quelle que soit l'issue du push SW.
+   * Le push SW est tenté en bonus (non bloquant).
    */
   window.handleNotifToggle = async function (enable) {
     const toggle = document.getElementById('notifToggle');
     if (toggle) toggle.disabled = true;
 
     try {
-      if (enable) {
-        const ok = await window.subscribePush();
-        if (!ok && toggle) toggle.checked = false; // Revert si échec
-      } else {
-        await window.unsubscribePush();
+      // 1. Sauvegarder la préférence (toujours, peu importe le push SW)
+      const saved = await savePreference(enable);
+      if (!saved) {
+        // Revert si erreur serveur
+        if (toggle) toggle.checked = !enable;
+        return;
       }
+
+      // 2. Tenter le push SW en bonus (silencieux)
+      if (enable) {
+        window.subscribePush(); // non-await intentionnel : non bloquant
+      }
+
+    } catch (err) {
+      console.error('[Push] Toggle error:', err);
+      if (toggle) toggle.checked = !enable;
     } finally {
       if (toggle) toggle.disabled = false;
     }
   };
 
   // ── Initialisation du toggle au chargement ────────────────────────────────
-  document.addEventListener('DOMContentLoaded', async function () {
+  async function initNotifToggle() {
     const toggle = document.getElementById('notifToggle');
     if (!toggle) return;
 
-    // Vérifier aussi côté navigateur si on a une subscription active
-    let browserSubscribed = false;
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      try {
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        browserSubscribed = !!sub;
-      } catch {}
+    // Source de vérité = préférence serveur
+    try {
+      const { enabled } = await window.getNotifStatus();
+      toggle.checked = !!enabled;
+    } catch (e) {
+      console.warn('[Push] init failed:', e);
     }
+  }
 
-    const { enabled } = await window.getNotifStatus();
-    toggle.checked = browserSubscribed && enabled;
-  });
+  // Fonctionne que le DOM soit déjà prêt ou pas encore
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initNotifToggle);
+  } else {
+    initNotifToggle();
+  }
+
 })();

@@ -401,16 +401,14 @@
 
   // Show "already installed" banner — or redirect if running as app/capsule
   if (isStandalone) {
-    // On est dans la capsule : cette page n'a pas de sens, retour au dashboard
     window.location.replace('/dashboard');
-    return;
-  }
-
+  } else {
   // Auto-select tab based on device
   if (isIos)           showDevice('iphone');
   else if (isAndroid)  showDevice('android');
   else if (isMac)      showDevice('mac');
   else                 showDevice('windows');
+  }
 
   function showDevice(id) {
     document.querySelectorAll('.device-panel').forEach(p => p.style.display = 'none');

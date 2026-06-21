@@ -10,19 +10,75 @@ const CACHE_DURATION = 5 * 60 * 1000;
 let hoverTimeout = null;
 
 // ==================================================
-// GESTION AUDIO
+// GESTION AUDIO — voix pré-chargées
 // ==================================================
 
-/**
- * Lit un texte en chinois avec la synthèse vocale
- */
-function speakText(text) {
-    if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'zh-CN';
-        utterance.rate = 0.8;
-        speechSynthesis.speak(utterance);
+let _voiceEn = null;
+let _voiceZh = null;
+let _voicesLoaded = false;
+
+function _loadVoices() {
+    const voices = speechSynthesis.getVoices();
+    if (!voices.length) return false;
+    _voicesLoaded = true;
+
+    // Voix anglaise : préférer en-GB ou en-US natif (pas Google)
+    _voiceEn = voices.find(v => v.lang === 'en-GB' && !v.name.toLowerCase().includes('google')) ||
+               voices.find(v => v.lang === 'en-US' && !v.name.toLowerCase().includes('google')) ||
+               voices.find(v => v.lang.startsWith('en-')  && !v.name.toLowerCase().includes('google')) ||
+               voices.find(v => v.lang.startsWith('en-'));
+
+    // Voix chinoise : préférer zh-CN natif
+    _voiceZh = voices.find(v => v.lang === 'zh-CN' && !v.name.toLowerCase().includes('google')) ||
+               voices.find(v => v.lang.startsWith('zh-')  && !v.name.toLowerCase().includes('google')) ||
+               voices.find(v => v.lang.startsWith('zh-'));
+
+    console.log('🔊 Voix EN:', _voiceEn?.name, '| ZH:', _voiceZh?.name);
+    return true;
+}
+
+if ('speechSynthesis' in window) {
+    // Tentative immédiate
+    if (!_loadVoices()) {
+        // onvoiceschanged (Chrome desktop)
+        speechSynthesis.onvoiceschanged = _loadVoices;
+        // Retry polling pour Safari/iOS/mobile qui ne déclenche pas l'event
+        let _retries = 0;
+        const _retryInterval = setInterval(() => {
+            if (_loadVoices() || ++_retries >= 20) clearInterval(_retryInterval);
+        }, 250);
     }
+}
+
+/**
+ * Lit un texte avec la bonne voix selon la langue
+ */
+function speakText(text, lang) {
+    if (!('speechSynthesis' in window) || !text) return;
+
+    // Auto-détection si pas de lang forcée
+    const isChinese = /[一-鿿]/.test(text);
+    const resolvedLang = lang || (isChinese ? 'zh-CN' : 'en-US');
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = resolvedLang;
+    utterance.rate = resolvedLang.startsWith('zh') ? 0.8 : 0.95;
+
+    // Assigner la voix pré-chargée
+    if (resolvedLang.startsWith('en') && _voiceEn) {
+        utterance.voice = _voiceEn;
+    } else if (resolvedLang.startsWith('zh') && _voiceZh) {
+        utterance.voice = _voiceZh;
+    } else {
+        // Fallback : chercher en live
+        const voices = speechSynthesis.getVoices();
+        const voice = voices.find(v => v.lang.startsWith(resolvedLang.split('-')[0]) && !v.name.toLowerCase().includes('google')) ||
+                      voices.find(v => v.lang.startsWith(resolvedLang.split('-')[0]));
+        if (voice) utterance.voice = voice;
+    }
+
+    speechSynthesis.cancel(); // stopper toute lecture en cours
+    speechSynthesis.speak(utterance);
 }
 
 /**
@@ -33,8 +89,9 @@ function activateAudioButtons(container) {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const text = btn.getAttribute('data-text');
+            const lang = btn.getAttribute('data-lang') || 'zh-CN';
             if (text) {
-                speakText(text);
+                speakText(text, lang);
             }
         });
     });

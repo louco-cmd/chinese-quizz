@@ -619,6 +619,7 @@
       <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
       <script src="/js/global.js"></script>
       <script>
+        const GHOST_MODE = <%= ghostMode ? 'true' : 'false' %>;
         let currentOpponent = null;
         let searchTimeout = null;
 
@@ -794,7 +795,7 @@
           <div class="text-muted small">Ratio</div>
         </div>
         <div class="col-3">
-          <div class="h5">${stats.rank ? `#${stats.rank}` : '—'}</div>
+          <div class="h5">${GHOST_MODE ? '👻' : (stats.rank ? `#${stats.rank}` : '—')}</div>
           <div class="text-muted small">Ranking</div>
         </div>
       </div>

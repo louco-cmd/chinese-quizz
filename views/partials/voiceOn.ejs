@@ -69,10 +69,11 @@
 
 <script>
 // ============================================================
-//  TTS Chinois — version résiliente iOS Safari
+//  TTS — voix chinoise ET anglaise, version résiliente iOS
 // ============================================================
 
 let _zhVoice = null;
+let _enVoice = null;
 let _voicesReady = false;
 let _ttsUnlocked = false;
 
@@ -80,34 +81,46 @@ let _ttsUnlocked = false;
 const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-// Sélection de la meilleure voix chinoise disponible
-function _pickChineseVoice() {
-  if (!('speechSynthesis' in window)) return null;
+function _pickVoices() {
+  if (!('speechSynthesis' in window)) return;
   const voices = speechSynthesis.getVoices();
-  if (!voices || !voices.length) return null;
+  if (!voices || !voices.length) return;
 
-  // Priorité : zh-CN > zh-Hans > zh-* > toute voix contenant "Chinese"
-  return (
-    voices.find(v => v.lang === 'zh-CN') ||
+  // Voix chinoise : zh-CN natif en priorité
+  _zhVoice = (
+    voices.find(v => v.lang === 'zh-CN' && !v.name.toLowerCase().includes('google')) ||
     voices.find(v => /^zh-Hans/i.test(v.lang)) ||
     voices.find(v => /^zh[-_]/i.test(v.lang)) ||
     voices.find(v => /chinese|mandarin/i.test(v.name)) ||
     null
   );
-}
 
-function _refreshVoice() {
-  _zhVoice = _pickChineseVoice();
-  _voicesReady = !!_zhVoice;
+  // Voix anglaise : en-GB natif en priorité, sinon en-US natif
+  _enVoice = (
+    voices.find(v => v.lang === 'en-GB' && !v.name.toLowerCase().includes('google')) ||
+    voices.find(v => v.lang === 'en-US' && !v.name.toLowerCase().includes('google')) ||
+    voices.find(v => v.lang === 'en-GB') ||
+    voices.find(v => v.lang === 'en-US') ||
+    voices.find(v => /^en[-_]/i.test(v.lang)) ||
+    null
+  );
+
+  _voicesReady = !!(_zhVoice || _enVoice);
+  console.log('🔊 ZH:', _zhVoice?.name || 'none', '| EN:', _enVoice?.name || 'none');
 }
 
 if ('speechSynthesis' in window) {
-  _refreshVoice();
-  // Sur iOS / Safari les voix arrivent de manière asynchrone
-  speechSynthesis.addEventListener?.('voiceschanged', _refreshVoice);
+  _pickVoices();
+  speechSynthesis.addEventListener?.('voiceschanged', _pickVoices);
   if ('onvoiceschanged' in speechSynthesis) {
-    speechSynthesis.onvoiceschanged = _refreshVoice;
+    speechSynthesis.onvoiceschanged = _pickVoices;
   }
+  // Retry polling pour Chrome/Safari qui retournent [] au premier appel
+  let _retries = 0;
+  const _retryPick = setInterval(() => {
+    _pickVoices();
+    if (_voicesReady || ++_retries >= 20) clearInterval(_retryPick);
+  }, 250);
 }
 
 // Déverrouille le TTS au premier geste utilisateur (obligatoire sur iOS)
@@ -119,55 +132,45 @@ function _unlockTTS() {
     speechSynthesis.speak(u);
     _ttsUnlocked = true;
   } catch (_) { /* noop */ }
-  _refreshVoice();
+  _pickVoices();
 }
 
-// Premier déverrouillage au tout premier touch/click n'importe où
 ['touchstart', 'click'].forEach(evt => {
   window.addEventListener(evt, _unlockTTS, { once: true, capture: true, passive: true });
 });
 
-// Fonction de lecture résiliente
-function speakChineseOptimized(text, element) {
-  if (!('speechSynthesis' in window)) {
-    console.warn('❌ TTS non supporté');
-    return;
-  }
+// Lecture optimisée — prend une langue en paramètre
+function speakOptimized(text, lang, element) {
+  if (!('speechSynthesis' in window)) return;
   if (!text) return;
 
-  // Déverrouillage iOS si pas encore fait (on est dans un handler de geste)
   if (!_ttsUnlocked) _unlockTTS();
 
-  // Sur iOS, cancel() peut bloquer le prochain speak() dans la même frame.
-  // On ne l'appelle que si quelque chose est réellement en cours.
   if (speechSynthesis.speaking || speechSynthesis.pending) {
     try { speechSynthesis.cancel(); } catch (_) {}
   }
 
-  // S'assurer d'avoir la voix la plus à jour (les voix peuvent arriver tard sur iOS)
-  if (!_zhVoice) _refreshVoice();
+  // Choisir la voix selon la langue
+  const isEnglish = lang && lang.startsWith('en');
+  const voice = isEnglish ? _enVoice : _zhVoice;
+  if (!voice) _pickVoices();
 
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'zh-CN';
-  if (_zhVoice) utterance.voice = _zhVoice;
-
-  // iOS gère mal les rate très bas — on garde un minimum sûr
-  utterance.rate = _isIOS ? 0.8 : 0.6;
-  utterance.pitch = 0.9;
+  utterance.lang   = lang || 'zh-CN';
+  if (isEnglish ? _enVoice : _zhVoice) {
+    utterance.voice = isEnglish ? _enVoice : _zhVoice;
+  }
+  utterance.rate   = isEnglish ? 0.95 : (_isIOS ? 0.8 : 0.6);
+  utterance.pitch  = isEnglish ? 1.0  : 0.9;
   utterance.volume = 1;
 
   if (element) element.classList.add('playing');
-
-  utterance.onend = () => {
-    if (element) element.classList.remove('playing');
-  };
+  utterance.onend  = () => { if (element) element.classList.remove('playing'); };
   utterance.onerror = (e) => {
     if (element) element.classList.remove('playing');
     console.error('❌ Erreur TTS:', e?.error || e);
   };
 
-  // ⚠️ Appel SYNCHRONE dans le call stack du geste utilisateur (iOS l'exige).
-  // Pas de setTimeout ici, sinon Safari iOS ignore silencieusement.
   try {
     speechSynthesis.speak(utterance);
   } catch (err) {
@@ -179,23 +182,20 @@ function speakChineseOptimized(text, element) {
 // Gestionnaire audio unifié
 function initChineseAudio() {
   if (!('speechSynthesis' in window)) {
-    console.warn('⚠️ TTS non supporté sur ce navigateur');
-    document.querySelectorAll('.btn-audio').forEach(btn => {
-      btn.style.display = 'none';
-    });
+    document.querySelectorAll('.btn-audio').forEach(btn => { btn.style.display = 'none'; });
     return;
   }
 
-  // Gestion des clics unifiée
   document.addEventListener('click', function (e) {
     // Boutons audio dédiés
     const button = e.target.closest('.btn-audio');
     if (button) {
       const text = button.getAttribute('data-text');
+      const lang = button.getAttribute('data-lang') || 'zh-CN';
       button.disabled = true;
       button.innerHTML = '<i class="bi bi-volume-up-fill"></i>';
 
-      speakChineseOptimized(text, button);
+      speakOptimized(text, lang, button);
 
       setTimeout(() => {
         button.disabled = false;
@@ -208,7 +208,7 @@ function initChineseAudio() {
     const chineseElement = e.target.closest('.chinese-clickable');
     if (chineseElement && !e.target.classList.contains('chinese-character')) {
       const chineseText = chineseElement.getAttribute('data-chinese-text') || chineseElement.textContent;
-      speakChineseOptimized(chineseText, chineseElement);
+      speakOptimized(chineseText, 'zh-CN', chineseElement);
       return;
     }
   });

@@ -547,7 +547,7 @@ router.get("/liste", ensureAuth, async (req, res) => {
 
 router.put("/update/:id", ensureAuth, async (req, res) => {
   const { id } = req.params;
-  const { chinese, pinyin, english, description, hsk } = req.body;
+  const { chinese, pinyin, english, description, description_zh, hsk } = req.body;
   const isAdmin = req.user?.is_admin;
 
   try {
@@ -566,13 +566,13 @@ router.put("/update/:id", ensureAuth, async (req, res) => {
         });
       }
 
-      await pool.query("UPDATE mots SET chinese=$1,pinyin=$2,english=$3,description=$4 WHERE id=$5", [chinese, pinyin, english, description, id]);
+      await pool.query("UPDATE mots SET chinese=$1,pinyin=$2,english=$3,description=$4,description_zh=$5 WHERE id=$6", [chinese, pinyin, english, description, description_zh || null, id]);
       return res.json({ success: true });
     }
 
     await pool.query(
-      "UPDATE mots SET chinese=$1,pinyin=$2,english=$3,description=$4,hsk=$5 WHERE id=$6",
-      [chinese, pinyin, english, description, hsk, id]
+      "UPDATE mots SET chinese=$1,pinyin=$2,english=$3,description=$4,description_zh=$5,hsk=$6 WHERE id=$7",
+      [chinese, pinyin, english, description, description_zh || null, hsk, id]
     );
     res.json({ success: true });
   } catch (err) {
@@ -598,10 +598,11 @@ router.get("/check-mot/:chinese", ensureAuth, async (req, res) => {
 router.get("/check-mot-by-english/:english", ensureAuth, async (req, res) => {
   const english = decodeURIComponent(req.params.english).trim().toLowerCase();
   try {
-    // Cherche un match exact ou partiel (tolérance slash : "good / fine")
+    // Match exact uniquement — "fuck" ne doit pas matcher "fucking awesome"
+    // Tolérance slash : "good / fine" → chaque variante séparée par " / "
     const { rows } = await pool.query(
-      "SELECT * FROM mots WHERE LOWER(english) = $1 OR LOWER(english) ILIKE $2 LIMIT 5",
-      [english, `%${english}%`]
+      `SELECT * FROM mots WHERE LOWER(english) = $1 LIMIT 5`,
+      [english]
     );
     if (rows.length > 0) {
       res.json({ exists: true, mot: rows[0], results: rows });
@@ -994,7 +995,7 @@ router.get('/quiz-mots', ensureAuth, withSubscription, canTakeQuiz, async (req, 
 // 🔍 DEBUG — état session courant
 router.get('/api/user/me', ensureAuth, async (req, res) => {
   const dbUser = await pool.query(
-    'SELECT id, name, email, quiz_direction, onboarding_done FROM users WHERE id = $1',
+    'SELECT id, name, email, quiz_direction, onboarding_done, ghost_mode FROM users WHERE id = $1',
     [req.user.id]
   );
   res.json({
@@ -1002,9 +1003,43 @@ router.get('/api/user/me', ensureAuth, async (req, res) => {
       id: req.user.id,
       name: req.user.name,
       quiz_direction: req.user.quiz_direction,
+      ghost_mode: req.user.ghost_mode,
     },
     database: dbUser.rows[0] || null
   });
+});
+
+// ── Toggle ghost mode ─────────────────────────────────────────────────────────
+router.post('/api/user/ghost-mode', ensureAuth, async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'enabled must be boolean' });
+    }
+    await pool.query('UPDATE users SET ghost_mode = $1 WHERE id = $2', [enabled, req.user.id]);
+    req.user.ghost_mode = enabled;
+    res.json({ success: true, ghost_mode: enabled });
+  } catch (err) {
+    console.error('Ghost mode error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ── Toggle learning direction (settings page) ────────────────────────────────
+router.post('/api/user/learning-direction', ensureAuth, async (req, res) => {
+  try {
+    const VALID = ['en→zh', 'zh→en'];
+    const { quiz_direction } = req.body;
+    if (!VALID.includes(quiz_direction)) {
+      return res.status(400).json({ success: false, message: 'Invalid direction' });
+    }
+    await pool.query('UPDATE users SET quiz_direction = $1 WHERE id = $2', [quiz_direction, req.user.id]);
+    req.user.quiz_direction = quiz_direction;
+    res.json({ success: true, quiz_direction });
+  } catch (err) {
+    console.error('Learning direction error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
 });
 
 router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
@@ -1481,6 +1516,7 @@ router.get('/api/duels/leaderboard', ensureAuth, async (req, res) => {
       FROM users u
       LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
       WHERE u.quiz_direction = $1
+        AND u.ghost_mode = FALSE
       GROUP BY u.id, u.name, u.email
       HAVING COUNT(CASE WHEN d.status = 'completed' THEN 1 END) > 0
       ORDER BY wins DESC, ratio DESC
@@ -1508,6 +1544,7 @@ router.get('/api/duels/search', ensureAuth, async (req, res) => {
       WHERE (email ILIKE $1 OR name ILIKE $1)
         AND id != $2
         AND quiz_direction = $3
+        AND ghost_mode = FALSE
       LIMIT 5
     `, [searchQuery, req.user.id, req.user.quiz_direction || 'en→zh']);
 
@@ -1581,6 +1618,7 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
       LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id)
       WHERE u.id IN (SELECT DISTINCT user_id FROM user_mots)
         AND u.quiz_direction = $1
+        AND u.ghost_mode = FALSE
       GROUP BY u.id, u.name, u.email, u.tagline, u.country
       ORDER BY wins DESC, total_words DESC, losses ASC
     `, [req.user.quiz_direction || 'en→zh']);
@@ -1710,6 +1748,7 @@ router.get('/api/duels/bullies', ensureAuth, async (req, res) => {
         AND opponent.id != $1
         AND opponent.last_login >= NOW() - INTERVAL '1 month'
         AND opponent.quiz_direction = $2
+        AND opponent.ghost_mode = FALSE
       GROUP BY opponent.id, opponent.name
       ORDER BY balance DESC
     `, [userId, quizDirection]);
@@ -2336,14 +2375,39 @@ router.post('/api/notifications/unsubscribe', ensureAuth, async (req, res) => {
 // Statut des notifications pour l'utilisateur courant
 router.get('/api/notifications/status', ensureAuth, async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT enabled FROM push_subscriptions WHERE user_id = $1 LIMIT 1',
+    // La préférence est stockée sur users (persistante)
+    const userRes = await pool.query(
+      'SELECT notifications_enabled FROM users WHERE id = $1',
       [req.user.id]
     );
-    const subscribed = result.rows.length > 0;
-    const enabled = subscribed && result.rows[0].enabled;
+    const enabled = userRes.rows[0]?.notifications_enabled || false;
+
+    // On vérifie aussi si une subscription push existe en base (pour info)
+    const subRes = await pool.query(
+      'SELECT endpoint FROM push_subscriptions WHERE user_id = $1 LIMIT 1',
+      [req.user.id]
+    );
+    const subscribed = subRes.rows.length > 0;
+
     res.json({ subscribed, enabled });
   } catch (err) {
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Sauvegarder la préférence notifications (indépendamment du push SW)
+router.post('/api/notifications/preference', ensureAuth, async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled (boolean) requis' });
+  try {
+    await pool.query(
+      'UPDATE users SET notifications_enabled = $1 WHERE id = $2',
+      [enabled, req.user.id]
+    );
+    req.user.notifications_enabled = enabled;
+    res.json({ ok: true, enabled });
+  } catch (err) {
+    console.error('[Push] Erreur preference:', err.message);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

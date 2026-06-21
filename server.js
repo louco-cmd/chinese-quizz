@@ -118,6 +118,7 @@ app.use(async (req, res, next) => {
   res.locals.vapidPublicKey = process.env.VAPID_PUBLIC_KEY || '';
   res.locals.quizDirection  = req.user?.quiz_direction || 'en→zh';
   res.locals.onboardingDone = req.user?.onboarding_done || false;
+  res.locals.ghostMode      = req.user?.ghost_mode || false;
 
   if (!req.isAuthenticated()) return next();
 
@@ -1011,6 +1012,13 @@ app.get('/account', ensureAuth, (req, res) => {
   });
 });
 
+app.get('/settings', ensureAuth, (req, res) => {
+  res.render('settings', {
+    currentPage: 'settings',
+    user: req.user
+  });
+});
+
 app.get('/quiz', ensureAuth, (req, res) => {
   res.render('quiz', {
     currentPage: 'quiz',
@@ -1293,6 +1301,7 @@ app.get('/leaderboard', ensureAuth, async (req, res) => {
       ) um ON um.user_id = u.id
       WHERE u.name IS NOT NULL
         AND u.quiz_direction = $1
+        AND u.ghost_mode = FALSE
       GROUP BY u.id, u.name, u.email, u.country, u.tagline, um.word_count
       ORDER BY
           wins DESC,

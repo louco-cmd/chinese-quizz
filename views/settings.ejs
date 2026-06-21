@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <%- include('partials/meta', { pageTitle: 'Jiayou · Settings', pageDescription: 'App settings — notifications, learning direction, privacy.' }) %>
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/css/accountandduels.css" rel="stylesheet">
+
+  <style>
+    .settings-page {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 1rem 1rem 5rem;
+    }
+
+    .settings-group {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .settings-group-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 1rem 1.25rem 0.4rem;
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.9rem 1.25rem;
+      border-top: 1px solid #f0f0f0;
+      gap: 1rem;
+    }
+
+    .settings-row:first-of-type {
+      border-top: none;
+    }
+
+    .settings-row-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .settings-row-label {
+      flex: 1;
+    }
+
+    .settings-row-label .label-main {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      line-height: 1.2;
+    }
+
+    .settings-row-label .label-sub {
+      font-size: 0.78rem;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    /* Direction picker inline */
+    .dir-picker {
+      display: flex;
+      gap: 8px;
+    }
+
+    .dir-btn {
+      flex: 1;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 8px 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      background: white;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #555;
+    }
+
+    .dir-btn.active {
+      border-color: #0d6efd;
+      background: #e8f0ff;
+      color: #0d6efd;
+    }
+
+    .dir-btn .dir-flag {
+      font-size: 1.2rem;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    /* Ghost mode warning */
+    .ghost-warning {
+      background: #fff8e1;
+      border: 1px solid #ffe082;
+      border-radius: 12px;
+      padding: 0.7rem 1rem;
+      font-size: 0.8rem;
+      color: #7c5800;
+      margin: 0 1.25rem 1rem;
+      display: none;
+    }
+
+    .ghost-warning.show { display: flex; gap: 8px; align-items: flex-start; }
+
+    /* Toggle switch larger */
+    .form-check-input[type="checkbox"] {
+      width: 2.4em;
+      height: 1.3em;
+      cursor: pointer;
+    }
+
+    /* Save feedback */
+    .save-toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1a1a1a;
+      color: white;
+      border-radius: 999px;
+      padding: 8px 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.25s ease;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 2000;
+    }
+
+    .save-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Danger zone */
+    .settings-row.danger .label-main { color: #dc3545; }
+    .settings-row.danger .settings-row-icon { background: #fff0f0; color: #dc3545; }
+  </style>
+</head>
+
+<body>
+  <%- include('partials/header', { currentPage: 'settings' }) %>
+  <%- include('partials/navbar', { currentPage: 'settings' }) %>
+
+  <div class="settings-page">
+
+    <h5 class="fw-bold mb-3 mt-2" style="color:#1a1a1a;">Settings</h5>
+
+    <!-- ── LEARNING DIRECTION ── -->
+    <div class="settings-group">
+      <div class="settings-group-title">Learning</div>
+
+      <div class="settings-row" style="flex-direction: column; align-items: flex-start;">
+        <div class="d-flex align-items-center gap-3 mb-3 w-100">
+          <div class="settings-row-icon" style="background:#e8f0ff; color:#0d6efd;">
+            <i class="bi bi-translate"></i>
+          </div>
+          <div class="settings-row-label">
+            <div class="label-main">Learning direction</div>
+            <div class="label-sub">What language are you learning?</div>
+          </div>
+        </div>
+
+        <div class="dir-picker w-100" id="dirPicker">
+          <button class="dir-btn <%= quizDirection === 'en→zh' ? 'active' : '' %>"
+            data-dir="en→zh" onclick="setDirection('en→zh')">
+            <span class="dir-flag">🇬🇧 → 🇨🇳</span>
+            I'm learning Chinese
+          </button>
+          <button class="dir-btn <%= quizDirection === 'zh→en' ? 'active' : '' %>"
+            data-dir="zh→en" onclick="setDirection('zh→en')">
+            <span class="dir-flag">🇨🇳 → 🇬🇧</span>
+            I'm learning English
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── NOTIFICATIONS ── -->
+    <div class="settings-group">
+      <div class="settings-group-title">Notifications</div>
+
+      <div class="settings-row">
+        <div class="settings-row-icon" style="background:#e8f5e9; color:#198754;">
+          <i class="bi bi-bell-fill"></i>
+        </div>
+        <div class="settings-row-label">
+          <div class="label-main">Duel notifications</div>
+          <div class="label-sub">Get notified when someone challenges you</div>
+        </div>
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input" type="checkbox" role="switch" id="notifToggle"
+            onchange="handleNotifToggle(this.checked)">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── PRIVACY ── -->
+    <div class="settings-group">
+      <div class="settings-group-title">Privacy</div>
+
+      <div class="settings-row">
+        <div class="settings-row-icon" style="background:#f3e8ff; color:#7c3aed;">
+          <i class="bi bi-eye-slash-fill"></i>
+        </div>
+        <div class="settings-row-label">
+          <div class="label-main">Ghost mode</div>
+          <div class="label-sub">Hide from leaderboard & duel search</div>
+        </div>
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input" type="checkbox" role="switch" id="ghostToggle"
+            <%= ghostMode ? 'checked' : '' %>
+            onchange="handleGhostMode(this.checked)">
+        </div>
+      </div>
+
+      <div class="ghost-warning <%= ghostMode ? 'show' : '' %>" id="ghostWarning">
+        <i class="bi bi-info-circle-fill" style="flex-shrink:0; margin-top:1px;"></i>
+        <span>You are invisible — no one can find you in search or see you in rankings. You can still challenge others.</span>
+      </div>
+    </div>
+
+    <!-- ── ACCOUNT ── -->
+    <div class="settings-group">
+      <div class="settings-group-title">Account</div>
+
+      <% if (user.planName !== 'premium') { %>
+      <a href="https://jiayou.fr/#pricing" data-external="https://jiayou.fr/#pricing"
+        class="settings-row text-decoration-none">
+        <div class="settings-row-icon" style="background:#fff3cd; color:#856404;">
+          <i class="bi bi-star-fill"></i>
+        </div>
+        <div class="settings-row-label">
+          <div class="label-main">Go Premium</div>
+          <div class="label-sub">Unlock all features on jiayou.fr</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+      <% } else { %>
+      <a href="/pricing" class="settings-row text-decoration-none">
+        <div class="settings-row-icon" style="background:#cfe2ff; color:#0d6efd;">
+          <i class="bi bi-gear-fill"></i>
+        </div>
+        <div class="settings-row-label">
+          <div class="label-main">Manage subscription</div>
+          <div class="label-sub">Premium plan</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+      <% } %>
+
+      <a href="/tutorial" class="settings-row text-decoration-none">
+        <div class="settings-row-icon" style="background:#e8f0ff; color:#0d6efd;">
+          <i class="bi bi-play-circle-fill"></i>
+        </div>
+        <div class="settings-row-label">
+          <div class="label-main">Tutorial</div>
+          <div class="label-sub">Replay the introduction</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+
+      <a href="/install-app" class="settings-row text-decoration-none" data-hide-in-app>
+        <div class="settings-row-icon" style="background:#e8f0ff; color:#0d6efd;">
+          <i class="bi bi-download"></i>
+        </div>
+        <div class="settings-row-label">
+          <div class="label-main">Install the app</div>
+          <div class="label-sub">Add Jiayou to your home screen</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+    </div>
+
+    <!-- ── LEGAL ── -->
+    <div class="settings-group">
+      <div class="settings-group-title">Legal & Support</div>
+
+      <a href="/legal" class="settings-row text-decoration-none">
+        <div class="settings-row-icon" style="background:#f0f0f0; color:#555;">
+          <i class="bi bi-file-text"></i>
+        </div>
+        <div class="settings-row-label">
+          <div class="label-main">Legal</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+
+      <a href="/support" class="settings-row text-decoration-none">
+        <div class="settings-row-icon" style="background:#f0f0f0; color:#555;">
+          <i class="bi bi-life-preserver"></i>
+        </div>
+        <div class="settings-row-label">
+          <div class="label-main">Help & Support</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+    </div>
+
+    <!-- ── DANGER ZONE ── -->
+    <div class="settings-group">
+      <div class="settings-group-title">Danger zone</div>
+
+      <button class="settings-row danger w-100 border-0 bg-transparent text-start" onclick="confirmLogout()">
+        <div class="settings-row-icon" style="background:#fff0f0; color:#dc3545;">
+          <i class="bi bi-box-arrow-right"></i>
+        </div>
+        <div class="settings-row-label">
+          <div class="label-main">Logout</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </button>
+
+      <button class="settings-row danger w-100 border-0 bg-transparent text-start" onclick="confirmDeleteAccount()">
+        <div class="settings-row-icon" style="background:#fff0f0; color:#dc3545;">
+          <i class="bi bi-trash"></i>
+        </div>
+        <div class="settings-row-label">
+          <div class="label-main">Delete account</div>
+          <div class="label-sub">Permanent, cannot be undone</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </button>
+    </div>
+
+  </div><!-- end settings-page -->
+
+  <!-- Save toast -->
+  <div class="save-toast" id="saveToast"></div>
+
+  <!-- Modals réutilisés du header -->
+  <div class="modal fade" id="logoutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content" style="border-radius:20px; border:none; padding:8px;">
+        <div class="modal-header border-0">
+          <h5 class="modal-title fw-bold">Confirm logout</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body pt-0">
+          <p class="text-secondary mb-0">Are you sure you want to log out?</p>
+        </div>
+        <div class="modal-footer border-0 d-flex gap-2">
+          <button class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger flex-fill" onclick="performLogout()">
+            <i class="bi bi-box-arrow-right me-1"></i>Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content" style="border-radius:20px; border:none; padding:8px;">
+        <div class="modal-header border-0">
+          <h5 class="modal-title fw-bold">Delete account</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body pt-0">
+          <div class="alert alert-danger d-flex gap-2 align-items-start py-2 px-3" style="border-radius:12px;">
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+            <span><strong>Warning:</strong> all your data will be permanently deleted.</span>
+          </div>
+        </div>
+        <div class="modal-footer border-0 d-flex gap-2">
+          <button class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger flex-fill" onclick="performDeleteAccount()">
+            <i class="bi bi-trash me-1"></i>Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // ── Toast helper ──────────────────────────────────────────────────────────
+    function showToast(msg) {
+      const t = document.getElementById('saveToast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // ── Learning direction ────────────────────────────────────────────────────
+    async function setDirection(dir) {
+      // UI immediate
+      document.querySelectorAll('.dir-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.dir === dir);
+      });
+
+      try {
+        const res = await fetch('/api/user/learning-direction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quiz_direction: dir }),
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✓ Learning direction updated — reload to apply everywhere');
+        } else {
+          showToast('❌ Error saving direction');
+        }
+      } catch (e) {
+        showToast('❌ Network error');
+      }
+    }
+
+    // ── Ghost mode ────────────────────────────────────────────────────────────
+    async function handleGhostMode(enabled) {
+      const warning = document.getElementById('ghostWarning');
+      warning.classList.toggle('show', enabled);
+
+      try {
+        const res = await fetch('/api/user/ghost-mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled }),
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(enabled ? '👻 Ghost mode on — you are invisible' : '👁 Ghost mode off — you are visible');
+        } else {
+          showToast('❌ Error saving');
+          document.getElementById('ghostToggle').checked = !enabled;
+        }
+      } catch (e) {
+        showToast('❌ Network error');
+        document.getElementById('ghostToggle').checked = !enabled;
+      }
+    }
+
+    // ── Logout & delete (réutilisés du header) ────────────────────────────────
+    function confirmLogout() {
+      new bootstrap.Modal(document.getElementById('logoutModal')).show();
+    }
+
+    async function performLogout() {
+      try {
+        bootstrap.Modal.getInstance(document.getElementById('logoutModal'))?.hide();
+        await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+        window.location.href = '/';
+      } catch (_) {
+        window.location.href = '/';
+      }
+    }
+
+    function confirmDeleteAccount() {
+      new bootstrap.Modal(document.getElementById('deleteAccountModal')).show();
+    }
+
+    async function performDeleteAccount() {
+      try {
+        bootstrap.Modal.getInstance(document.getElementById('deleteAccountModal'))?.hide();
+        const res = await fetch('/api/user/delete-account', { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          alert('Your account has been successfully deleted.');
+          window.location.href = '/';
+        } else {
+          alert(data.message || 'An error occurred.');
+        }
+      } catch (_) {
+        alert('Network error. Please try again.');
+      }
+    }
+  </script>
+
+  <script>
+    // Cache les éléments [data-hide-in-app] en mode standalone
+    (function () {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      if (!isStandalone) return;
+      document.querySelectorAll('[data-hide-in-app]').forEach(el => el.style.display = 'none');
+    })();
+  </script>
+</body>
+</html>

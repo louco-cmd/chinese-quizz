@@ -291,21 +291,34 @@
       transform: rotateY(180deg);
     }
 
+    .flip-card-front .chinese,
+    .flip-card-front .english {
+      font-size: 1.8rem;
+      font-weight: 800;
+      word-break: break-word;
+      line-height: 1.15;
+    }
+
     .flip-card-front .chinese {
       font-size: 2.8rem;
-      font-weight: bold;
+    }
+
+    .flip-card-back .chinese,
+    .flip-card-back .english {
+      font-size: 1.8rem;
+      font-weight: 800;
       word-break: break-word;
+      line-height: 1.15;
+    }
+
+    .flip-card-back .chinese {
+      font-size: 2.8rem;
     }
 
     .flip-card-back .pinyin {
       font-size: 1.2rem;
       margin-bottom: 0.5rem;
       font-weight: 500;
-    }
-
-    .flip-card-back .english {
-      font-size: 1rem;
-      opacity: 0.9;
     }
 
     .form-switch .form-check-input {
@@ -367,8 +380,16 @@
         height: 180px;
       }
 
-      .flip-card-front .chinese {
-        font-size: 2rem;
+      .flip-card-front .chinese,
+      .flip-card-front .english,
+      .flip-card-back .chinese,
+      .flip-card-back .english {
+        font-size: 1.4rem;
+      }
+
+      .flip-card-front .chinese,
+      .flip-card-back .chinese {
+        font-size: 2.2rem;
       }
     }
 
@@ -404,35 +425,51 @@
     <%- include('partials/navbar', {currentPage: currentPage}) %>
 
       <section class="container my-4">
-        <!-- 🔥 DEUX QUIZ CÔTE À CÔTE -->
-        <div class="row g-3 justify-content-center">
-          <!-- Quiz Pinyin -->
-          <div class="col-6 col-lg-6">
-            <div class="quiz-card card p-2 p-md-3 quiz-card-clickable" role="button" tabindex="0"
-              onclick="openCountModal('pinyin')"
-              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCountModal('pinyin');}">
-              <i class="quiz-card-arrow bi bi-arrow-right-circle-fill"></i>
-              <div class="card-body text-center">
-                <i class="quiz-icon bi bi-type"></i>
-                <h3 class="card-title">Quiz Pinyin</h3>
-                <p class="card-text mb-0">From english to pinyin</p>
+        <!-- 🔥 QUIZ CARDS : 2 modes en→zh, 1 seul mode zh→en (full width + bleu) -->
+        <div class="row g-3 justify-content-center" id="quizCardsRow">
+          <% if (quizDirection === 'zh→en') { %>
+            <!-- Mode apprendre anglais : une seule carte full width bleue -->
+            <div class="col-12">
+              <div class="quiz-card card p-3 quiz-card-clickable" role="button" tabindex="0"
+                style="background: linear-gradient(135deg, #0d6efd, #0a4fcf); border: none; color: #fff;"
+                onclick="openCountModal('character')"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCountModal('character');}">
+                <i class="quiz-card-arrow bi bi-arrow-right-circle-fill" style="color:rgba(255,255,255,0.5);"></i>
+                <div class="card-body text-center">
+                  <i class="quiz-icon bi bi-translate" style="color:#fff;"></i>
+                  <h3 class="card-title" style="color:#fff;">Quiz English</h3>
+                  <p class="card-text mb-0" style="color:rgba(255,255,255,0.8);">See Chinese, type English</p>
+                </div>
               </div>
             </div>
-          </div>
+          <% } else { %>
+            <!-- Mode apprendre chinois : deux cartes -->
+            <div class="col-6 col-lg-6">
+              <div class="quiz-card card p-2 p-md-3 quiz-card-clickable" role="button" tabindex="0"
+                onclick="openCountModal('pinyin')"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCountModal('pinyin');}">
+                <i class="quiz-card-arrow bi bi-arrow-right-circle-fill"></i>
+                <div class="card-body text-center">
+                  <i class="quiz-icon bi bi-type"></i>
+                  <h3 class="card-title">Quiz Pinyin</h3>
+                  <p class="card-text mb-0">From english to pinyin</p>
+                </div>
+              </div>
+            </div>
 
-          <!-- Quiz Caractères -->
-          <div class="col-6 col-lg-6">
-            <div class="quiz-card card p-2 p-md-3 characterCard quiz-card-clickable" role="button" tabindex="0"
-              onclick="openCountModal('character')"
-              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCountModal('character');}">
-              <i class="quiz-card-arrow bi bi-arrow-right-circle-fill"></i>
-              <div class="card-body text-center">
-                <i class="quiz-icon bi bi-translate"></i>
-                <h3 class="card-title">Quiz characters</h3>
-                <p class="card-text mb-0">From English to chinese characters</p>
+            <div class="col-6 col-lg-6">
+              <div class="quiz-card card p-2 p-md-3 characterCard quiz-card-clickable" role="button" tabindex="0"
+                onclick="openCountModal('character')"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCountModal('character');}">
+                <i class="quiz-card-arrow bi bi-arrow-right-circle-fill"></i>
+                <div class="card-body text-center">
+                  <i class="quiz-icon bi bi-translate"></i>
+                  <h3 class="card-title">Quiz characters</h3>
+                  <p class="card-text mb-0">From English to chinese characters</p>
+                </div>
               </div>
             </div>
-          </div>
+          <% } %>
         </div>
       </section>
 
@@ -579,26 +616,25 @@
       </div>
       <!-- SECTION MOTS DIFFICILES DU JOUR -->
       <section class="container my-5">
-        <div class="mb-4">
-          <!-- Sous-titre "flashcard" -->
-          <div class="text-uppercase text-white-50 small fw-semibold mb-1" style="letter-spacing: 1px;">flashcard</div>
-
-          <!-- Ligne titre + toggle -->
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div>
+            <!-- Sous-titre "flashcard" -->
+            <div class="text-uppercase text-white-50 small fw-semibold mb-1" style="letter-spacing: 1px;">flashcard</div>
             <h2 class="text-dark mb-0">
               <i class="text-warning"></i>
               You've struggled on...
             </h2>
-
-            <!-- Toggle style Apple -->
-            <div class="d-flex align-items-center gap-2">
-              <span class="text-secondary" style="font-size: 0.9rem;">Show Pinyin</span>
-              <label class="apple-toggle">
-                <input type="checkbox" id="pinyinToggle">
-                <span class="slider round"></span>
-              </label>
-            </div>
           </div>
+          <% if (quizDirection !== 'zh→en') { %>
+          <!-- Toggle Show Pinyin (mode apprentissage chinois uniquement) -->
+          <div id="showPinyinToggleWrapper">
+            <button id="togglePinyinBtn" onclick="togglePinyin()"
+              class="btn btn-sm btn-outline-secondary"
+              style="border-radius: 20px; font-size: 0.8rem;">
+              <i class="bi bi-eye me-1"></i>Show Pinyin
+            </button>
+          </div>
+          <% } %>
         </div>
 
         <div id="flashcardsContainer" class="row g-4 justify-content-center">
@@ -621,6 +657,7 @@
       <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
       <script src="/js/global.js"></script>
       <script>
+        const QUIZ_DIR = '<%= quizDirection %>';
         let selectedQuizType = null;
         let selectedCount = 20; // Valeur par défaut
         let selectedDifficulty = 'balanced'; // Valeur par défaut
@@ -917,19 +954,20 @@
 
           container.innerHTML = words.map((word, idx) => {
             let frontContent, backContent;
-            if (showPinyinOnFront) {
-              frontContent = `
-        <div class="chinese">${escapeHtml(word.chinese)}</div>
-        <div class="pinyin mt-2" style="font-size: 1rem; color: #6c757d;">${escapeHtml(word.pinyin)}</div>
-      `;
-              backContent = `<div class="english">${escapeHtml(word.english)}</div>`;
+
+            if (QUIZ_DIR === 'zh→en') {
+              // Apprentissage anglais : anglais devant, chinois derrière (sans pinyin)
+              frontContent = `<div class="english">${escapeHtml(word.english)}</div>`;
+              backContent  = `<div class="chinese">${escapeHtml(word.chinese)}</div>`;
             } else {
-              frontContent = `<div class="chinese">${escapeHtml(word.chinese)}</div>`;
-              backContent = `
-        <div class="pinyin">${escapeHtml(word.pinyin)}</div>
-        <div class="english mt-2">${escapeHtml(word.english)}</div>
-      `;
+              // Apprentissage chinois : chinois + pinyin devant, anglais derrière
+              const pinyinHtml = showPinyinOnFront
+                ? `<div class="pinyin" style="font-size:0.9rem; color:#6c757d; margin-top:4px;">${escapeHtml(word.pinyin || '')}</div>`
+                : `<div class="pinyin" style="display:none; font-size:0.9rem; color:#6c757d; margin-top:4px;">${escapeHtml(word.pinyin || '')}</div>`;
+              frontContent = `<div class="chinese">${escapeHtml(word.chinese)}</div>${pinyinHtml}`;
+              backContent  = `<div class="english">${escapeHtml(word.english)}</div>`;
             }
+
             return `
       <div class="col-6 col-md-4 col-lg-3">
         <div class="flip-card" data-idx="${idx}" onclick="this.classList.toggle('flipped')">
@@ -943,6 +981,20 @@
           }).join('');
         }
 
+        function togglePinyin() {
+          showPinyinOnFront = !showPinyinOnFront;
+          const btn = document.getElementById('togglePinyinBtn');
+          if (btn) {
+            btn.innerHTML = showPinyinOnFront
+              ? '<i class="bi bi-eye-slash me-1"></i>Hide Pinyin'
+              : '<i class="bi bi-eye me-1"></i>Show Pinyin';
+          }
+          // Met à jour toutes les cartes visibles sans les re-créer
+          document.querySelectorAll('#flashcardsContainer .flip-card-front .pinyin').forEach(el => {
+            el.style.display = showPinyinOnFront ? '' : 'none';
+          });
+        }
+
         function escapeHtml(str) {
           if (!str) return '';
           return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m] || m));
@@ -951,15 +1003,6 @@
         // Initialisation après chargement du DOM
         document.addEventListener('DOMContentLoaded', () => {
           loadDifficultWords();
-
-          const toggle = document.getElementById('pinyinToggle');
-          if (toggle) {
-            toggle.addEventListener('change', (e) => {
-              showPinyinOnFront = e.target.checked;
-              if (window.currentWords) renderFlashcards(window.currentWords);
-              else loadDifficultWords();
-            });
-          }
 
           // Quick quiz : lance un quiz pinyin sur les mots difficiles affichés.
           const quickBtn = document.getElementById('quickQuizBtn');
