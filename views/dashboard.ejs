@@ -561,11 +561,15 @@
 
               <div class="section-label">Word details</div>
               <div class="word-info">
-                <div class="word-info-row">
+                <div class="word-info-row" id="rowChinese" style="display:none;">
+                  <span class="word-info-label">Chinese</span>
+                  <span class="word-info-value" id="displayChinese" style="font-size:1.3rem; font-weight:700;">-</span>
+                </div>
+                <div class="word-info-row" id="rowPinyin">
                   <span class="word-info-label">Pinyin</span>
                   <span class="word-info-value" id="displayPinyin">-</span>
                 </div>
-                <div class="word-info-row">
+                <div class="word-info-row" id="rowEnglish">
                   <span class="word-info-label">English</span>
                   <span class="word-info-value" id="displayEnglish">-</span>
                 </div>
@@ -803,9 +807,25 @@
         // ========== MODALE MOT EXISTANT ==========
         function displayExistingWordModal(word) {
           haptics.soft();
-          document.getElementById('previewChinese').textContent = word.chinese;
-          document.getElementById('displayPinyin').textContent = word.pinyin || '-';
-          document.getElementById('displayEnglish').textContent = word.english || '-';
+
+          const rowChinese = document.getElementById('rowChinese');
+          const rowEnglish = document.getElementById('rowEnglish');
+
+          if (LEARN_DIR === 'zh→en') {
+            // Anglais en grand bleu (inchangé), Chinese + pinyin + description dans le tableau
+            document.getElementById('previewChinese').textContent = word.english || '-';
+            document.getElementById('displayChinese').textContent = word.chinese  || '-';
+            if (rowChinese) rowChinese.style.display = '';
+            if (rowEnglish) rowEnglish.style.display = 'none';
+          } else {
+            // Mode normal : chinois en grand, anglais dans le tableau
+            document.getElementById('previewChinese').textContent = word.chinese || '-';
+            if (rowChinese) rowChinese.style.display = 'none';
+            if (rowEnglish) rowEnglish.style.display = '';
+          }
+
+          document.getElementById('displayPinyin').textContent     = word.pinyin      || '-';
+          document.getElementById('displayEnglish').textContent    = word.english     || '-';
           document.getElementById('displayDescription').textContent = word.description || '-';
           checkIfWordAlreadyCaptured(word.chinese);
           document.getElementById('existingWordModal').style.display = 'flex';
@@ -975,6 +995,7 @@
             chinese = document.getElementById('newChinese').value.trim();
             english = currentChinese; // currentChinese = mot anglais saisi dans la barre
             description = document.getElementById('newDescription').value.trim();
+            console.log('[ADD zh→en] chinese field value:', chinese, '| english (currentChinese):', currentChinese);
             if (!chinese) {
               showStatus('Chinese characters required', 'error');
               return;
@@ -1012,7 +1033,7 @@
                     'Content-Type': 'application/json'
                   },
                   body: JSON.stringify({
-                    chinese: currentChinese,
+                    chinese: LEARN_DIR === 'zh→en' ? chinese : currentChinese,
                     pinyin,
                     english,
                     description
@@ -1026,7 +1047,8 @@
               }
             }
 
-            await addWord(currentChinese, pinyin, english);
+            console.log('[ADD] calling addWord with chinese:', chinese, '| english:', english, '| pinyin:', pinyin);
+            await addWord(chinese, pinyin, english);
             closeNewWordModal();
             // resetForm() sera appelé par addWord après succès
           } catch (err) {
