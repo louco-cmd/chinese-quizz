@@ -72,39 +72,149 @@
       100% { transform: scale(1); }
     }
 
-    /* Cards animation - RESPONSIVE */
-    .card-carousel {
+    /* ── Reveal section wrapper ── */
+    #revealSection {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    /* ── Word card ── */
+    .word-reveal-card {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      padding: 36px 28px 28px;
+      text-align: center;
       position: relative;
-      height: 280px;
-      width: 100%;
-      overflow: hidden;
+      animation: cardEntrance 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
 
-    .carousel-card {
+    @keyframes cardEntrance {
+      from { opacity: 0; transform: translateY(24px) scale(0.92); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .word-reveal-card .hsk-badge {
       position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%) scale(0.8);
-      opacity: 0;
-      transition: all 0.5s ease;
-      width: 180px;
-      max-width: 90%;
+      top: 16px;
+      right: 16px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: #e8f5e9;
+      color: #2e7d32;
+      letter-spacing: 0.5px;
     }
 
-    .carousel-card.active {
-      opacity: 1;
-      transform: translateX(-50%) scale(1);
-      z-index: 10;
+    .word-reveal-card .card-counter {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #adb5bd;
     }
 
-    .carousel-card.previous {
-      opacity: 0.5;
-      transform: translateX(-120%) scale(0.7);
+    .word-reveal-card .chinese-text {
+      font-size: 3rem;
+      font-weight: 800;
+      color: #0d6efd;
+      line-height: 1.1;
     }
 
-    .carousel-card.next {
-      opacity: 0.5;
-      transform: translateX(20%) scale(0.7);
+    .word-reveal-card .pinyin-text {
+      font-size: 1rem;
+      color: #6c757d;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+
+    .word-reveal-card .english-text {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #212529;
+      margin-top: 4px;
+    }
+
+    .word-reveal-card .desc-text {
+      font-size: 0.82rem;
+      color: #868e96;
+      margin-top: 2px;
+      max-width: 300px;
+    }
+
+    /* ── Navigation dots ── */
+    .carousel-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin: 16px 0 8px;
+    }
+
+    .carousel-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #dee2e6;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border: none;
+      padding: 0;
+    }
+
+    .carousel-dot.active {
+      background: #0d6efd;
+      width: 24px;
+      border-radius: 4px;
+    }
+
+    /* ── Nav arrows ── */
+    .carousel-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .carousel-arrow {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #dee2e6;
+      background: white;
+      color: #495057;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      font-size: 1.1rem;
+    }
+
+    .carousel-arrow:hover:not(:disabled) {
+      border-color: #0d6efd;
+      color: #0d6efd;
+      background: #f0f4ff;
+    }
+
+    .carousel-arrow:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    .carousel-progress {
+      font-size: 0.82rem;
+      color: #adb5bd;
+      font-weight: 500;
     }
 
     /* Success animation */
@@ -318,71 +428,91 @@
     <!-- ====== STORE SECTION ====== -->
     <div id="storeSection">
 
-      <!-- HSK Thematic Packs (top) -->
+      <!-- Thematic Packs (top) -->
       <div class="row mb-2">
         <div class="col-12">
           <h5 class="text-muted mb-3">Thematic Packs</h5>
         </div>
 
-        <!-- Pack HSK1 (active) -->
-        <div class="col-md-6 col-lg-4 mb-3">
-          <div class="booster-card card shadow-sm h-100">
-            <div class="card-body p-3">
-              <div class="d-flex align-items-center gap-3">
-                <div class="pack-icon-sm" style="background: linear-gradient(135deg, #0d6efd, #6610f2);">
-                  <i class="bi bi-star-fill fs-5"></i>
-                </div>
-                <div>
-                  <h6 class="card-title fw-bold mb-1">HSK 1 Pack</h6>
-                  <p class="text-muted small mb-1">290 words from HSK level 1</p>
-                  <a href="#" class="btn btn-link p-0 text-decoration-none small fw-semibold pack-buy-btn" data-level="1" data-price="200" id="buyHSK1Btn">
-                    <i class="bi bi-cart-fill me-1"></i>Buy for 200 ₵
-                  </a>
+        <% if (quizDirection !== 'zh→en') { %>
+          <!-- Pack HSK1 (active) -->
+          <div class="col-md-6 col-lg-4 mb-3">
+            <div class="booster-card card shadow-sm h-100">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="pack-icon-sm" style="background: linear-gradient(135deg, #0d6efd, #6610f2);">
+                    <i class="bi bi-star-fill fs-5"></i>
+                  </div>
+                  <div>
+                    <h6 class="card-title fw-bold mb-1">HSK 1 Pack</h6>
+                    <p class="text-muted small mb-1">290 words from HSK level 1</p>
+                    <a href="#" class="btn btn-link p-0 text-decoration-none small fw-semibold pack-buy-btn" data-level="1" data-price="200" id="buyHSK1Btn">
+                      <i class="bi bi-cart-fill me-1"></i>Buy for 200 ₵
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Pack HSK2 (active) -->
-        <div class="col-md-6 col-lg-4 mb-3">
-          <div class="booster-card card shadow-sm h-100">
-            <div class="card-body p-3">
-              <div class="d-flex align-items-center gap-3">
-                <div class="pack-icon-sm" style="background: linear-gradient(135deg, #198754, #0d5c38);">
-                  <i class="bi bi-star-half fs-5"></i>
-                </div>
-                <div>
-                  <h6 class="card-title fw-bold mb-1">HSK 2 Pack</h6>
-                  <p class="text-muted small mb-1">Words from HSK level 2</p>
-                  <a href="#" class="btn btn-link p-0 text-decoration-none small fw-semibold pack-buy-btn" data-level="2" data-price="400" id="buyHSK2Btn">
-                    <i class="bi bi-cart-fill me-1"></i>Buy for 400 ₵
-                  </a>
+          <!-- Pack HSK2 (active) -->
+          <div class="col-md-6 col-lg-4 mb-3">
+            <div class="booster-card card shadow-sm h-100">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="pack-icon-sm" style="background: linear-gradient(135deg, #198754, #0d5c38);">
+                    <i class="bi bi-star-half fs-5"></i>
+                  </div>
+                  <div>
+                    <h6 class="card-title fw-bold mb-1">HSK 2 Pack</h6>
+                    <p class="text-muted small mb-1">Words from HSK level 2</p>
+                    <a href="#" class="btn btn-link p-0 text-decoration-none small fw-semibold pack-buy-btn" data-level="2" data-price="400" id="buyHSK2Btn">
+                      <i class="bi bi-cart-fill me-1"></i>Buy for 400 ₵
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Packs HSK3-6 (coming soon) -->
-        <% const hskLevels = [3, 4, 5, 6]; %>
-        <% for (let i = 0; i < hskLevels.length; i++) { %>
-        <div class="col-md-6 col-lg-4 mb-3">
-          <div class="booster-card card shadow-sm coming-soon h-100">
-            <div class="card-body p-3">
-              <div class="d-flex align-items-center gap-3">
-                <div class="pack-icon-sm" style="background: linear-gradient(135deg, #6c757d, #495057);">
-                  <i class="bi bi-lock fs-5"></i>
-                </div>
-                <div>
-                  <h6 class="card-title fw-bold text-muted mb-1">HSK <%= hskLevels[i] %> Pack</h6>
-                  <p class="text-muted small mb-2">Words from HSK <%= hskLevels[i] %> level</p>
-                  <span class="badge bg-secondary">Coming soon</span>
+          <!-- Packs HSK3-6 (coming soon) -->
+          <% const hskLevels = [3, 4, 5, 6]; %>
+          <% for (let i = 0; i < hskLevels.length; i++) { %>
+          <div class="col-md-6 col-lg-4 mb-3">
+            <div class="booster-card card shadow-sm coming-soon h-100">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="pack-icon-sm" style="background: linear-gradient(135deg, #6c757d, #495057);">
+                    <i class="bi bi-lock fs-5"></i>
+                  </div>
+                  <div>
+                    <h6 class="card-title fw-bold text-muted mb-1">HSK <%= hskLevels[i] %> Pack</h6>
+                    <p class="text-muted small mb-2">Words from HSK <%= hskLevels[i] %> level</p>
+                    <span class="badge bg-secondary">Coming soon</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        <% } %>
+        <% } else { %>
+          <!-- zh→en mode : packs not available yet -->
+          <div class="col-12 mb-3">
+            <div class="booster-card card shadow-sm coming-soon">
+              <div class="card-body p-3">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="pack-icon-sm" style="background: linear-gradient(135deg, #6c757d, #495057);">
+                    <i class="bi bi-box-seam fs-5"></i>
+                  </div>
+                  <div>
+                    <h6 class="card-title fw-bold text-muted mb-1">Word Packs</h6>
+                    <p class="text-muted small mb-2">Curated vocabulary packs for English learners</p>
+                    <span class="badge bg-secondary">Coming soon</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         <% } %>
       </div>
 
@@ -457,14 +587,29 @@
     <div id="revealSection" class="d-none">
       <div class="text-center mb-4">
         <h3 class="fw-bold text-dark mb-2">Your new words</h3>
-        <p class="text-muted">Discover the words you just acquired</p>
+        <p class="text-muted">Tap the arrows or swipe to browse</p>
       </div>
-      <div class="card-carousel mb-4" id="cardCarousel"></div>
-      <div class="text-center">
-        <button id="captureWords" class="btn btn-success btn-lg w-100 w-md-auto">
-          <i class="bi bi-download me-2"></i>Capture these words
+
+      <!-- Card display -->
+      <div id="cardCarousel"></div>
+
+      <!-- Dots -->
+      <div class="carousel-dots" id="carouselDots"></div>
+
+      <!-- Arrows + counter -->
+      <div class="carousel-nav mb-4">
+        <button class="carousel-arrow" id="prevCard" disabled>
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <span class="carousel-progress" id="carouselProgress">1 / 5</span>
+        <button class="carousel-arrow" id="nextCard">
+          <i class="bi bi-chevron-right"></i>
         </button>
       </div>
+
+      <button id="captureWords" class="btn btn-success btn-lg w-100">
+        <i class="bi bi-check-circle me-2"></i>Add to my collection
+      </button>
     </div>
 
   </div>
@@ -558,6 +703,12 @@
       document.getElementById('confirmCancel').addEventListener('click', () => {
         document.getElementById('confirmPopup').style.display = 'none';
       });
+
+      // Booster pack: click to reveal cards
+      document.getElementById('boosterPack').addEventListener('click', startCardReveal);
+
+      // Capture words button
+      document.getElementById('captureWords').addEventListener('click', redirectToCollection);
     });
 
     // ── HSK Packs ──────────────────────────────────────────────────────────────
@@ -715,44 +866,81 @@
     function startCardReveal() {
       document.getElementById('openingSection').classList.add('d-none');
       document.getElementById('revealSection').classList.remove('d-none');
-      createCardCarousel();
+      currentCardIndex = 0;
+      buildCarouselDots();
       showCard(0);
+      initCarouselNav();
     }
 
-    function createCardCarousel() {
-      const carousel = document.getElementById('cardCarousel');
-      carousel.innerHTML = '';
-      currentWords.forEach((word, index) => {
-        const card = document.createElement('div');
-        card.className = `carousel-card card ${index === 0 ? 'active' : ''}`;
-        card.innerHTML = `
-          <div class="card-body text-center p-4">
-            <h4 class="fw-bold text-primary mb-3">${word.chinese}</h4>
-            <p class="text-muted mb-2">${word.pinyin || ''}</p>
-            <p class="h5 text-dark mb-3">${word.english}</p>
-            ${word.description ? `<p class="small text-muted">${word.description}</p>` : ''}
-            ${word.hsk ? `<span class="badge bg-success">HSK ${word.hsk}</span>` : ''}
-          </div>`;
-        carousel.appendChild(card);
+    function buildCarouselDots() {
+      const dots = document.getElementById('carouselDots');
+      dots.innerHTML = currentWords.map((_, i) =>
+        `<button class="carousel-dot${i === 0 ? ' active' : ''}" data-index="${i}" aria-label="Word ${i+1}"></button>`
+      ).join('');
+      dots.querySelectorAll('.carousel-dot').forEach(dot => {
+        dot.addEventListener('click', () => showCard(parseInt(dot.dataset.index)));
       });
     }
 
     function showCard(index) {
-      const cards = document.querySelectorAll('.carousel-card');
-      cards.forEach((card, i) => {
-        card.classList.remove('active', 'previous', 'next');
-        if (i === index) card.classList.add('active');
-        else if (i === (index - 1 + cards.length) % cards.length) card.classList.add('previous');
-        else if (i === (index + 1) % cards.length) card.classList.add('next');
-      });
+      const total = currentWords.length;
+      if (index < 0 || index >= total) return;
       currentCardIndex = index;
-      clearTimeout(window.cardTimeout);
-      if (cards.length > 1) {
-        window.cardTimeout = setTimeout(() => showCard((index + 1) % cards.length), 3000);
-      }
+      const word = currentWords[index];
+
+      const carousel = document.getElementById('cardCarousel');
+      carousel.innerHTML = `
+        <div class="word-reveal-card">
+          <span class="card-counter">${index + 1} / ${total}</span>
+          ${word.hsk ? `<span class="hsk-badge">HSK ${word.hsk}</span>` : ''}
+          <div class="chinese-text">${escapeHtml(word.chinese)}</div>
+          ${word.pinyin ? `<div class="pinyin-text">${escapeHtml(word.pinyin)}</div>` : ''}
+          <div class="english-text">${escapeHtml(word.english)}</div>
+          ${word.description ? `<div class="desc-text">${escapeHtml(word.description)}</div>` : ''}
+        </div>`;
+
+      // Dots
+      document.querySelectorAll('.carousel-dot').forEach((dot, i) => {
+        dot.classList.toggle('active', i === index);
+      });
+
+      // Progress
+      document.getElementById('carouselProgress').textContent = `${index + 1} / ${total}`;
+
+      // Arrows
+      document.getElementById('prevCard').disabled = index === 0;
+      document.getElementById('nextCard').disabled = index === total - 1;
+    }
+
+    function initCarouselNav() {
+      document.getElementById('prevCard').onclick = () => showCard(currentCardIndex - 1);
+      document.getElementById('nextCard').onclick = () => showCard(currentCardIndex + 1);
+
+      // Swipe support
+      const carousel = document.getElementById('cardCarousel');
+      let touchStartX = 0;
+      carousel.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+      carousel.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - touchStartX;
+        if (Math.abs(dx) > 40) showCard(currentCardIndex + (dx < 0 ? 1 : -1));
+      });
+
+      // Keyboard
+      document.addEventListener('keydown', onCarouselKey);
+    }
+
+    function onCarouselKey(e) {
+      if (document.getElementById('revealSection').classList.contains('d-none')) return;
+      if (e.key === 'ArrowLeft')  showCard(currentCardIndex - 1);
+      if (e.key === 'ArrowRight') showCard(currentCardIndex + 1);
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+
+    function escapeHtml(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
 
     function redirectToCollection() {
       showSuccessAnimation();

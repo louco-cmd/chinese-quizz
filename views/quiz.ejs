@@ -20,7 +20,7 @@
   <style>
     .quiz-card {
       transition: all 0.3s ease;
-      background: linear-gradient(135deg, #007bff, #0056b3);
+      background: linear-gradient(135deg, #0d6efd, #0a4fcf);
       height: 100%;
       border-radius: 12px;
       color: #ffffff;
@@ -306,13 +306,14 @@
     .flip-card-back .chinese,
     .flip-card-back .english {
       font-size: 1.8rem;
-      font-weight: 800;
+      font-weight: 400;
       word-break: break-word;
       line-height: 1.15;
     }
 
     .flip-card-back .chinese {
       font-size: 2.8rem;
+      font-weight: 300;
     }
 
     .flip-card-back .pinyin {
@@ -636,7 +637,7 @@
           <!-- Cartes injectées ici -->
           <div class="col-12 text-center text-white-50">
             <div class="spinner-border text-light" role="status"></div>
-            <p class="mt-2">Chargement des mots...</p>
+            <p class="mt-2">Loading words...</p>
           </div>
         </div>
 
@@ -672,13 +673,13 @@
 
           let status = '';
           if (min === 1 && max === 6) {
-            status = 'Tous les niveaux HSK (1–6)';
+            status = 'All HSK levels (1–6)';
           } else if (min === 1 && max === 7) {
-            status = 'Tous les niveaux HSK + Street';
+            status = 'All HSK levels + Unclassified';
           } else if (max === 7) {
-            status = `HSK ${min}–6 + Street`;
+            status = `HSK ${min}–6 + Unclassified`;
           } else if (min === max) {
-            status = `HSK ${min} uniquement`;
+            status = `HSK ${min} only`;
           } else {
             status = `HSK ${min}–${max}`;
           }
@@ -927,13 +928,13 @@
           const container = document.getElementById('flashcardsContainer');
           try {
             const response = await fetch('/api/difficult-words');
-            if (!response.ok) throw new Error('Erreur réseau');
+            if (!response.ok) throw new Error('Network error');
             const words = await response.json();
             window.currentWords = words;
             renderFlashcards(words);
           } catch (err) {
-            console.error('Erreur chargement mots difficiles:', err);
-            container.innerHTML = `<div class="col-12 text-center text-dark">⚠️ Impossible de charger les mots. Réessaie plus tard.</div>`;
+            console.error('Error loading difficult words:', err);
+            container.innerHTML = `<div class="col-12 text-center text-dark">⚠️ Could not load words. Please try again later.</div>`;
           }
         }
 
@@ -941,7 +942,7 @@
           const container = document.getElementById('flashcardsContainer');
           const quickContainer = document.getElementById('quickQuizContainer');
           if (!words || words.length === 0) {
-            container.innerHTML = `<div class="col-12 text-center text-dark"><i class="bi bi-emoji-smile fs-1"></i><p class="mt-2">Aucun mot difficile aujourd'hui ! Continue comme ça 🎉</p></div>`;
+            container.innerHTML = `<div class="col-12 text-center text-dark"><i class="bi bi-emoji-smile fs-1"></i><p class="mt-2">No difficult words today! Keep it up 🎉</p></div>`;
             if (quickContainer) quickContainer.style.display = 'none';
             return;
           }

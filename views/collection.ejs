@@ -139,6 +139,37 @@
       transition: opacity 0.2s ease-in-out;
     }
 
+    @keyframes fadeInScale {
+      from { opacity:0; transform:scale(0.95); }
+      to   { opacity:1; transform:scale(1); }
+    }
+
+    .edit-section-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .edit-modal-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+      box-sizing: border-box;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    .edit-modal-input:focus {
+      border-color: #0d6efd;
+    }
+
     .translation-hidden {
       filter: blur(6px);
       user-select: none;
@@ -208,33 +239,71 @@
           </div>
       </section>
 
-      <!-- Modal Bootstrap -->
-      <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-          <div class="modal-content bg-dark text-white">
-            <div class="modal-header">
-              <h5 class="modal-title" id="editModalLabel">Edit Word</h5>
-              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                aria-label="Close"></button>
-            </div>
-            <form id="editForm" class="p-3">
-              <input type="hidden" id="editId" />
-              <div class="mb-3"><label for="editChinese" class="form-label">Chinese</label><input type="text"
-                  class="form-control" id="editChinese" required></div>
-              <div class="mb-3"><label for="editPinyin" class="form-label">Pinyin</label><input type="text"
-                  class="form-control" id="editPinyin"></div>
-              <div class="mb-3"><label for="editEnglish" class="form-label">English</label><input type="text"
-                  class="form-control" id="editEnglish"></div>
-              <div class="mb-3"><label for="editDescription" class="form-label">Description (English)</label><textarea
-                  class="form-control" id="editDescription" rows="2"></textarea></div>
-              <div class="mb-3"><label for="editDescriptionZh" class="form-label">Description (中文)</label><textarea
-                  class="form-control" id="editDescriptionZh" rows="2"></textarea></div>
-              <div class="text-end">
-                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-primary">Save</button>
-              </div>
-            </form>
+      <!-- Edit popup -->
+      <div id="editModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; align-items:center; justify-content:center; backdrop-filter:blur(4px);">
+        <div style="background:white; padding:28px; border-radius:20px; max-width:440px; width:90%; box-shadow:0 20px 40px rgba(0,0,0,0.2); animation:fadeInScale 0.2s ease; max-height:90vh; overflow-y:auto;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h5 style="font-weight:600; font-size:1.3rem; margin:0; color:#1d1d1f;">
+              <i class="bi bi-pencil-square text-primary me-2"></i>Edit Word
+            </h5>
+            <button type="button" class="btn-close" onclick="closeEditModal()"></button>
           </div>
+
+          <div id="editPreview" style="font-size:2rem; font-weight:800; color:#0d6efd; text-align:center; margin-bottom:20px;"></div>
+
+          <input type="hidden" id="editId">
+
+          <% if (quizDirection === 'zh→en') { %>
+            <!-- zh→en : English is the key, Chinese are the translations -->
+            <div style="margin-bottom:16px;">
+              <div class="edit-section-label">English</div>
+              <input type="text" id="editEnglish" class="edit-modal-input" placeholder="English word...">
+            </div>
+            <div style="margin-bottom:16px;">
+              <div class="edit-section-label">Chinese</div>
+              <div id="editTranslationFields"></div>
+              <button type="button" onclick="addEditTranslationField()" style="background:transparent;border:none;color:#0d6efd;font-size:0.85rem;padding:0;cursor:pointer;font-weight:600;">
+                <i class="bi bi-plus-circle me-1"></i>Add another translation
+              </button>
+            </div>
+            <div style="margin-bottom:16px;">
+              <div class="edit-section-label">Pinyin</div>
+              <input type="text" id="editPinyin" class="edit-modal-input" placeholder="Pinyin...">
+            </div>
+            <div style="margin-bottom:24px;">
+              <div class="edit-section-label">Description (中文, optional)</div>
+              <textarea id="editDescriptionZh" class="edit-modal-input" rows="2" placeholder="中文描述..."></textarea>
+            </div>
+          <% } else { %>
+            <!-- en→zh : Chinese is the key, English are the translations -->
+            <div style="margin-bottom:16px;">
+              <div class="edit-section-label">Chinese</div>
+              <input type="text" id="editChinese" class="edit-modal-input" placeholder="汉字...">
+            </div>
+            <div style="margin-bottom:16px;">
+              <div class="edit-section-label">Pinyin</div>
+              <input type="text" id="editPinyin" class="edit-modal-input" placeholder="Pinyin...">
+            </div>
+            <div style="margin-bottom:16px;">
+              <div class="edit-section-label">English</div>
+              <div id="editTranslationFields"></div>
+              <button type="button" onclick="addEditTranslationField()" style="background:transparent;border:none;color:#0d6efd;font-size:0.85rem;padding:0;cursor:pointer;font-weight:600;">
+                <i class="bi bi-plus-circle me-1"></i>Add another translation
+              </button>
+            </div>
+            <div style="margin-bottom:24px;">
+              <div class="edit-section-label">Description (optional)</div>
+              <textarea id="editDescription" class="edit-modal-input" rows="2" placeholder="Short description..."></textarea>
+            </div>
+          <% } %>
+
+          <div style="display:flex; gap:12px;">
+            <button type="button" onclick="closeEditModal()" style="flex:1;padding:14px;border-radius:14px;font-weight:600;border:2px solid #e0e0e0;background:#fff;color:#444;cursor:pointer;">Cancel</button>
+            <button type="button" onclick="submitEdit()" id="editSaveBtn" style="flex:1;padding:14px;border-radius:14px;font-weight:600;border:none;color:#fff;background:linear-gradient(135deg,#007bff,#0056b3);cursor:pointer;">
+              <i class="bi bi-check-lg me-2"></i>Save
+            </button>
+          </div>
+          <div id="editError" style="display:none; margin-top:14px; padding:10px; border-radius:10px; background:#fff3cd; color:#856404; font-size:0.9rem;"></div>
         </div>
       </div>
 
@@ -255,13 +324,6 @@
 
         // modal
         const editModal = document.getElementById('editModal');
-        const editForm = document.getElementById('editForm');
-        const editId = document.getElementById('editId');
-        const editChinese = document.getElementById('editChinese');
-        const editPinyin = document.getElementById('editPinyin');
-        const editEnglish = document.getElementById('editEnglish');
-        const editDescription = document.getElementById('editDescription');
-        const editDescriptionZh = document.getElementById('editDescriptionZh');
 
         // 🎯 VARIABLES POUR LE SYSTÈME DE HOVER
         let hoverModal = null;
@@ -418,7 +480,7 @@
                         <div style="color: #666; margin-bottom: 8px;">
                             ${caractereExact.english || 'No translation'}
                         </div>
-                        ${caractereExact.hsk ? `
+                        ${(caractereExact.hsk && LEARN_DIR !== 'zh→en') ? `
                             <div style="background: #e8f5e8; color: #2e7d32; padding: 3px 8px; border-radius: 5px; font-size: 0.8rem;">
                                 HSK ${caractereExact.hsk}
                             </div>
@@ -507,9 +569,9 @@
           card.innerHTML = `
       <div class="card card-custom-bg rounded-4 shadow-lg p-3 mx-auto" style="width: 320px; height: 500px; position: relative;">
 
-          <div class="position-absolute top-0 end-0 mt-3 me-3">
+          ${!isLearnEn ? `<div class="position-absolute top-0 end-0 mt-3 me-3">
               <span class="hsk-tag-custom py-1 px-2 border border-light">HSK : ${hskLevelDisplay}</span>
-          </div>
+          </div>` : ''}
 
           <!-- Picto de niveau de connaissance -->
           <div class="position-absolute top-0 start-0 mt-0 ms-3">
@@ -761,30 +823,95 @@
           }
         }, { passive: true });
 
-        // Modal
-        function openEdit(word) {
-          editId.value = word.id;
-          editChinese.value = word.chinese;
-          editPinyin.value = word.pinyin || '';
-          editEnglish.value = word.english || '';
-          editDescription.value = word.description || '';
-          editDescriptionZh.value = word.description_zh || '';
-          const modal = new bootstrap.Modal(editModal);
-          modal.show();
+        // ── Edit modal helpers ──────────────────────────────────────────────────
+
+        const IS_ZH_EN = LEARN_DIR === 'zh→en';
+
+        function addEditTranslationField(value = '') {
+          const container = document.getElementById('editTranslationFields');
+          const placeholder = IS_ZH_EN ? '汉字...' : 'English translation...';
+          const wrapper = document.createElement('div');
+          wrapper.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;';
+          wrapper.innerHTML = `
+            <input type="text" class="edit-modal-input edit-translation-field" placeholder="${placeholder}" value="${value}" style="flex:1;margin-bottom:0;">
+            <button type="button" onclick="this.parentElement.remove()" style="background:transparent;border:none;color:#dc3545;font-size:1.1rem;cursor:pointer;padding:0 4px;" title="Remove">
+              <i class="bi bi-x-circle"></i>
+            </button>`;
+          container.appendChild(wrapper);
+          wrapper.querySelector('input').focus();
         }
 
-        // Edit submit
-        editForm.onsubmit = async (e) => {
-          e.preventDefault();
-          const payload = {
-            chinese: editChinese.value,
-            pinyin: editPinyin.value,
-            english: editEnglish.value,
-            description: editDescription.value,
-            description_zh: editDescriptionZh.value
+        function resetEditTranslationFields(value = '') {
+          const container = document.getElementById('editTranslationFields');
+          const placeholder = IS_ZH_EN ? '汉字...' : 'English translation...';
+          container.innerHTML = `<input type="text" class="edit-modal-input edit-translation-field" placeholder="${placeholder}" style="margin-bottom:8px;" value="${value}">`;
+        }
+
+        function getEditTranslationValue() {
+          return Array.from(document.querySelectorAll('#editTranslationFields .edit-translation-field'))
+            .map(f => f.value.trim())
+            .filter(v => v.length > 0)
+            .join(' / ');
+        }
+
+        function openEdit(word) {
+          document.getElementById('editId').value = word.id;
+          document.getElementById('editPinyin').value = word.pinyin || '';
+          document.getElementById('editPreview').textContent = IS_ZH_EN ? (word.english || '') : (word.chinese || '');
+          document.getElementById('editError').style.display = 'none';
+
+          const descEl   = document.getElementById('editDescription');
+          const descZhEl = document.getElementById('editDescriptionZh');
+          if (descEl)   descEl.value   = word.description    || '';
+          if (descZhEl) descZhEl.value = word.description_zh || '';
+
+          if (IS_ZH_EN) {
+            // English is the key (fixed label), Chinese are the translations
+            document.getElementById('editEnglish').value = word.english || '';
+            const parts = (word.chinese || '').split('/').map(s => s.trim()).filter(Boolean);
+            resetEditTranslationFields(parts[0] || '');
+            parts.slice(1).forEach(p => addEditTranslationField(p));
+          } else {
+            // Chinese is the key (fixed label), English are the translations
+            document.getElementById('editChinese').value = word.chinese || '';
+            const parts = (word.english || '').split('/').map(s => s.trim()).filter(Boolean);
+            resetEditTranslationFields(parts[0] || '');
+            parts.slice(1).forEach(p => addEditTranslationField(p));
+          }
+
+          document.getElementById('editModal').style.display = 'flex';
+          setTimeout(() => document.getElementById('editPinyin').focus(), 100);
+        }
+
+        function closeEditModal() {
+          document.getElementById('editModal').style.display = 'none';
+          document.getElementById('editSaveBtn').disabled = false;
+          document.getElementById('editSaveBtn').innerHTML = '<i class="bi bi-check-lg me-2"></i>Save';
+        }
+
+        async function submitEdit() {
+          const id = document.getElementById('editId').value;
+          const translations = getEditTranslationValue();
+          const payload = IS_ZH_EN ? {
+            english:        document.getElementById('editEnglish').value.trim(),
+            chinese:        translations,
+            pinyin:         document.getElementById('editPinyin').value.trim(),
+            description:    '',
+            description_zh: document.getElementById('editDescriptionZh')?.value.trim() ?? '',
+          } : {
+            chinese:        document.getElementById('editChinese').value.trim(),
+            pinyin:         document.getElementById('editPinyin').value.trim(),
+            english:        translations,
+            description:    document.getElementById('editDescription')?.value.trim() ?? '',
+            description_zh: '',
           };
+
+          const saveBtn = document.getElementById('editSaveBtn');
+          saveBtn.disabled = true;
+          saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+
           try {
-            const res = await fetch(`/update/${editId.value}`, {
+            const res = await fetch(`/update/${id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
@@ -792,19 +919,27 @@
             if (!res.ok) {
               haptics.error();
               const data = await res.json().catch(() => ({}));
-              alert(data.message || 'Only administrators can modify word translations.');
-              const bsModal = bootstrap.Modal.getInstance(editModal);
-              if (bsModal) bsModal.hide();
+              const errBox = document.getElementById('editError');
+              errBox.textContent = data.message || 'Only administrators can modify word translations.';
+              errBox.style.display = 'block';
+              saveBtn.disabled = false;
+              saveBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Save';
               return;
             }
             haptics.success();
             words[idx] = { ...words[idx], ...payload };
             showCard();
             showList();
-          } catch (err) { alert("Update failed"); }
-          const bsModal = bootstrap.Modal.getInstance(editModal);
-          if (bsModal) bsModal.hide();
-        };
+            closeEditModal();
+          } catch (err) {
+            haptics.error();
+            const errBox = document.getElementById('editError');
+            errBox.textContent = 'Update failed. Please try again.';
+            errBox.style.display = 'block';
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Save';
+          }
+        }
 
         //search a specific word in list
         searchInput.addEventListener('input', () => {

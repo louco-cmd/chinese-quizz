@@ -1735,6 +1735,8 @@ router.get('/api/duels/bullies', ensureAuth, async (req, res) => {
           WHEN (d.challenger_id = $1 AND d.challenger_score > d.opponent_score)
             OR (d.opponent_id = $1 AND d.opponent_score > d.challenger_score)
           THEN d.bet_amount
+          WHEN d.challenger_score = d.opponent_score
+          THEN 0
           ELSE -d.bet_amount
         END) AS balance
       FROM duels d

@@ -232,12 +232,7 @@
             </div>
 
             <!-- Contenu -->
-            <div id="leaderboard-container">
-              <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p class="mt-2 text-muted small">Loading ranking...</p>
-              </div>
-            </div>
+            <div id="leaderboard-container"></div>
 
             <!-- Pagination -->
             <div id="pagination-bar" class="d-flex align-items-center justify-content-between px-3 py-2 border-top" style="display:none!important;">
@@ -252,7 +247,7 @@
 
   <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script>
-    let allPlayers = [];
+    const allPlayers = <%- JSON.stringify(players) %>;
     const currentUserId = <%= user.id %>;
     const PAGE_SIZE = 20;
     let currentPage = 1;
@@ -269,32 +264,22 @@
       return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
 
-    document.addEventListener('DOMContentLoaded', loadLeaderboard);
-
-    async function loadLeaderboard() {
-      try {
-        const response = await fetch('/api/players/stats');
-        if (!response.ok) throw new Error();
-        allPlayers = await response.json();
-        if (!Array.isArray(allPlayers)) throw new Error();
-        document.getElementById('players-count').textContent = allPlayers.length + ' players';
-        currentPage = 1;
-        renderPage();
-      } catch {
-        document.getElementById('leaderboard-container').innerHTML = `
-          <div class="text-center py-4 text-muted">
-            <i class="bi bi-exclamation-triangle"></i>
-            <p class="mt-2 small">Loading error</p>
-            <button class="btn btn-sm btn-outline-primary mt-2" onclick="loadLeaderboard()">Retry</button>
-          </div>`;
-      }
-    }
+    document.addEventListener('DOMContentLoaded', function () {
+      document.getElementById('players-count').textContent = allPlayers.length + ' players';
+      document.getElementById('leaderboard-container').innerHTML = '';
+      renderPage();
+    });
 
     function renderPage() {
       const totalPages = Math.ceil(allPlayers.length / PAGE_SIZE);
       const start = (currentPage - 1) * PAGE_SIZE;
       const slice = allPlayers.slice(start, start + PAGE_SIZE);
       const container = document.getElementById('leaderboard-container');
+
+      if (allPlayers.length === 0) {
+        container.innerHTML = `<div class="text-center py-4 text-muted"><p class="mt-2 small">No players found.</p></div>`;
+        return;
+      }
 
       container.innerHTML = slice.map((player, i) => {
         const rank = start + i + 1;
@@ -379,8 +364,6 @@
       if (current >= total - 3) return [1, '…', total-4, total-3, total-2, total-1, total];
       return [1, '…', current - 1, current, current + 1, '…', total];
     }
-
-    setInterval(loadLeaderboard, 120000);
   </script>
 </body>
 

@@ -514,8 +514,8 @@
       });
       if (!r2.ok) throw new Error('Onboarding mark failed');
 
-      // 3. Redirect
-      window.location.href = '/dashboard';
+      // 3. Redirect to tutorial for new users
+      window.location.href = '/tutorial';
     } catch (err) {
       btn.disabled = false;
       btn.textContent = "Let's go 加油！🚀";

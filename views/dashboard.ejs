@@ -523,7 +523,7 @@
 
               <!-- Champ de saisie -->
               <input type="text" id="chinese" class="chinese-input"
-                placeholder="<%= quizDirection === 'zh→en' ? 'Type an English word...' : '' %>"
+                placeholder="<%= quizDirection === 'zh→en' ? 'Type an English word...' : 'Type Chinese characters...' %>"
                 maxlength="<%= quizDirection === 'zh→en' ? '50' : '6' %>"
                 autocomplete="off"
                 <% if (quizDirection !== 'zh→en') { %>inputmode="text"<% } %>>
@@ -621,7 +621,12 @@
               </div>
               <div id="fieldEnglish" style="margin-bottom: 16px;">
                 <div class="section-label">English</div>
-                <input type="text" id="newEnglish" class="modal-input" placeholder="English translation..." required>
+                <div id="translationFields">
+                  <input type="text" class="modal-input translation-field" placeholder="English translation..." required style="margin-bottom: 8px;">
+                </div>
+                <button type="button" onclick="addTranslationField()" style="background:transparent;border:none;color:#0d6efd;font-size:0.85rem;padding:0;cursor:pointer;font-weight:600;">
+                  <i class="bi bi-plus-circle me-1"></i>Add another translation
+                </button>
               </div>
 
               <div style="margin-bottom: 24px;">
@@ -907,11 +912,38 @@
           }
         }
 
+        // ── Translation fields helpers ──────────────────────────────────────────
+
+        function addTranslationField(value = '') {
+          const container = document.getElementById('translationFields');
+          const wrapper = document.createElement('div');
+          wrapper.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;';
+          wrapper.innerHTML = `
+            <input type="text" class="modal-input translation-field" placeholder="English translation..." value="${value}" style="flex:1;margin-bottom:0;">
+            <button type="button" onclick="this.parentElement.remove()" style="background:transparent;border:none;color:#dc3545;font-size:1.1rem;cursor:pointer;padding:0 4px;" title="Remove">
+              <i class="bi bi-x-circle"></i>
+            </button>`;
+          container.appendChild(wrapper);
+          wrapper.querySelector('input').focus();
+        }
+
+        function getEnglishValue() {
+          const fields = document.querySelectorAll('#translationFields .translation-field');
+          return Array.from(fields)
+            .map(f => f.value.trim())
+            .filter(v => v.length > 0)
+            .join(' / ');
+        }
+
+        function resetTranslationFields(value = '') {
+          const container = document.getElementById('translationFields');
+          container.innerHTML = `<input type="text" class="modal-input translation-field" placeholder="English translation..." required style="margin-bottom:8px;" value="${value}">`;
+        }
+
         // ========== MODALE NOUVEAU MOT ==========
         function displayNewWordModal() {
           const newPreview = document.getElementById('newPreviewChinese');
           const pinyinField = document.getElementById('newPinyin');
-          const englishField = document.getElementById('newEnglish');
           const chineseField = document.getElementById('newChinese');
           const descriptionField = document.getElementById('newDescription');
 
@@ -921,7 +953,7 @@
 
           if (LEARN_DIR === 'zh→en') {
             // On a tapé un mot anglais → on affiche l'anglais en preview, on demande le chinois
-            newPreview.textContent = currentChinese; // currentChinese = ce qui a été tapé (anglais ici)
+            newPreview.textContent = currentChinese;
             fieldChinese.style.display = 'block';
             fieldPinyin.style.display  = 'none';
             fieldEnglish.style.display = 'none';
@@ -936,16 +968,21 @@
             fieldEnglish.style.display = 'block';
             if (existingWordData) {
               pinyinField.value = existingWordData.pinyin || '';
-              englishField.value = existingWordData.english || '';
+              // Populate translation fields from existing data (split on /)
+              const existing = existingWordData.english || '';
+              const parts = existing.split('/').map(s => s.trim()).filter(Boolean);
+              resetTranslationFields(parts[0] || '');
+              parts.slice(1).forEach(p => addTranslationField(p));
               descriptionField.value = existingWordData.description || '';
             } else {
               pinyinField.value = convertirPinyin(currentChinese);
-              englishField.value = '';
+              resetTranslationFields('');
               descriptionField.value = '';
             }
             setTimeout(() => {
+              const first = document.querySelector('#translationFields .translation-field');
               if (!pinyinField.value) pinyinField.focus();
-              else if (!englishField.value) englishField.focus();
+              else if (first && !first.value) first.focus();
               else descriptionField.focus();
             }, 100);
           }
@@ -955,6 +992,7 @@
 
         function closeNewWordModal() {
           document.getElementById('newWordModal').style.display = 'none';
+          resetTranslationFields('');
           enableSubmitButton();
 
           // Réinitialiser le bouton "Capture the word" de la popup
@@ -1004,7 +1042,7 @@
           } else {
             chinese = currentChinese;
             pinyin = document.getElementById('newPinyin').value.trim();
-            english = document.getElementById('newEnglish').value.trim();
+            english = getEnglishValue();
             description = document.getElementById('newDescription').value.trim();
             if (!english) {
               showStatus('English translation required', 'error');

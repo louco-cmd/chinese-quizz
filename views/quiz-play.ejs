@@ -470,6 +470,18 @@
       }
     }
 
+    // Parse a translation string into distinct answers
+    // Strips parenthetical notes, splits on common separators, trims & deduplicates
+    function parseAnswers(str) {
+      if (!str) return [];
+      return str
+        .replace(/（[^）]*）/g, '')   // Chinese parens （...）
+        .replace(/\([^)]*\)/g, '')    // Latin parens (...)
+        .split(/[\/,，、。;；]/)        // all separators EXCEPT . to avoid breaking abbreviations
+        .map(s => s.trim().toLowerCase())
+        .filter((s, i, arr) => s.length > 0 && arr.indexOf(s) === i);
+    }
+
     // Normalize pinyin for comparison
     function normalizePinyin(str) {
       return str
@@ -520,18 +532,17 @@
     // Check answer
     function checkAnswer() {
       if (QUIZ_DIRECTION === 'zh→en') {
-        // Vérifie si la traduction anglaise correspond
+        // See Chinese → type English: any valid translation accepted
         const userAnswer = quizInputs[0].value.trim().toLowerCase();
-        const correct = currentWord.english.toLowerCase();
-        // Tolérance slash : "good morning / morning" accepte l'un ou l'autre
-        return correct.split('/').map(s => s.trim()).some(s => s === userAnswer);
+        return parseAnswers(currentWord.english).some(a => a === userAnswer);
       } else if (quizType === 'pinyin') {
         const userAnswer = normalizePinyin(quizInputs.map(inp => inp.value).join(" "));
         const correctAnswer = normalizePinyin(currentWord.pinyin);
         return userAnswer === correctAnswer;
       } else {
+        // See English → type Chinese: any valid Chinese translation accepted
         const userAnswer = quizInputs[0].value.trim();
-        return userAnswer === currentWord.chinese;
+        return parseAnswers(currentWord.chinese).some(a => a === userAnswer);
       }
     }
 
