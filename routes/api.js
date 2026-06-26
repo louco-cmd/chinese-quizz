@@ -2437,4 +2437,31 @@ router.patch('/api/notifications/toggle', ensureAuth, async (req, res) => {
 });
 
 
+// Toggle word review notifications
+router.post('/api/notifications/word-review', ensureAuth, async (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled (boolean) requis' });
+  try {
+    await pool.query(
+      'UPDATE users SET word_review_enabled = $1 WHERE id = $2',
+      [enabled, req.user.id]
+    );
+    req.user.word_review_enabled = enabled;
+    if (enabled) {
+      // S'assurer que la subscription push existe
+      const sub = await pool.query(
+        'SELECT id FROM push_subscriptions WHERE user_id = $1 LIMIT 1',
+        [req.user.id]
+      );
+      if (!sub.rows.length) {
+        return res.json({ ok: true, needsSubscription: true });
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[WordReview] Erreur toggle:', err.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 module.exports = router;

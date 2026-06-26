@@ -87,23 +87,23 @@
     }
 
     .quiz-card .card-body {
-      padding: 0.75rem 0.5rem;
+      padding: 1.5rem 1rem;
     }
 
     .quiz-icon {
-      font-size: 2rem;
-      margin-bottom: 0.5rem;
+      font-size: 2.8rem;
+      margin-bottom: 0.75rem;
       color: #ffffff;
     }
 
     .quiz-card .card-title {
-      font-size: 1.05rem;
+      font-size: 1.25rem;
       font-weight: 600;
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.35rem;
     }
 
     .quiz-card .card-text {
-      font-size: 0.8rem;
+      font-size: 0.9rem;
       opacity: 0.85;
       margin-bottom: 0 !important;
     }
@@ -244,9 +244,16 @@
     }
 
     /* FLIP CARDS */
+    @media (min-width: 992px) {
+      .col-word-card {
+        flex: 0 0 20%;
+        max-width: 20%;
+      }
+    }
+
     .flip-card {
       background-color: transparent;
-      height: 220px;
+      height: 150px;
       perspective: 1000px;
       cursor: pointer;
     }
@@ -293,14 +300,14 @@
 
     .flip-card-front .chinese,
     .flip-card-front .english {
-      font-size: 1.8rem;
+      font-size: 1.4rem;
       font-weight: 800;
       word-break: break-word;
       line-height: 1.15;
     }
 
     .flip-card-front .chinese {
-      font-size: 2.8rem;
+      font-size: 2rem;
     }
 
     .flip-card-back .chinese,
@@ -378,7 +385,7 @@
 
     @media (max-width: 768px) {
       .flip-card {
-        height: 180px;
+        height: 130px;
       }
 
       .flip-card-front .chinese,
@@ -965,7 +972,7 @@
             }
 
             return `
-      <div class="col-6 col-md-4 col-lg-3">
+      <div class="col-6 col-md-4 col-word-card">
         <div class="flip-card" data-idx="${idx}" onclick="this.classList.toggle('flipped')">
           <div class="flip-card-inner">
             <div class="flip-card-front">${frontContent}</div>

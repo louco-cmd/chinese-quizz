@@ -118,6 +118,13 @@ const pool = new Pool({
     `);
     console.log("✅ Colonne 'notifications_enabled' vérifiée ou créée sur 'users'.");
 
+    // ── Migration: word_review_enabled sur users ──────────────────────────────
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS word_review_enabled BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    console.log("✅ Colonne 'word_review_enabled' vérifiée ou créée sur 'users'.");
+
     // ── Fix: tous les users sans onboarding = apprennent le chinois (en→zh) ──
     // La colonne a été créée avec DEFAULT 'zh→en' dans une version précédente,
     // ce qui a affecté tous les anciens comptes. On corrige tous sauf ceux

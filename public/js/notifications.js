@@ -165,6 +165,40 @@
     }
   }
 
+  // ── Word review toggle ────────────────────────────────────────────────────
+
+  window.handleWordReviewToggle = async function (enable) {
+    const toggle = document.getElementById('wordReviewToggle');
+    if (toggle) toggle.disabled = true;
+
+    try {
+      if (enable) {
+        // S'assurer que le push est activé d'abord
+        const ok = await window.subscribePush();
+        if (!ok) {
+          if (toggle) toggle.checked = false;
+          return;
+        }
+      }
+
+      const res = await fetch('/api/notifications/word-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ enabled: enable }),
+      });
+
+      if (!res.ok) {
+        if (toggle) toggle.checked = !enable;
+      }
+    } catch (err) {
+      console.error('[WordReview] Toggle error:', err);
+      if (toggle) toggle.checked = !enable;
+    } finally {
+      if (toggle) toggle.disabled = false;
+    }
+  };
+
   // Fonctionne que le DOM soit déjà prêt ou pas encore
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initNotifToggle);
