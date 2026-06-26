@@ -4,7 +4,8 @@
     "namespace": "android_app",
     "package_name": "fr.jiayou.app.twa",
     "sha256_cert_fingerprints": [
-      "5A:6C:B8:1B:2E:81:44:A9:84:D7:A4:6B:EF:95:D9:C8:54:2B:32:47:15:B9:BB:E4:BE:79:AC:86:5D:2E:C1:9B"
+      "5A:6C:B8:1B:2E:81:44:A9:84:D7:A4:6B:EF:95:D9:C8:54:2B:32:47:15:B9:BB:E4:BE:79:AC:86:5D:2E:C1:9B",
+      "90:83:24:53:03:5E:DC:DB:42:17:91:49:A1:69:0A:81:AB:E3:6E:09:6C:3B:D3:DD:7F:3C:D8:BF:3B:9E:0A:54"
     ]
   }
 }]
