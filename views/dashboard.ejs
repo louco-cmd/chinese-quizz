@@ -519,11 +519,11 @@
               <div class="app-logo text-center">加油</div>
 
               <!-- Label -->
-              <div class="input-label">Add a word</div>
+              <div class="input-label"><%= t.add_a_word %></div>
 
               <!-- Champ de saisie -->
               <input type="text" id="chinese" class="chinese-input"
-                placeholder="<%= quizDirection === 'zh→en' ? 'Type an English word...' : 'Type Chinese characters...' %>"
+                placeholder="<%= t.input_placeholder %>"
                 maxlength="<%= quizDirection === 'zh→en' ? '50' : '6' %>"
                 autocomplete="off"
                 <% if (quizDirection !== 'zh→en') { %>inputmode="text"<% } %>>
@@ -533,13 +533,13 @@
               <div id="keyboardHelpLink" style="display: none; text-align: center; margin-top: 8px;">
                 <button type="button" onclick="openKeyboardHelp()"
                   style="background: none; border: none; color: rgba(255,255,255,0.75); font-size: 0.8rem; cursor: pointer; text-decoration: underline; padding: 0;">
-                  <i class="bi bi-keyboard me-1"></i>How to type Chinese?
+                  <i class="bi bi-keyboard me-1"></i><%= t.how_to_type_chinese %>
                 </button>
               </div>
 
               <!-- Bouton submit (caché par défaut) -->
               <button type="button" id="submitBtn" class="submit-btn">
-                <i class="bi bi-search me-2"></i>Add the Word
+                <i class="bi bi-search me-2"></i><%= t.submit_btn %>
               </button>
 
               <!-- Message de statut -->
@@ -552,43 +552,43 @@
             <div class="confirm-popup-content">
               <div class="modal-header-row">
                 <h5>
-                  <i class="bi bi-check-circle-fill text-success me-2"></i>Word found
+                  <i class="bi bi-check-circle-fill text-success me-2"></i><%= t.word_found %>
                 </h5>
                 <button type="button" class="btn-close" onclick="closeExistingWordModal()" style="font-size: 1rem;"></button>
               </div>
 
               <div class="chinese-preview" id="previewChinese"></div>
 
-              <div class="section-label">Word details</div>
+              <div class="section-label"><%= t.word_details %></div>
               <div class="word-info">
                 <div class="word-info-row" id="rowChinese" style="display:none;">
-                  <span class="word-info-label">Chinese</span>
+                  <span class="word-info-label"><%= t.label_chinese %></span>
                   <span class="word-info-value" id="displayChinese" style="font-size:1.3rem; font-weight:700;">-</span>
                 </div>
                 <div class="word-info-row" id="rowPinyin">
-                  <span class="word-info-label">Pinyin</span>
+                  <span class="word-info-label"><%= t.label_pinyin %></span>
                   <span class="word-info-value" id="displayPinyin">-</span>
                 </div>
                 <div class="word-info-row" id="rowEnglish">
-                  <span class="word-info-label">English</span>
+                  <span class="word-info-label"><%= t.label_english %></span>
                   <span class="word-info-value" id="displayEnglish">-</span>
                 </div>
                 <div class="word-info-row">
-                  <span class="word-info-label">Description</span>
+                  <span class="word-info-label"><%= t.label_desc %></span>
                   <span class="word-info-value" id="displayDescription">-</span>
                 </div>
               </div>
 
               <div style="display: flex; gap: 12px;">
-                <button type="button" class="modal-btn-secondary" onclick="closeExistingWordModal()">Cancel</button>
+                <button type="button" class="modal-btn-secondary" onclick="closeExistingWordModal()"><%= t.cancel %></button>
                 <button type="button" class="modal-btn-primary" id="confirmAddBtn" onclick="confirmAddExistingWord()">
-                Capture (3 ₵)
+                <%= t.capture %>
                 </button>
               </div>
 
               <div style="text-align: center; margin-top: 14px;">
                 <button type="button" class="modal-btn-link" id="editBeforeAddBtn" onclick="showNewWordModal()">
-                  <i class="bi bi-pencil me-1"></i>Edit before adding
+                  <i class="bi bi-pencil me-1"></i><%= t.edit_before %>
                 </button>
               </div>
 
@@ -635,9 +635,9 @@
               </div>
 
               <div style="display: flex; gap: 12px;">
-                <button type="button" class="modal-btn-secondary" onclick="closeNewWordModal()">Cancel</button>
+                <button type="button" class="modal-btn-secondary" onclick="closeNewWordModal()"><%= t.cancel %></button>
                 <button type="button" class="modal-btn-primary" id="confirmAddNewBtn" onclick="confirmAddNewWord()">
-                Capture (3 ₵)
+                <%= t.capture %>
                 </button>
               </div>
             </div>
@@ -662,6 +662,15 @@
       <script src="/js/global.js"></script>
       <script>
         const LEARN_DIR = '<%= quizDirection %>'; // 'en→zh' = apprendre chinois | 'zh→en' = apprendre anglais
+        const I18N = {
+          searching:       '<%= t.searching %>',
+          submit_btn:      '<%= t.submit_btn %>',
+          capture:         '<%= t.capture %>',
+          already_captured:'<%= t.already_captured %>',
+          adding:          '<%= t.adding %>',
+          edit_before:     '<%= t.edit_before %>',
+          cancel:          '<%= t.cancel %>',
+        };
         let currentChinese = '';
         let existingWordData = null;
         let currentRequestController = null;
@@ -698,35 +707,37 @@
           }
         });
 
+        function setErrorWithWhy(msg) {
+          errorMessage.innerHTML = msg + ' &nbsp;<button type="button" onclick="openImmersionPopup()" style="background:none;border:none;padding:0;color:rgba(255,255,255,0.8);font-size:0.85rem;text-decoration:underline;cursor:pointer;vertical-align:middle;">Why?</button>';
+        }
+
         function validateChineseInput(input) {
           const value = input.value;
 
           if (LEARN_DIR === 'zh\u2192en') {
-            // Mode "apprendre l'anglais" : on saisit des mots anglais, interdire le chinois
             const chineseRegex = /[\u4e00-\u9fff\u3400-\u4dbf]/;
             if (chineseRegex.test(value)) {
               input.classList.add('invalid');
               input.classList.remove('valid');
-              errorMessage.textContent = '\u8bf7\u7528\u82f1\u6587\u641c\u7d22 \u00b7 Use English words to search';
+              setErrorWithWhy('\u8bf7\u7528\u82f1\u6587\u641c\u7d22 \u00b7 Use English words to search');
               document.getElementById('keyboardHelpLink').style.display = 'none';
             } else {
               input.classList.add('valid');
               input.classList.remove('invalid');
-              errorMessage.textContent = '';
+              errorMessage.innerHTML = '';
             }
           } else {
-            // Mode "apprendre le chinois" : saisie chinoise obligatoire
             const nonChineseRegex = /[^\u4e00-\u9fff]/g;
             const nonChineseChars = value.match(nonChineseRegex);
             if (nonChineseChars) {
               input.classList.add('invalid');
               input.classList.remove('valid');
-              errorMessage.textContent = 'Only Chinese characters allowed';
+              setErrorWithWhy('Only Chinese characters allowed');
               document.getElementById('keyboardHelpLink').style.display = 'block';
             } else {
               input.classList.add('valid');
               input.classList.remove('invalid');
-              errorMessage.textContent = '';
+              errorMessage.innerHTML = '';
               document.getElementById('keyboardHelpLink').style.display = 'none';
             }
           }
@@ -734,18 +745,16 @@
 
         chineseInput.addEventListener('beforeinput', (e) => {
           if (LEARN_DIR === 'zh\u2192en') {
-            // Bloquer la saisie chinoise
             if (e.data && /[\u4e00-\u9fff\u3400-\u4dbf]/.test(e.data)) {
               e.preventDefault();
-              errorMessage.textContent = '\u8bf7\u7528\u82f1\u6587\u641c\u7d22 \u00b7 Use English words to search';
+              setErrorWithWhy('\u8bf7\u7528\u82f1\u6587\u641c\u7d22 \u00b7 Use English words to search');
               chineseInput.classList.add('invalid');
               chineseInput.classList.remove('valid');
             }
           } else {
-            // Bloquer la saisie non-chinoise
             if (e.data && !/[\u4e00-\u9fff]/.test(e.data)) {
               e.preventDefault();
-              errorMessage.textContent = 'Only Chinese characters allowed';
+              setErrorWithWhy('Only Chinese characters allowed');
               chineseInput.classList.add('invalid');
               chineseInput.classList.remove('valid');
               document.getElementById('keyboardHelpLink').style.display = 'block';
@@ -778,7 +787,7 @@
           const chinese = inputVal; // on garde le nom pour compatibilit\u00e9
           currentChinese = chinese;
           disableSubmitButton();
-          showStatus('Searching...', 'info');
+          showStatus(I18N.searching, 'info');
 
           try {
             const endpoint = LEARN_DIR === 'zh\u2192en'
@@ -844,7 +853,7 @@
           const confirmBtn = document.getElementById('confirmAddBtn');
           if (confirmBtn) {
             confirmBtn.disabled = false;
-            confirmBtn.innerHTML = 'Capture (3 ₵)';
+            confirmBtn.innerHTML = I18N.capture;
           }
 
           // Réafficher le bouton "Edit" (s'il avait été masqué)
@@ -868,7 +877,7 @@
           errorDiv.style.display = 'none';
           errorDiv.textContent = '';
           confirmBtn.disabled = true;
-          confirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Adding...';
+          confirmBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>' + I18N.adding;
           showStatus('Adding word...', 'info');
 
           try {
@@ -903,11 +912,11 @@
           if (!confirmBtn) return;
           if (alreadyCaptured) {
             confirmBtn.disabled = true;
-            confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Already captured';
+            confirmBtn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>' + I18N.already_captured;
             if (editBtn) editBtn.style.display = 'none';
           } else {
             confirmBtn.disabled = false;
-            confirmBtn.innerHTML = 'Capture (3 ₵)';
+            confirmBtn.innerHTML = I18N.capture;
             if (editBtn) editBtn.style.display = '';
           }
         }
@@ -999,7 +1008,7 @@
           const addBtn = document.getElementById('confirmAddNewBtn');
           if (addBtn) {
             addBtn.disabled = false;
-            addBtn.innerHTML = 'Capture (3 ₵)';
+            addBtn.innerHTML = I18N.capture;
           }
         }
 
@@ -1187,12 +1196,12 @@
         // ========== UTILITAIRES BOUTONS & FORMULAIRE ==========
         function disableSubmitButton() {
           submitBtn.disabled = true;
-          submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Searching...';
+          submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>' + I18N.searching;
         }
 
         function enableSubmitButton() {
           submitBtn.disabled = false;
-          submitBtn.innerHTML = '<i class="bi bi-search me-2"></i>Add the Word';
+          submitBtn.innerHTML = '<i class="bi bi-search me-2"></i>' + I18N.submit_btn;
         }
 
         function resetForm() {
@@ -1384,6 +1393,37 @@
         }
       </script>
 
+  <!-- ====== POPUP — Immersion philosophy ====== -->
+  <div id="immersionModal" class="confirm-popup" style="display: none;" onclick="if(event.target===this)closeImmersionPopup()">
+    <div class="confirm-popup-content" style="max-width: 420px;">
+      <div class="modal-header-row" style="margin-bottom: 0;">
+        <div style="display:flex; align-items:center; gap: 10px;">
+          <div style="width:40px; height:40px; border-radius:12px; background:#e3f2fd; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <i class="bi bi-water" style="color:#0d6efd; font-size:1.2rem;"></i>
+          </div>
+          <h5 style="margin:0; font-size:1.05rem; font-weight:700; color:#111;">Immersion mode</h5>
+        </div>
+        <button type="button" class="btn-close" onclick="closeImmersionPopup()" style="font-size:1rem;"></button>
+      </div>
+
+      <div style="margin-top:20px; color:#444; font-size:0.93rem; line-height:1.65;">
+        <p style="margin-bottom:12px;">
+          Jiayou isn't a dictionary. You're not here to look up words — you're here to <strong>collect words you've already met</strong>.
+        </p>
+        <p style="margin-bottom:12px;">
+          That's why you search in the language you're <strong>learning</strong>. If you've seen a word in the wild and want to capture it, you should already have a sense of it. That effort is the learning.
+        </p>
+        <p style="margin-bottom:0; color:#888; font-size:0.85rem;">
+          <i class="bi bi-lightbulb me-1 text-warning"></i><% if (quizDirection === 'zh→en') { %>Encountered an English word somewhere? Type it here to add it to your collection.<% } else { %>Spotted a Chinese character somewhere? Type it here to capture it.<% } %>
+        </p>
+      </div>
+
+      <button type="button" class="modal-btn-primary" onclick="closeImmersionPopup()" style="margin-top:24px; width:100%;">
+        Got it
+      </button>
+    </div>
+  </div>
+
   <!-- ====== POPUP — Chinese keyboard setup guide ====== -->
   <div id="keyboardHelpModal" class="confirm-popup" style="display: none;">
     <div class="confirm-popup-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto;">
@@ -1524,8 +1564,15 @@
     function openKeyboardHelp() {
       document.getElementById('keyboardHelpModal').style.display = 'flex';
     }
+
     function closeKeyboardHelp() {
       document.getElementById('keyboardHelpModal').style.display = 'none';
+    }
+    function openImmersionPopup() {
+      document.getElementById('immersionModal').style.display = 'flex';
+    }
+    function closeImmersionPopup() {
+      document.getElementById('immersionModal').style.display = 'none';
     }
     function showKbTab(platform) {
       ['iphone','android','windows','mac'].forEach(p => {

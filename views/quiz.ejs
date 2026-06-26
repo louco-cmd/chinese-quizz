@@ -445,8 +445,8 @@
                 <i class="quiz-card-arrow bi bi-arrow-right-circle-fill" style="color:rgba(255,255,255,0.5);"></i>
                 <div class="card-body text-center">
                   <i class="quiz-icon bi bi-translate" style="color:#fff;"></i>
-                  <h3 class="card-title" style="color:#fff;">Quiz English</h3>
-                  <p class="card-text mb-0" style="color:rgba(255,255,255,0.8);">See Chinese, type English</p>
+                  <h3 class="card-title" style="color:#fff;"><%= t.quiz_title_char %></h3>
+                  <p class="card-text mb-0" style="color:rgba(255,255,255,0.8);"><%= t.quiz_desc_char %></p>
                 </div>
               </div>
             </div>
@@ -459,8 +459,8 @@
                 <i class="quiz-card-arrow bi bi-arrow-right-circle-fill"></i>
                 <div class="card-body text-center">
                   <i class="quiz-icon bi bi-type"></i>
-                  <h3 class="card-title">Quiz Pinyin</h3>
-                  <p class="card-text mb-0">From english to pinyin</p>
+                  <h3 class="card-title"><%= t.quiz_title_pinyin %></h3>
+                  <p class="card-text mb-0"><%= t.quiz_desc_pinyin %></p>
                 </div>
               </div>
             </div>
@@ -472,8 +472,8 @@
                 <i class="quiz-card-arrow bi bi-arrow-right-circle-fill"></i>
                 <div class="card-body text-center">
                   <i class="quiz-icon bi bi-translate"></i>
-                  <h3 class="card-title">Quiz characters</h3>
-                  <p class="card-text mb-0">From English to chinese characters</p>
+                  <h3 class="card-title"><%= t.quiz_title_char %></h3>
+                  <p class="card-text mb-0"><%= t.quiz_desc_char %></p>
                 </div>
               </div>
             </div>
@@ -486,7 +486,7 @@
         <div class="confirm-popup-content">
           <!-- En-tête -->
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h5 style="font-weight: 600; font-size: 1.4rem; margin: 0;">Quiz settings</h5>
+            <h5 style="font-weight: 600; font-size: 1.4rem; margin: 0;"><%= t.quiz_settings %></h5>
             <button type="button" class="btn-close" onclick="closeCountModal()" style="font-size: 1rem;"></button>
           </div>
           <!-- Plage HSK avec graduation intégrant Street comme 7e niveau -->
@@ -604,10 +604,10 @@
           <!-- Boutons d'action -->
           <div style="display: flex; gap: 12px;">
             <button type="button" class="btn btn-outline-secondary" onclick="closeCountModal()"
-              style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; border: 2px solid #e0e0e0;">Cancel</button>
+              style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; border: 2px solid #e0e0e0;"><%= t.cancel_quiz %></button>
             <button type="button" class="btn btn-primary" onclick="startQuiz()" id="startQuizBtn"
               style="flex: 1; padding: 14px; border-radius: 14px; font-weight: 600; background: linear-gradient(135deg, #007bff, #0056b3); border: none;">
-              <i class="bi bi-rocket-takeoff me-2"></i>Start quiz
+              <i class="bi bi-rocket-takeoff me-2"></i><%= t.start_quiz %>
             </button>
           </div>
           <!-- Lien tertiaire : quick quiz sur les difficultés -->
@@ -626,7 +626,7 @@
       <section class="container my-5">
         <div class="mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
           <h2 class="text-dark mb-0">
-            Your difficulties
+            <%= t.your_difficulties %>
           </h2>
           <% if (quizDirection !== 'zh→en') { %>
           <!-- Toggle Show Pinyin (mode apprentissage chinois uniquement) -->
@@ -661,6 +661,10 @@
       <script src="/js/global.js"></script>
       <script>
         const QUIZ_DIR = '<%= quizDirection %>';
+        const I18N = {
+          start_quiz:   '<%= t.start_quiz %>',
+          loading_words:'<%= t.loading_words %>',
+        };
         let selectedQuizType = null;
         let selectedCount = 20; // Valeur par défaut
         let selectedDifficulty = 'balanced'; // Valeur par défaut
@@ -781,7 +785,7 @@
           const startBtn = document.getElementById('startQuizBtn');
           if (startBtn) {
             startBtn.disabled = false;
-            startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>Start quiz';
+            startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>' + I18N.start_quiz;
           }
         }
 
@@ -844,7 +848,7 @@
           const startBtn = document.getElementById('startQuizBtn');
           if (startBtn) {
             startBtn.disabled = false;
-            startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>Start quiz';
+            startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>' + I18N.start_quiz;
           }
 
           document.querySelectorAll('.quiz-limit-popup').forEach(el => el.remove());
@@ -891,7 +895,7 @@
               overlay.remove();
               if (startBtn) {
                 startBtn.disabled = false;
-                startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>Start quiz';
+                startBtn.innerHTML = '<i class="bi bi-rocket-takeoff me-2"></i>' + I18N.start_quiz;
               }
             }
           });

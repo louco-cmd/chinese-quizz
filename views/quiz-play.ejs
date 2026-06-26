@@ -96,6 +96,17 @@
     // ==================================================
 
     const QUIZ_DIRECTION = '<%= quizDirection %>';
+    const I18N = {
+      submit:           '<%= t.submit %>',
+      loading_words:    '<%= t.loading_words %>',
+      correct:          '<%= t.correct %>',
+      incorrect_answer: '<%= t.incorrect_answer %>',
+      quiz_completed:   '<%= t.quiz_completed %>',
+      correct_pct:      '<%= t.correct_pct %>',
+      coins_earned:     '<%= t.coins_earned %>',
+      collect:          '<%= t.collect %>',
+      end_quiz:         '<%= t.end_quiz %>',
+    };
 
     let quizWords = [];
     let quizResults = [];
@@ -153,7 +164,7 @@
     async function loadQuizWords() {
       try {
         // Show loading message
-        quizQuestion.textContent = 'Loading words...';
+        quizQuestion.textContent = I18N.loading_words;
         disableSubmitButton();
 
         // Call API with parameters (mode "ids" si quick quiz)
@@ -502,7 +513,7 @@
     // Enable submit button
     function enableSubmitButton() {
       checkBtn.disabled = false;
-      checkBtn.innerHTML = '<i class="bi bi-send-check me-2"></i>Submit';
+      checkBtn.innerHTML = '<i class="bi bi-send-check me-2"></i>' + I18N.submit;
       checkBtn.classList.remove('disabled');
     }
 
@@ -549,7 +560,7 @@
     // Handle correct answer
     function handleCorrectAnswer() {
       haptics.success();
-      quizResult.textContent = "✅ Correct!";
+      quizResult.textContent = I18N.correct;
       quizResult.className = "alert alert-success";
       quizResult.style.display = 'block';
 
@@ -593,10 +604,10 @@
       } else {
         // Second error
         quizResult.textContent = QUIZ_DIRECTION === 'zh→en' ?
-          `✅ Correct answer: ${currentWord.english}` :
+          `${I18N.incorrect_answer} ${currentWord.english}` :
           quizType === 'pinyin' ?
-            `✅ Correct answer: ${currentWord.pinyin}` :
-            `✅ Correct answer: ${currentWord.chinese}`;
+            `${I18N.incorrect_answer} ${currentWord.pinyin}` :
+            `${I18N.incorrect_answer} ${currentWord.chinese}`;
 
         quizResult.className = "alert alert-warning";
         quizResult.style.display = 'block';
@@ -658,14 +669,14 @@
     <div class="text-center p-4">
       <!-- Icône et titre -->
       <div class="mb-4">
-        <h2 class="mt-3 fw-bold">Quiz Completed</h2>
+        <h2 class="mt-3 fw-bold">${I18N.quiz_completed}</h2>
       </div>
-      
+
       <!-- Score -->
       <div class="card border-0 bg-light mb-4">
         <div class="card-body p-4">
           <div class="display-4 fw-bold mb-2">${correct}/${total}</div>
-          <div class="text-muted mb-3">${Math.round(successRate)}% correct</div>
+          <div class="text-muted mb-3">${Math.round(successRate)}${I18N.correct_pct}</div>
         </div>
       </div>
       
@@ -680,22 +691,21 @@
           <div class="d-flex align-items-center justify-content-center">
             <i class="bi bi-coin fs-1 me-3"></i>
             <div>
-              <h5 class="fw-bold mb-1">+${coinsEarned} Coins Earned</h5>
-              <p class="mb-0">Your reward has been added to your balance</p>
+              <h5 class="fw-bold mb-1">+${coinsEarned} ${I18N.coins_earned}</h5>
             </div>
           </div>
         </div>
       ` : ''}
-      
+
       <!-- Bouton unique -->
       <div class="mt-4">
         ${coinsEarned > 0 ? `
           <button id="collectBtn" class="btn btn-success btn-lg w-100">
-            <i class="bi bi-wallet2 me-2"></i>Collect ${coinsEarned}₵
+            <i class="bi bi-wallet2 me-2"></i>${I18N.collect} ${coinsEarned}₵
           </button>
         ` : `
           <button id="finishBtn" class="btn btn-primary btn-lg w-100">
-            <i class="bi bi-check-circle me-2"></i>End Quiz
+            <i class="bi bi-check-circle me-2"></i>${I18N.end_quiz}
           </button>
         `}
       </div>
@@ -750,8 +760,8 @@
           if (button) {
             button.disabled = false;
             button.innerHTML = coinsEarned > 0 ?
-              `<i class="bi bi-wallet2 me-2"></i>Collect ${coinsEarned}₵` :
-              `<i class="bi bi-check-circle me-2"></i>End Quiz`;
+              `<i class="bi bi-wallet2 me-2"></i>${I18N.collect} ${coinsEarned}₵` :
+              `<i class="bi bi-check-circle me-2"></i>${I18N.end_quiz}`;
           }
         });
     }

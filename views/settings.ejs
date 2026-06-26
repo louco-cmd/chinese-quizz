@@ -162,11 +162,11 @@
 
   <div class="settings-page">
 
-    <h5 class="fw-bold mb-3 mt-2" style="color:#1a1a1a;">Settings</h5>
+    <h5 class="fw-bold mb-3 mt-2" style="color:#1a1a1a;"><%= t.settings_title %></h5>
 
     <!-- ── LEARNING DIRECTION ── -->
     <div class="settings-group">
-      <div class="settings-group-title">Learning</div>
+      <div class="settings-group-title"><%= t.learning_section %></div>
 
       <div class="settings-row" style="flex-direction: column; align-items: flex-start;">
         <div class="d-flex align-items-center gap-3 mb-3 w-100">
@@ -174,8 +174,8 @@
             <i class="bi bi-translate"></i>
           </div>
           <div class="settings-row-label">
-            <div class="label-main">Learning direction</div>
-            <div class="label-sub">What language are you learning?</div>
+            <div class="label-main"><%= t.learning_direction %></div>
+            <div class="label-sub"><%= t.learning_direction_sub %></div>
           </div>
         </div>
 
@@ -196,15 +196,15 @@
 
     <!-- ── NOTIFICATIONS ── -->
     <div class="settings-group">
-      <div class="settings-group-title">Notifications</div>
+      <div class="settings-group-title"><%= t.notif_section %></div>
 
       <div class="settings-row">
         <div class="settings-row-icon" style="background:#e8f5e9; color:#198754;">
           <i class="bi bi-bell-fill"></i>
         </div>
         <div class="settings-row-label">
-          <div class="label-main">Duel notifications</div>
-          <div class="label-sub">Get notified when someone challenges you</div>
+          <div class="label-main"><%= t.duel_notif %></div>
+          <div class="label-sub"><%= t.duel_notif_sub %></div>
         </div>
         <div class="form-check form-switch mb-0">
           <input class="form-check-input" type="checkbox" role="switch" id="notifToggle"
@@ -218,8 +218,8 @@
           <i class="bi bi-journal-text"></i>
         </div>
         <div class="settings-row-label">
-          <div class="label-main">Word review reminders</div>
-          <div class="label-sub">A difficult word every 2 hours</div>
+          <div class="label-main"><%= t.word_review %></div>
+          <div class="label-sub"><%= t.word_review_sub %></div>
         </div>
         <div class="form-check form-switch mb-0">
           <input class="form-check-input" type="checkbox" role="switch" id="wordReviewToggle"
@@ -256,7 +256,7 @@
 
     <!-- ── ACCOUNT ── -->
     <div class="settings-group">
-      <div class="settings-group-title">Account</div>
+      <div class="settings-group-title"><%= t.account_section %></div>
 
       <% if (user.planName !== 'premium') { %>
       <a href="https://jiayou.fr/#pricing" data-external="https://jiayou.fr/#pricing"
@@ -340,7 +340,7 @@
           <i class="bi bi-box-arrow-right"></i>
         </div>
         <div class="settings-row-label">
-          <div class="label-main">Logout</div>
+          <div class="label-main"><%= t.logout %></div>
         </div>
         <i class="bi bi-chevron-right text-muted"></i>
       </button>
@@ -350,7 +350,7 @@
           <i class="bi bi-trash"></i>
         </div>
         <div class="settings-row-label">
-          <div class="label-main">Delete account</div>
+          <div class="label-main"><%= t.delete_account %></div>
           <div class="label-sub">Permanent, cannot be undone</div>
         </div>
         <i class="bi bi-chevron-right text-muted"></i>
@@ -367,16 +367,16 @@
     <div class="modal-dialog modal-dialog-centered modal-sm">
       <div class="modal-content" style="border-radius:20px; border:none; padding:8px;">
         <div class="modal-header border-0">
-          <h5 class="modal-title fw-bold">Confirm logout</h5>
+          <h5 class="modal-title fw-bold"><%= t.confirm_logout %></h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body pt-0">
-          <p class="text-secondary mb-0">Are you sure you want to log out?</p>
+          <p class="text-secondary mb-0"><%= t.logout_confirm_text %></p>
         </div>
         <div class="modal-footer border-0 d-flex gap-2">
-          <button class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-light flex-fill" data-bs-dismiss="modal"><%= t.cancel %></button>
           <button class="btn btn-danger flex-fill" onclick="performLogout()">
-            <i class="bi bi-box-arrow-right me-1"></i>Logout
+            <i class="bi bi-box-arrow-right me-1"></i><%= t.logout %>
           </button>
         </div>
       </div>
@@ -397,9 +397,9 @@
           </div>
         </div>
         <div class="modal-footer border-0 d-flex gap-2">
-          <button class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-light flex-fill" data-bs-dismiss="modal"><%= t.cancel %></button>
           <button class="btn btn-danger flex-fill" onclick="performDeleteAccount()">
-            <i class="bi bi-trash me-1"></i>Delete
+            <i class="bi bi-trash me-1"></i><%= t.delete_account %>
           </button>
         </div>
       </div>

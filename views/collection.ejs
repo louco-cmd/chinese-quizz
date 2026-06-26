@@ -218,14 +218,14 @@
           <div id="list-container" class="container mt-4 hidden">
             <div class="mb-3" style="max-width: 400px;">
               <input type="text" id="searchInput" class="form-control"
-                placeholder="<%= quizDirection === 'zh→en' ? 'Search in English...' : 'Search Chinese, pinyin...' %>">
+                placeholder="<%= t.search_placeholder %>">
             </div>
             <table class="table table-striped">
               <thead>
                 <% if (quizDirection === 'zh→en') { %>
-                <tr><th>English</th><th>Chinese</th><th>Pinyin</th></tr>
+                <tr><th><%= t.col_english %></th><th><%= t.col_chinese %></th><th><%= t.col_pinyin %></th></tr>
                 <% } else { %>
-                <tr><th>Chinese</th><th>Pinyin</th><th>English</th></tr>
+                <tr><th><%= t.col_chinese %></th><th><%= t.col_pinyin %></th><th><%= t.col_english %></th></tr>
                 <% } %>
               </thead>
               <tbody id="listBody"></tbody>
@@ -234,7 +234,7 @@
 
           <div class="d-flex justify-content-between w-100 mt-auto buttons-container align-items-center" style="max-width: 18rem;">
             <button id="prevBtn" class="btn btn-primary rounded-circle px-3 py-2">‹</button>
-            <button id="hideTranslationBtn" onclick="toggleTranslation()" class="btn btn-link text-secondary p-0" style="font-size: 0.85rem; text-decoration: underline; text-underline-offset: 3px;"><i class="bi bi-eye-slash me-1"></i>hide translation</button>
+            <button id="hideTranslationBtn" onclick="toggleTranslation()" class="btn btn-link text-secondary p-0" style="font-size: 0.85rem; text-decoration: underline; text-underline-offset: 3px;"><i class="bi bi-eye-slash me-1"></i><%= t.hide_translation %></button>
             <button id="nextBtn" class="btn btn-primary rounded-circle px-3 py-2">›</button>
           </div>
       </section>
@@ -244,7 +244,7 @@
         <div style="background:white; padding:28px; border-radius:20px; max-width:440px; width:90%; box-shadow:0 20px 40px rgba(0,0,0,0.2); animation:fadeInScale 0.2s ease; max-height:90vh; overflow-y:auto;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h5 style="font-weight:600; font-size:1.3rem; margin:0; color:#1d1d1f;">
-              <i class="bi bi-pencil-square text-primary me-2"></i>Edit Word
+              <i class="bi bi-pencil-square text-primary me-2"></i><%= t.edit_word %>
             </h5>
             <button type="button" class="btn-close" onclick="closeEditModal()"></button>
           </div>
@@ -256,18 +256,18 @@
           <% if (quizDirection === 'zh→en') { %>
             <!-- zh→en : English is the key, Chinese are the translations -->
             <div style="margin-bottom:16px;">
-              <div class="edit-section-label">English</div>
+              <div class="edit-section-label"><%= t.col_english %></div>
               <input type="text" id="editEnglish" class="edit-modal-input" placeholder="English word...">
             </div>
             <div style="margin-bottom:16px;">
-              <div class="edit-section-label">Chinese</div>
+              <div class="edit-section-label"><%= t.col_chinese %></div>
               <div id="editTranslationFields"></div>
               <button type="button" onclick="addEditTranslationField()" style="background:transparent;border:none;color:#0d6efd;font-size:0.85rem;padding:0;cursor:pointer;font-weight:600;">
                 <i class="bi bi-plus-circle me-1"></i>Add another translation
               </button>
             </div>
             <div style="margin-bottom:16px;">
-              <div class="edit-section-label">Pinyin</div>
+              <div class="edit-section-label"><%= t.col_pinyin %></div>
               <input type="text" id="editPinyin" class="edit-modal-input" placeholder="Pinyin...">
             </div>
             <div style="margin-bottom:24px;">
@@ -277,15 +277,15 @@
           <% } else { %>
             <!-- en→zh : Chinese is the key, English are the translations -->
             <div style="margin-bottom:16px;">
-              <div class="edit-section-label">Chinese</div>
+              <div class="edit-section-label"><%= t.col_chinese %></div>
               <input type="text" id="editChinese" class="edit-modal-input" placeholder="汉字...">
             </div>
             <div style="margin-bottom:16px;">
-              <div class="edit-section-label">Pinyin</div>
+              <div class="edit-section-label"><%= t.col_pinyin %></div>
               <input type="text" id="editPinyin" class="edit-modal-input" placeholder="Pinyin...">
             </div>
             <div style="margin-bottom:16px;">
-              <div class="edit-section-label">English</div>
+              <div class="edit-section-label"><%= t.col_english %></div>
               <div id="editTranslationFields"></div>
               <button type="button" onclick="addEditTranslationField()" style="background:transparent;border:none;color:#0d6efd;font-size:0.85rem;padding:0;cursor:pointer;font-weight:600;">
                 <i class="bi bi-plus-circle me-1"></i>Add another translation
@@ -298,9 +298,9 @@
           <% } %>
 
           <div style="display:flex; gap:12px;">
-            <button type="button" onclick="closeEditModal()" style="flex:1;padding:14px;border-radius:14px;font-weight:600;border:2px solid #e0e0e0;background:#fff;color:#444;cursor:pointer;">Cancel</button>
+            <button type="button" onclick="closeEditModal()" style="flex:1;padding:14px;border-radius:14px;font-weight:600;border:2px solid #e0e0e0;background:#fff;color:#444;cursor:pointer;"><%= t.cancel %></button>
             <button type="button" onclick="submitEdit()" id="editSaveBtn" style="flex:1;padding:14px;border-radius:14px;font-weight:600;border:none;color:#fff;background:linear-gradient(135deg,#007bff,#0056b3);cursor:pointer;">
-              <i class="bi bi-check-lg me-2"></i>Save
+              <i class="bi bi-check-lg me-2"></i><%= t.save %>
             </button>
           </div>
           <div id="editError" style="display:none; margin-top:14px; padding:10px; border-radius:10px; background:#fff3cd; color:#856404; font-size:0.9rem;"></div>
@@ -315,6 +315,12 @@
         let touchStartX = 0, touchStartY = 0;
         let hideTranslation = false;
         const LEARN_DIR = '<%= quizDirection %>';
+        const I18N = {
+          no_words_yet:     '<%= t.no_words_yet %>',
+          hide_translation: '<%= t.hide_translation %>',
+          show_translation: '<%= t.show_translation %>',
+          save:             '<%= t.save %>',
+        };
         const cardContainer = document.getElementById('card-container');
         const prevBtn = document.getElementById('prevBtn');
         const nextBtn = document.getElementById('nextBtn');
@@ -338,7 +344,7 @@
           const res = await fetch('/mes-mots');
           words = await res.json();
           if (!words.length) {
-            cardContainer.innerHTML = '<p>No words yet.</p>';
+            cardContainer.innerHTML = '<p>' + I18N.no_words_yet + '</p>';
             return;
           }
           idx = 0;
@@ -627,7 +633,7 @@
 
                 // Si tu veux gérer la navigation après suppression
                 if (words.length === 0) {
-                  cardContainer.innerHTML = '<p>No words yet.</p>';
+                  cardContainer.innerHTML = '<p>' + I18N.no_words_yet + '</p>';
                   listBody.innerHTML = '';
                   return;
                 }
@@ -747,8 +753,8 @@
           hideTranslation = !hideTranslation;
           const btn = document.getElementById('hideTranslationBtn');
           btn.innerHTML = hideTranslation
-            ? '<i class="bi bi-eye me-1"></i>show translation'
-            : '<i class="bi bi-eye-slash me-1"></i>hide translation';
+            ? '<i class="bi bi-eye me-1"></i>' + I18N.show_translation
+            : '<i class="bi bi-eye-slash me-1"></i>' + I18N.hide_translation;
           document.querySelectorAll('.translation-text').forEach(el => {
             el.classList.toggle('translation-hidden', hideTranslation);
           });
@@ -886,7 +892,7 @@
         function closeEditModal() {
           document.getElementById('editModal').style.display = 'none';
           document.getElementById('editSaveBtn').disabled = false;
-          document.getElementById('editSaveBtn').innerHTML = '<i class="bi bi-check-lg me-2"></i>Save';
+          document.getElementById('editSaveBtn').innerHTML = '<i class="bi bi-check-lg me-2"></i>' + I18N.save;
         }
 
         async function submitEdit() {
@@ -923,7 +929,7 @@
               errBox.textContent = data.message || 'Only administrators can modify word translations.';
               errBox.style.display = 'block';
               saveBtn.disabled = false;
-              saveBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Save';
+              saveBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>' + I18N.save;
               return;
             }
             haptics.success();
@@ -937,7 +943,7 @@
             errBox.textContent = 'Update failed. Please try again.';
             errBox.style.display = 'block';
             saveBtn.disabled = false;
-            saveBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>Save';
+            saveBtn.innerHTML = '<i class="bi bi-check-lg me-2"></i>' + I18N.save;
           }
         }
 

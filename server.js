@@ -111,6 +111,7 @@ app.use(security);
 app.use(reauth);
 app.use(requestLogger);
 // Expose isPremium / isSpecialGuest / balance aux vues EJS
+const i18n = require('./config/i18n');
 app.use(async (req, res, next) => {
   res.locals.isPremium      = false;
   res.locals.isSpecialGuest = false;
@@ -122,6 +123,7 @@ app.use(async (req, res, next) => {
   res.locals.ghostMode            = req.user?.ghost_mode || false;
   res.locals.notificationsEnabled = req.user?.notifications_enabled || false;
   res.locals.wordReviewEnabled    = req.user?.word_review_enabled || false;
+  res.locals.t = i18n[req.user?.quiz_direction === 'zh→en' ? 'zh' : 'en'];
 
   if (!req.isAuthenticated()) return next();
 
