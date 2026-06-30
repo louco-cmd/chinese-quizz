@@ -54,7 +54,7 @@
         <!-- Single button -->
         <div class="d-flex flex-column gap-2">
           <button type="submit" id="checkBtn" class="btn btn-primary w-100 btn-lg">
-            <i class="bi bi-send-check me-2"></i>Submit
+            <i class="bi bi-send-check me-2"></i><%= t.duel_play_submit %>
           </button>
         </div>
       </form>
@@ -87,6 +87,18 @@
     const quizData = <%- JSON.stringify(quizData) %>;
 
     const QUIZ_DIRECTION = '<%= quizDirection %>';
+    const I18N = {
+      submit:       '<%= t.duel_play_submit %>',
+      loading:      '<%= t.duel_play_loading %>',
+      correct:      '<%= t.duel_play_correct %>',
+      try_again:    '<%= t.duel_play_try_again %>',
+      wrong_answer: '<%= t.duel_play_wrong_answer %>',
+      finished:     '<%= t.duel_play_finished %>',
+      final_score:  '<%= t.duel_play_final_score %>',
+      no_words:     '<%= t.duel_play_no_words %>',
+      question:     '<%= t.duel_play_question %>',
+      en_ph:        '<%= t.duel_play_en_ph %>',
+    };
 
     // Quiz variables
     let quizWords = quizData.words || [];
@@ -193,7 +205,7 @@
     // Init
     document.addEventListener('DOMContentLoaded', function() {
       if (quizWords.length === 0) {
-        quizQuestion.textContent = '❌ Error: no words in this duel';
+        quizQuestion.textContent = I18N.no_words;
         checkBtn.style.display = 'none';
         return;
       }
@@ -246,13 +258,13 @@
         const inp = document.createElement('input');
         inp.type = 'text';
         inp.className = 'form-control character-input';
-        inp.placeholder = 'English translation...';
+        inp.placeholder = I18N.en_ph;
         inp.autocomplete = 'off';
         inp.spellcheck = false;
         quizFields.appendChild(inp);
         quizInputs.push(inp);
       } else {
-        quizQuestion.textContent = `How to say "${currentWord.english}" in pinyin?`;
+        quizQuestion.textContent = `How to say "${currentWord.english}" in pinyin?`;  // en→zh only
 
         const syllables = currentWord.pinyin.split(' ');
         syllables.forEach((syllable, index) => {
@@ -279,7 +291,7 @@
     }
 
     function updateProgress() {
-      quizProgress.textContent = `Question ${quizIdx + 1}/${quizWords.length}`;
+      quizProgress.textContent = `${I18N.question} ${quizIdx + 1}/${quizWords.length}`;
       const progress = (quizIdx / quizWords.length) * 100;
       progressBar.style.width = `${progress}%`;
       progressBar.textContent = `${Math.round(progress)}%`;
@@ -300,13 +312,13 @@
 
     function disableSubmitButton() {
       checkBtn.disabled = true;
-      checkBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Loading...';
+      checkBtn.innerHTML = `<i class="bi bi-hourglass-split me-2"></i>${I18N.loading}`;
       checkBtn.classList.add('disabled');
     }
 
     function enableSubmitButton() {
       checkBtn.disabled = false;
-      checkBtn.innerHTML = '<i class="bi bi-send-check me-2"></i>Submit';
+      checkBtn.innerHTML = `<i class="bi bi-send-check me-2"></i>${I18N.submit}`;
       checkBtn.classList.remove('disabled');
     }
 
@@ -331,7 +343,7 @@
 
       if (isCorrect) {
         haptics.success();
-        quizResult.textContent = "✅ Correct!";
+        quizResult.textContent = I18N.correct;
         quizResult.className = "alert alert-success";
         quizResult.style.display = 'block';
 
@@ -364,13 +376,13 @@
           });
           quizInputs[0].focus();
 
-          quizResult.textContent = "Oups, try again";
+          quizResult.textContent = I18N.try_again;
           quizResult.className = "alert alert-danger";
           quizResult.style.display = 'block';
 
           enableSubmitButton();
         } else {
-          quizResult.textContent = `The correct answer was: ${correctLabel}`;
+          quizResult.textContent = `${I18N.wrong_answer} ${correctLabel}`;
           quizResult.className = "alert alert-warning";
           quizResult.style.display = 'block';
 
@@ -390,8 +402,8 @@
       haptics.celebrate();
       hideCharacterCard();
 
-      quizQuestion.textContent = '🎉 Duel finished!';
-      quizResult.textContent = `Final score: ${correctCount}/${quizWords.length}`;
+      quizQuestion.textContent = I18N.finished;
+      quizResult.textContent = `${I18N.final_score} ${correctCount}/${quizWords.length}`;
       quizResult.className = "alert alert-success text-center fs-4";
       quizResult.style.display = 'block';
       checkBtn.style.display = 'none';

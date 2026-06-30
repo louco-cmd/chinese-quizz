@@ -213,7 +213,12 @@
 
       <section class="section d-flex flex-column align-items-center mt-4">
         <%- include('partials/voiceOn') %>
-          <div id="card-container" class="d-flex justify-content-center visible mb-2 position-relative"></div>
+          <div id="card-container" class="d-flex justify-content-center visible mb-2 position-relative">
+            <div class="skeleton-card" id="collection-skeleton" style="width:300px; max-width:90vw; height:150px; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:14px;">
+              <div class="skeleton skeleton-title" style="width:50%; height:2rem;"></div>
+              <div class="skeleton skeleton-text" style="width:35%;"></div>
+            </div>
+          </div>
 
           <div id="list-container" class="container mt-4 hidden">
             <div class="mb-3" style="max-width: 400px;">
@@ -345,11 +350,13 @@
           words = await res.json();
           if (!words.length) {
             cardContainer.innerHTML = '<p>' + I18N.no_words_yet + '</p>';
+            cardContainer.classList.add('fade-in');
             return;
           }
           idx = 0;
           showCard();
           showList();
+          cardContainer.classList.add('fade-in');
         }
 
 

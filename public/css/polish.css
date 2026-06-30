@@ -1,0 +1,78 @@
+/* ============================================================
+   polish.css — Micro-interactions & états de chargement "pro"
+   Inclus sur toutes les pages via partials/meta.ejs
+   ============================================================ */
+
+/* ---------- Skeleton screens (remplacent les spinners) ---------- */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #e9edf2;
+  border-radius: 8px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: skeleton-shimmer 1.3s infinite;
+}
+@keyframes skeleton-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+.skeleton-text   { height: 0.85rem; margin: 6px 0; border-radius: 6px; }
+.skeleton-title  { height: 1.2rem;  width: 55%; margin: 8px 0; border-radius: 6px; }
+.skeleton-line-sm{ width: 40%; }
+.skeleton-line-md{ width: 70%; }
+.skeleton-circle { border-radius: 50%; }
+
+/* Carte skeleton générique */
+.skeleton-card {
+  background: #fff;
+  border: 1px solid #eef1f5;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+/* ---------- Révélation du contenu (fade + montée légère) ---------- */
+.fade-in {
+  animation: fade-in 0.35s ease both;
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Micro-interactions au tap ---------- */
+button,
+.btn,
+[role="button"],
+.clickable-row,
+.jiayou-nav-link,
+.quiz-card-clickable {
+  transition: transform 0.12s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+button:active,
+.btn:active,
+[role="button"]:active,
+.clickable-row:active,
+.quiz-card-clickable:active {
+  transform: scale(0.97);
+}
+
+/* ---------- Accessibilité : on coupe tout si l'utilisateur le demande ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after,
+  .fade-in { animation: none; }
+  button, .btn, [role="button"], .clickable-row,
+  .jiayou-nav-link, .quiz-card-clickable { transition: none; }
+}

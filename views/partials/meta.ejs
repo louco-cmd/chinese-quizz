@@ -1,3 +1,5 @@
+<!-- Polish : skeletons, fade-in, micro-interactions (toutes les pages) -->
+<link rel="stylesheet" href="/css/polish.css">
 <!-- Favicon -->
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
 <link rel="shortcut icon" href="/icons/icon-192.png">
@@ -30,4 +32,34 @@
       navigator.serviceWorker.register('/sw.js').catch(function () {});
     });
   }
+</script>
+<!--
+  Speculation Rules — pré-rend les pages internes au survol/touch (Chrome/Android)
+  → navigation quasi-instantanée. Chaque page pré-rendue est un document neuf,
+  donc aucune collision de scripts. iOS Safari ignore = navigation normale.
+  On exclut les pages à effets de bord (auth, paiement, parties en cours, API)
+  et tout lien marqué [data-external] ou [data-no-prerender].
+-->
+<script type="speculationrules">
+{
+  "prerender": [
+    {
+      "where": {
+        "and": [
+          { "href_matches": "/*" },
+          { "not": { "href_matches": "/auth/*" } },
+          { "not": { "href_matches": "/api/*" } },
+          { "not": { "href_matches": "/quiz-play*" } },
+          { "not": { "href_matches": "/duel-play/*" } },
+          { "not": { "href_matches": "/store*" } },
+          { "not": { "href_matches": "/pricing*" } },
+          { "not": { "href_matches": "/webhook" } },
+          { "not": { "selector_matches": "[data-external]" } },
+          { "not": { "selector_matches": "[data-no-prerender]" } }
+        ]
+      },
+      "eagerness": "moderate"
+    }
+  ]
+}
 </script>

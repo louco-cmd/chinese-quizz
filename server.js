@@ -4,6 +4,7 @@ const { Resend } = require('resend');
 const resend = new Resend(process.env.SMTP_PASSWORD);
 const path = require("path");
 const express = require("express");
+const compression = require("compression");
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
@@ -39,6 +40,7 @@ const { pool } = require('./config/database');
 const { listenerCount } = require('process');
 const app = express();
 app.set('trust proxy', 1); // Pour les déploiements derrière un proxy (Heroku, Render, etc.)
+app.use(compression()); // gzip/brotli sur HTML, CSS, JS, JSON → ~4x moins de transfert
 console.log("Callback URL utilisée :", process.env.GOOGLE_CALLBACK_URL
 );
 
@@ -75,11 +77,31 @@ app.use('/webhook', express.raw({
   }
 }));
 app.use(express.urlencoded({ extended: true }));
+// Cache headers : on cache agressivement les assets immuables, mais on garde
+// frais le service worker, le manifeste et les JS applicatifs (mises à jour instantanées).
+const publicCacheControl = (res, filePath) => {
+  const base = path.basename(filePath);
+  // Le SW et le manifeste doivent toujours être revérifiés pour propager les MAJ
+  if (base === 'sw.js' || base === 'manifest.json' || base.endsWith('.html')) {
+    res.setHeader('Cache-Control', 'no-cache');
+    return;
+  }
+  // JS applicatif : on garde frais (pas de hash dans les noms de fichiers)
+  if (filePath.includes(path.sep + 'js' + path.sep)) {
+    res.setHeader('Cache-Control', 'no-cache');
+    return;
+  }
+  // Images, polices, icônes, CSS : cache long
+  res.setHeader('Cache-Control', 'public, max-age=2592000'); // 30 jours
+};
+
 // dotfiles: 'allow' pour servir .well-known/assetlinks.json (requis pour Android TWA)
-app.use(express.static(path.join(__dirname, "public"), { dotfiles: 'allow' }));
-app.use('/vendor/bootstrap/css', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/css')));
-app.use('/vendor/bootstrap/js', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/js')));
-app.use('/vendor/bootstrap-icons/font', express.static(path.join(__dirname, 'node_modules/bootstrap-icons/font')));
+app.use(express.static(path.join(__dirname, "public"), { dotfiles: 'allow', setHeaders: publicCacheControl }));
+// Vendor (Bootstrap, icons) : versionné par npm → immuable, cache 1 an
+const vendorOpts = { maxAge: '1y', immutable: true };
+app.use('/vendor/bootstrap/css', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/css'), vendorOpts));
+app.use('/vendor/bootstrap/js', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/js'), vendorOpts));
+app.use('/vendor/bootstrap-icons/font', express.static(path.join(__dirname, 'node_modules/bootstrap-icons/font'), vendorOpts));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(session({

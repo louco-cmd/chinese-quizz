@@ -447,7 +447,12 @@
                 </div>
                 <div class="card-body text-center">
                   <div id="my-duel-stats">
-                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    <div class="row text-center">
+                      <div class="col-3"><div class="skeleton skeleton-title mx-auto" style="width:60%;"></div><div class="skeleton skeleton-text mx-auto" style="width:70%;"></div></div>
+                      <div class="col-3"><div class="skeleton skeleton-title mx-auto" style="width:60%;"></div><div class="skeleton skeleton-text mx-auto" style="width:70%;"></div></div>
+                      <div class="col-3"><div class="skeleton skeleton-title mx-auto" style="width:60%;"></div><div class="skeleton skeleton-text mx-auto" style="width:70%;"></div></div>
+                      <div class="col-3"><div class="skeleton skeleton-title mx-auto" style="width:60%;"></div><div class="skeleton skeleton-text mx-auto" style="width:70%;"></div></div>
+                    </div>
                   </div>
                   <div class="mt-4 text-center">
                     <a href="/leaderboard" class="btn btn-outline-primary btn-sm">
@@ -470,8 +475,8 @@
               <i class="duel-start-arrow bi bi-arrow-right-circle-fill"></i>
               <div class="text-center py-3 px-3">
                 <i class="bi bi-sword duel-start-icon"></i>
-                <div class="duel-start-title">Start a duel</div>
-                <div class="duel-start-text">Challenge a player</div>
+                <div class="duel-start-title"><%= t.duel_start %></div>
+                <div class="duel-start-text"><%= t.duel_challenge_player %></div>
               </div>
             </div>
 
@@ -480,12 +485,21 @@
               <div class="card-header">
                 <h6 class="mb-0">
                   <i class="bi bi-clock me-2 text-muted"></i>
-                  Recent duels
+                  <%= t.duel_recent %>
                 </h6>
               </div>
               <div class="card-body p-0">
                 <div id="recent-duels">
-                  <!-- chargement -->
+                  <div class="p-3">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                      <div class="skeleton skeleton-circle" style="width:38px;height:38px;"></div>
+                      <div class="flex-grow-1"><div class="skeleton skeleton-text skeleton-line-md"></div><div class="skeleton skeleton-text skeleton-line-sm"></div></div>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                      <div class="skeleton skeleton-circle" style="width:38px;height:38px;"></div>
+                      <div class="flex-grow-1"><div class="skeleton skeleton-text skeleton-line-md"></div><div class="skeleton skeleton-text skeleton-line-sm"></div></div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -495,16 +509,17 @@
               <div class="card-header d-flex justify-content-between align-items-center">
                 <h6 class="mb-0">
                   <i class="bi bi-people-fill me-2 text-muted"></i>
-                  Bullies
+                  <%= t.duel_bullies %>
                 </h6>
-                <span class="text-muted small">Click to challenge</span>
+                <span class="text-muted small"><%= t.duel_click_challenge %></span>
               </div>
 
               <div class="card-body p-0">
                 <div id="bullies-list">
-                  <div class="text-center py-4">
-                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                    <p class="mt-2 text-muted small">Loading...</p>
+                  <div style="padding:12px; display:flex; flex-direction:column; gap:10px;">
+                    <div class="skeleton" style="height:58px; border-radius:50px;"></div>
+                    <div class="skeleton" style="height:58px; border-radius:50px;"></div>
+                    <div class="skeleton" style="height:58px; border-radius:50px;"></div>
                   </div>
                 </div>
               </div>
@@ -519,7 +534,7 @@
         <div class="confirm-popup-content" style="max-width: 400px; padding: 24px; max-height: 90vh; overflow-y: auto;">
           <!-- En-tête -->
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-            <h5 style="font-weight: 600; font-size: 1.15rem; margin: 0;">Challenge <span id="opponentName">a player</span></h5>
+            <h5 style="font-weight: 600; font-size: 1.15rem; margin: 0;"><%= t.duel_challenge %> <span id="opponentName"><%= t.duel_a_player %></span></h5>
             <button type="button" class="btn-close" onclick="closeDuelPopup()" style="font-size: 1rem;"></button>
           </div>
 
@@ -528,9 +543,9 @@
 
             <!-- Recherche du compétiteur -->
             <div style="margin-bottom: 20px;">
-              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;">OPPONENT</div>
+              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;"><%= t.duel_opponent_label %></div>
               <div class="input-group">
-                <input type="text" id="duelist-search" class="form-control" placeholder="Search a name..."
+                <input type="text" id="duelist-search" class="form-control" placeholder="<%= t.duel_search_ph %>"
                   onkeypress="handleSearchKeyPress(event)" oninput="handleSearchInput()"
                   style="border-radius: 12px 0 0 12px; border: 2px solid #e0e0e0; padding: 10px;">
                 <button class="btn btn-primary" type="button" onclick="searchDuelists()"
@@ -548,7 +563,7 @@
 
             <!-- Type de duel : boutons avec icônes -->
             <div style="margin-bottom: 18px;">
-              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;">DUEL TYPE</div>
+              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;"><%= t.duel_type_label %></div>
               <div style="display: flex; gap: 12px;">
                 <!-- Random -->
                 <label class="duel-type-label" style="flex: 1; cursor: pointer;">
@@ -556,8 +571,8 @@
                   <div class="duel-type-card"
                     style="border: 2px solid #e0e0e0; border-radius: 14px; padding: 12px 8px; text-align: center; background-color: #f9f9f9; transition: all 0.2s;">
                     <div style="font-size: 1.6rem; margin-bottom: 4px;">🎲</div>
-                    <div style="font-weight: 600; margin-bottom: 4px; font-size: 0.9rem;">Random</div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.3;">half your words<br>half your partner's</div>
+                    <div style="font-weight: 600; margin-bottom: 4px; font-size: 0.9rem;"><%= t.duel_random %></div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.3;"><%- t.duel_random_desc %></div>
                   </div>
                 </label>
                 <!-- AA -->
@@ -567,7 +582,7 @@
                     style="border: 2px solid #e0e0e0; border-radius: 14px; padding: 12px 8px; text-align: center; background-color: #f9f9f9; transition: all 0.2s;">
                     <div style="font-size: 1.6rem; margin-bottom: 4px;">🤝</div>
                     <div style="font-weight: 600; margin-bottom: 4px; font-size: 0.9rem;">AA</div>
-                    <div style="font-size: 0.75rem; color: #666; line-height: 1.3;">only words you<br>have in common</div>
+                    <div style="font-size: 0.75rem; color: #666; line-height: 1.3;"><%- t.duel_aa_desc %></div>
                   </div>
                 </label>
               </div>
@@ -575,7 +590,7 @@
 
             <!-- Nombre de mots -->
             <div style="margin-bottom: 18px;">
-              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;">NUMBER OF WORDS</div>
+              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;"><%= t.duel_word_count %></div>
               <div style="display: flex; gap: 10px;">
                 <label class="word-count-label"
                   style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; border: 2px solid #e0e0e0; border-radius: 12px; padding: 10px; cursor: pointer; background-color: #f9f9f9; transition: all 0.2s;">
@@ -596,7 +611,7 @@
 
             <!-- Mise -->
             <div style="margin-bottom: 18px;">
-              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;">BET (coins)</div>
+              <div style="font-size: 0.8rem; font-weight: 600; color: #555; margin-bottom: 8px; letter-spacing: 0.5px;"><%= t.duel_bet %></div>
               <input type="number" id="betAmount" class="form-control" min="0" value="0"
                 style="padding: 10px; border-radius: 12px; border: 2px solid #e0e0e0; font-size: 1rem;">
             </div>
@@ -604,9 +619,9 @@
             <!-- Boutons d'action -->
             <div style="display: flex; gap: 10px;">
               <button type="button" class="btn btn-outline-secondary" onclick="closeDuelPopup()"
-                style="flex: 1; padding: 11px; border-radius: 12px; font-weight: 600; border: 2px solid #e0e0e0;">Cancel</button>
+                style="flex: 1; padding: 11px; border-radius: 12px; font-weight: 600; border: 2px solid #e0e0e0;"><%= t.cancel %></button>
               <button type="button" class="btn btn-primary" onclick="createDuel()"
-                style="flex: 1; padding: 11px; border-radius: 12px; font-weight: 600; background: linear-gradient(135deg, #007bff, #0056b3); border: none;">Send a duel</button>
+                style="flex: 1; padding: 11px; border-radius: 12px; font-weight: 600; background: linear-gradient(135deg, #007bff, #0056b3); border: none;"><%= t.duel_send %></button>
             </div>
             <!-- Zone d'erreur -->
             <div id="duelPopupError" class="alert alert-danger"
@@ -620,6 +635,35 @@
       <script src="/js/global.js"></script>
       <script>
         const GHOST_MODE = <%= ghostMode ? 'true' : 'false' %>;
+        const I18N = {
+          duel_loading:     '<%= t.duel_loading %>',
+          duel_victories:   '<%= t.duel_victories %>',
+          duel_defeats:     '<%= t.duel_defeats %>',
+          duel_ratio:       '<%= t.duel_ratio %>',
+          duel_ranking:     '<%= t.duel_ranking %>',
+          duel_load_error:  '<%= t.duel_load_error %>',
+          duel_no_duels:    '<%= t.duel_no_duels %>',
+          duel_to_play:     '<%= t.duel_to_play %>',
+          duel_play_btn:    '<%= t.duel_play_btn %>',
+          duel_waiting:     '<%= t.duel_waiting %>',
+          duel_even:        '<%= t.duel_even %>',
+          duel_victory:     '<%= t.duel_victory %>',
+          duel_defeated:    '<%= t.duel_defeated %>',
+          duel_no_rivals:   '<%= t.duel_no_rivals %>',
+          duel_rivals_error:'<%= t.duel_rivals_error %>',
+          duel_challenge_btn:'<%= t.duel_challenge_btn %>',
+          duel_search_error:'<%= t.duel_search_error %>',
+          duel_no_user:     '<%= t.duel_no_user %>',
+          duel_launched:    '<%= t.duel_launched %>',
+          duel_err_common:  '<%= t.duel_err_common %>',
+          duel_err_words:   '<%= t.duel_err_words %>',
+          duel_err_coins:   '<%= t.duel_err_coins %>',
+          duel_err_limit:   '<%= t.duel_err_limit %>',
+          duel_err_generic: '<%= t.duel_err_generic %>',
+          duel_err_network: '<%= t.duel_err_network %>',
+          duel_a_player:    '<%= t.duel_a_player %>',
+          challenge:        '<%= t.duel_challenge %>',
+        };
         let currentOpponent = null;
         let searchTimeout = null;
 
@@ -719,7 +763,7 @@
             container.innerHTML = `
                     <div class="text-center text-muted py-3">
                         <i class="bi bi-person-x"></i>
-                        <div class="mt-1 small">Aucun utilisateur trouvé</div>
+                        <div class="mt-1 small">${I18N.duel_no_user}</div>
                     </div>
                 `;
             return;
@@ -736,9 +780,9 @@
                             <div class="text-muted" style="font-size: 0.75rem;">${user.email}</div>
                         </div>
                     </div>
-                    <button class="btn btn-sm btn-outline-primary" 
+                    <button class="btn btn-sm btn-outline-primary"
                         onclick="openDuelPopup(${user.id}, '${user.name.replace(/'/g, "\\'")}')">
-                        Défier
+                        ${I18N.duel_challenge_btn}
                     </button>
                 </div>
             `).join('');
@@ -754,7 +798,7 @@
           document.getElementById('search-results').innerHTML = `
                 <div class="alert alert-warning small">
                     <i class="bi bi-exclamation-triangle me-1"></i>
-                    Erreur lors de la recherche
+                    ${I18N.duel_search_error}
                 </div>
             `;
         }
@@ -781,29 +825,29 @@
             const stats = await response.json();
 
             document.getElementById('my-duel-stats').innerHTML = `
-      <div class="row text-center">
+      <div class="row text-center fade-in">
         <div class="col-3">
           <div class="h5 text-success">${stats.wins || 0}</div>
-          <div class="text-muted small">Victories</div>
+          <div class="text-muted small">${I18N.duel_victories}</div>
         </div>
         <div class="col-3">
           <div class="h5 text-danger">${stats.losses || 0}</div>
-          <div class="text-muted small">Defeats</div>
+          <div class="text-muted small">${I18N.duel_defeats}</div>
         </div>
         <div class="col-3">
           <div class="h5">${stats.ratio || 0}%</div>
-          <div class="text-muted small">Ratio</div>
+          <div class="text-muted small">${I18N.duel_ratio}</div>
         </div>
         <div class="col-3">
           <div class="h5">${GHOST_MODE ? '👻' : (stats.rank ? `#${stats.rank}` : '—')}</div>
-          <div class="text-muted small">Ranking</div>
+          <div class="text-muted small">${I18N.duel_ranking}</div>
         </div>
       </div>
     `;
           } catch (err) {  // ← MANQUANT dans ton code
             console.error('Erreur stats:', err);
             document.getElementById('my-duel-stats').innerHTML =
-              '<p class="text-muted small text-center">Erreur de chargement</p>';
+              `<p class="text-muted small text-center">${I18N.duel_load_error}</p>`;
           }
         }
 
@@ -819,12 +863,13 @@
             const recentDuels = await recent.json();
             const pendingDuels = await pending.json();
             const container = document.getElementById('recent-duels');
+            container.classList.add('fade-in');
 
             if (recentDuels.length === 0 && pendingDuels.length === 0) {
               container.innerHTML = `
                         <div class="text-center py-4 text-muted">
                             <i class="bi bi-sword fs-2 opacity-50"></i>
-                            <p class="mt-2 small">Aucun duel</p>
+                            <p class="mt-2 small">${I18N.duel_no_duels}</p>
                         </div>
                     `;
               return;
@@ -846,7 +891,7 @@
             document.getElementById('recent-duels').innerHTML = `
                     <div class="alert alert-warning m-3 small">
                         <i class="bi bi-exclamation-triangle me-1"></i>
-                        Erreur de chargement
+                        ${I18N.duel_load_error}
                     </div>
                 `;
           }
@@ -865,10 +910,10 @@
 
           if (isPending) {
             if (!hasUserPlayed) {
-              status = '<span class="badge bg-primary">À jouer</span>';
-              cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">Jouer</button>`;
+              status = `<span class="badge bg-primary">${I18N.duel_to_play}</span>`;
+              cta = `<button class="btn btn-sm btn-primary" onclick="playDuel(${duel.id})">${I18N.duel_play_btn}</button>`;
             } else {
-              status = '<span class="badge bg-secondary">En attente</span>';
+              status = `<span class="badge bg-secondary">${I18N.duel_waiting}</span>`;
               cta = '';
             }
           } else {
@@ -876,11 +921,11 @@
             const isDraw = userScore === opponentScore;
 
             if (isDraw) {
-              status = '<span class="badge bg-warning">Even</span>';
+              status = `<span class="badge bg-warning">${I18N.duel_even}</span>`;
             } else if (userWon) {
-              status = '<span class="badge bg-success">Victory</span>';
+              status = `<span class="badge bg-success">${I18N.duel_victory}</span>`;
             } else {
-              status = '<span class="badge bg-danger">Defeated</span>';
+              status = `<span class="badge bg-danger">${I18N.duel_defeated}</span>`;
             }
             cta = '';
           }
@@ -926,9 +971,10 @@
             const response = await fetch('/api/duels/bullies');
             const bullies = await response.json();
             const container = document.getElementById('bullies-list');
+            container.classList.add('fade-in');
 
             if (!bullies.length) {
-              container.innerHTML = '<div class="text-center py-4 text-muted small">No rivals yet</div>';
+              container.innerHTML = `<div class="text-center py-4 text-muted small">${I18N.duel_no_rivals}</div>`;
               return;
             }
 
@@ -977,7 +1023,7 @@
 
           } catch (err) {
             document.getElementById('bullies-list').innerHTML =
-              '<div class="text-center py-3 text-muted small">Error loading bullies</div>';
+              `<div class="text-center py-3 text-muted small">${I18N.duel_rivals_error}</div>`;
           }
         }
 
@@ -994,7 +1040,7 @@
         function openStartDuelPopup() {
           haptics.tap();
           currentOpponent = null;
-          document.getElementById('opponentName').textContent = 'a player';
+          document.getElementById('opponentName').textContent = I18N.duel_a_player;
           document.getElementById('opponentId').value = '';
           document.getElementById('duelist-search').value = '';
           document.getElementById('search-suggestions').style.display = 'none';
@@ -1108,7 +1154,7 @@
             if (response.ok && result.success) {
               haptics.celebrate();
               closeDuelPopup();
-              showAlert('Duel launched!', 'success');
+              showAlert(I18N.duel_launched, 'success');
               loadRecentDuels();
             } else if (response.status === 403) {
               console.log('🔴 403 received, data:', result);
@@ -1116,15 +1162,15 @@
               showDuelLimitPopup(result);
             } else {
               // Traduire les messages d'erreur courants
-              let errorMessage = result.error || 'Error creating duel';
+              let errorMessage = result.error || I18N.duel_err_generic;
               if (errorMessage.includes('Pas assez de mots communs')) {
-                errorMessage = '❌ Not enough words in common';
+                errorMessage = I18N.duel_err_common;
               } else if (errorMessage.includes('Pas assez de mots')) {
-                errorMessage = '❌ Not enough words to create duel';
+                errorMessage = I18N.duel_err_words;
               } else if (errorMessage.includes('coins') || errorMessage.includes('founds')) {
-                errorMessage = '❌ Not enough coins';
+                errorMessage = I18N.duel_err_coins;
               } else if (errorMessage.includes('limit') || errorMessage.includes('Daily')) {
-                errorMessage = '❌ Daily duel limit reached';
+                errorMessage = I18N.duel_err_limit;
               }
               errorDiv.textContent = errorMessage;
               errorDiv.style.display = 'block';
@@ -1138,7 +1184,7 @@
             }
           } catch (error) {
             console.error('❌ Catch error:', error);
-            errorDiv.textContent = '❌ Network error, please try again';
+            errorDiv.textContent = I18N.duel_err_network;
             errorDiv.style.display = 'block';
             const popupContent = document.querySelector('.confirm-popup-content');
             popupContent.classList.add('shake');
