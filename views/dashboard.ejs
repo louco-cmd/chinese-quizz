@@ -928,7 +928,7 @@
           const wrapper = document.createElement('div');
           wrapper.style.cssText = 'display:flex;gap:8px;align-items:center;margin-bottom:8px;';
           wrapper.innerHTML = `
-            <input type="text" class="modal-input translation-field" placeholder="English translation..." value="${value}" style="flex:1;margin-bottom:0;">
+            <input type="text" class="modal-input translation-field" placeholder="English translation..." value="${escapeHtml(value)}" style="flex:1;margin-bottom:0;">
             <button type="button" onclick="this.parentElement.remove()" style="background:transparent;border:none;color:#dc3545;font-size:1.1rem;cursor:pointer;padding:0 4px;" title="Remove">
               <i class="bi bi-x-circle"></i>
             </button>`;
@@ -946,7 +946,7 @@
 
         function resetTranslationFields(value = '') {
           const container = document.getElementById('translationFields');
-          container.innerHTML = `<input type="text" class="modal-input translation-field" placeholder="English translation..." required style="margin-bottom:8px;" value="${value}">`;
+          container.innerHTML = `<input type="text" class="modal-input translation-field" placeholder="English translation..." required style="margin-bottom:8px;" value="${escapeHtml(value)}">`;
         }
 
         // ========== MODALE NOUVEAU MOT ==========

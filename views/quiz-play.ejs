@@ -379,7 +379,7 @@
     function showPinyinQuestion() {
       if (QUIZ_DIRECTION === 'zh→en') {
         // Affiche le caractère chinois, l'utilisateur tape la traduction anglaise
-        quizQuestion.innerHTML = `What does <strong class="fs-1">${currentWord.chinese}</strong> mean in English?`;
+        quizQuestion.innerHTML = `What does <strong class="fs-1">${escapeHtml(currentWord.chinese)}</strong> mean in English?`;
         const inp = document.createElement('input');
         inp.type = 'text';
         inp.className = 'form-control character-input';
@@ -422,7 +422,7 @@
     function showCharacterQuestion() {
       if (QUIZ_DIRECTION === 'zh→en') {
         // Même logique qu'en mode pinyin zh→en : voit chinois, tape anglais
-        quizQuestion.innerHTML = `What does <strong class="fs-1">${currentWord.chinese}</strong> mean in English?`;
+        quizQuestion.innerHTML = `What does <strong class="fs-1">${escapeHtml(currentWord.chinese)}</strong> mean in English?`;
       } else {
         quizQuestion.textContent = `How to write "${currentWord.english}" in Chinese characters?`;
       }

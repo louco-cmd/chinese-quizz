@@ -550,6 +550,13 @@ router.put("/update/:id", ensureAuth, async (req, res) => {
   const { chinese, pinyin, english, description, description_zh, hsk } = req.body;
   const isAdmin = req.user?.is_admin;
 
+  // Validation : on borne la taille des champs (anti-abus / anti-payload géant)
+  const lim = (v, max) => v == null || (typeof v === 'string' && v.length <= max);
+  if (!lim(chinese, 50) || !lim(pinyin, 100) || !lim(english, 300)
+      || !lim(description, 2000) || !lim(description_zh, 2000)) {
+    return res.status(400).json({ error: 'Champ trop long ou invalide' });
+  }
+
   try {
     if (!isAdmin) {
       const { rows } = await pool.query(
@@ -1538,10 +1545,12 @@ router.get('/api/duels/search', ensureAuth, async (req, res) => {
     const searchQuery = `%${req.query.q}%`;
     console.log('🔍 Recherche utilisateur:', searchQuery, '| direction:', req.user.quiz_direction);
 
+    // Sécurité : on ne cherche QUE par nom (pas par email → évite l'énumération
+    // d'emails) et on ne renvoie JAMAIS l'email (fuite de PII).
     const result = await pool.query(`
-      SELECT id, name, email
+      SELECT id, name
       FROM users
-      WHERE (email ILIKE $1 OR name ILIKE $1)
+      WHERE name ILIKE $1
         AND id != $2
         AND quiz_direction = $3
         AND ghost_mode = FALSE

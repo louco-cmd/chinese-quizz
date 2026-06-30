@@ -84,7 +84,8 @@
   <script>
     // Duel data
     const duelId = <%= duel.id %>;
-    const quizData = <%- JSON.stringify(quizData) %>;
+    // Sécurité : échappe < pour empêcher un breakout </script> via les champs de mots
+    const quizData = <%- JSON.stringify(quizData).replace(/</g, "\\u003c") %>;
 
     const QUIZ_DIRECTION = '<%= quizDirection %>';
     const I18N = {
@@ -138,32 +139,37 @@
         const hskLevelDisplay = word.hsk || 'Street';
         const chineseFontSizeClass = word.chinese && word.chinese.length >= 3 ? 'fs-2' : 'fs-1';
 
+        // Sécurité : champs de mots échappés (dictionnaire partagé éditable → XSS)
+        const sChinese = escapeHtml(word.chinese);
+        const sPinyin = escapeHtml(word.pinyin);
+        const sEnglish = escapeHtml(word.english);
+
         const feedbackContent = QUIZ_DIRECTION === 'zh→en'
-          ? `<div class="fs-3 fw-bold text-primary mb-2">${word.english || ''}</div>
+          ? `<div class="fs-3 fw-bold text-primary mb-2">${sEnglish}</div>
              <div class="bg-white border rounded-3 p-2 mb-1">
                <div class="${chineseFontSizeClass} text-dark chinese-clickable"
-                    data-word-id="${word.id}" data-chinese-text="${word.chinese}"
+                    data-word-id="${word.id}" data-chinese-text="${sChinese}"
                     style="min-height: 40px; display: flex; align-items: center; justify-content: center;">
-                 ${word.chinese}
+                 ${sChinese}
                </div>
              </div>
-             <div class="mt-1 text-muted small">${word.pinyin || ''}</div>`
+             <div class="mt-1 text-muted small">${sPinyin}</div>`
           : `<div class="bg-white border rounded-3 p-3">
                <div class="${chineseFontSizeClass} text-dark chinese-clickable"
-                    data-word-id="${word.id}" data-chinese-text="${word.chinese}"
+                    data-word-id="${word.id}" data-chinese-text="${sChinese}"
                     style="min-height: 60px; display: flex; align-items: center; justify-content: center;">
-                 ${word.chinese}
+                 ${sChinese}
                </div>
              </div>
-             <div class="mt-2 text-muted small">${word.pinyin || ''}</div>
-             <div class="mt-1 fw-bold text-primary small">${word.english || ''}</div>`;
+             <div class="mt-2 text-muted small">${sPinyin}</div>
+             <div class="mt-1 fw-bold text-primary small">${sEnglish}</div>`;
 
         card.innerHTML = `
           <div class="card-body text-center p-0">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="badge bg-secondary">HSK ${hskLevelDisplay}</span>
+              <span class="badge bg-secondary">HSK ${escapeHtml(hskLevelDisplay)}</span>
               <button class="btn btn-sm btn-outline-primary btn-audio"
-                      data-text="${word.chinese}" title="Listen pronunciation">
+                      data-text="${sChinese}" title="Listen pronunciation">
                 <i class="bi bi-volume-up"></i>
               </button>
             </div>
@@ -254,7 +260,7 @@
 
     function showPinyinQuestion() {
       if (QUIZ_DIRECTION === 'zh→en') {
-        quizQuestion.innerHTML = `What does <strong class="fs-1">${currentWord.chinese}</strong> mean in English?`;
+        quizQuestion.innerHTML = `What does <strong class="fs-1">${escapeHtml(currentWord.chinese)}</strong> mean in English?`;
         const inp = document.createElement('input');
         inp.type = 'text';
         inp.className = 'form-control character-input';

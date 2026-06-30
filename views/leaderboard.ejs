@@ -247,7 +247,8 @@
 
   <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script>
-    const allPlayers = <%- JSON.stringify(players) %>;
+    // Sécurité : échappe < pour empêcher un breakout </script> via les noms/taglines
+    const allPlayers = <%- JSON.stringify(players).replace(/</g, "\\u003c") %>;
     const currentUserId = <%= user.id %>;
     const PAGE_SIZE = 20;
     let currentPage = 1;

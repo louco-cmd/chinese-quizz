@@ -353,6 +353,17 @@ app.get('/onboarding', ensureAuth, (req, res) => {
   });
 });
 
+// Rate limit généreux sur les API JSON : bloque le scraping/abus sans gêner
+// l'usage normal (une page déclenche plusieurs fetch).
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de requêtes, réessaie dans un instant' }
+});
+app.use('/api', apiLimiter);
+
 app.use("/", apiRoutes);
 
 

@@ -1,5 +1,19 @@
 // public/js/global.js
 
+// ── Sécurité : échappement HTML pour tout contenu utilisateur injecté en innerHTML ──
+// Le dictionnaire de mots est partagé : chinese/pinyin/english/description sont
+// éditables et donc potentiellement malveillants. TOUJOURS passer ces champs par
+// escapeHtml() avant de les insérer dans un template-literal `innerHTML`.
+window.escapeHtml = function (value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 // ── Haptics (Vibration API + Capacitor Taptic Engine) ────────────────────────
 // Android Chrome  → navigator.vibrate() — actif, pas de permission requise
 // iOS Capacitor   → @capacitor/haptics — Taptic Engine natif (léger/moyen/fort)

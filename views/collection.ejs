@@ -429,7 +429,7 @@
             // Spinner
             hoverModal.innerHTML = `
             <div style="text-align: center;">
-                <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px;">${character}</div>
+                <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px;">${escapeHtml(character)}</div>
                 <div class="spinner-border spinner-border-sm text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
                 </div>
@@ -486,16 +486,16 @@
               if (caractereExact) {
                 hoverModal.innerHTML = `
                     <div style="text-align: center;">
-                        <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px;">${character}</div>
+                        <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px;">${escapeHtml(character)}</div>
                         <div style="background: #e3f2fd; color: #1976d2; padding: 5px 10px; border-radius: 5px; margin-bottom: 8px;">
-                            ${caractereExact.pinyin || 'N/A'}
+                            ${escapeHtml(caractereExact.pinyin) || 'N/A'}
                         </div>
                         <div style="color: #666; margin-bottom: 8px;">
-                            ${caractereExact.english || 'No translation'}
+                            ${escapeHtml(caractereExact.english) || 'No translation'}
                         </div>
                         ${(caractereExact.hsk && LEARN_DIR !== 'zh→en') ? `
                             <div style="background: #e8f5e8; color: #2e7d32; padding: 3px 8px; border-radius: 5px; font-size: 0.8rem;">
-                                HSK ${caractereExact.hsk}
+                                HSK ${escapeHtml(caractereExact.hsk)}
                             </div>
                         ` : ''}
                     </div>
@@ -503,7 +503,7 @@
               } else {
                 hoverModal.innerHTML = `
                     <div style="text-align: center;">
-                        <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px;">${character}</div>
+                        <div style="font-size: 2rem; font-weight: bold; margin-bottom: 10px;">${escapeHtml(character)}</div>
                         <div style="color: #999; font-size: 0.9rem;">Caractère non enregistré</div>
                     </div>
                 `;
@@ -548,17 +548,24 @@
           // Direction d'apprentissage
           const isLearnEn = LEARN_DIR === 'zh→en'; // j'apprends l'anglais
 
+          // Sécurité : échapper tout champ de mot (dictionnaire partagé éditable → XSS potentiel)
+          const safeChinese = escapeHtml(word.chinese);
+          const safePinyin = escapeHtml(word.pinyin);
+          const safeEnglish = escapeHtml(word.english);
+          const safeDesc = escapeHtml(word.description);
+          const safeDescZh = escapeHtml(word.description_zh);
+
           const topBlock = isLearnEn
             ? `<!-- Mode zh→en : anglais en grand tout en haut, hauteur min 45% de la carte -->
                <div class="bg-white border rounded-3 mt-3 flex-grow-0 d-flex flex-column justify-content-center align-items-center text-center"
                     style="min-height:200px; padding: 1rem 1.25rem;">
-                 <div style="font-size:2.4rem; font-weight:800; color:#0d6efd; line-height:1.2; word-break:break-word;">${word.english || 'No Translation'}</div>
+                 <div style="font-size:2.4rem; font-weight:800; color:#0d6efd; line-height:1.2; word-break:break-word;">${safeEnglish || 'No Translation'}</div>
                </div>`
             : `<!-- Mode en→zh : chinois en grand -->
                <div class="bg-white border rounded-3 p-4 py-2 mt-3 flex-grow-0">
                  <div class="text-dark text-center text-box ${chineseFontSizeClass} chinese-clickable"
-                      data-word-id="${word.id}" data-chinese-text="${word.chinese}" title="Cliquer pour écouter">
-                     ${word.chinese}
+                      data-word-id="${word.id}" data-chinese-text="${safeChinese}" title="Cliquer pour écouter">
+                     ${safeChinese}
                  </div>
                </div>`;
 
@@ -566,17 +573,17 @@
             ? `<!-- Chinois + pinyin : à cacher quand hide translation actif -->
                <div class="text-center mt-3">
                  <div class="${chineseFontSizeClass} translation-text" style="color:#1a1a2e; line-height:1.1; font-weight:700; font-size:${(word.chinese && word.chinese.length >= 3) ? '2.1rem' : '3.1rem'} !important;">
-                   ${word.chinese}
+                   ${safeChinese}
                  </div>
-                 <div class="mt-1 translation-text" style="color:#9ca3af; font-size:1.1rem; font-weight:500;">${word.pinyin || ''}</div>
+                 <div class="mt-1 translation-text" style="color:#9ca3af; font-size:1.1rem; font-weight:500;">${safePinyin}</div>
                </div>
                <div class="pt-2 border-top border-light-subtle mt-3">
-                 <div class="text-context translation-text">${word.description_zh || word.description || ''}</div>
+                 <div class="text-context translation-text">${safeDescZh || safeDesc || ''}</div>
                </div>`
-            : `<div class="fs-pinyin fw-bold text-dark mb-1 translation-text">${word.pinyin || ''}</div>
-               <div class="fs-5 mb-3 text-primary translation-text">${word.english || 'No Translation'}</div>
+            : `<div class="fs-pinyin fw-bold text-dark mb-1 translation-text">${safePinyin}</div>
+               <div class="fs-5 mb-3 text-primary translation-text">${safeEnglish || 'No Translation'}</div>
                <div class="pt-3 border-top border-light-subtle">
-                   <div class="text-context translation-text">${word.description || 'No description provided.'}</div>
+                   <div class="text-context translation-text">${safeDesc || 'No description provided.'}</div>
                </div>`;
 
           card.innerHTML = `
@@ -601,7 +608,7 @@
               <!-- BOUTON AUDIO + OPTIONS -->
               <div class="d-flex justify-content-between align-items-center mt-auto">
                   <button class="btn btn-sm btn-outline-primary btn-audio"
-                    data-text="${isLearnEn ? (word.english || word.chinese) : word.chinese}"
+                    data-text="${isLearnEn ? (safeEnglish || safeChinese) : safeChinese}"
                     data-lang="${isLearnEn ? 'en-US' : 'zh-CN'}"
                     title="listen to pronunciation">
                     <i class="bi bi-volume-up"></i>
@@ -781,9 +788,10 @@
           listBody.innerHTML = '';
           words.forEach((word, i) => {
             const row = document.createElement('tr');
+            const c = escapeHtml(word.chinese), p = escapeHtml(word.pinyin), e = escapeHtml(word.english);
             row.innerHTML = LEARN_DIR === 'zh→en'
-              ? `<td>${word.english || ''}</td><td>${word.chinese}</td><td>${word.pinyin || ''}</td>`
-              : `<td>${word.chinese}</td><td>${word.pinyin || ''}</td><td>${word.english || ''}</td>`;
+              ? `<td>${e}</td><td>${c}</td><td>${p}</td>`
+              : `<td>${c}</td><td>${p}</td><td>${e}</td>`;
             row.onclick = () => {
               idx = i;
               showCard();
