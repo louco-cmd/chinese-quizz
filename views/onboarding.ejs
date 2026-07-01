@@ -217,8 +217,42 @@
     <p>Let's set up your profile before you start.</p>
   </div>
 
+  <!-- ÉTAPE 1 : choix du rôle -->
+  <div class="onboarding-card" id="roleScreen">
+    <div class="step-label"><i class="bi bi-people me-1"></i>How will you use Jiayou?</div>
+    <div class="dir-options mt-2">
+      <label class="dir-option" onclick="chooseRole('student')" style="cursor:pointer;">
+        <span class="dir-emoji">🎓</span>
+        <div class="dir-title">I'm a learner</div>
+        <div class="dir-sub">Build my vocabulary and practice with quizzes</div>
+      </label>
+      <label class="dir-option" onclick="chooseRole('teacher')" style="cursor:pointer;">
+        <span class="dir-emoji">🧑‍🏫</span>
+        <div class="dir-title">I'm a teacher</div>
+        <div class="dir-sub">Create classes and follow my students' progress</div>
+      </label>
+    </div>
+  </div>
 
-  <div class="onboarding-card">
+  <!-- ÉTAPE 2 (prof) : nom seulement -->
+  <div class="onboarding-card" id="teacherForm" style="display:none;">
+    <div class="step-label"><i class="bi bi-person me-1"></i>Your teacher profile</div>
+    <div class="mb-4 mt-2">
+      <label class="form-label" for="teacherName">Your name <span class="text-danger">*</span></label>
+      <input type="text" id="teacherName" class="form-control"
+             placeholder="How should your students see you?"
+             value="<%= user.name || '' %>" maxlength="50">
+    </div>
+    <button class="btn btn-start" id="teacherStartBtn" onclick="submitTeacher()">
+      Open my teacher space 🧑‍🏫
+    </button>
+    <div class="text-center mt-3">
+      <button type="button" onclick="backToRole()" class="btn btn-link text-muted btn-sm">← Back</button>
+    </div>
+  </div>
+
+  <!-- ÉTAPE 2 (élève) : profil complet -->
+  <div class="onboarding-card" id="learnerForm" style="display:none;">
 
     <!-- Name -->
     <div class="mb-3">
@@ -457,12 +491,79 @@
     <button class="btn btn-start" id="startBtn" onclick="submitOnboarding()">
       Let's go 加油！🚀
     </button>
+    <div class="text-center mt-3">
+      <button type="button" onclick="backToRole()" class="btn btn-link text-muted btn-sm">← Back</button>
+    </div>
   </div>
 
 </div>
 
 <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script>
+  // ── Étape 1 : choix du rôle ────────────────────────────────────────────────
+  const roleScreen  = document.getElementById('roleScreen');
+  const learnerForm = document.getElementById('learnerForm');
+  const teacherForm = document.getElementById('teacherForm');
+
+  async function chooseRole(role) {
+    try {
+      await fetch('/api/user/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role }),
+        credentials: 'include'
+      });
+    } catch (e) { /* non bloquant : on continue, le rôle est confirmé au submit */ }
+
+    roleScreen.style.display = 'none';
+    if (role === 'teacher') {
+      teacherForm.style.display = '';
+      document.getElementById('teacherName').focus();
+    } else {
+      learnerForm.style.display = '';
+    }
+  }
+
+  function backToRole() {
+    learnerForm.style.display = 'none';
+    teacherForm.style.display = 'none';
+    roleScreen.style.display = '';
+  }
+
+  // Submit côté professeur : nom seulement, puis espace prof
+  async function submitTeacher() {
+    const name = document.getElementById('teacherName').value.trim();
+    if (!name) {
+      document.getElementById('teacherName').focus();
+      document.getElementById('teacherName').classList.add('is-invalid');
+      return;
+    }
+    const btn = document.getElementById('teacherStartBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    try {
+      // S'assurer que le rôle est bien teacher (au cas où le 1er appel a échoué)
+      await fetch('/api/user/role', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'teacher' }), credentials: 'include'
+      });
+      const r1 = await fetch('/api/user/update-profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }), credentials: 'include'
+      });
+      if (!r1.ok) throw new Error('Profile save failed');
+      const r2 = await fetch('/api/user/complete-onboarding', {
+        method: 'POST', credentials: 'include'
+      });
+      if (!r2.ok) throw new Error('Onboarding mark failed');
+      window.location.href = '/teach';
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Open my teacher space 🧑‍🏫';
+      alert('Something went wrong. Please try again.');
+    }
+  }
+
   // Live preview update
   const previewWord  = document.getElementById('previewWord');
   const previewHint  = document.getElementById('previewHint');

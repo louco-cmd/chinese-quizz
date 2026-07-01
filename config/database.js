@@ -149,6 +149,101 @@ const pool = new Pool({
     `);
     console.log("✅ Resync stripe_status / status effectué au démarrage.");
 
+    // ════════════════════════════════════════════════════════════════════════
+    //  PLATEFORME PROFESSEUR (Phase 1 — modèle de données)
+    //  Un prof = un user avec role='teacher'. Les élèves restent des users
+    //  normaux, reliés à une classe. Le prof lit leurs données existantes
+    //  (user_mots, quiz_history). Tout est additif : ne casse rien.
+    // ════════════════════════════════════════════════════════════════════════
+
+    // ── Migration: role sur users ('student' par défaut | 'teacher') ──────────
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS role VARCHAR(10) NOT NULL DEFAULT 'student'
+    `);
+    console.log("✅ Colonne 'role' vérifiée ou créée sur 'users'.");
+
+    // ── Table classrooms (les classes créées par un prof) ─────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS classrooms (
+        id SERIAL PRIMARY KEY,
+        teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        join_code VARCHAR(12) UNIQUE NOT NULL,
+        archived BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_classrooms_teacher ON classrooms(teacher_id)
+    `);
+    console.log("✅ Table 'classrooms' vérifiée ou créée.");
+
+    // ── Table classroom_students (élèves inscrits dans une classe) ────────────
+    // UNIQUE(classroom_id, student_id) : un élève ne peut rejoindre 2x la même classe.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS classroom_students (
+        id SERIAL PRIMARY KEY,
+        classroom_id INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
+        student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        status VARCHAR(12) NOT NULL DEFAULT 'active',
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (classroom_id, student_id)
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_classroom_students_class ON classroom_students(classroom_id)
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_classroom_students_student ON classroom_students(student_id)
+    `);
+    console.log("✅ Table 'classroom_students' vérifiée ou créée.");
+
+    // ── Migration: type de classe ('group' | 'private') ───────────────────────
+    // Fonctionnellement identique ; sert à l'organisation (groupe = mêmes devoirs).
+    await pool.query(`
+      ALTER TABLE classrooms
+      ADD COLUMN IF NOT EXISTS type VARCHAR(10) NOT NULL DEFAULT 'group'
+    `);
+    console.log("✅ Colonne 'type' vérifiée ou créée sur 'classrooms'.");
+
+    // ── Migration: annuaire mentors (opt-in) + lien externe ───────────────────
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS mentor_listed BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mentor_link TEXT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mentor_bio TEXT`);
+    console.log("✅ Colonnes mentor (listed/link/bio) vérifiées ou créées sur 'users'.");
+
+    // ── Table lessons (notes de cours par classe) ─────────────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lessons (
+        id SERIAL PRIMARY KEY,
+        classroom_id INTEGER NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        summary TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_lessons_classroom ON lessons(classroom_id)
+    `);
+    console.log("✅ Table 'lessons' vérifiée ou créée.");
+
+    // ── Table lesson_words (mots à apprendre, reliés au dictionnaire 'mots') ───
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lesson_words (
+        id SERIAL PRIMARY KEY,
+        lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+        mot_id INTEGER NOT NULL REFERENCES mots(id) ON DELETE CASCADE,
+        UNIQUE (lesson_id, mot_id)
+      )
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_lesson_words_lesson ON lesson_words(lesson_id)
+    `);
+    console.log("✅ Table 'lesson_words' vérifiée ou créée.");
+
   } catch (err) {
     console.error("❌ Erreur lors de l'initialisation :", err);
   }

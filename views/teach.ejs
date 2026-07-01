@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Jiayou Teacher</title>
+  <%- include('partials/meta', { pageTitle: 'Jiayou · Teacher', pageDescription: 'Manage your classes and follow your students.' }) %>
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background: #f5f3fb; min-height: 100vh; }
+    .teach-top { background: linear-gradient(180deg, #6f42c1 0%, #8a63d2 100%); color: #fff; padding: 22px 16px 26px; }
+    .teach-top .logo { font-size: 1.6rem; font-weight: 800; }
+    .teach-wrap { max-width: 760px; margin: 0 auto; padding: 16px; }
+    .class-card {
+      background: #fff; border-radius: 16px; padding: 18px 20px; margin-bottom: 14px;
+      box-shadow: 0 6px 18px rgba(111,66,193,0.08); border: 1px solid #efeaf8;
+      transition: transform .12s ease, box-shadow .2s ease;
+    }
+    .class-card:active { transform: scale(0.99); }
+    .type-badge { font-size: .72rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+    .type-group { background: #e7f1ff; color: #0d6efd; }
+    .type-private { background: #ede7f6; color: #6f42c1; }
+    .code-pill {
+      font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: 2px;
+      background: #f5f3fb; border: 1px dashed #c9b8ec; color: #6f42c1;
+      padding: 6px 12px; border-radius: 10px; font-size: 1rem;
+    }
+    .stat-mini { font-size: .8rem; color: #6c757d; }
+    .stat-mini strong { color: #1a1a2e; }
+    .btn-purple { background: #6f42c1; border: none; color: #fff; font-weight: 600; }
+    .btn-purple:hover { background: #5a35a0; color: #fff; }
+    .empty-state { text-align: center; color: #8a7ca8; padding: 40px 20px; }
+    .modal-content { border-radius: 18px; }
+  </style>
+</head>
+<body>
+  <div class="teach-top">
+    <div class="teach-wrap d-flex justify-content-between align-items-center" style="padding-top:0;padding-bottom:0;">
+      <div>
+        <div class="logo">加油！ Teacher</div>
+        <div style="opacity:.9; font-size:.9rem;">Hello <%= user.name || 'teacher' %> 👋</div>
+      </div>
+      <a href="/dashboard" class="btn btn-sm btn-light" title="Switch to learner view">
+        <i class="bi bi-mortarboard"></i>
+      </a>
+    </div>
+  </div>
+
+  <div class="teach-wrap">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="fw-bold mb-0" style="color:#2a1a4a;"><i class="bi bi-easel2 me-2"></i>My classes</h5>
+      <button class="btn btn-purple btn-sm" data-bs-toggle="modal" data-bs-target="#createClassModal">
+        <i class="bi bi-plus-lg me-1"></i>New class
+      </button>
+    </div>
+
+    <div id="classes-list">
+      <!-- skeleton -->
+      <div class="class-card"><div class="skeleton skeleton-title" style="width:40%;"></div><div class="skeleton skeleton-text" style="width:25%;"></div></div>
+      <div class="class-card"><div class="skeleton skeleton-title" style="width:50%;"></div><div class="skeleton skeleton-text" style="width:25%;"></div></div>
+    </div>
+  </div>
+
+  <!-- ── Modal : créer une classe ── -->
+  <div class="modal fade" id="createClassModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-body p-4">
+          <h5 class="fw-bold mb-3">New class</h5>
+          <div class="mb-3">
+            <label class="form-label">Class name</label>
+            <input type="text" id="newClassName" class="form-control" placeholder="e.g. Beginner HSK1 — Tuesday" maxlength="80">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Type</label>
+            <div class="d-flex gap-2">
+              <label class="flex-fill border rounded-3 p-2 text-center" style="cursor:pointer;">
+                <input type="radio" name="classType" value="group" checked> 👥 Group
+                <div class="text-muted" style="font-size:.72rem;">Everyone gets the same lessons</div>
+              </label>
+              <label class="flex-fill border rounded-3 p-2 text-center" style="cursor:pointer;">
+                <input type="radio" name="classType" value="private"> 🤝 Private
+                <div class="text-muted" style="font-size:.72rem;">1-on-1 or small private group</div>
+              </label>
+            </div>
+          </div>
+          <div id="createClassError" class="text-danger small mb-2" style="display:none;"></div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-purple flex-fill" id="createClassBtn" onclick="createClass()">Create</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/global.js"></script>
+  <script>
+    const ORIGIN = window.location.origin;
+
+    async function loadClasses() {
+      const list = document.getElementById('classes-list');
+      try {
+        const res = await fetch('/api/teach/classes', { credentials: 'include' });
+        const data = await res.json();
+        const classes = data.classrooms || [];
+        if (!classes.length) {
+          list.innerHTML = `<div class="empty-state">
+            <div style="font-size:2.4rem;">🪧</div>
+            <p class="mt-2 mb-0">No classes yet. Create your first one!</p>
+          </div>`;
+          return;
+        }
+        list.innerHTML = classes.map(renderClass).join('');
+        list.classList.add('fade-in');
+      } catch (e) {
+        list.innerHTML = `<div class="empty-state">Loading error</div>`;
+      }
+    }
+
+    function renderClass(c) {
+      const name = escapeHtml(c.name);
+      const typeClass = c.type === 'private' ? 'type-private' : 'type-group';
+      const typeLabel = c.type === 'private' ? 'Private' : 'Group';
+      const archived = c.archived ? ' · archived' : '';
+      const link = `${ORIGIN}/join/${c.join_code}`;
+      return `
+        <div class="class-card">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="fw-bold" style="font-size:1.05rem;">${name}
+                <span class="type-badge ${typeClass} ms-1">${typeLabel}</span>
+              </div>
+              <div class="stat-mini mt-1">
+                <strong>${c.student_count}</strong> student${c.student_count == 1 ? '' : 's'}
+                · <strong>${c.lesson_count}</strong> lesson${c.lesson_count == 1 ? '' : 's'}${archived}
+              </div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2 mt-3 flex-wrap">
+            <span class="code-pill">${escapeHtml(c.join_code)}</span>
+            <button class="btn btn-sm btn-outline-secondary" onclick="copyInvite('${encodeURIComponent(link)}', this)">
+              <i class="bi bi-link-45deg"></i> Copy invite link
+            </button>
+          </div>
+        </div>`;
+    }
+
+    function copyInvite(encodedLink, btn) {
+      const link = decodeURIComponent(encodedLink);
+      navigator.clipboard.writeText(link).then(() => {
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+        setTimeout(() => { btn.innerHTML = original; }, 1500);
+      }).catch(() => { prompt('Copy this invite link:', link); });
+    }
+
+    async function createClass() {
+      const name = document.getElementById('newClassName').value.trim();
+      const type = document.querySelector('input[name="classType"]:checked').value;
+      const errEl = document.getElementById('createClassError');
+      const btn = document.getElementById('createClassBtn');
+      errEl.style.display = 'none';
+      if (!name) { errEl.textContent = 'Class name required'; errEl.style.display = 'block'; return; }
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/teach/classes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ name, type })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+        bootstrap.Modal.getInstance(document.getElementById('createClassModal')).hide();
+        document.getElementById('newClassName').value = '';
+        loadClasses();
+      } catch (e) {
+        errEl.textContent = e.message; errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    loadClasses();
+  </script>
+</body>
+</html>

@@ -84,7 +84,7 @@
   <script>
     // Duel data
     const duelId = <%= duel.id %>;
-    // Sécurité : échappe < pour empêcher un breakout </script> via les champs de mots
+    // Securite : on echappe le caractere inferieur (anti sortie de balise script) via les champs de mots
     const quizData = <%- JSON.stringify(quizData).replace(/</g, "\\u003c") %>;
 
     const QUIZ_DIRECTION = '<%= quizDirection %>';

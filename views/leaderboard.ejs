@@ -247,7 +247,7 @@
 
   <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Sécurité : échappe < pour empêcher un breakout </script> via les noms/taglines
+    // Securite : on echappe le caractere inferieur (anti sortie de balise script) via noms/taglines
     const allPlayers = <%- JSON.stringify(players).replace(/</g, "\\u003c") %>;
     const currentUserId = <%= user.id %>;
     const PAGE_SIZE = 20;

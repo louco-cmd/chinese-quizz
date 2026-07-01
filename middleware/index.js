@@ -60,6 +60,16 @@ function ensureAdmin(req, res, next) {
   });
 }
 
+// Garde "espace professeur" : laisse passer les profs (et les admins).
+// API → 403 JSON ; pages → redirection vers le dashboard élève.
+function ensureTeacher(req, res, next) {
+  if (req.user && (req.user.role === 'teacher' || req.user.is_admin)) return next();
+  if (req.path.startsWith('/api')) {
+    return res.status(403).json({ error: 'forbidden', message: 'Espace réservé aux professeurs.' });
+  }
+  return res.redirect('/dashboard');
+}
+
 function isValidEmail(email) {
   if (!email || typeof email !== 'string') return false;
   
@@ -468,6 +478,7 @@ module.exports = {
   // Authentification
   ensureAuth,
   ensureAdmin,
+  ensureTeacher,
   isValidEmail,
   //sendPasswordResetEmail,
   

@@ -47,6 +47,39 @@
       font-size: 1.4rem;
       line-height: 1;
     }
+    /* Carte "Rejoindre une classe" — même forme que "Start a duel" */
+    .join-start-card {
+      background: linear-gradient(135deg, #0d6efd, #0a58ca);
+      border-radius: 16px;
+      color: #fff;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .join-start-arrow {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 1.2rem;
+      color: rgba(255,255,255,0.7);
+      transition: transform 0.25s ease, color 0.25s ease;
+      pointer-events: none;
+    }
+    .join-start-icon { font-size: 2rem; margin-bottom: 0.4rem; display: block; }
+    .join-start-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 2px; }
+    .join-start-text { font-size: 0.85rem; opacity: 0.85; }
+    @media (hover: hover) {
+      .join-start-card:not(.disabled):hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(0,0,0,0.18); }
+      .join-start-card:not(.disabled):hover .join-start-arrow { transform: translateX(4px); color: #fff; }
+    }
+    .join-start-card:not(.disabled):active { transform: scale(0.97); }
+    /* État désactivé (autres que user 1) */
+    .join-start-card.disabled {
+      background: #e9ecef;
+      color: #adb5bd;
+      cursor: not-allowed;
+    }
+    .join-start-card.disabled .join-start-arrow { display: none; }
 
     /* ---- Contributions inside card ---- */
     .contributions-wrapper {
@@ -427,6 +460,27 @@
   </div>
 </div>
 
+<!-- ── Modal : rejoindre une classe ── -->
+<div class="modal fade" id="joinClassModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content" style="border-radius:18px;">
+      <div class="modal-body p-4 text-center">
+        <div style="font-size:2.5rem;">🎒</div>
+        <h6 class="fw-bold mt-2 mb-1">Join a class</h6>
+        <p class="text-muted small mb-3">Enter the code your teacher gave you.</p>
+        <input type="text" id="joinCodeInput" class="form-control text-center fw-bold mb-2"
+               placeholder="e.g. 7K2P9" maxlength="12" autocomplete="off"
+               style="letter-spacing:3px; text-transform:uppercase; font-size:1.2rem;">
+        <div id="joinClassError" class="text-danger small mb-2" style="display:none;"></div>
+        <div class="d-flex gap-2 mt-2">
+          <button type="button" class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary flex-fill" id="joinClassBtn" onclick="joinClass()">Join</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Hidden name element for modal use -->
 <span id="userNameDisplay"></span>
 
@@ -587,6 +641,29 @@
           </div>
         </div>
 
+        <!-- ── JOIN A CLASS (carte façon "Start a duel", activée pour user 1 uniquement) ── -->
+        <% if (user.id === 1) { %>
+        <div class="join-start-card mb-4"
+             role="button" tabindex="0"
+             data-bs-toggle="modal" data-bs-target="#joinClassModal"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+          <i class="join-start-arrow bi bi-arrow-right-circle-fill"></i>
+          <div class="text-center py-3 px-3">
+            <i class="bi bi-mortarboard-fill join-start-icon"></i>
+            <div class="join-start-title">Join a class</div>
+            <div class="join-start-text">Enter your teacher's code</div>
+          </div>
+        </div>
+        <% } else { %>
+        <div class="join-start-card disabled mb-4" aria-disabled="true">
+          <div class="text-center py-3 px-3">
+            <i class="bi bi-mortarboard join-start-icon"></i>
+            <div class="join-start-title">Join a class</div>
+            <div class="join-start-text">Coming soon</div>
+          </div>
+        </div>
+        <% } %>
+
       </div><!-- end right col -->
 
     </div><!-- end row -->
@@ -594,6 +671,40 @@
 
   <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script>
+    // ─────────────────────────────────────────────
+    // REJOINDRE UNE CLASSE
+    // ─────────────────────────────────────────────
+    async function joinClass() {
+      const input = document.getElementById('joinCodeInput');
+      const err = document.getElementById('joinClassError');
+      const btn = document.getElementById('joinClassBtn');
+      const code = input.value.trim().toUpperCase();
+      err.style.display = 'none';
+      if (!code) { err.textContent = 'Code required'; err.style.display = 'block'; input.focus(); return; }
+      btn.disabled = true; btn.textContent = 'Joining...';
+      try {
+        const res = await fetch('/api/teach/join', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ code })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+        btn.textContent = 'Joined ✓';
+        const className = data.classroom && data.classroom.name ? data.classroom.name : 'class';
+        err.className = 'text-success small mb-2';
+        err.textContent = 'Joined "' + className + '" 🎉';
+        err.style.display = 'block';
+        setTimeout(() => window.location.reload(), 1200);
+      } catch (e) {
+        err.className = 'text-danger small mb-2';
+        err.textContent = e.message;
+        err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Join';
+      }
+    }
+
     // ─────────────────────────────────────────────
     // INIT
     // ─────────────────────────────────────────────

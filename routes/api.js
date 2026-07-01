@@ -1049,6 +1049,23 @@ router.post('/api/user/learning-direction', ensureAuth, async (req, res) => {
   }
 });
 
+// Définit le rôle (choisi à l'onboarding : élève ou professeur)
+router.post('/api/user/role', ensureAuth, async (req, res) => {
+  try {
+    const VALID = ['student', 'teacher'];
+    const { role } = req.body;
+    if (!VALID.includes(role)) {
+      return res.status(400).json({ success: false, message: 'Invalid role' });
+    }
+    await pool.query('UPDATE users SET role = $1 WHERE id = $2', [role, req.user.id]);
+    req.user.role = role;
+    res.json({ success: true, role });
+  } catch (err) {
+    console.error('Set role error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
   const client = await pool.connect();
 
@@ -1579,7 +1596,6 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
       SELECT
         u.id,
         u.name,
-        u.email,
         u.tagline,
         u.country,
         COUNT(DISTINCT uw.mot_id) as total_words,
@@ -1628,7 +1644,7 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
       WHERE u.id IN (SELECT DISTINCT user_id FROM user_mots)
         AND u.quiz_direction = $1
         AND u.ghost_mode = FALSE
-      GROUP BY u.id, u.name, u.email, u.tagline, u.country
+      GROUP BY u.id, u.name, u.tagline, u.country
       ORDER BY wins DESC, total_words DESC, losses ASC
     `, [req.user.quiz_direction || 'en→zh']);
 

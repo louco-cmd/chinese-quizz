@@ -12,6 +12,7 @@ const rateLimit = require('express-rate-limit');
 const { passport, setupAuthRoutes } = require('./config/connexion');
 const {
   ensureAuth,
+  ensureTeacher,
   resilience,
   repair,
   checker,
@@ -36,6 +37,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const PostgreSQLStore = require('connect-pg-simple')(session);
 const apiRoutes = require('./routes/api');
+const teachRoutes = require('./routes/teach');
 const { pool } = require('./config/database');
 const { listenerCount } = require('process');
 const app = express();
@@ -345,8 +347,19 @@ app.use((req, res, next) => {
 });
 
 app.get('/onboarding', ensureAuth, (req, res) => {
-  if (req.user.onboarding_done) return res.redirect('/dashboard');
+  if (req.user.onboarding_done) {
+    return res.redirect(req.user.role === 'teacher' ? '/teach' : '/dashboard');
+  }
   res.render('onboarding', {
+    user: req.user,
+    balance: res.locals.balance || 0,
+    isPremium: res.locals.isPremium || false
+  });
+});
+
+// ── Espace professeur (Phase 2 — stub, dashboard complet en Phase 4) ──────────
+app.get('/teach', ensureAuth, ensureTeacher, (req, res) => {
+  res.render('teach', {
     user: req.user,
     balance: res.locals.balance || 0,
     isPremium: res.locals.isPremium || false
@@ -364,6 +377,7 @@ const apiLimiter = rateLimit({
 });
 app.use('/api', apiLimiter);
 
+app.use("/", teachRoutes);
 app.use("/", apiRoutes);
 
 
@@ -398,7 +412,10 @@ app.get("/auth/google/callback",
       }
 
       console.log('💾 Session sauvegardée, redirection...');
-      const returnTo = req.session.returnTo || '/dashboard';
+      // Redirection consciente du rôle : un prof (onboarding fait) va vers /teach.
+      const defaultHome = (req.user?.role === 'teacher' && req.user?.onboarding_done)
+        ? '/teach' : '/dashboard';
+      const returnTo = req.session.returnTo || defaultHome;
       delete req.session.returnTo;
 
       res.redirect(returnTo);
@@ -1303,7 +1320,6 @@ app.get('/leaderboard', ensureAuth, async (req, res) => {
               SELECT
           u.id,
           u.name,
-          u.email,
           u.country,
           u.tagline,
           COALESCE(um.word_count, 0) AS total_words,   -- évite NULL
@@ -1340,7 +1356,7 @@ app.get('/leaderboard', ensureAuth, async (req, res) => {
       WHERE u.name IS NOT NULL
         AND u.quiz_direction = $1
         AND u.ghost_mode = FALSE
-      GROUP BY u.id, u.name, u.email, u.country, u.tagline, um.word_count
+      GROUP BY u.id, u.name, u.country, u.tagline, um.word_count
       ORDER BY
           wins DESC,
           total_words DESC,
