@@ -208,6 +208,79 @@
       border: 3px solid #dc3545;
     }
 
+    /* ── Carrousel "booster" : scroll latéral + profondeur ── */
+    .booster-scroll {
+      display: flex;
+      gap: 14px;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      padding: 26px calc(50% - 120px) 24px; /* centre 1re/dernière carte (carte = 240px) */
+      perspective: 1100px;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    .booster-scroll::-webkit-scrollbar { display: none; }
+
+    .booster-card {
+      flex: 0 0 240px;
+      scroll-snap-align: center;
+      border-radius: 20px;
+      padding: 22px 18px 18px;
+      background: linear-gradient(165deg, #ffffff 0%, #eef3ff 100%);
+      border: 1px solid #e3e8f7;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.10);
+      transform: scale(0.86) rotateY(4deg);
+      opacity: 0.5;
+      transition: transform 0.32s cubic-bezier(.2,.7,.3,1), opacity 0.32s ease, box-shadow 0.32s ease;
+      position: relative;
+      overflow: hidden;
+      text-align: center;
+    }
+    .booster-card.is-center {
+      transform: scale(1) rotateY(0);
+      opacity: 1;
+      box-shadow: 0 20px 44px rgba(13,110,253,0.24);
+    }
+    .booster-card.exact.is-center { box-shadow: 0 20px 44px rgba(13,110,253,0.38); }
+    .booster-card.exact { border-color: #0d6efd; }
+    /* Sheen holographique sur la carte centrale */
+    .booster-card.is-center::before {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 66%);
+      transform: translateX(-120%);
+      animation: booster-sheen 1.1s ease 0.15s 1;
+      pointer-events: none;
+    }
+    @keyframes booster-sheen { to { transform: translateX(120%); } }
+
+    .booster-card .bc-badge {
+      position: absolute; top: 10px; left: 12px;
+      font-size: .62rem; font-weight: 700; letter-spacing: .5px;
+      background: #0d6efd; color: #fff; padding: 2px 8px; border-radius: 999px;
+    }
+    .booster-card .bc-primary { font-weight: 800; color: #0d6efd; line-height: 1.1; word-break: break-word; margin-top: 6px; }
+    .booster-card .bc-pinyin { color: #6c757d; font-size: 1rem; margin-top: 6px; }
+    .booster-card .bc-secondary { color: #1a1a2e; font-weight: 600; margin-top: 4px; word-break: break-word; }
+    .booster-card .bc-meta { color: #adb5bd; font-size: .72rem; margin-top: 8px; }
+    .booster-card .bc-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .booster-card .bc-btn {
+      flex: 1; border: none; border-radius: 11px; padding: 9px 6px;
+      font-weight: 700; font-size: .82rem; cursor: pointer; white-space: nowrap;
+    }
+    .bc-btn-capture { background: #0d6efd; color: #fff; }
+    .bc-btn-capture:disabled { background: #d4edda; color: #198754; cursor: default; }
+    .bc-btn-edit { background: #eef1f6; color: #495057; }
+    /* Carte "créer" */
+    .booster-card.create {
+      background: repeating-linear-gradient(135deg, #faf8ff, #faf8ff 12px, #f3eefe 12px, #f3eefe 24px);
+      border: 2px dashed #c9b8ec;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; min-height: 210px;
+    }
+    .booster-card.create .bc-create-icon { font-size: 2.4rem; color: #6f42c1; }
+    .booster-card.create .bc-create-text { color: #6f42c1; font-weight: 700; margin-top: 8px; }
+
     /* --------------------------------------------
    MODALES (POPUPS) - Aligné sur le style des duels
 -------------------------------------------- */
@@ -547,6 +620,20 @@
             </div>
           </div>
 
+          <!-- ========== MODALE RÉSULTATS DE RECHERCHE (cartes scrollables) ========== -->
+          <div id="searchResultsModal" class="confirm-popup" style="display: none;">
+            <div class="confirm-popup-content" style="max-width: 520px; padding: 24px 12px;">
+              <div class="modal-header-row" style="padding: 0 12px;">
+                <h5><i class="bi bi-search me-2 text-primary"></i><span id="searchResultsTitle">Results</span></h5>
+                <button type="button" class="btn-close" onclick="closeSearchResults()" style="font-size: 1rem;"></button>
+              </div>
+              <div id="searchResultsList" class="booster-scroll"></div>
+              <div id="boosterHint" class="text-center text-muted" style="font-size:.75rem; margin-top:4px;">
+                <i class="bi bi-arrow-left-right"></i> swipe to browse
+              </div>
+            </div>
+          </div>
+
           <!-- ========== MODALE MOT EXISTANT ========== -->
           <div id="existingWordModal" class="confirm-popup" style="display: none;">
             <div class="confirm-popup-content">
@@ -790,24 +877,13 @@
           showStatus(I18N.searching, 'info');
 
           try {
-            const endpoint = LEARN_DIR === 'zh\u2192en'
-              ? `/check-mot-by-english/${encodeURIComponent(chinese)}`
-              : `/check-mot/${encodeURIComponent(chinese)}`;
-
-            const res = await fetch(endpoint, {
+            const res = await fetch(`/search-mots?q=${encodeURIComponent(chinese)}`, {
               signal: currentRequestController.signal
             });
             currentRequestController = null;
             const data = await res.json();
-
-            if (data.exists) {
-              existingWordData = data.mot;
-              displayExistingWordModal(data.mot);
-            } else {
-              existingWordData = null;
-              displayNewWordModal();
-            }
             clearStatus();
+            displaySearchResults(data.results || []);
           } catch (err) {
             if (err.name === 'AbortError') {
               console.log('Requête annulée');
@@ -816,6 +892,156 @@
               enableSubmitButton();
             }
           }
+        }
+
+        // ========== RÉSULTATS DE RECHERCHE (cartes scrollables) ==========
+        let searchResults = [];
+
+        function displaySearchResults(results) {
+          haptics.soft();
+          searchResults = results;
+          const isZhEn = (LEARN_DIR === 'zh→en');
+          const list = document.getElementById('searchResultsList');
+          const q = escapeHtml(currentChinese);
+
+          let cards = results.map((w, i) => {
+            const c = escapeHtml(w.chinese), p = escapeHtml(w.pinyin), e = escapeHtml(w.english);
+            const primary = isZhEn ? e : c;
+            const secondary = isZhEn ? c : e;
+            const exact = (i === 0 && isExact(w));
+            const owners = (w.owner_count || 0) > 0
+              ? `<div class="bc-meta"><i class="bi bi-people"></i> ${w.owner_count} ${w.owner_count == 1 ? 'user' : 'users'}</div>`
+              : `<div class="bc-meta">&nbsp;</div>`;
+            // Déjà capturé → pas d'actions (ni Edit ni Capture), juste un état "capturé"
+            const actions = w.owned
+              ? `<div class="bc-actions">
+                   <button class="bc-btn bc-btn-capture" disabled><i class="bi bi-check2-circle me-1"></i>${I18N.already_captured}</button>
+                 </div>`
+              : `<div class="bc-actions">
+                   <button class="bc-btn bc-btn-edit" onclick="editFromCard(${i})"><i class="bi bi-pencil me-1"></i>Edit</button>
+                   <button class="bc-btn bc-btn-capture" onclick="captureFromCard(${i}, this)">${I18N.capture}</button>
+                 </div>`;
+            return `
+              <div class="booster-card ${exact ? 'exact' : ''}">
+                ${exact ? '<span class="bc-badge">EXACT</span>' : ''}
+                <div class="bc-primary" style="font-size:${isZhEn ? '1.5rem' : '2.4rem'};">${primary || '—'}</div>
+                <div class="bc-pinyin">${p}</div>
+                <div class="bc-secondary">${secondary}</div>
+                ${owners}
+                ${actions}
+              </div>`;
+          }).join('');
+
+          // Carte "créer un nouveau" en dernier — SAUF si une correspondance exacte
+          // existe déjà (position 0), pour éviter les doublons du même mot.
+          const hasExact = results.length > 0 && isExact(results[0]);
+          if (!hasExact) {
+            cards += `
+              <div class="booster-card create" onclick="createFromSearch()">
+                <i class="bi bi-plus-circle bc-create-icon"></i>
+                <div class="bc-create-text">Create "${q}"</div>
+              </div>`;
+          }
+
+          list.innerHTML = cards;
+          document.getElementById('searchResultsTitle').textContent =
+            results.length ? `${results.length} result${results.length > 1 ? 's' : ''}` : 'No match';
+          document.getElementById('boosterHint').style.display = (results.length > 0) ? '' : 'none';
+          document.getElementById('searchResultsModal').style.display = 'flex';
+          setupCarouselDepth(list);
+        }
+
+        // Effet de profondeur : la carte la plus proche du centre passe en avant
+        function setupCarouselDepth(container) {
+          const cards = Array.from(container.querySelectorAll('.booster-card'));
+          if (!cards.length) return;
+          let ticking = false;
+          function update() {
+            ticking = false;
+            const cRect = container.getBoundingClientRect();
+            const center = cRect.left + cRect.width / 2;
+            let best = null, bestDist = Infinity;
+            cards.forEach(card => {
+              const r = card.getBoundingClientRect();
+              const dist = Math.abs((r.left + r.width / 2) - center);
+              if (dist < bestDist) { bestDist = dist; best = card; }
+            });
+            cards.forEach(card => card.classList.toggle('is-center', card === best));
+          }
+          container.addEventListener('scroll', () => {
+            if (!ticking) { requestAnimationFrame(update); ticking = true; }
+          }, { passive: true });
+          // position initiale sur la 1re carte (match exact / plus populaire)
+          container.scrollLeft = 0;
+          requestAnimationFrame(update);
+        }
+
+        // Éditer avant de capturer : préremplit la modale de création avec la carte
+        function editFromCard(index) {
+          const w = searchResults[index];
+          if (!w) return;
+          existingWordData = w;
+          currentChinese = (LEARN_DIR === 'zh→en') ? (w.english || currentChinese) : (w.chinese || currentChinese);
+          closeSearchResults();
+          displayNewWordModal();
+        }
+
+        function isExact(w) {
+          if (LEARN_DIR === 'zh→en') {
+            return (w.english || '').toLowerCase() === currentChinese.toLowerCase();
+          }
+          return w.chinese === currentChinese;
+        }
+
+        function closeSearchResults() {
+          document.getElementById('searchResultsModal').style.display = 'none';
+          enableSubmitButton();
+        }
+
+        // Capture une carte indépendamment (ne réinitialise pas le formulaire :
+        // l'utilisateur peut en capturer plusieurs, la modale reste ouverte).
+        async function captureFromCard(index, btn) {
+          const w = searchResults[index];
+          if (!w) return;
+          const original = btn.innerHTML;
+          btn.disabled = true;
+          btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+          try {
+            const response = await fetch('/ajouter', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chinese: w.chinese, pinyin: w.pinyin, english: w.english })
+            });
+            const data = await response.json();
+            if (response.ok && data.success) {
+              haptics.success();
+              w.owned = true;
+              // Retirer le bouton Edit (plus modifiable une fois capturé) et occuper toute la largeur
+              const editBtn = btn.parentElement.querySelector('.bc-btn-edit');
+              if (editBtn) editBtn.remove();
+              btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>' + I18N.already_captured;
+            } else if (data.limitReached) {
+              btn.disabled = false; btn.innerHTML = original;
+              closeSearchResults();
+              showLimitReachedPopup(data);
+            } else {
+              btn.disabled = false; btn.innerHTML = original;
+              if (data.message?.includes('balance')) showError('Not enough coins (3 required)');
+              else if (data.message?.includes('already')) { w.owned = true; btn.disabled = true; btn.innerHTML = '<i class="bi bi-check2-circle"></i> ' + I18N.already_captured; }
+              else showError(data.error || data.message || 'Error');
+            }
+          } catch (err) {
+            btn.disabled = false;
+            btn.innerHTML = original;
+            showError('Network error');
+          }
+        }
+
+        // Depuis la carte "créer" → flux de création existant
+        function createFromSearch() {
+          closeSearchResults();
+          existingWordData = null;
+          displayNewWordModal();
         }
 
         // ========== MODALE MOT EXISTANT ==========
@@ -966,8 +1192,9 @@
             fieldChinese.style.display = 'block';
             fieldPinyin.style.display  = 'none';
             fieldEnglish.style.display = 'none';
-            chineseField.value = '';
-            descriptionField.value = '';
+            // Préremplissage si on édite une carte existante (Edit + capture)
+            chineseField.value = existingWordData ? (existingWordData.chinese || '') : '';
+            descriptionField.value = existingWordData ? (existingWordData.description || '') : '';
             setTimeout(() => chineseField.focus(), 100);
           } else {
             // Mode standard : on connaît le chinois, on demande pinyin + anglais

@@ -621,6 +621,43 @@ router.get("/check-mot-by-english/:english", ensureAuth, async (req, res) => {
   }
 });
 
+// Recherche de candidats (sous-chaîne dans l'ordre) pour réduire les doublons.
+// Renvoie jusqu'à 3 mots : match exact d'abord, puis par popularité (nb de users).
+router.get('/search-mots', ensureAuth, async (req, res) => {
+  try {
+    const raw = (req.query.q || '').trim();
+    if (!raw) return res.json({ results: [] });
+
+    const isZhEn = (req.user.quiz_direction === 'zh→en');
+    // Échapper les wildcards LIKE pour que %/_ tapés soient littéraux
+    const escaped = raw.replace(/[\\%_]/g, c => '\\' + c);
+    const pattern = `%${escaped}%`;
+
+    // Colonne cherchée selon la direction d'apprentissage
+    const field = isZhEn ? 'm.english' : 'm.chinese';
+    // Comparaison exacte insensible à la casse pour l'anglais, stricte pour le chinois
+    const exactExpr = isZhEn ? 'LOWER(m.english) = LOWER($3)' : 'm.chinese = $3';
+
+    const { rows } = await pool.query(
+      `SELECT m.id, m.chinese, m.pinyin, m.english, m.description, m.description_zh, m.hsk,
+              COUNT(um.user_id)::int AS owner_count,
+              BOOL_OR(um.user_id = $2) AS owned
+       FROM mots m
+       LEFT JOIN user_mots um ON um.mot_id = m.id
+       WHERE ${field} ILIKE $1 ESCAPE '\\'
+       GROUP BY m.id
+       ORDER BY (${exactExpr}) DESC, owner_count DESC, m.id ASC
+       LIMIT 3`,
+      [pattern, req.user.id, raw]
+    );
+
+    res.json({ results: rows });
+  } catch (err) {
+    console.error('❌ search-mots:', err);
+    res.status(500).json({ error: 'Erreur recherche' });
+  }
+});
+
 router.get("/check-user-word/:chinese", ensureAuth, async (req, res) => {
   const userId = req.user.id;
 
