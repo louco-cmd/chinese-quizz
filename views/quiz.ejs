@@ -481,6 +481,74 @@
         </div>
       </section>
 
+      <!-- 🎓 TASK QUIZZES EN ATTENTE — même container que les duels en attente -->
+      <section class="container my-4">
+        <div id="taskQuizzesSection" style="display:none;" class="mb-3">
+          <div class="card tq-card">
+            <div class="card-body">
+              <p class="tq-section-title"><i class="bi bi-mortarboard me-2 text-muted"></i>Task quizzes from your teacher</p>
+              <div id="taskQuizzesList"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <style>
+        .tq-card { border:none; border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,0.07); }
+        .tq-card .card-body { padding:1.25rem; }
+        .tq-section-title { font-size:0.95rem; font-weight:700; color:#444; margin-bottom:1rem; display:flex; align-items:center; }
+        .tq-section-title i { font-size:1.4rem; line-height:1; }
+        .tq-avatar { width:40px; height:40px; border-radius:50%; background:#e7f0ff; color:#0d6efd; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .tq-gauge { height:8px; border-radius:4px; background:#eef2f8; overflow:hidden; width:90px; }
+        .tq-gauge > div { height:100%; border-radius:4px; background:#0d6efd; transition:width .4s ease; }
+        .tq-pct { font-weight:700; color:#0d6efd; font-size:.85rem; min-width:38px; text-align:right; }
+      </style>
+      <script>
+        async function loadTaskQuizzes() {
+          try {
+            const res = await fetch('/api/student/tasks', { credentials: 'include' });
+            const data = await res.json();
+            const tasks = data.tasks || [];
+            if (!tasks.length) return;
+            const list = document.getElementById('taskQuizzesList');
+            list.innerHTML = tasks.map(t => {
+              const k = Number(t.knowledge) || 0;
+              return `
+                <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                  <div class="d-flex align-items-center gap-2" style="min-width:0;">
+                    <div class="tq-avatar"><i class="bi bi-mortarboard"></i></div>
+                    <div style="min-width:0;">
+                      <div class="small fw-medium text-truncate">${escapeHtml(t.title)}</div>
+                      <div class="d-flex align-items-center gap-2" style="font-size:.75rem">
+                        <div class="tq-gauge"><div style="width:${k}%;"></div></div>
+                        <span class="tq-pct">${k}%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button class="btn btn-sm btn-primary" onclick="startTaskQuiz(${t.id}, this)">Practice</button>
+                </div>`;
+            }).join('');
+            document.getElementById('taskQuizzesSection').style.display = '';
+          } catch (e) { /* silencieux */ }
+        }
+
+        async function startTaskQuiz(lessonId, btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+          try {
+            const res = await fetch(`/api/student/tasks/${lessonId}/start`, { method: 'POST', credentials: 'include' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Error');
+            const ids = (data.ids || []).join(',');
+            window.location.href = `/quiz-play?type=${encodeURIComponent(data.type || 'pinyin')}&ids=${encodeURIComponent(ids)}&lesson=${lessonId}`;
+          } catch (e) {
+            btn.disabled = false; btn.textContent = 'Practice';
+            alert(e.message);
+          }
+        }
+        // global.js (chargé plus bas) définit escapeHtml → on attend le DOM prêt
+        document.addEventListener('DOMContentLoaded', loadTaskQuizzes);
+      </script>
+
       <!-- MODAL DE CONFIGURATION DU QUIZ (avec slider double HSK) -->
       <div class="confirm-popup" id="countModal" style="display: none;">
         <div class="confirm-popup-content">

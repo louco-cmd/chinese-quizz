@@ -8,41 +8,84 @@
   <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
   <style>
-    body { background: #f5f7fb; min-height: 100vh; }
-    .teach-wrap { max-width: 760px; margin: 0 auto; padding: 16px; }
-    .class-card {
-      background: #fff; border-radius: 16px; padding: 18px 20px; margin-bottom: 14px;
-      box-shadow: 0 6px 18px rgba(10,47,107,0.06); border: 1px solid #e7edf7;
-      transition: transform .12s ease, box-shadow .2s ease;
-    }
-    .class-card:active { transform: scale(0.99); }
-    .code-pill {
-      font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: 2px;
-      background: #eef2fb; border: 1px dashed #a9c0e8; color: #0a2f6b;
-      padding: 6px 12px; border-radius: 10px; font-size: 1rem;
-    }
-    .stat-mini { font-size: .8rem; color: #6c757d; }
-    .stat-mini strong { color: #0a2f6b; }
-    .btn-navy { background: #0a2f6b; border: none; color: #fff; font-weight: 600; }
-    .btn-navy:hover { background: #082554; color: #fff; }
-    .empty-state { text-align: center; color: #7a8aa8; padding: 40px 20px; }
-    .modal-content { border-radius: 18px; }
+    body { background:#f5f7fb; min-height:100vh; }
+
+    /* ── Header ID : stats globales (style bloc account) ── */
+    .stats-card { background:#fff; border:none; border-radius:16px; padding:1.25rem; box-shadow:0 2px 12px rgba(0,0,0,0.07); }
+    .stats-title { font-weight:800; color:#0a2f6b; font-size:1.05rem; }
+    .stats-sub { font-size:.76rem; color:#8a98b5; margin-bottom:12px; }
+    .stats-pills { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .stat-pill { background:#f5f7fb; border:1px solid #eef2f8; border-radius:12px; padding:10px 6px; text-align:center; }
+    .stat-pill.wide { grid-column:1 / -1; }
+    .stat-pill .n { font-weight:800; font-size:1.2rem; color:#0a2f6b; line-height:1; }
+    .stat-pill .l { font-size:.64rem; color:#8a98b5; text-transform:uppercase; letter-spacing:.3px; margin-top:4px; }
+    @media (min-width:992px) { .stats-sticky { position:sticky; top:16px; } }
+
+    /* ── New class (carte façon "new task", marine) ── */
+    .task-launch-card { background:linear-gradient(135deg,#0a2f6b,#082554); border-radius:16px; color:#fff; cursor:pointer; position:relative; transition:transform .2s ease, box-shadow .2s ease; margin-bottom:16px; }
+    .task-launch-arrow { position:absolute; top:10px; right:12px; font-size:1.2rem; color:rgba(255,255,255,.7); transition:transform .25s ease, color .25s ease; pointer-events:none; }
+    .task-launch-icon { font-size:2rem; margin-bottom:.4rem; display:block; }
+    .task-launch-title { font-weight:700; font-size:1.1rem; margin-bottom:2px; }
+    .task-launch-text { font-size:.85rem; opacity:.85; }
+    @media (hover:hover) { .task-launch-card:hover { transform:translateY(-3px); box-shadow:0 10px 22px rgba(10,47,107,.28); } .task-launch-card:hover .task-launch-arrow { transform:translateX(4px); color:#fff; } }
+    .task-launch-card:active { transform:scale(.97); }
+
+    /* ── Cartes de classe ── */
+    .class-card { background:#fff; border:none; border-radius:16px; padding:16px 18px; margin-bottom:12px; box-shadow:0 2px 12px rgba(0,0,0,0.07); cursor:pointer; transition:transform .1s ease, box-shadow .2s ease; }
+    .class-card:hover { box-shadow:0 6px 18px rgba(0,0,0,0.10); }
+    .class-card:active { transform:scale(.99); }
+    .cc-name { font-weight:800; font-size:1.1rem; color:#0a2f6b; word-break:break-word; }
+    .cc-pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .cc-pill { background:#eef2fb; border:1px solid #dbe3f1; border-radius:999px; padding:4px 12px; font-size:.82rem; color:#5a6b8a; }
+    .cc-pill b { color:#0a2f6b; }
+    .cc-code { display:inline-flex; align-items:center; gap:8px; margin-top:12px; }
+    .cc-code .code { font-family:ui-monospace,monospace; font-weight:800; letter-spacing:3px; color:#0a2f6b; background:#f5f7fb; border:1px dashed #a9c0e8; padding:4px 12px; border-radius:10px; }
+    .cc-copy { border:none; background:#eef2fb; color:#0a2f6b; width:34px; height:34px; border-radius:9px; cursor:pointer; }
+    .cc-copy:hover { background:#0a2f6b; color:#fff; }
+    .empty-state { text-align:center; color:#7a8aa8; padding:40px 20px; }
+    .btn-navy { background:#0a2f6b; border:none; color:#fff; font-weight:600; }
+    .btn-navy:hover { background:#082554; color:#fff; }
+    .modal-content { border-radius:18px; }
   </style>
 </head>
 <body>
   <%- include('partials/teacher-header') %>
 
-  <div class="teach-wrap">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="fw-bold mb-0" style="color:#0a2f6b;"><i class="bi bi-easel2 me-2"></i>My classes</h5>
-      <button class="btn btn-navy btn-sm" data-bs-toggle="modal" data-bs-target="#createClassModal">
-        <i class="bi bi-plus-lg me-1"></i>New class
-      </button>
-    </div>
+  <div class="container py-3 py-md-4">
+    <div class="row g-3">
+      <!-- Header ID : stats (sticky en desktop) -->
+      <div class="col-12 col-lg-4">
+        <div class="stats-card stats-sticky">
+          <div class="stats-title"><%= user.name || 'Teacher' %></div>
+          <div class="stats-sub">Your teaching at a glance</div>
+          <div class="stats-pills">
+            <div class="stat-pill"><div class="n" id="stClasses">–</div><div class="l">Classes</div></div>
+            <div class="stat-pill"><div class="n" id="stStudents">–</div><div class="l">Students</div></div>
+            <div class="stat-pill"><div class="n" id="stTasks">–</div><div class="l">Tasks</div></div>
+            <div class="stat-pill wide"><div class="n" id="stKnowledge">–</div><div class="l">Student average knowledge</div></div>
+          </div>
+        </div>
+      </div>
 
-    <div id="classes-list">
-      <div class="class-card"><div class="skeleton skeleton-title" style="width:40%;"></div><div class="skeleton skeleton-text" style="width:25%;"></div></div>
-      <div class="class-card"><div class="skeleton skeleton-title" style="width:50%;"></div><div class="skeleton skeleton-text" style="width:25%;"></div></div>
+      <!-- Classes -->
+      <div class="col-12 col-lg-8">
+        <!-- New class : carte façon "new task" -->
+        <div class="task-launch-card" role="button" tabindex="0"
+             data-bs-toggle="modal" data-bs-target="#createClassModal"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+          <i class="task-launch-arrow bi bi-arrow-right-circle-fill"></i>
+          <div class="text-center py-3 px-3">
+            <i class="bi bi-plus-circle task-launch-icon"></i>
+            <div class="task-launch-title">New class</div>
+            <div class="task-launch-text">Create a class and invite students</div>
+          </div>
+        </div>
+
+        <div id="classes-list">
+          <div class="class-card"><div class="skeleton skeleton-title" style="width:40%;"></div><div class="skeleton skeleton-text" style="width:25%;"></div></div>
+          <div class="class-card"><div class="skeleton skeleton-title" style="width:50%;"></div><div class="skeleton skeleton-text" style="width:25%;"></div></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -54,7 +97,7 @@
           <h5 class="fw-bold mb-3">New class</h5>
           <div class="mb-3">
             <label class="form-label">Class name</label>
-            <input type="text" id="newClassName" class="form-control" placeholder="e.g. Beginner HSK1 — Tuesday" maxlength="80">
+            <input type="text" id="newClassName" class="form-control form-control-lg" placeholder="e.g. Beginner HSK1 — Tuesday" maxlength="80">
           </div>
           <div id="createClassError" class="text-danger small mb-2" style="display:none;"></div>
           <div class="d-flex gap-2">
@@ -71,7 +114,16 @@
   <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script src="/js/global.js"></script>
   <script>
-    const ORIGIN = window.location.origin;
+    async function loadOverview() {
+      try {
+        const res = await fetch('/api/teach/overview', { credentials: 'include' });
+        const d = await res.json();
+        document.getElementById('stClasses').textContent = d.classes ?? 0;
+        document.getElementById('stStudents').textContent = d.students ?? 0;
+        document.getElementById('stTasks').textContent = d.tasks ?? 0;
+        document.getElementById('stKnowledge').textContent = (d.avg_knowledge ?? 0) + '%';
+      } catch (e) { /* ignore */ }
+    }
 
     async function loadClasses() {
       const list = document.getElementById('classes-list');
@@ -80,10 +132,7 @@
         const data = await res.json();
         const classes = data.classrooms || [];
         if (!classes.length) {
-          list.innerHTML = `<div class="empty-state">
-            <div style="font-size:2.4rem;">🪧</div>
-            <p class="mt-2 mb-0">No classes yet. Create your first one!</p>
-          </div>`;
+          list.innerHTML = `<div class="empty-state"><i class="bi bi-easel2" style="font-size:1.5rem;opacity:.35;"></i><p class="mt-2 mb-0 small">No classes yet. Create your first one!</p></div>`;
           return;
         }
         list.innerHTML = classes.map(renderClass).join('');
@@ -94,35 +143,28 @@
     }
 
     function renderClass(c) {
-      const name = escapeHtml(c.name);
-      const archived = c.archived ? ' · archived' : '';
-      const link = `${ORIGIN}/join/${c.join_code}`;
       return `
-        <div class="class-card" role="button" onclick="window.location='/teach/class/${c.id}'">
+        <div class="class-card" onclick="window.location='/teach/class/${c.id}'">
           <div class="d-flex justify-content-between align-items-start">
-            <div class="fw-bold" style="font-size:1.05rem; color:#0a2f6b;">${name}</div>
+            <div class="cc-name">${escapeHtml(c.name)}</div>
             <i class="bi bi-chevron-right text-muted"></i>
           </div>
-          <div class="stat-mini mt-1">
-            <strong>${c.student_count}</strong> student${c.student_count == 1 ? '' : 's'}
-            · <strong>${c.lesson_count}</strong> lesson${c.lesson_count == 1 ? '' : 's'}${archived}
+          <div class="cc-pills">
+            <span class="cc-pill"><b>${c.student_count}</b> student${c.student_count == 1 ? '' : 's'}</span>
+            <span class="cc-pill"><b>${c.lesson_count}</b> task${c.lesson_count == 1 ? '' : 's'}</span>
           </div>
-          <div class="d-flex align-items-center gap-2 mt-3 flex-wrap" onclick="event.stopPropagation()">
-            <span class="code-pill">${escapeHtml(c.join_code)}</span>
-            <button class="btn btn-sm btn-outline-secondary" onclick="copyInvite('${encodeURIComponent(link)}', this)">
-              <i class="bi bi-link-45deg"></i> Copy invite link
-            </button>
+          <div class="cc-code" onclick="event.stopPropagation()">
+            <span class="code">${escapeHtml(c.join_code)}</span>
+            <button class="cc-copy" onclick="copyCode('${escapeHtml(c.join_code)}', this)" title="Copy code"><i class="bi bi-clipboard"></i></button>
           </div>
         </div>`;
     }
 
-    function copyInvite(encodedLink, btn) {
-      const link = decodeURIComponent(encodedLink);
-      navigator.clipboard.writeText(link).then(() => {
-        const original = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-check2"></i> Copied!';
-        setTimeout(() => { btn.innerHTML = original; }, 1500);
-      }).catch(() => { prompt('Copy this invite link:', link); });
+    function copyCode(code, btn) {
+      navigator.clipboard.writeText(code).then(() => {
+        const o = btn.innerHTML; btn.innerHTML = '<i class="bi bi-check2"></i>';
+        setTimeout(() => { btn.innerHTML = o; }, 1400);
+      }).catch(() => { prompt('Class code:', code); });
     }
 
     async function createClass() {
@@ -134,16 +176,14 @@
       btn.disabled = true;
       try {
         const res = await fetch('/api/teach/classes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ name })
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', body: JSON.stringify({ name })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error');
         bootstrap.Modal.getInstance(document.getElementById('createClassModal')).hide();
         document.getElementById('newClassName').value = '';
-        loadClasses();
+        loadClasses(); loadOverview();
       } catch (e) {
         errEl.textContent = e.message; errEl.style.display = 'block';
       } finally {
@@ -151,6 +191,7 @@
       }
     }
 
+    loadOverview();
     loadClasses();
   </script>
 </body>

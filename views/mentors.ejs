@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Jiayou · Teachers</title>
+  <%- include('partials/meta', { pageTitle: 'Jiayou · Teachers', pageDescription: 'Find a Chinese teacher.' }) %>
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    .mentors-wrap { max-width:760px; margin:0 auto; padding:16px; }
+    .mentor-card { background:#fff; border:1px solid #e9edf2; border-radius:16px; padding:18px; margin-bottom:14px; box-shadow:0 6px 18px rgba(13,110,253,0.06); }
+    .mentor-head { display:flex; align-items:center; gap:14px; }
+    .mentor-avatar { width:52px; height:52px; border-radius:50%; flex-shrink:0; background:#e3f0ff; color:#0d6efd; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:1.2rem; }
+    .mentor-name { font-weight:800; color:#0d6efd; font-size:1.1rem; }
+    .mentor-langs { font-size:.82rem; color:#7a8aa8; }
+    .mentor-bio { color:#495267; font-size:.9rem; margin-top:10px; }
+    .mentor-pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+    .m-pill { background:#eef4ff; border:1px solid #d5e5fb; border-radius:999px; padding:5px 12px; font-size:.8rem; color:#5a6b8a; }
+    .m-pill b { color:#0d6efd; }
+    .mentor-cta { display:inline-flex; align-items:center; gap:6px; margin-top:14px; background:#0d6efd; color:#fff; border:none; border-radius:12px; padding:9px 16px; font-weight:600; text-decoration:none; }
+    .mentor-cta:hover { background:#0b5ed7; color:#fff; }
+    .empty-state { text-align:center; color:#8a97ac; padding:44px 20px; }
+    /* My courses (format recent duels) */
+    .mc-card { border:none; border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,0.07); overflow:hidden; }
+    .mc-header { padding:14px 18px; font-weight:700; color:#0d6efd; border-bottom:1px solid #f0f3f8; display:flex; align-items:center; }
+    .mc-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; border-bottom:1px solid #f2f5fa; cursor:pointer; text-decoration:none; }
+    .mc-row:last-child { border-bottom:none; }
+    .mc-row:hover { background:#f8fbff; }
+    .mc-title { font-weight:600; color:#1a1a2e; }
+    .mc-sub { font-size:.76rem; color:#8a97ac; }
+    /* Join a class (carte façon "Start a duel", sans picto) */
+    .join-start-card { background:linear-gradient(135deg,#0d6efd,#0a58ca); border-radius:16px; color:#fff; cursor:pointer; position:relative; transition:transform .2s ease, box-shadow .2s ease; }
+    .join-start-arrow { position:absolute; top:10px; right:12px; font-size:1.2rem; color:rgba(255,255,255,.7); transition:transform .25s ease, color .25s ease; pointer-events:none; }
+    .join-start-title { font-weight:700; font-size:1.1rem; margin-bottom:2px; }
+    .join-start-text { font-size:.85rem; opacity:.85; }
+    @media (hover:hover) { .join-start-card:hover { transform:translateY(-3px); box-shadow:0 10px 22px rgba(0,0,0,.18); } .join-start-card:hover .join-start-arrow { transform:translateX(4px); color:#fff; } }
+    .join-start-card:active { transform:scale(.97); }
+  </style>
+</head>
+<body>
+  <%- include('partials/header', { currentPage: 'mentors' }) %>
+  <%- include('partials/navbar', { currentPage: 'mentors' }) %>
+
+  <div class="container py-4">
+    <!-- Join a class (sans picto chapeau) -->
+    <div class="join-start-card mb-4" role="button" tabindex="0"
+         data-bs-toggle="modal" data-bs-target="#joinClassModal"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+      <i class="join-start-arrow bi bi-arrow-right-circle-fill"></i>
+      <div class="text-center py-3 px-3">
+        <div class="join-start-title">Join a class</div>
+        <div class="join-start-text">Enter your teacher's code</div>
+      </div>
+    </div>
+
+    <!-- My courses (visible seulement si l'élève a des cours) -->
+    <div id="myCoursesSection" style="display:none;" class="mb-4">
+      <h5 class="fw-bold mb-2" style="color:#0d6efd;">My courses</h5>
+      <div class="card mc-card">
+        <div id="courses-list"></div>
+      </div>
+    </div>
+
+    <h5 class="fw-bold mb-1" style="color:#0d6efd;">Find a teacher</h5>
+    <p class="text-muted small mb-3">Learn Chinese with a real mentor</p>
+    <div id="mentors-list">
+      <div class="mentor-card"><div class="mentor-head"><div class="skeleton skeleton-circle" style="width:52px;height:52px;"></div><div class="flex-grow-1"><div class="skeleton skeleton-text" style="width:40%;"></div><div class="skeleton skeleton-text" style="width:60%;"></div></div></div></div>
+    </div>
+  </div>
+
+  <!-- Modal : rejoindre une classe -->
+  <div class="modal fade" id="joinClassModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content" style="border-radius:18px;">
+        <div class="modal-body p-4 text-center">
+          <div style="font-size:2.5rem;">🎒</div>
+          <h6 class="fw-bold mt-2 mb-1">Join a class</h6>
+          <p class="text-muted small mb-3">Enter the code your teacher gave you.</p>
+          <input type="text" id="joinCodeInput" class="form-control text-center fw-bold mb-2"
+                 placeholder="e.g. 7K2P9" maxlength="12" autocomplete="off"
+                 style="letter-spacing:3px; text-transform:uppercase; font-size:1.2rem;">
+          <div id="joinClassError" class="text-danger small mb-2" style="display:none;"></div>
+          <div class="d-flex gap-2 mt-2">
+            <button type="button" class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary flex-fill" id="joinClassBtn" onclick="joinClass()">Join</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/global.js"></script>
+  <script>
+    async function joinClass() {
+      const input = document.getElementById('joinCodeInput');
+      const err = document.getElementById('joinClassError');
+      const btn = document.getElementById('joinClassBtn');
+      const code = input.value.trim().toUpperCase();
+      err.style.display = 'none';
+      if (!code) { err.textContent = 'Code required'; err.style.display = 'block'; input.focus(); return; }
+      btn.disabled = true; btn.textContent = 'Joining...';
+      try {
+        const res = await fetch('/api/teach/join', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', body: JSON.stringify({ code })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+        window.location.reload();
+      } catch (e) {
+        err.textContent = e.message; err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Join';
+      }
+    }
+
+    function initials(name){ return (name||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?'; }
+    function safeUrl(u){ try{ const x=new URL(u); return (x.protocol==='https:')?x.href:null; }catch{ return null; } }
+
+    async function loadMentors(){
+      const list = document.getElementById('mentors-list');
+      try{
+        const res = await fetch('/api/mentors', { credentials:'include' });
+        const data = await res.json();
+        const mentors = data.mentors || [];
+        if(!mentors.length){
+          list.innerHTML = `<div class="empty-state"><div style="font-size:2.6rem;">🧑‍🏫</div><p class="mt-2 mb-0">No teachers listed yet. Check back soon!</p></div>`;
+          return;
+        }
+        list.innerHTML = mentors.map(m=>{
+          const years = (m.years_experience!=null) ? `<span class="m-pill"><b>${m.years_experience}</b> yr${m.years_experience==1?'':'s'} teaching</span>` : '';
+          const langs = m.languages_spoken ? `<div class="mentor-langs"><i class="bi bi-translate me-1"></i>${escapeHtml(m.languages_spoken)}</div>` : '';
+          const bio = m.mentor_bio ? `<div class="mentor-bio">${escapeHtml(m.mentor_bio)}</div>` : '';
+          let cta = '';
+          if(m.link && m.link.url){
+            const url = safeUrl(m.link.url);
+            if(url){
+              const label = m.link.label ? escapeHtml(m.link.label) : 'Contact';
+              cta = `<a class="mentor-cta" href="${escapeHtml(url)}" target="_blank" rel="noopener nofollow"><i class="bi bi-box-arrow-up-right"></i> ${label}</a>`;
+            }
+          }
+          return `<div class="mentor-card">
+            <div class="mentor-head">
+              <div class="mentor-avatar">${escapeHtml(initials(m.name))}</div>
+              <div class="flex-grow-1" style="min-width:0;">
+                <div class="mentor-name">${escapeHtml(m.name||'Teacher')}</div>
+                ${langs}
+              </div>
+            </div>
+            ${bio}
+            <div class="mentor-pills">
+              <span class="m-pill"><b>${m.student_count}</b> student${m.student_count==1?'':'s'}</span>
+              <span class="m-pill"><b>${m.task_count}</b> course${m.task_count==1?'':'s'}</span>
+              ${years}
+            </div>
+            ${cta}
+          </div>`;
+        }).join('');
+        list.classList.add('fade-in');
+      }catch(e){ list.innerHTML = `<div class="empty-state">Loading error</div>`; }
+    }
+    loadMentors();
+
+    async function loadCourses(){
+      try{
+        const res = await fetch('/api/student/courses', { credentials:'include' });
+        const data = await res.json();
+        const courses = data.courses || [];
+        if(!courses.length) return;
+        document.getElementById('courses-list').innerHTML = courses.map(c=>`
+          <a class="mc-row" href="/course/${c.id}">
+            <div style="min-width:0;">
+              <div class="mc-title text-truncate">${escapeHtml(c.title)}</div>
+              <div class="mc-sub">${escapeHtml(c.class_name||'')} · ${c.word_count} word${c.word_count==1?'':'s'}</div>
+            </div>
+            <i class="bi bi-chevron-right text-muted"></i>
+          </a>`).join('');
+        document.getElementById('myCoursesSection').style.display = '';
+      }catch(e){ /* silencieux */ }
+    }
+    loadCourses();
+  </script>
+</body>
+</html>

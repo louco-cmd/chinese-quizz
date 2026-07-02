@@ -11,6 +11,7 @@ const translations = {
     nav_quiz:       'Quiz',
     nav_duels:      'Duels',
     nav_store:      'Store',
+    nav_mentors:    'Teachers',
 
     // Dashboard
     add_a_word:           'Add a word',
@@ -145,6 +146,7 @@ const translations = {
     nav_quiz:       '测验',
     nav_duels:      '对战',
     nav_store:      '商城',
+    nav_mentors:    '老师',
 
     // Dashboard
     add_a_word:           '添加词汇',

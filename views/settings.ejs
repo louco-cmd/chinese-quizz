@@ -258,6 +258,17 @@
     <div class="settings-group">
       <div class="settings-group-title"><%= t.account_section %></div>
 
+      <a href="/store" class="settings-row text-decoration-none">
+        <div class="settings-row-icon" style="background:#fef3e2; color:#d97706;">
+          <i class="bi bi-shop"></i>
+        </div>
+        <div class="settings-row-label">
+          <div class="label-main"><%= t.nav_store %></div>
+          <div class="label-sub">Spend your coins</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+
       <% if (user.planName !== 'premium') { %>
       <a href="https://jiayou.fr/#pricing" data-external="https://jiayou.fr/#pricing"
         class="settings-row text-decoration-none">

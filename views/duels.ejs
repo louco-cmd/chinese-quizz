@@ -438,14 +438,17 @@
           <!-- ── LEFT COLUMN: My statistics (sticky on desktop) ── -->
           <div class="col-lg-5 col-xl-4">
             <div class="duels-sidebar">
-              <div class="card duels-card">
+              <div class="card duels-card" role="button" tabindex="0"
+                   onclick="window.location='/leaderboard'"
+                   onkeydown="if(event.key==='Enter'){window.location='/leaderboard';}"
+                   style="cursor:pointer;">
                 <div class="card-header">
                   <h6 class="mb-0">
                     <i class="bi bi-graph-up me-2 text-muted"></i>
                     My statistics
                   </h6>
                 </div>
-                <div class="card-body text-center">
+                <div class="card-body">
                   <div id="my-duel-stats">
                     <div class="row text-center">
                       <div class="col-3"><div class="skeleton skeleton-title mx-auto" style="width:60%;"></div><div class="skeleton skeleton-text mx-auto" style="width:70%;"></div></div>
@@ -454,10 +457,9 @@
                       <div class="col-3"><div class="skeleton skeleton-title mx-auto" style="width:60%;"></div><div class="skeleton skeleton-text mx-auto" style="width:70%;"></div></div>
                     </div>
                   </div>
-                  <div class="mt-4 text-center">
-                    <a href="/leaderboard" class="btn btn-outline-primary btn-sm">
-                      <i class="bi bi-trophy-fill me-1"></i>
-                      See full ranking
+                  <div class="mt-3 text-end">
+                    <a href="/leaderboard" class="text-decoration-none" style="color:#495057; font-size:.8rem; font-weight:500;">
+                      See full ranking <i class="bi bi-arrow-right"></i>
                     </a>
                   </div>
                 </div>

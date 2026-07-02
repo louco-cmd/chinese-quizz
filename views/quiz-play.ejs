@@ -148,6 +148,7 @@
       hskLevel = urlParams.get('hsk') || 'all';
       difficulty = urlParams.get('difficulty') || 'balanced'; // ← important
       window.quizIds = urlParams.get('ids') || ''; // ← liste explicite (quick quiz)
+      window.taskLessonId = urlParams.get('lesson') || ''; // ← quiz de task (prof)
 
       // En mode zh→en : une seule entrée (anglais), pas de distinction pinyin/character
       if (QUIZ_DIRECTION === 'zh→en') {
@@ -747,8 +748,17 @@
           body: JSON.stringify(quizData)
         })
         .then(response => response.json())
-        .then(data => {
+        .then(async data => {
           console.log('✅ Quiz saved:', data);
+          // Quiz de task : on enregistre le résultat (alimente le compteur côté prof)
+          if (window.taskLessonId) {
+            try {
+              await fetch(`/api/student/tasks/${window.taskLessonId}/result`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                body: JSON.stringify({ score: correctCount, total: quizWords.length })
+              });
+            } catch (e) { /* non bloquant */ }
+          }
           // Rediriger vers la page de sélection de quiz
           setTimeout(() => {
             window.location.href = '/quiz';

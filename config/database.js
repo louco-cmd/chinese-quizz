@@ -238,6 +238,21 @@ const pool = new Pool({
     `);
     console.log("✅ Table 'lesson_words' vérifiée ou créée.");
 
+    // ── Table lesson_quiz_results : quiz passés par les élèves sur une task ────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lesson_quiz_results (
+        id SERIAL PRIMARY KEY,
+        lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+        student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        score INTEGER,
+        total INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_lqr_lesson ON lesson_quiz_results(lesson_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_lqr_student ON lesson_quiz_results(student_id)`);
+    console.log("✅ Table 'lesson_quiz_results' vérifiée ou créée.");
+
     // ── Migration: profil professeur (annuaire mentor) ────────────────────────
     // (mentor_listed / mentor_bio / mentor_link existent déjà)
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS years_experience INT`);

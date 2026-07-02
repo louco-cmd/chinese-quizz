@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Jiayou · Course</title>
+  <%- include('partials/meta', { pageTitle: 'Jiayou · Course', pageDescription: 'Your course notes and words.' }) %>
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    /* Look du compte apprenant : mêmes marges + blocs */
+    .account-card { border:none; border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,0.07); margin-bottom:1rem; }
+    .account-card .card-body { padding:1.25rem; }
+    .section-title { font-size:0.95rem; font-weight:700; color:#444; margin-bottom:1rem; display:flex; align-items:center; }
+    .section-title i { font-size:1.4rem; line-height:1; }
+    .course-title { font-weight:800; color:#0d6efd; font-size:1.3rem; }
+    .course-summary { color:#495267; white-space:pre-wrap; }
+    .cw-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #f2f5fa; }
+    .cw-row:last-child { border-bottom:none; }
+    .cw-cn { font-weight:800; color:#0d6efd; font-size:1.2rem; min-width:60px; }
+    .cw-tr { color:#495267; font-size:.9rem; }
+    .cw-py { color:#8a97ac; font-size:.78rem; }
+  </style>
+</head>
+<body>
+  <%- include('partials/header', { currentPage: 'mentors' }) %>
+  <%- include('partials/navbar', { currentPage: 'mentors' }) %>
+
+  <div class="container py-3 py-md-4" style="max-width:720px;">
+    <a id="backLink" href="/mentors" class="text-decoration-none text-muted small d-inline-block mb-3"><i class="bi bi-arrow-left me-1"></i>Back</a>
+
+    <!-- Bloc notes de cours -->
+    <div class="card account-card">
+      <div class="card-body">
+        <div id="course-head">
+          <div class="skeleton skeleton-title" style="width:50%;"></div>
+          <div class="skeleton skeleton-text" style="width:80%; margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bloc mots à apprendre -->
+    <div class="card account-card">
+      <div class="card-body">
+        <p class="section-title"><i class="bi bi-card-list me-2 text-muted"></i>Words to learn</p>
+        <div id="course-words">
+          <div class="cw-row"><div class="skeleton skeleton-text" style="width:100%;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary w-100 py-2" id="practiceBtn" onclick="practice()" style="display:none;">
+      <i class="bi bi-controller me-2"></i>Practice these words
+    </button>
+  </div>
+
+  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/global.js"></script>
+  <script>
+    const LESSON_ID = '<%= lessonId %>';
+
+    async function loadCourse(){
+      try{
+        const res = await fetch(`/api/student/lessons/${LESSON_ID}`, { credentials:'include' });
+        if(!res.ok) throw new Error('not found');
+        const data = await res.json();
+        const l = data.lesson, words = data.words || [];
+
+        document.getElementById('course-head').innerHTML = `
+          <div class="course-title">${escapeHtml(l.title)}</div>
+          <div class="text-muted small mb-2">${escapeHtml(l.class_name||'')} · ${new Date(l.created_at).toLocaleDateString()}</div>
+          ${l.summary ? `<div class="course-summary">${escapeHtml(l.summary)}</div>` : '<div class="text-muted small">No notes.</div>'}`;
+
+        document.getElementById('course-words').innerHTML = words.length ? words.map(w=>`
+          <div class="cw-row">
+            <span class="cw-cn">${escapeHtml(w.chinese)}</span>
+            <div style="min-width:0;">
+              <div class="cw-tr">${escapeHtml(w.english||'')}</div>
+              <div class="cw-py">${escapeHtml(w.pinyin||'')}</div>
+            </div>
+          </div>`).join('') : '<div class="text-muted small">No words.</div>';
+
+        if(words.length) document.getElementById('practiceBtn').style.display = '';
+      }catch(e){
+        document.getElementById('course-head').innerHTML = '<div class="text-danger">Course not found.</div>';
+        document.getElementById('course-words').innerHTML = '';
+      }
+    }
+
+    async function practice(){
+      const btn = document.getElementById('practiceBtn');
+      btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+      try{
+        const res = await fetch(`/api/student/tasks/${LESSON_ID}/start`, { method:'POST', credentials:'include' });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error||'Error');
+        const ids = (data.ids||[]).join(',');
+        window.location.href = `/quiz-play?type=${encodeURIComponent(data.type||'pinyin')}&ids=${encodeURIComponent(ids)}&lesson=${LESSON_ID}`;
+      }catch(e){ btn.disabled=false; btn.innerHTML='<i class="bi bi-controller me-2"></i>Practice these words'; alert(e.message); }
+    }
+
+    loadCourse();
+  </script>
+</body>
+</html>

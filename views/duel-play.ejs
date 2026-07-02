@@ -76,6 +76,19 @@
     </div>
   </div>
 
+  <!-- Anti-triche : avertissement avant de quitter un duel en cours -->
+  <div id="leaveDuelOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:11000; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(3px);">
+    <div style="background:#fff; border-radius:18px; max-width:380px; width:100%; padding:26px; text-align:center; box-shadow:0 20px 40px rgba(0,0,0,.25);">
+      <div style="font-size:2.6rem;">⚠️</div>
+      <h5 class="fw-bold mt-2">Leave the duel?</h5>
+      <p class="text-muted mb-3">To keep things fair, your current score <strong id="leaveScoreText"></strong> will be submitted as your <strong>final</strong> score. You can't retry.</p>
+      <div class="d-flex gap-2">
+        <button class="btn btn-light flex-fill" onclick="closeLeaveWarning()">Keep playing</button>
+        <button class="btn btn-danger flex-fill" onclick="confirmLeaveDuel()">Leave &amp; submit</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script src="/js/saveQuiz.js"></script>
   <script src="/js/global.js"></script>
@@ -455,6 +468,81 @@
         alert('Network error: ' + error.message);
       }
     }
+
+    // ============================================================
+    // ANTI-TRICHE : quitter un duel commencé soumet le score actuel
+    // (empêche d'abandonner un duel qui tourne mal pour éviter la défaite)
+    // ============================================================
+    let scoreSubmitted = false;
+    let pendingLeaveUrl = null;
+
+    // "A passé la première question" = a répondu au moins à la Q1 (quizIdx >= 1)
+    function duelInProgress() {
+      return quizIdx >= 1 && !quizEnded && !scoreSubmitted;
+    }
+
+    // Soumet le score courant comme score final, puis navigue
+    async function leaveDuelWithScore(targetUrl) {
+      const url = targetUrl || '/duels';
+      if (scoreSubmitted) { window.location.href = url; return; }
+      scoreSubmitted = true;
+      try {
+        await fetch(`/api/duels/${duelId}/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ score: correctCount }),
+          keepalive: true
+        });
+      } catch (e) { /* on quitte quand même */ }
+      window.location.href = url;
+    }
+
+    function showLeaveWarning(targetUrl) {
+      pendingLeaveUrl = targetUrl || '/duels';
+      document.getElementById('leaveScoreText').textContent = `${correctCount} / ${quizWords.length}`;
+      document.getElementById('leaveDuelOverlay').style.display = 'flex';
+    }
+    function closeLeaveWarning() {
+      document.getElementById('leaveDuelOverlay').style.display = 'none';
+      pendingLeaveUrl = null;
+    }
+    function confirmLeaveDuel() {
+      const url = pendingLeaveUrl || '/duels';
+      closeLeaveWarning();
+      leaveDuelWithScore(url);
+    }
+
+    // 1) Navigation interne (navbar, header, liens) → popup d'avertissement
+    document.addEventListener('click', function (e) {
+      if (!duelInProgress()) return;
+      const a = e.target.closest('a[href]');
+      if (!a) return;
+      const href = a.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('javascript:') || a.target === '_blank') return;
+      e.preventDefault();
+      e.stopPropagation();
+      showLeaveWarning(href);
+    }, true);
+
+    // 2) Bouton retour du navigateur → popup (on re-empile pour rester sur la page)
+    history.pushState(null, '', location.href);
+    window.addEventListener('popstate', function () {
+      if (duelInProgress()) {
+        history.pushState(null, '', location.href);
+        showLeaveWarning('/duels');
+      }
+    });
+
+    // 3) Fermeture / rafraîchissement de l'onglet → soumission via sendBeacon + avertissement natif
+    window.addEventListener('beforeunload', function (e) {
+      if (!duelInProgress()) return;
+      try {
+        const blob = new Blob([JSON.stringify({ score: correctCount })], { type: 'application/json' });
+        navigator.sendBeacon(`/api/duels/${duelId}/submit`, blob);
+      } catch (err) {}
+      e.preventDefault();
+      e.returnValue = '';
+    });
   </script>
 </body>
 
