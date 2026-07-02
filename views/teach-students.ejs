@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Jiayou Teacher · Students</title>
+  <%- include('partials/meta', { pageTitle: 'Jiayou · Students', pageDescription: 'All your students at a glance.' }) %>
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background: #f5f7fb; min-height: 100vh; }
+    .teach-wrap { max-width: 820px; margin: 0 auto; padding: 16px; }
+    .students-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+    .st-card {
+      background:#fff; border:1px solid #e7edf7; border-radius:16px; padding:16px;
+      box-shadow:0 6px 18px rgba(10,47,107,0.06); text-align:center;
+    }
+    .st-avatar {
+      width:52px; height:52px; border-radius:50%; margin:0 auto 8px;
+      background:#e7edf7; color:#0a2f6b; display:flex; align-items:center; justify-content:center;
+      font-weight:800; font-size:1.1rem;
+    }
+    .st-name { font-weight:700; color:#1a1a2e; font-size:.95rem; word-break:break-word; }
+    .st-classes { font-size:.72rem; color:#8a98b5; margin-bottom:8px; }
+    .st-stats { display:flex; justify-content:center; gap:12px; }
+    .st-stat .n { font-weight:800; color:#0a2f6b; font-size:1.05rem; line-height:1; }
+    .st-stat .l { font-size:.66rem; color:#8a98b5; text-transform:uppercase; letter-spacing:.3px; }
+    .score-badge { display:inline-block; margin-top:8px; font-weight:700; border-radius:999px; padding:2px 12px; font-size:.8rem; }
+    .empty-state { text-align:center; color:#7a8aa8; padding:50px 20px; }
+  </style>
+</head>
+<body>
+  <%- include('partials/teacher-header') %>
+
+  <div class="teach-wrap">
+    <h5 class="fw-bold mb-1" style="color:#0a2f6b;"><i class="bi bi-bar-chart-fill me-2"></i>Students</h5>
+    <p class="text-muted small mb-3">All your students across every class</p>
+
+    <div id="students-grid" class="students-grid">
+      <div class="st-card"><div class="skeleton skeleton-circle" style="width:52px;height:52px;margin:0 auto 8px;"></div><div class="skeleton skeleton-text" style="width:70%;margin:6px auto;"></div></div>
+      <div class="st-card"><div class="skeleton skeleton-circle" style="width:52px;height:52px;margin:0 auto 8px;"></div><div class="skeleton skeleton-text" style="width:70%;margin:6px auto;"></div></div>
+      <div class="st-card"><div class="skeleton skeleton-circle" style="width:52px;height:52px;margin:0 auto 8px;"></div><div class="skeleton skeleton-text" style="width:70%;margin:6px auto;"></div></div>
+    </div>
+  </div>
+
+  <%- include('partials/teacher-navbar', { currentPage: 'students' }) %>
+
+  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/global.js"></script>
+  <script>
+    function scoreColor(s) {
+      if (s >= 75) return 'background:#d4edda;color:#198754;';
+      if (s >= 50) return 'background:#fff3cd;color:#997404;';
+      return 'background:#f8d7da;color:#dc3545;';
+    }
+    function initials(name) {
+      return (name || '?').trim().split(/\s+/).slice(0,2).map(w => w[0] || '').join('').toUpperCase() || '?';
+    }
+
+    async function loadStudents() {
+      const grid = document.getElementById('students-grid');
+      try {
+        const res = await fetch('/api/teach/students', { credentials: 'include' });
+        const data = await res.json();
+        const students = data.students || [];
+        if (!students.length) {
+          grid.className = '';
+          grid.innerHTML = `<div class="empty-state"><div style="font-size:2.4rem;">👥</div><p class="mt-2 mb-0">No students yet. Invite them from your classes!</p></div>`;
+          return;
+        }
+        grid.innerHTML = students.map(s => {
+          const score = Number(s.avg_score) || 0;
+          return `
+            <div class="st-card">
+              <div class="st-avatar">${escapeHtml(initials(s.name))}</div>
+              <div class="st-name">${escapeHtml(s.name || 'Student')}</div>
+              <div class="st-classes">${s.class_count} class${s.class_count == 1 ? '' : 'es'}</div>
+              <div class="st-stats">
+                <div class="st-stat"><div class="n">${s.word_count}</div><div class="l">words</div></div>
+              </div>
+              <span class="score-badge" style="${scoreColor(score)}">${score}% avg</span>
+            </div>`;
+        }).join('');
+        grid.classList.add('fade-in');
+      } catch (e) {
+        grid.className = '';
+        grid.innerHTML = `<div class="empty-state">Loading error</div>`;
+      }
+    }
+    loadStudents();
+  </script>
+</body>
+</html>

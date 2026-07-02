@@ -225,8 +225,8 @@ app.use(async (req, res, next) => {
         if (sub.current_period_end && new Date(sub.current_period_end) < now) {
           // Période expirée, mettre à jour
           await pool.query(`
-            UPDATE user_subscriptions 
-            SET plan_name = 'free', status = 'expired', updated_at = NOW()
+            UPDATE user_subscriptions
+            SET plan_name = 'free', status = 'expired', stripe_status = 'expired', updated_at = NOW()
             WHERE user_id = $1
           `, [req.user.id]);
           isPremium = false;
@@ -2354,6 +2354,12 @@ setInterval(expireFinishedSubscriptions, 60 * 60 * 1000);
 // ==========================================
 async function syncStripeSubscriptions() {
   try {
+    // Garde-fou : ne pas réconcilier des abonnements LIVE avec une clé TEST
+    // (typiquement un serveur de dev local branché sur la DB de prod).
+    if (!process.env.STRIPE_SECRET_KEY?.startsWith('sk_live')) {
+      console.log('⏭️ syncStripeSubscriptions ignoré (clé Stripe non-live).');
+      return;
+    }
     console.log('🔄 Synchronisation des abonnements Stripe...');
 
     const dbSubs = await pool.query(`
@@ -2377,14 +2383,12 @@ async function syncStripeSubscriptions() {
           await handleSubscriptionEvent(stripeSub, 'sync');
         }
       } catch (stripeError) {
-        if (stripeError.type === 'StripeInvalidRequestError') {
-          console.log(`❌ Abonnement ${sub.stripe_subscription_id} non trouvé chez Stripe`);
-          await pool.query(`
-            UPDATE user_subscriptions 
-            SET status = 'canceled', plan_name = 'free', updated_at = NOW()
-            WHERE stripe_subscription_id = $1
-          `, [sub.stripe_subscription_id]);
-        }
+        // ⚠️ NE JAMAIS annuler un abonnement sur une simple erreur de lookup.
+        // Une "resource introuvable" arrive typiquement à cause d'un mismatch
+        // clé test/live (ex: dev local avec sk_test qui lit une sub live) ou d'un
+        // souci réseau — ce n'est PAS une annulation. Les vraies annulations
+        // passent par le webhook `customer.subscription.deleted`.
+        console.warn(`⚠️ Lookup Stripe échoué pour ${sub.stripe_subscription_id} (${stripeError.type || stripeError.message}) — on NE touche PAS à la base.`);
       }
     }
   } catch (error) {

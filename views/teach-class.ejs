@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Jiayou Teacher · Class</title>
+  <%- include('partials/meta', { pageTitle: 'Jiayou · Class', pageDescription: 'Class students and progress.' }) %>
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background: #f5f7fb; min-height: 100vh; }
+    .teach-wrap { max-width: 760px; margin: 0 auto; padding: 16px; }
+    .class-head {
+      background: #fff; border-radius: 16px; padding: 18px 20px; margin-bottom: 16px;
+      box-shadow: 0 6px 18px rgba(10,47,107,0.06); border: 1px solid #e7edf7;
+    }
+    .code-pill {
+      font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: 2px;
+      background: #eef2fb; border: 1px dashed #a9c0e8; color: #0a2f6b;
+      padding: 6px 12px; border-radius: 10px; font-size: 1rem;
+    }
+    .student-row {
+      background: #fff; border: 1px solid #e7edf7; border-radius: 14px;
+      padding: 12px 16px; margin-bottom: 10px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .student-avatar {
+      width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+      background: #e7edf7; color: #0a2f6b; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1rem;
+    }
+    .student-name { font-weight: 600; color: #1a1a2e; }
+    .student-stats { font-size: .8rem; color: #6c757d; }
+    .stat-chip { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; }
+    .score-badge { font-weight: 700; border-radius: 999px; padding: 3px 10px; font-size: .8rem; }
+    .empty-state { text-align: center; color: #7a8aa8; padding: 40px 20px; }
+    .btn-navy { background: #0a2f6b; border: none; color: #fff; font-weight: 600; }
+    .btn-navy:hover { background: #082554; color: #fff; }
+    .modal-content { border-radius: 18px; }
+  </style>
+</head>
+<body>
+  <%- include('partials/teacher-header') %>
+
+  <div class="teach-wrap">
+    <a href="/teach" class="text-decoration-none text-muted small d-inline-block mb-3"><i class="bi bi-arrow-left me-1"></i>All classes</a>
+
+    <div id="class-head" class="class-head">
+      <div class="skeleton skeleton-title" style="width:50%;"></div>
+      <div class="skeleton skeleton-text" style="width:30%; margin-top:10px;"></div>
+    </div>
+
+    <h6 class="fw-bold mb-2" style="color:#0a2f6b;"><i class="bi bi-people-fill me-2"></i>Students</h6>
+    <div id="students-list">
+      <div class="student-row"><div class="skeleton skeleton-circle" style="width:42px;height:42px;"></div><div class="flex-grow-1"><div class="skeleton skeleton-text" style="width:40%;"></div><div class="skeleton skeleton-text" style="width:60%;"></div></div></div>
+    </div>
+  </div>
+
+  <!-- Modal suppression -->
+  <div class="modal fade" id="deleteClassModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content">
+        <div class="modal-body p-4 text-center">
+          <div style="font-size:2.4rem;">🗑️</div>
+          <h6 class="fw-bold mt-2">Delete this class?</h6>
+          <p class="text-muted small mb-3">Students will be unenrolled and lessons deleted. This cannot be undone.</p>
+          <div id="deleteError" class="text-danger small mb-2" style="display:none;"></div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-danger flex-fill" id="confirmDeleteBtn" onclick="deleteClass()">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/teacher-navbar', { currentPage: 'classes' }) %>
+
+  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/global.js"></script>
+  <script>
+    const CLASS_ID = '<%= classId %>';
+    const ORIGIN = window.location.origin;
+
+    function scoreColor(s) {
+      if (s >= 75) return 'background:#d4edda;color:#198754;';
+      if (s >= 50) return 'background:#fff3cd;color:#997404;';
+      return 'background:#f8d7da;color:#dc3545;';
+    }
+    function initials(name) {
+      return (name || '?').trim().split(/\s+/).slice(0,2).map(w => w[0] || '').join('').toUpperCase() || '?';
+    }
+
+    async function loadClass() {
+      try {
+        const res = await fetch(`/api/teach/classes/${CLASS_ID}`, { credentials: 'include' });
+        if (!res.ok) throw new Error('not found');
+        const data = await res.json();
+        renderHead(data.classroom);
+        renderStudents(data.students || []);
+      } catch (e) {
+        document.getElementById('class-head').innerHTML = '<div class="text-danger">Class not found.</div>';
+        document.getElementById('students-list').innerHTML = '';
+      }
+    }
+
+    function renderHead(c) {
+      const link = `${ORIGIN}/join/${c.join_code}`;
+      document.getElementById('class-head').innerHTML = `
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="fw-bold" style="font-size:1.25rem; color:#0a2f6b;">${escapeHtml(c.name)}</div>
+          <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteClassModal" title="Delete class">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+        <div class="d-flex align-items-center gap-2 mt-3 flex-wrap">
+          <span class="code-pill">${escapeHtml(c.join_code)}</span>
+          <button class="btn btn-sm btn-outline-secondary" onclick="copyInvite('${encodeURIComponent(link)}', this)">
+            <i class="bi bi-link-45deg"></i> Copy invite link
+          </button>
+        </div>`;
+    }
+
+    function renderStudents(students) {
+      const list = document.getElementById('students-list');
+      if (!students.length) {
+        list.innerHTML = `<div class="empty-state">
+          <div style="font-size:2.2rem;">👥</div>
+          <p class="mt-2 mb-0">No students yet. Share the invite link!</p>
+        </div>`;
+        return;
+      }
+      list.innerHTML = students.map(s => {
+        const score = Number(s.avg_score) || 0;
+        return `
+          <div class="student-row">
+            <div class="student-avatar">${escapeHtml(initials(s.name))}</div>
+            <div class="flex-grow-1" style="min-width:0;">
+              <div class="student-name">${escapeHtml(s.name || 'Student')}</div>
+              <div class="student-stats">
+                <span class="stat-chip"><i class="bi bi-journal-text"></i> ${s.word_count} words</span>
+              </div>
+            </div>
+            <span class="score-badge" style="${scoreColor(score)}">${score}%</span>
+          </div>`;
+      }).join('');
+      list.classList.add('fade-in');
+    }
+
+    function copyInvite(encodedLink, btn) {
+      const link = decodeURIComponent(encodedLink);
+      navigator.clipboard.writeText(link).then(() => {
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+        setTimeout(() => { btn.innerHTML = original; }, 1500);
+      }).catch(() => { prompt('Copy this invite link:', link); });
+    }
+
+    async function deleteClass() {
+      const btn = document.getElementById('confirmDeleteBtn');
+      const err = document.getElementById('deleteError');
+      err.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Deleting...';
+      try {
+        const res = await fetch(`/api/teach/classes/${CLASS_ID}`, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+        window.location.href = '/teach';
+      } catch (e) {
+        err.textContent = e.message; err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Delete';
+      }
+    }
+
+    loadClass();
+  </script>
+</body>
+</html>

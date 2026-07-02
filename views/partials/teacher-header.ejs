@@ -1,0 +1,27 @@
+<!-- Header professeur — bleu foncé, titre 加油-老师 -->
+<style>
+  .teacher-header {
+    background: #0a2f6b;
+    color: #fff;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .teacher-header .th-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    cursor: pointer;
+    user-select: none;
+    letter-spacing: .5px;
+  }
+  .teacher-header .th-actions { display: flex; align-items: center; gap: 14px; }
+  .teacher-header .th-actions a { color: rgba(255,255,255,0.92); font-size: 1.4rem; text-decoration: none; }
+  .teacher-header .th-actions a:hover { color: #fff; }
+</style>
+<div class="teacher-header">
+  <span class="th-title" onclick="window.location='/teach'">加油-老师</span>
+  <div class="th-actions">
+    <a href="/settings" title="Settings"><i class="bi bi-gear-fill"></i></a>
+  </div>
+</div>

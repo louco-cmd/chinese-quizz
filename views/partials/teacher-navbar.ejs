@@ -1,0 +1,45 @@
+<!-- Navbar professeur (footer fixe) — même structure que celle des élèves, bleu foncé -->
+<style>
+  .jiayou-tnav {
+    position: fixed !important;
+    bottom: 0 !important; left: 0 !important; right: 0 !important;
+    height: calc(65px + env(safe-area-inset-bottom)) !important;
+    background: #fff !important;
+    border-top: 1px solid #dee2e6 !important;
+    z-index: 1000 !important;
+    padding: 0 0 env(safe-area-inset-bottom) 0 !important;
+    box-sizing: border-box !important;
+  }
+  .jiayou-tnav-items {
+    width: 100% !important; height: 100% !important;
+    display: flex !important; align-items: center !important; justify-content: space-around !important;
+  }
+  @media (min-width: 768px) {
+    .jiayou-tnav-items { max-width: 500px !important; margin: 0 auto !important; }
+  }
+  .jiayou-tnav-link {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; padding: 8px 4px; gap: 4px;
+    text-decoration: none; color: #6c757d; cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .jiayou-tnav-link:hover { background-color: #f8f9fa; color: #495057; }
+  .jiayou-tnav-link.active { color: #0a2f6b; background-color: #e7edf7; }
+  .jiayou-tnav-link i { font-size: 1.4rem; line-height: 1; }
+  .jiayou-tnav-link span { font-size: 0.7rem; font-weight: 500; }
+  body { padding-bottom: calc(65px + env(safe-area-inset-bottom)) !important; }
+</style>
+<nav class="jiayou-tnav">
+  <div class="jiayou-tnav-items">
+    <a href="/teach/profile" class="jiayou-tnav-link <%= currentPage === 'profile' ? 'active' : '' %>">
+      <i class="bi bi-person-badge"></i><span>Profile</span>
+    </a>
+    <a href="/teach" class="jiayou-tnav-link <%= currentPage === 'classes' ? 'active' : '' %>">
+      <i class="bi bi-easel2-fill"></i><span>Classes</span>
+    </a>
+    <a href="/teach/students" class="jiayou-tnav-link <%= currentPage === 'students' ? 'active' : '' %>">
+      <i class="bi bi-bar-chart-fill"></i><span>Students</span>
+    </a>
+  </div>
+</nav>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Jiayou Teacher · Profile</title>
+  <%- include('partials/meta', { pageTitle: 'Jiayou · Teacher Profile', pageDescription: 'Your public teacher profile.' }) %>
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background: #f5f7fb; min-height: 100vh; }
+    .teach-wrap { max-width: 640px; margin: 0 auto; padding: 16px; }
+    .p-card { background:#fff; border:1px solid #e7edf7; border-radius:16px; padding:20px; margin-bottom:16px; box-shadow:0 6px 18px rgba(10,47,107,0.06); }
+    .form-label { font-weight:600; color:#0a2f6b; font-size:.9rem; }
+    .link-row { display:flex; gap:8px; margin-bottom:8px; }
+    .link-row input.lbl { flex:0 0 34%; }
+    .btn-navy { background:#0a2f6b;border:none;color:#fff;font-weight:600; }
+    .btn-navy:hover { background:#082554;color:#fff; }
+    .save-toast { position:fixed; left:50%; bottom:90px; transform:translateX(-50%) translateY(20px); background:#0a2f6b; color:#fff; padding:10px 20px; border-radius:999px; opacity:0; transition:all .3s ease; z-index:2000; }
+    .save-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .allowlist-hint { font-size:.72rem; color:#8a98b5; }
+  </style>
+</head>
+<body>
+  <%- include('partials/teacher-header') %>
+
+  <div class="teach-wrap">
+    <h5 class="fw-bold mb-3" style="color:#0a2f6b;"><i class="bi bi-person-badge me-2"></i>My teacher profile</h5>
+
+    <div class="p-card">
+      <div class="mb-3">
+        <label class="form-label">Name</label>
+        <input type="text" id="pName" class="form-control" maxlength="50" placeholder="Your display name">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Intro</label>
+        <textarea id="pBio" class="form-control" rows="3" maxlength="500" placeholder="Tell students about your teaching style..."></textarea>
+      </div>
+      <div class="row">
+        <div class="col-6 mb-3">
+          <label class="form-label">Years of experience</label>
+          <input type="number" id="pYears" class="form-control" min="0" max="80" placeholder="e.g. 5">
+        </div>
+        <div class="col-6 mb-3">
+          <label class="form-label">Languages spoken</label>
+          <input type="text" id="pLangs" class="form-control" maxlength="200" placeholder="English, 中文, Français">
+        </div>
+      </div>
+    </div>
+
+    <div class="p-card">
+      <label class="form-label d-block mb-2"><i class="bi bi-link-45deg me-1"></i>Where to find me</label>
+      <div id="linksContainer"></div>
+      <button class="btn btn-sm btn-outline-secondary mt-1" onclick="addLinkRow()"><i class="bi bi-plus-lg"></i> Add a link</button>
+      <div class="allowlist-hint mt-2">Accepted: Preply, iTalki, Superprof, Verbling, Lingoda, Calendly, Linktree, YouTube, Instagram… (https only)</div>
+    </div>
+
+    <div class="p-card d-flex justify-content-between align-items-center">
+      <div>
+        <div class="fw-semibold" style="color:#0a2f6b;">List me in the mentor directory</div>
+        <div class="text-muted" style="font-size:.8rem;">Students can discover you and your stats</div>
+      </div>
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" id="pListed" style="transform:scale(1.3);">
+      </div>
+    </div>
+
+    <div id="profileError" class="text-danger small mb-2" style="display:none;"></div>
+    <button class="btn btn-navy w-100 py-2" id="saveProfileBtn" onclick="saveProfile()">Save profile</button>
+  </div>
+
+  <div id="saveToast" class="save-toast">Saved ✓</div>
+
+  <%- include('partials/teacher-navbar', { currentPage: 'profile' }) %>
+
+  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/global.js"></script>
+  <script>
+    function addLinkRow(label = '', url = '') {
+      const row = document.createElement('div');
+      row.className = 'link-row';
+      row.innerHTML = `
+        <input type="text" class="form-control lbl" placeholder="Label (e.g. Preply)" maxlength="30" value="${escapeHtml(label)}">
+        <input type="url" class="form-control url" placeholder="https://..." value="${escapeHtml(url)}">
+        <button class="btn btn-outline-danger" onclick="this.parentElement.remove()" type="button"><i class="bi bi-x"></i></button>`;
+      document.getElementById('linksContainer').appendChild(row);
+    }
+
+    async function loadProfile() {
+      try {
+        const res = await fetch('/api/teach/profile', { credentials: 'include' });
+        const { profile } = await res.json();
+        document.getElementById('pName').value = profile.name || '';
+        document.getElementById('pBio').value = profile.mentor_bio || '';
+        document.getElementById('pYears').value = (profile.years_experience ?? '') === null ? '' : (profile.years_experience ?? '');
+        document.getElementById('pLangs').value = profile.languages_spoken || '';
+        document.getElementById('pListed').checked = !!profile.mentor_listed;
+        const links = Array.isArray(profile.mentor_links) ? profile.mentor_links : [];
+        if (links.length) links.forEach(l => addLinkRow(l.label, l.url));
+        else addLinkRow();
+      } catch (e) {
+        addLinkRow();
+      }
+    }
+
+    async function saveProfile() {
+      const err = document.getElementById('profileError');
+      const btn = document.getElementById('saveProfileBtn');
+      err.style.display = 'none';
+      const links = Array.from(document.querySelectorAll('#linksContainer .link-row'))
+        .map(r => ({ label: r.querySelector('.lbl').value, url: r.querySelector('.url').value.trim() }))
+        .filter(l => l.url);
+      const payload = {
+        name: document.getElementById('pName').value.trim(),
+        bio: document.getElementById('pBio').value.trim(),
+        languages: document.getElementById('pLangs').value.trim(),
+        years_experience: document.getElementById('pYears').value,
+        mentor_listed: document.getElementById('pListed').checked,
+        links
+      };
+      btn.disabled = true; btn.textContent = 'Saving...';
+      try {
+        const res = await fetch('/api/teach/profile', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          credentials: 'include', body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error');
+        const t = document.getElementById('saveToast');
+        t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1800);
+      } catch (e) {
+        err.textContent = e.message; err.style.display = 'block';
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save profile';
+      }
+    }
+
+    loadProfile();
+  </script>
+</body>
+</html>

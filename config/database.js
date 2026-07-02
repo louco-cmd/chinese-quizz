@@ -244,6 +244,13 @@ const pool = new Pool({
     `);
     console.log("✅ Table 'lesson_words' vérifiée ou créée.");
 
+    // ── Migration: profil professeur (annuaire mentor) ────────────────────────
+    // (mentor_listed / mentor_bio / mentor_link existent déjà)
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS years_experience INT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS languages_spoken TEXT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mentor_links JSONB NOT NULL DEFAULT '[]'::jsonb`);
+    console.log("✅ Colonnes profil prof (years_experience/languages_spoken/mentor_links) vérifiées.");
+
   } catch (err) {
     console.error("❌ Erreur lors de l'initialisation :", err);
   }
