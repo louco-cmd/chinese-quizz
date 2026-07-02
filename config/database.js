@@ -137,17 +137,11 @@ const pool = new Pool({
     `);
     console.log("✅ Fix quiz_direction : anciens comptes remis à 'en→zh'.");
 
-    // ── Migration: resync stripe_status depuis plan_name + status ─────────────
-    // Corrige les cas où stripe_status est resté 'active' alors que
-    // status ou plan_name indiquent que l'abonnement est terminé.
-    await pool.query(`
-      UPDATE user_subscriptions
-      SET stripe_status = status, updated_at = NOW()
-      WHERE
-        stripe_status = 'active'
-        AND (status <> 'active' OR plan_name <> 'premium')
-    `);
-    console.log("✅ Resync stripe_status / status effectué au démarrage.");
+    // ⚠️ SUPPRIMÉ : ancienne migration "resync stripe_status = status" au démarrage.
+    // Elle écrasait stripe_status (la source de vérité, alimentée par les webhooks
+    // Stripe) avec la colonne `status`, ce qui annulait de vrais abonnements actifs
+    // quand une seule colonne était temporairement désalignée. Ne pas réintroduire :
+    // la cohérence est garantie à l'écriture (webhook + welcome_page).
 
     // ════════════════════════════════════════════════════════════════════════
     //  PLATEFORME PROFESSEUR (Phase 1 — modèle de données)
