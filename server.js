@@ -943,7 +943,8 @@ app.get('/auth/reset-password', async (req, res) => {
 app.get('/', (req, res) => {
   const error = req.query.error;
   if (req.user) {
-    res.redirect('/dashboard');
+    const home = (req.user.role === 'teacher' && req.user.onboarding_done) ? '/teach' : '/dashboard';
+    res.redirect(home);
   } else {
     res.render('index', {
       user: req.user,
@@ -978,6 +979,11 @@ app.get('/support', (req, res) => {
 });
 
 app.get('/dashboard', ensureAuth, async (req, res) => {
+  // Un prof (onboarding fait) doit toujours atterrir dans son espace — même en
+  // reconnexion auto ou quand le start_url de la PWA pointe sur /dashboard.
+  if (req.user.role === 'teacher' && req.user.onboarding_done) {
+    return res.redirect('/teach');
+  }
   const userId = req.user.id;
 
   try {

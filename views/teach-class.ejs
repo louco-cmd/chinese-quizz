@@ -13,16 +13,16 @@
     /* ── ID card (carte de classe) — style bloc account, compact ── */
     .id-card { background:#fff; border:none; border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,0.07); }
     .id-card-body { padding:1.25rem; }
-    .id-name { font-weight:700; font-size:1.1rem; color:#0a2f6b; word-break:break-word; }
+    .id-name { font-weight:700; font-size:1.1rem; color:#0d6efd; word-break:break-word; }
     .id-code-row { display:inline-flex; align-items:center; gap:8px; }
-    .id-code { font-family:ui-monospace,monospace; font-weight:800; letter-spacing:3px; font-size:1.15rem; color:#0a2f6b; background:#eef2fb; border:1px dashed #a9c0e8; padding:5px 12px; border-radius:10px; }
-    .id-copy { border:none; background:#0a2f6b; color:#fff; width:34px; height:34px; border-radius:9px; cursor:pointer; }
-    .id-copy:hover { background:#082554; }
+    .id-code { font-family:ui-monospace,monospace; font-weight:800; letter-spacing:3px; font-size:1.15rem; color:#0d6efd; background:#eef2fb; border:1px dashed #a9c0e8; padding:5px 12px; border-radius:10px; }
+    .id-copy { border:none; background:#0d6efd; color:#fff; width:34px; height:34px; border-radius:9px; cursor:pointer; }
+    .id-copy:hover { background:#0a58ca; }
     .btn-delete-class { width:100%; margin-top:18px; border:1px solid #f1c2c7; background:#fff; color:#dc3545; font-weight:600; border-radius:12px; padding:9px; }
     .btn-delete-class:hover { background:#dc3545; color:#fff; }
     /* Dropdown élèves */
     .students-drop { background:#fff; border:none; border-radius:16px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.07); }
-    .students-drop-head { width:100%; display:flex; align-items:center; justify-content:space-between; background:none; border:none; padding:14px 16px; font-weight:700; color:#0a2f6b; cursor:pointer; }
+    .students-drop-head { width:100%; display:flex; align-items:center; justify-content:space-between; background:none; border:none; padding:14px 16px; font-weight:700; color:#0d6efd; cursor:pointer; }
     .students-drop-head .bi-chevron-down { transition:transform .2s ease; }
     .students-drop-head.open .bi-chevron-down { transform:rotate(180deg); }
     .students-drop-body { border-top:1px solid #eef2f8; }
@@ -42,10 +42,10 @@
     .tabs2 { display:flex; border-bottom:2px solid #e2e8f4; margin-bottom:16px; }
     .tab2 { padding:12px 18px; background:none; border:none; color:#8a98b5; font-weight:700; font-size:.95rem; border-bottom:3px solid transparent; margin-bottom:-2px; cursor:pointer; transition:color .15s ease, border-color .15s ease; }
     .tab2:hover { color:#5a6b8a; }
-    .tab2.active { color:#0a2f6b; border-bottom-color:#0a2f6b; }
+    .tab2.active { color:#0d6efd; border-bottom-color:#0d6efd; }
 
     /* ── Carte "Create task" (style launch duel, marine) ── */
-    .task-launch-card { background:linear-gradient(135deg,#0a2f6b,#082554); border-radius:16px; color:#fff; cursor:pointer; position:relative; transition:transform .2s ease, box-shadow .2s ease; margin-bottom:16px; }
+    .task-launch-card { background:linear-gradient(135deg,#0d6efd,#0a58ca); border-radius:16px; color:#fff; cursor:pointer; position:relative; transition:transform .2s ease, box-shadow .2s ease; margin-bottom:16px; }
     .task-launch-arrow { position:absolute; top:10px; right:12px; font-size:1.2rem; color:rgba(255,255,255,.7); transition:transform .25s ease, color .25s ease; pointer-events:none; }
     .task-launch-icon { font-size:2rem; margin-bottom:.4rem; display:block; }
     .task-launch-title { font-weight:700; font-size:1.1rem; margin-bottom:2px; }
@@ -63,12 +63,12 @@
     .task-card:active { transform:scale(.99); }
     .tk-bar-label { font-size:.64rem; color:#8a98b5; text-transform:uppercase; letter-spacing:.3px; margin-top:12px; }
     .tk-bar { height:8px; border-radius:4px; background:#eef2f8; overflow:hidden; margin-top:4px; }
-    .tk-bar > div { height:100%; border-radius:4px; background:#0a2f6b; transition:width .4s ease; }
-    .tk-pct { font-weight:700; color:#0a2f6b; font-size:.78rem; text-align:right; margin-top:3px; }
-    .task-title { font-weight:700; color:#0a2f6b; }
+    .tk-bar > div { height:100%; border-radius:4px; background:#0d6efd; transition:width .4s ease; }
+    .tk-pct { font-weight:700; color:#0d6efd; font-size:.78rem; text-align:right; margin-top:3px; }
+    .task-title { font-weight:700; color:#0d6efd; }
     .task-meta { font-size:.78rem; color:#8a98b5; }
     .student-row { display:flex; align-items:center; gap:14px; }
-    .student-avatar { width:42px; height:42px; border-radius:50%; flex-shrink:0; background:#e7edf7; color:#0a2f6b; display:flex; align-items:center; justify-content:center; font-weight:700; }
+    .student-avatar { width:42px; height:42px; border-radius:50%; flex-shrink:0; background:#e7edf7; color:#0d6efd; display:flex; align-items:center; justify-content:center; font-weight:700; }
     .student-name { font-weight:600; color:#1a1a2e; }
     .score-badge { font-weight:700; border-radius:999px; padding:3px 10px; font-size:.8rem; }
     .empty-state { text-align:center; color:#7a8aa8; padding:36px 20px; }
@@ -77,24 +77,24 @@
     /* ── Modal task : steps ── */
     .step-dots { display:flex; gap:6px; justify-content:center; margin-bottom:16px; }
     .step-dot { width:26px; height:5px; border-radius:3px; background:#dbe3f1; }
-    .step-dot.active { background:#0a2f6b; }
-    .btn-navy { background:#0a2f6b; border:none; color:#fff; font-weight:600; }
-    .btn-navy:hover { background:#082554; color:#fff; }
+    .step-dot.active { background:#0d6efd; }
+    .btn-navy { background:#0d6efd; border:none; color:#fff; font-weight:600; }
+    .btn-navy:hover { background:#0a58ca; color:#fff; }
     /* Pills */
     .word-pills { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-    .word-pill { display:inline-flex; align-items:center; gap:6px; background:#eef2fb; color:#0a2f6b; border:1px solid #cdd9ef; border-radius:999px; padding:6px 14px; font-weight:700; font-size:1.05rem; animation:pillIn .18s ease; }
+    .word-pill { display:inline-flex; align-items:center; gap:6px; background:#eef2fb; color:#0d6efd; border:1px solid #cdd9ef; border-radius:999px; padding:6px 14px; font-weight:700; font-size:1.05rem; animation:pillIn .18s ease; }
     .word-pill button { border:none; background:none; color:#7a8aa8; cursor:pointer; padding:0; line-height:1; }
     @keyframes pillIn { from{ opacity:0; transform:scale(.8); } to{ opacity:1; transform:scale(1); } }
     /* Saisie de mot façon dashboard */
     .word-entry { display:flex; align-items:center; gap:10px; background:#fff; border:2px solid #dbe3f1; border-radius:14px; padding:4px 14px; transition:border-color .15s ease; }
-    .word-entry:focus-within { border-color:#0a2f6b; }
+    .word-entry:focus-within { border-color:#0d6efd; }
     .word-entry.invalid { border-color:#dc3545; }
     .word-entry-icon { color:#a9b6d1; font-size:1.1rem; }
     .word-entry-input { flex:1; border:none; outline:none; padding:12px 0; font-size:1.3rem; background:transparent; }
     .word-input-error { color:#dc3545; font-size:.8rem; min-height:1.1rem; margin-top:6px; }
     .step-back { background:none; border:none; color:#8a98b5; font-weight:600; font-size:.85rem; padding:0; margin-bottom:10px; cursor:pointer; }
-    .step-back:hover { color:#0a2f6b; }
-    kbd { background:#eef2fb; border:1px solid #cdd9ef; border-radius:5px; padding:1px 6px; font-size:.72rem; color:#0a2f6b; }
+    .step-back:hover { color:#0d6efd; }
+    kbd { background:#eef2fb; border:1px solid #cdd9ef; border-radius:5px; padding:1px 6px; font-size:.72rem; color:#0d6efd; }
     /* Cards de traduction */
     .wcard { display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid #e7edf7; border-radius:12px; margin-bottom:8px; }
     .wcard.missing { background:#eef4ff; border-color:#cfe0f7; }
@@ -150,7 +150,7 @@
 
       <!-- Colonne droite : tasks -->
       <div class="col-12 col-lg-7">
-        <h6 class="fw-bold mb-3" style="color:#0a2f6b;"><i class="bi bi-journal-text me-2"></i>Tasks</h6>
+        <h6 class="fw-bold mb-3" style="color:#0d6efd;"><i class="bi bi-journal-text me-2"></i>Tasks</h6>
         <div id="tasks-list">
           <div class="task-card"><div class="skeleton skeleton-title" style="width:60%;"></div><div class="skeleton skeleton-text" style="width:80%;margin-top:12px;"></div></div>
           <div class="task-card"><div class="skeleton skeleton-title" style="width:50%;"></div><div class="skeleton skeleton-text" style="width:80%;margin-top:12px;"></div></div>

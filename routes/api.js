@@ -220,19 +220,36 @@ router.post("/api/quiz/save", ensureAuth, express.json(), async (req, res) => {
     const totalNum = parseInt(total_questions);
     const ratio = ((scoreNum / totalNum) * 100).toFixed(2);
 
-    // 🔥 NOUVEAU : Calcul des pièces gagnées selon les conditions
+    // 💰 Récompense PAR MOT RÉUSSI selon la maîtrise AVANT le quiz :
+    // moins le mot est connu, plus il rapporte.
+    //   score < 50 → 0.5 · 50–80 → 0.3 · 80–100 → 0.1
+    // On lit les scores AVANT la mise à jour (updateWordScore plus bas), puis on
+    // arrondit la somme. Calcul serveur = autorité (anti-triche).
     let coinsEarned = 0;
-    if (scoreNum === 0) {
-      coinsEarned = 0;
-    } else if (ratio > 0 && ratio <= 50) {
-      coinsEarned = 2;
-    } else if (ratio > 50 && ratio <= 70) {
-      coinsEarned = 3;
-    } else if (ratio > 70) {
-      coinsEarned = 5;
+    if (results && Array.isArray(results)) {
+      const correctIds = results
+        .filter(r => r.correct === true && r.mot_id)
+        .map(r => parseInt(r.mot_id, 10))
+        .filter(Number.isInteger);
+      if (correctIds.length) {
+        const { rows: preScores } = await client.query(
+          `SELECT mot_id, COALESCE(score, 0) AS score FROM user_mots WHERE user_id = $1 AND mot_id = ANY($2)`,
+          [req.user.id, correctIds]
+        );
+        const scoreByMot = {};
+        preScores.forEach(r => { scoreByMot[r.mot_id] = Number(r.score) || 0; });
+        let raw = 0;
+        for (const id of correctIds) {
+          const s = scoreByMot[id] ?? 0; // absent = mot pas encore en collection → inconnu
+          if (s < 50) raw += 0.5;
+          else if (s < 80) raw += 0.3;
+          else raw += 0.1;
+        }
+        coinsEarned = Math.round(raw);
+      }
     }
 
-    console.log(`💰 Calcul récompense: ${scoreNum}/${totalNum} = ${ratio}% → ${coinsEarned} coins`);
+    console.log(`💰 Récompense par mot réussi: ${coinsEarned} coins`);
 
     let wordsForHistory = [];
 

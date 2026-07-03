@@ -317,6 +317,7 @@
           chinese: word.chinese,
           pinyin: word.pinyin,
           english: word.english,
+          score: Number(word.score) || 0, // maîtrise AVANT le quiz (pour l'affichage des coins)
           quiz_mode: quizType,
           correct: null,
           attempts: 0
@@ -629,7 +630,7 @@
       quizEnded = true;
 
       const successRate = (correctCount / quizWords.length) * 100;
-      const coinsEarned = calculateCoinsEarned(correctCount, quizWords.length);
+      const coinsEarned = calculateCoinsEarned();
 
       // 🔥 CORRECTION : Cacher la carte de feedback à la fin du quiz
       hideCharacterCard();
@@ -638,14 +639,19 @@
       showQuizCompletedScreen(correctCount, quizWords.length, coinsEarned);
     }
 
-    // Calculate earned coins
-    function calculateCoinsEarned(correct, total) {
-      const successRate = (correct / total) * 100;
-
-      if (correct === 0) return 0;
-      if (successRate <= 50) return 2;
-      if (successRate <= 70) return 3;
-      return 5;
+    // Coins gagnés = somme par mot réussi selon sa maîtrise AVANT le quiz.
+    // Doit refléter le calcul serveur (score < 50 → 0.5 · 50–80 → 0.3 · 80–100 → 0.1).
+    function calculateCoinsEarned() {
+      let raw = 0;
+      for (const r of quizResults) {
+        if (r && r.correct === true) {
+          const s = Number(r.score) || 0;
+          if (s < 50) raw += 0.5;
+          else if (s < 80) raw += 0.3;
+          else raw += 0.1;
+        }
+      }
+      return Math.round(raw);
     }
 
     // 🔥 NOUVELLE FONCTION : Interface de fin de quiz SIMPLIFIÉE
@@ -723,7 +729,7 @@
 
     // Save results
     function saveQuizResults() {
-      const coinsEarned = calculateCoinsEarned(correctCount, quizWords.length);
+      const coinsEarned = calculateCoinsEarned();
 
       const quizData = {
         score: correctCount,
