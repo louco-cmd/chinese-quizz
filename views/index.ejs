@@ -117,6 +117,9 @@
     <div class="alert alert-danger">Authentication error. Please try again.</div>
     <% } %>
 
+      <!-- Toast de vérification email -->
+      <div id="verifyToast" style="display:none; position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:3000; max-width:92%; padding:12px 20px; border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.15); font-weight:600; font-size:.9rem;"></div>
+
       <div class="login-container d-flex align-items-center justify-content-center py-4">
         <div class="container">
           <div class="row justify-content-center">
@@ -542,6 +545,28 @@
           }
         };
 
+      </script>
+      <script>
+        // Toast après vérification d'email
+        (function () {
+          const params = new URLSearchParams(window.location.search);
+          const toast = document.getElementById('verifyToast');
+          if (!toast) return;
+          let msg = '', bg = '';
+          if (params.get('verified') === '1') {
+            msg = '✅ Email verified! You can now log in.'; bg = '#198754';
+          } else if (params.get('verify') === 'expired') {
+            msg = 'This confirmation link has expired. If you already confirmed, just log in below.'; bg = '#664d03';
+          }
+          if (!msg) return;
+          toast.textContent = msg;
+          toast.style.background = bg;
+          toast.style.color = '#fff';
+          toast.style.display = 'block';
+          setTimeout(() => { toast.style.transition = 'opacity .4s ease'; toast.style.opacity = '0'; setTimeout(() => toast.remove(), 400); }, 6000);
+          // Nettoie l'URL
+          window.history.replaceState({}, '', '/');
+        })();
       </script>
 </body>
 

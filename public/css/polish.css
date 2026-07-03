@@ -69,6 +69,16 @@ button:active,
   transform: scale(0.97);
 }
 
+/* ---------- Marges mobile unifiées ----------
+   Toutes les pages utilisent .container ; Bootstrap ne met que 12px de padding
+   latéral en mobile, alors que les wrappers custom (settings, support…) sont à
+   16px. On unifie et agrandit : 16px partout sous 992px.
+   (body .container > .container de Bootstrap, peu importe l'ordre de chargement ;
+   les .row redéfinissent leur propre gutter donc les colonnes ne bougent pas.) */
+@media (max-width: 991.98px) {
+  body .container { --bs-gutter-x: 2rem; } /* padding = gutter/2 = 1rem par côté */
+}
+
 /* ---------- Accessibilité : on coupe tout si l'utilisateur le demande ---------- */
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after,

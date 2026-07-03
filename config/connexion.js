@@ -54,7 +54,7 @@ passport.use(new GoogleStrategy({
       await transaction.query('BEGIN');
 
       let userRes = await transaction.query(
-        `SELECT id, email, name, provider_id, balance, quiz_direction, onboarding_done, ghost_mode FROM users
+        `SELECT id, email, name, provider_id, balance, quiz_direction, onboarding_done, ghost_mode, role FROM users
          WHERE provider_id = $1 OR email = $2
          ORDER BY CASE WHEN provider_id = $1 THEN 1 ELSE 2 END
          LIMIT 1`,
@@ -105,6 +105,7 @@ passport.use(new GoogleStrategy({
         balance: user.balance,
         quiz_direction: user.quiz_direction || 'en→zh',
         onboarding_done: user.onboarding_done || false,
+        role: user.role || 'student',
         isNewUser: isNewUser
       });
 

@@ -450,7 +450,7 @@ app.post('/auth/google/one-tap', async (req, res) => {
 
     // Vérifiez ou créez l'utilisateur dans votre base de données
     const result = await pool.query(
-      'SELECT id, email FROM users WHERE email = $1',
+      'SELECT id, email, role, onboarding_done FROM users WHERE email = $1',
       [payload.email]
     );
 
@@ -475,11 +475,9 @@ app.post('/auth/google/one-tap', async (req, res) => {
         return res.status(500).json({ error: 'Login failed' });
       }
 
-      // ✅ IMPORTANT: Envoyer une réponse JSON valide
-      res.json({
-        success: true,
-        redirect: '/dashboard'
-      });
+      // ✅ IMPORTANT: Envoyer une réponse JSON valide (aiguillage par rôle)
+      const redirect = (user.role === 'teacher' && user.onboarding_done) ? '/teach' : '/dashboard';
+      res.json({ success: true, redirect });
     });
 
   } catch (err) {
@@ -606,7 +604,7 @@ app.post('/auth/login-basic', async (req, res) => {
     console.log('📥 Tentative login pour', email);
 
     const result = await pool.query(
-      'SELECT id, email, password_hash, email_verified FROM users WHERE email = $1',
+      'SELECT id, email, password_hash, email_verified, role, onboarding_done FROM users WHERE email = $1',
       [email]
     );
 
@@ -656,7 +654,9 @@ app.post('/auth/login-basic', async (req, res) => {
           'UPDATE users SET last_login = NOW() WHERE id = $1',
           [user.id]
         );
-        res.json({ success: true, redirect: '/dashboard' });
+        // Aiguillage par rôle : un prof (onboarding fait) va vers /teach.
+        const redirect = (user.role === 'teacher' && user.onboarding_done) ? '/teach' : '/dashboard';
+        res.json({ success: true, redirect });
       });
     });
 
@@ -701,31 +701,37 @@ app.post('/auth/check-email', async (req, res) => {
 });
 
 app.get('/auth/verify-email', async (req, res) => {
-  const { token } = req.query;
+  try {
+    const { token } = req.query;
+    if (!token) return res.redirect('/?verify=expired');
 
-  const result = await pool.query(
-    `SELECT * FROM email_verification_tokens
-     WHERE token = $1 AND expires_at > NOW()`,
-    [token]
-  );
+    const result = await pool.query(
+      `SELECT * FROM email_verification_tokens
+       WHERE token = $1 AND expires_at > NOW()`,
+      [token]
+    );
 
-  if (result.rows.length === 0) {
-    return res.send('Invalid or expired token');
+    if (result.rows.length === 0) {
+      // Token absent/expiré. Cause fréquente : les clients mail (Outlook, antivirus,
+      // proxy Gmail) préchargent le lien à usage unique avant le vrai clic. Comme la
+      // vérification est désormais idempotente et que le token n'est plus supprimé,
+      // ce cas = lien vraiment expiré (>24h) → l'utilisateur peut juste se connecter.
+      return res.redirect('/?verify=expired');
+    }
+
+    const { user_id } = result.rows[0];
+
+    await pool.query(`UPDATE users SET email_verified = true WHERE id = $1`, [user_id]);
+
+    // On NE supprime PAS le token du user tout de suite (sinon un préchargement mail
+    // le consomme et le vrai clic échoue). On nettoie seulement les tokens expirés.
+    await pool.query(`DELETE FROM email_verification_tokens WHERE expires_at < NOW()`);
+
+    res.redirect('/?verified=1');
+  } catch (err) {
+    console.error('❌ verify-email:', err);
+    res.redirect('/?verify=expired');
   }
-
-  const { user_id } = result.rows[0];
-
-  await pool.query(
-    `UPDATE users SET email_verified = true WHERE id = $1`,
-    [user_id]
-  );
-
-  await pool.query(
-    `DELETE FROM email_verification_tokens WHERE user_id = $1`,
-    [user_id]
-  );
-
-  res.redirect('/?verified=true');
 });
 
 // Route de reinitialisation mot de passe
