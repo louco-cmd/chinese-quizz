@@ -223,7 +223,93 @@
     border-color: #0d6efd !important;
     background: #e8f0ff;
   }
-  </style>
+
+    /* ---- Your mentors (teacher classes on account) ---- */
+    .mentor-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .mentor-row:last-child { border-bottom: none; }
+    .mentor-name { font-weight: 600; color: #1a1a2e; font-size: 0.92rem; }
+    .mentor-since { font-size: 0.78rem; color: #aaa; white-space: nowrap; }
+    /* Divider pleine largeur : coupe nettement mentors / tasks */
+    .mentor-divider {
+      border: none;
+      border-top: 1px solid #eef0f4;
+      margin: 1rem -1.25rem;
+    }
+    .mentor-subhead {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.6rem;
+    }
+    /* Task = ligne unique, fond gris très clair pour l'affordance */
+    .ctask-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #f7f8fa;
+      border-radius: 12px;
+      padding: 0.55rem 0.85rem;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .ctask-row:last-child { margin-bottom: 0; }
+    .ctask-row:hover { background: #eef1f5; }
+    .ctask-main {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+    }
+    .ctask-title {
+      font-weight: 600;
+      color: #1a1a2e;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ctask-meta { font-size: 0.75rem; color: #aaa; white-space: nowrap; flex-shrink: 0; }
+    .ctask-progress {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .ctask-bar {
+      height: 6px;
+      width: 90px;
+      border-radius: 999px;
+      background: #e4e8ef;
+      overflow: hidden;
+    }
+    .ctask-bar > div {
+      height: 100%;
+      border-radius: 999px;
+      background: #0d6efd;
+      transition: width 0.6s ease;
+    }
+    .ctask-pct {
+      font-weight: 700;
+      color: #0d6efd;
+      font-size: 0.8rem;
+      min-width: 36px;
+      text-align: right;
+    }
+    .ctask-empty { color: #aaa; font-size: 0.85rem; padding: 0.4rem 0; }
+</style>
 </head>
 
 <!-- Modal d'édition du profil -->
@@ -592,6 +678,9 @@
       <!-- ── RIGHT COLUMN: pending duels, stats, recent quizzes ── -->
       <div class="col-lg-7 col-xl-8">
 
+        <!-- ── MY CLASSES (conditional — one card per teacher class) ── -->
+        <div id="my-classes-section" style="display:none;"></div>
+
         <!-- ── PENDING DUELS (conditional) ── -->
         <div id="pending-duels-section" style="display: none;" class="mb-3">
           <div class="card account-card">
@@ -699,7 +788,80 @@
       loadUserData();
       loadContributionsGrid();
       loadPendingDuels('pending-duels-account');
+      loadMyClasses();
     });
+
+    // ─────────────────────────────────────────────
+    // YOUR MENTORS (profs rejoints + leurs tasks)
+    // ─────────────────────────────────────────────
+    async function loadMyClasses() {
+      const section = document.getElementById('my-classes-section');
+      try {
+        const res = await fetch('/api/student/my-classes', { credentials: 'include' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const mentors = data.mentors || [];
+        const tasks = data.tasks || [];
+        if (!mentors.length) { section.style.display = 'none'; return; }
+
+        section.innerHTML = renderMentorsCard(mentors, tasks);
+        section.style.display = 'block';
+      } catch (err) {
+        console.error('Your mentors error:', err);
+        section.style.display = 'none';
+      }
+    }
+
+    function renderMentorsCard(mentors, tasks) {
+      const mentorRows = mentors.map(m => `
+        <div class="mentor-row">
+          <div class="mentor-name"><i class="bi bi-person me-1 text-muted"></i>${escapeAccount(m.name)}</div>
+          <div class="mentor-since">Since ${formatMentorSince(m.since)}</div>
+        </div>`).join('');
+
+      const taskRows = tasks.length
+        ? tasks.map(t => {
+            const k = Math.max(0, Math.min(100, Number(t.knowledge) || 0));
+            return `
+              <div class="ctask-row" onclick="window.location='/course/${t.id}?from=account'">
+                <div class="ctask-main">
+                  <span class="ctask-title">${escapeAccount(t.title)}</span>
+                  <span class="ctask-meta">· ${t.word_count} word${t.word_count == 1 ? '' : 's'}</span>
+                </div>
+                <div class="ctask-progress">
+                  <div class="ctask-bar"><div style="width:${k}%"></div></div>
+                  <span class="ctask-pct">${k}%</span>
+                </div>
+              </div>`;
+          }).join('')
+        : `<div class="ctask-empty">No tasks yet — your mentor will add some soon.</div>`;
+
+      return `
+        <div class="card account-card mb-3">
+          <div class="card-body">
+            <p class="section-title mb-3">
+              <i class="bi bi-mortarboard-fill me-2 text-muted"></i>Your mentors
+            </p>
+            ${mentorRows}
+            <hr class="mentor-divider">
+            <div class="mentor-subhead">Tasks</div>
+            ${taskRows}
+          </div>
+        </div>`;
+    }
+
+    function formatMentorSince(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      if (isNaN(d)) return '—';
+      return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+    }
+
+    function escapeAccount(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
 
     // ─────────────────────────────────────────────
     // USER DATA (profile + stats + HSK + quiz history)

@@ -1184,6 +1184,94 @@ router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
   }
 });
 
+// ── Parrainage (referral) ────────────────────────────────────────────────────
+const REFERRAL_REWARD = { student: 80, teacher: 150 };
+
+function genReferralCode() {
+  // Alphabet sans caractères ambigus (0/O, 1/I)
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s = '';
+  const bytes = crypto.randomBytes(7);
+  for (let i = 0; i < 7; i++) s += chars[bytes[i] % chars.length];
+  return s;
+}
+
+// Garantit (et renvoie) le code de parrainage de l'utilisateur
+async function ensureReferralCode(userId) {
+  const cur = await pool.query('SELECT referral_code FROM users WHERE id = $1', [userId]);
+  if (cur.rows[0] && cur.rows[0].referral_code) return cur.rows[0].referral_code;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const code = genReferralCode();
+    try {
+      await pool.query(
+        'UPDATE users SET referral_code = $1 WHERE id = $2 AND referral_code IS NULL',
+        [code, userId]
+      );
+    } catch (e) { /* collision unique → on réessaie */ }
+    const chk = await pool.query('SELECT referral_code FROM users WHERE id = $1', [userId]);
+    if (chk.rows[0] && chk.rows[0].referral_code) return chk.rows[0].referral_code;
+  }
+  throw new Error('referral code generation failed');
+}
+
+// Crédite le parrain une seule fois, montant selon le rôle réel de l'invité
+async function creditReferralIfAny(req) {
+  const code = req.session && req.session.pendingRef;
+  if (!code) return;
+
+  const me = await pool.query(
+    'SELECT role, referred_by, referral_rewarded FROM users WHERE id = $1',
+    [req.user.id]
+  );
+  if (!me.rows.length) { delete req.session.pendingRef; return; }
+  if (me.rows[0].referred_by || me.rows[0].referral_rewarded) { delete req.session.pendingRef; return; }
+
+  const ref = await pool.query('SELECT id FROM users WHERE referral_code = $1', [code]);
+  delete req.session.pendingRef; // consommé quoi qu'il arrive
+  if (!ref.rows.length) return;
+
+  const referrerId = ref.rows[0].id;
+  if (referrerId === req.user.id) return; // pas d'auto-parrainage
+
+  const reward = REFERRAL_REWARD[me.rows[0].role] || REFERRAL_REWARD.student;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Attribution idempotente : ne réussit qu'une fois
+    const upd = await client.query(
+      `UPDATE users SET referred_by = $1, referral_rewarded = TRUE
+       WHERE id = $2 AND referred_by IS NULL AND referral_rewarded = FALSE`,
+      [referrerId, req.user.id]
+    );
+    if (upd.rowCount === 1) {
+      await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [reward, referrerId]);
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// Code + stats de parrainage de l'utilisateur (pour la modale d'invitation)
+router.get('/api/referral', ensureAuth, async (req, res) => {
+  try {
+    const code = await ensureReferralCode(req.user.id);
+    const { rows } = await pool.query(
+      `SELECT COUNT(*) FILTER (WHERE referral_rewarded)::int AS joined,
+              COUNT(*) FILTER (WHERE referral_rewarded AND role = 'teacher')::int AS teachers
+       FROM users WHERE referred_by = $1`,
+      [req.user.id]
+    );
+    res.json({ code, joined: rows[0].joined, teachers: rows[0].teachers });
+  } catch (err) {
+    console.error('Referral info error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.post('/api/user/complete-onboarding', ensureAuth, async (req, res) => {
   try {
     await pool.query(
@@ -1191,6 +1279,8 @@ router.post('/api/user/complete-onboarding', ensureAuth, async (req, res) => {
       [req.user.id]
     );
     req.user.onboarding_done = true;
+    // Parrainage : créditer le parrain (montant selon le rôle choisi à l'onboarding)
+    try { await creditReferralIfAny(req); } catch (e) { console.error('Referral credit error:', e); }
     res.json({ success: true });
   } catch (error) {
     console.error('Error completing onboarding:', error);

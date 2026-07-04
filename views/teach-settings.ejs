@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Jiayou Teacher · Settings</title>
+  <%- include('partials/meta', { pageTitle: 'Jiayou · Teacher Settings', pageDescription: 'Your teacher account settings.' }) %>
+  <link href="/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/vendor/bootstrap-icons/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+    body { background:#f5f7fb; min-height:100vh; }
+    .settings-group { background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,0.07); overflow:hidden; margin-bottom:1.25rem; }
+    .settings-group-title { font-size:.72rem; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.06em; padding:1rem 1.25rem .4rem; }
+    .settings-row { display:flex; align-items:center; justify-content:space-between; padding:.9rem 1.25rem; border-top:1px solid #f0f0f0; gap:1rem; text-decoration:none; }
+    .settings-row:first-of-type { border-top:none; }
+    .settings-row-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+    .settings-row-label { flex:1; min-width:0; }
+    .settings-row-label .label-main { font-size:.95rem; font-weight:600; color:#1a1a1a; line-height:1.2; }
+    .settings-row-label .label-sub { font-size:.78rem; color:#888; margin-top:2px; }
+    .form-check-input[type="checkbox"] { width:2.4em; height:1.3em; cursor:pointer; }
+    .settings-row.danger .label-main { color:#dc3545; }
+    .settings-row.danger .settings-row-icon { background:#fff0f0; color:#dc3545; }
+  </style>
+</head>
+<body>
+  <%- include('partials/teacher-header') %>
+
+  <div class="container py-3 py-md-4" style="max-width:600px;">
+    <a href="/teach" class="text-decoration-none text-muted small d-inline-block mb-3"><i class="bi bi-arrow-left me-1"></i>Back</a>
+
+    <!-- ── ACCOUNT ── -->
+    <div class="settings-group">
+      <div class="settings-group-title">Account</div>
+
+      <a href="/teach/profile" class="settings-row">
+        <div class="settings-row-icon" style="background:#e8f0ff; color:#0d6efd;"><i class="bi bi-person-badge"></i></div>
+        <div class="settings-row-label">
+          <div class="label-main">My teacher profile</div>
+          <div class="label-sub">Name, intro, languages, price</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+
+      <a href="/install-app" class="settings-row" data-hide-in-app>
+        <div class="settings-row-icon" style="background:#e8f0ff; color:#0d6efd;"><i class="bi bi-download"></i></div>
+        <div class="settings-row-label">
+          <div class="label-main">Install the app</div>
+          <div class="label-sub">Add Jiayou to your home screen</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+    </div>
+
+    <!-- ── NOTIFICATIONS ── -->
+    <div class="settings-group">
+      <div class="settings-group-title">Notifications</div>
+
+      <div class="settings-row">
+        <div class="settings-row-icon" style="background:#e8f5e9; color:#198754;"><i class="bi bi-bell-fill"></i></div>
+        <div class="settings-row-label">
+          <div class="label-main">Push notifications</div>
+          <div class="label-sub">Get notified about your classes</div>
+        </div>
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input" type="checkbox" role="switch" id="notifToggle"
+            <%= (typeof notificationsEnabled !== 'undefined' && notificationsEnabled) ? 'checked' : '' %>
+            onchange="handleNotifToggle(this.checked)">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LEGAL & SUPPORT ── -->
+    <div class="settings-group">
+      <div class="settings-group-title">Legal & Support</div>
+
+      <a href="/legal" class="settings-row">
+        <div class="settings-row-icon" style="background:#f0f0f0; color:#555;"><i class="bi bi-file-text"></i></div>
+        <div class="settings-row-label"><div class="label-main">Legal</div></div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+
+      <a href="/support" class="settings-row">
+        <div class="settings-row-icon" style="background:#f0f0f0; color:#555;"><i class="bi bi-life-preserver"></i></div>
+        <div class="settings-row-label"><div class="label-main">Help & Support</div></div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </a>
+    </div>
+
+    <!-- ── DANGER ZONE ── -->
+    <div class="settings-group">
+      <div class="settings-group-title">Danger zone</div>
+
+      <button class="settings-row danger w-100 border-0 bg-transparent text-start" onclick="confirmLogout()">
+        <div class="settings-row-icon"><i class="bi bi-box-arrow-right"></i></div>
+        <div class="settings-row-label"><div class="label-main">Log out</div></div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </button>
+
+      <button class="settings-row danger w-100 border-0 bg-transparent text-start" onclick="confirmDeleteAccount()">
+        <div class="settings-row-icon"><i class="bi bi-trash"></i></div>
+        <div class="settings-row-label">
+          <div class="label-main">Delete account</div>
+          <div class="label-sub">Permanent, cannot be undone</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Modals logout / delete -->
+  <div class="modal fade" id="logoutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content" style="border-radius:20px; border:none; padding:8px;">
+        <div class="modal-header border-0"><h5 class="modal-title fw-bold">Confirm logout</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body pt-0"><p class="text-secondary mb-0">Are you sure you want to log out?</p></div>
+        <div class="modal-footer border-0 d-flex gap-2">
+          <button class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger flex-fill" onclick="performLogout()"><i class="bi bi-box-arrow-right me-1"></i>Log out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content" style="border-radius:20px; border:none; padding:8px;">
+        <div class="modal-header border-0"><h5 class="modal-title fw-bold">Delete account</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body pt-0">
+          <div class="alert alert-danger d-flex gap-2 align-items-start py-2 px-3" style="border-radius:12px;">
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+            <span><strong>Warning:</strong> your account, classes and lessons will be permanently deleted.</span>
+          </div>
+        </div>
+        <div class="modal-footer border-0 d-flex gap-2">
+          <button class="btn btn-light flex-fill" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger flex-fill" onclick="performDeleteAccount()"><i class="bi bi-trash me-1"></i>Delete account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%- include('partials/teacher-navbar', { currentPage: 'settings' }) %>
+
+  <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="/js/notifications.js?v=2"></script>
+  <script>
+    function confirmLogout() { new bootstrap.Modal(document.getElementById('logoutModal')).show(); }
+    async function performLogout() {
+      try {
+        bootstrap.Modal.getInstance(document.getElementById('logoutModal'))?.hide();
+        await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+        window.location.href = '/';
+      } catch (_) { window.location.href = '/'; }
+    }
+
+    function confirmDeleteAccount() { new bootstrap.Modal(document.getElementById('deleteAccountModal')).show(); }
+    async function performDeleteAccount() {
+      try {
+        bootstrap.Modal.getInstance(document.getElementById('deleteAccountModal'))?.hide();
+        const res = await fetch('/api/user/delete-account', { method: 'DELETE', credentials: 'include' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          alert('Your account has been successfully deleted.');
+          window.location.href = '/';
+        } else {
+          alert(data.message || 'An error occurred.');
+        }
+      } catch (_) { alert('Network error. Please try again.'); }
+    }
+
+    // Masque les éléments [data-hide-in-app] en mode standalone (PWA)
+    (function () {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      if (!isStandalone) return;
+      document.querySelectorAll('[data-hide-in-app]').forEach(el => el.style.display = 'none');
+    })();
+  </script>
+</body>
+</html>

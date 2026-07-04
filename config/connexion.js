@@ -65,11 +65,11 @@ passport.use(new GoogleStrategy({
       let user;
 
       if (userRes.rows.length === 0) {
-        // 🆕 NOUVEL UTILISATEUR - DONNER 100 PIÈCES
-        console.log('👤 Création nouveau utilisateur avec bonus de 100 pièces:', email);
+        // 🆕 NOUVEL UTILISATEUR - DONNER 200 PIÈCES
+        console.log('👤 Création nouveau utilisateur avec bonus de 200 pièces:', email);
         const newUser = await transaction.query(
-          `INSERT INTO users (email, name, provider, provider_id, last_login, balance) 
-           VALUES ($1, $2, 'google', $3, NOW(), 100)  -- ✅ 100 pièces pour les nouveaux
+          `INSERT INTO users (email, name, provider, provider_id, last_login, balance)
+           VALUES ($1, $2, 'google', $3, NOW(), 200)  -- ✅ 200 pièces pour les nouveaux
            RETURNING id, email, name, balance`,
           [email, displayName, id]
         );

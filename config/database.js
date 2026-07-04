@@ -258,7 +258,18 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS years_experience INT`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS languages_spoken TEXT`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mentor_links JSONB NOT NULL DEFAULT '[]'::jsonb`);
-    console.log("✅ Colonnes profil prof (years_experience/languages_spoken/mentor_links) vérifiées.");
+    // Langues enseignées (liste, ex "Chinese, English") + prix d'une séance
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS teaching_languages TEXT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS session_price NUMERIC(8,2)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS session_currency VARCHAR(3) DEFAULT 'EUR'`);
+    console.log("✅ Colonnes profil prof (years_experience/languages_spoken/mentor_links/teaching_languages/session_price) vérifiées.");
+
+    // ── Migration: parrainage (referral) ──────────────────────────────────────
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(12)`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_referral_code_key ON users(referral_code) WHERE referral_code IS NOT NULL`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by INT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_rewarded BOOLEAN NOT NULL DEFAULT FALSE`);
+    console.log("✅ Colonnes parrainage (referral_code/referred_by/referral_rewarded) vérifiées.");
 
   } catch (err) {
     console.error("❌ Erreur lors de l'initialisation :", err);

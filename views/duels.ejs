@@ -469,16 +469,28 @@
 
           <!-- ── RIGHT COLUMN: start duel card, recent duels, bullies ── -->
           <div class="col-lg-7 col-xl-8">
-            <!-- Start a duel card (quiz.ejs style) -->
-            <div class="duel-start-card quiz-card-clickable mb-3 mb-lg-4"
-                 role="button" tabindex="0"
-                 onclick="openStartDuelPopup()"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openStartDuelPopup();}">
-              <i class="duel-start-arrow bi bi-arrow-right-circle-fill"></i>
-              <div class="text-center py-3 px-3">
-                <i class="bi bi-sword duel-start-icon"></i>
-                <div class="duel-start-title"><%= t.duel_start %></div>
-                <div class="duel-start-text"><%= t.duel_challenge_player %></div>
+            <!-- Start a duel + Invite a friend (côte à côte) -->
+            <div class="cta-duo mb-3 mb-lg-4">
+              <div class="duel-start-card quiz-card-clickable"
+                   role="button" tabindex="0"
+                   onclick="openStartDuelPopup()"
+                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openStartDuelPopup();}">
+                <i class="duel-start-arrow bi bi-arrow-right-circle-fill"></i>
+                <div class="text-center py-3 px-3">
+                  <i class="bi bi-sword duel-start-icon"></i>
+                  <div class="duel-start-title"><%= t.duel_start %></div>
+                  <div class="duel-start-text"><%= t.duel_challenge_player %></div>
+                </div>
+              </div>
+
+              <div class="invite-launch-card" role="button" tabindex="0"
+                   onclick="openInviteModal('friend')"
+                   onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openInviteModal('friend');}">
+                <i class="invite-launch-arrow bi bi-arrow-right-circle-fill"></i>
+                <div class="text-center py-3 px-3">
+                  <div class="invite-launch-title">Invite a friend</div>
+                  <div class="invite-launch-text">Win 80 coins per friend who joins</div>
+                </div>
               </div>
             </div>
 
@@ -635,6 +647,7 @@
 
       <script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
       <script src="/js/global.js"></script>
+      <%- include('partials/invite-modal') %>
       <script>
         const GHOST_MODE = <%= ghostMode ? 'true' : 'false' %>;
         const I18N = {

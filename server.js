@@ -134,6 +134,18 @@ app.use(checker);
 app.use(security);
 app.use(reauth);
 app.use(requestLogger);
+
+// Parrainage : mémorise le code (?ref=CODE) d'un visiteur non connecté dans sa
+// session. Il survit au détour OAuth Google et sera consommé à la fin de
+// l'onboarding (cf. /api/user/complete-onboarding). Premier code vu = gardé.
+app.use((req, res, next) => {
+  const ref = req.query && req.query.ref;
+  if (ref && !req.user && req.session && !req.session.pendingRef) {
+    req.session.pendingRef = String(ref).trim().slice(0, 12);
+  }
+  next();
+});
+
 // Expose isPremium / isSpecialGuest / balance aux vues EJS
 const i18n = require('./config/i18n');
 app.use(async (req, res, next) => {
@@ -460,7 +472,7 @@ app.post('/auth/google/one-tap', async (req, res) => {
       // Créer un nouvel utilisateur
       const newUser = await pool.query(
         `INSERT INTO users (email, provider, email_verified, balance)
-         VALUES ($1, 'google', true, 100)
+         VALUES ($1, 'google', true, 200)
          RETURNING id, email`,
         [payload.email]
       );
@@ -551,7 +563,7 @@ app.post('/auth/signup-basic', async (req, res) => {
     // Insertion utilisateur
     const userRes = await pool.query(
       `INSERT INTO users (email, password_hash, provider, email_verified, balance)
-       VALUES ($1, $2, 'local', false, 100)
+       VALUES ($1, $2, 'local', false, 200)
        RETURNING id, email`,
       [email, hash]
     );
@@ -1040,7 +1052,6 @@ app.post('/complete-tutorial', ensureAuth, async (req, res) => {
 
 app.get('/collection', ensureAuth, async (req, res) => {
   const userId = req.user.id;
-  const cardIndex = parseInt(req.query.card) || 0;
 
   try {
     const { rows } = await pool.query(`
@@ -1050,8 +1061,16 @@ app.get('/collection', ensureAuth, async (req, res) => {
       ORDER BY mots.id ASC
     `, [userId]);
 
+    // Index de départ : priorité au mot pushé (?word=<id>), sinon ?card=<index>
+    let startIndex = parseInt(req.query.card) || 0;
+    if (req.query.word) {
+      const wordId = parseInt(req.query.word, 10);
+      const idx = rows.findIndex(w => w.id === wordId);
+      if (idx >= 0) startIndex = idx;
+    }
+
     // Réorganiser les mots pour commencer à l'index demandé
-    const sortedWords = [...rows.slice(cardIndex), ...rows.slice(0, cardIndex)];
+    const sortedWords = [...rows.slice(startIndex), ...rows.slice(0, startIndex)];
 
     // Récupérer le solde de l'utilisateur
     const balanceResult = await pool.query(

@@ -4,6 +4,9 @@ const router = express.Router();
 const { pool } = require('../config/database');
 const { ensureAuth, ensureTeacher } = require('../middleware/index');
 
+// Devises acceptées pour le prix d'une séance (code ISO 4217)
+const ALLOWED_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'CNY', 'JPY', 'CAD', 'AUD', 'SGD', 'HKD'];
+
 // ── Génération d'un code de classe unique (sans caractères ambigus) ──────────
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // pas de O/0/I/1/L
 function randomCode(len = 5) {
@@ -445,7 +448,8 @@ function isAllowedMentorUrl(url) {
 router.get('/api/teach/profile', ensureAuth, ensureTeacher, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT name, mentor_bio, mentor_links, years_experience, languages_spoken, mentor_listed
+      `SELECT name, mentor_bio, mentor_links, years_experience, languages_spoken,
+              teaching_languages, session_price, session_currency, mentor_listed
        FROM users WHERE id = $1`,
       [req.user.id]
     );
@@ -464,6 +468,30 @@ router.post('/api/teach/profile', ensureAuth, ensureTeacher, async (req, res) =>
     let years = parseInt(req.body.years_experience, 10);
     const listed = req.body.mentor_listed === true;
     let links = Array.isArray(req.body.links) ? req.body.links : [];
+
+    // Langues enseignées : liste normalisée en chaîne "A, B, C"
+    const teachingArr = Array.isArray(req.body.teaching_languages)
+      ? req.body.teaching_languages
+      : String(req.body.teaching_languages || '').split(',');
+    const teaching = teachingArr
+      .map(s => String(s).trim())
+      .filter(Boolean)
+      .slice(0, 12)
+      .join(', ')
+      .slice(0, 200);
+
+    // Prix d'une séance (nombre ≥ 0, arrondi au centime) ; vide = null
+    let price = null;
+    const rawPrice = req.body.session_price;
+    if (rawPrice !== '' && rawPrice != null) {
+      const p = parseFloat(rawPrice);
+      if (!isNaN(p) && p >= 0) price = Math.min(Math.round(p * 100) / 100, 100000);
+    }
+
+    // Devise (parmi une liste connue) ; défaut EUR
+    const currency = ALLOWED_CURRENCIES.includes(req.body.session_currency)
+      ? req.body.session_currency
+      : 'EUR';
 
     if (!name || name.length > 50) return res.status(400).json({ error: 'Nom requis (max 50)' });
     if (bio.length > 500) return res.status(400).json({ error: 'Intro trop longue (max 500)' });
@@ -484,9 +512,10 @@ router.post('/api/teach/profile', ensureAuth, ensureTeacher, async (req, res) =>
 
     await pool.query(
       `UPDATE users SET name = $1, mentor_bio = $2, languages_spoken = $3,
-              years_experience = $4, mentor_links = $5::jsonb, mentor_listed = $6
-       WHERE id = $7`,
-      [name, bio, languages, years, JSON.stringify(links), listed, req.user.id]
+              years_experience = $4, mentor_links = $5::jsonb, mentor_listed = $6,
+              teaching_languages = $7, session_price = $8, session_currency = $9
+       WHERE id = $10`,
+      [name, bio, languages, years, JSON.stringify(links), listed, teaching, price, currency, req.user.id]
     );
     req.user.name = name;
     res.json({ success: true });
@@ -518,6 +547,48 @@ router.get('/api/student/tasks', ensureAuth, async (req, res) => {
     res.json({ tasks });
   } catch (err) {
     console.error('❌ student tasks:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Mentors de l'élève (profs distincts + date d'entrée) et leurs tasks — "My account"
+router.get('/api/student/my-classes', ensureAuth, async (req, res) => {
+  try {
+    // Un mentor = un prof distinct ; "since" = première inscription à l'une de ses classes
+    const { rows: mentors } = await pool.query(
+      `SELECT t.id,
+              COALESCE(NULLIF(TRIM(t.name), ''), 'Your teacher') AS name,
+              MIN(cs.joined_at) AS since
+       FROM classroom_students cs
+       JOIN classrooms c ON c.id = cs.classroom_id
+       JOIN users t ON t.id = c.teacher_id
+       WHERE cs.student_id = $1 AND cs.status = 'active'
+       GROUP BY t.id, t.name
+       ORDER BY since ASC`,
+      [req.user.id]
+    );
+
+    const { rows: taskRows } = await pool.query(
+      `SELECT l.id, l.title, l.created_at,
+              (SELECT COUNT(*) FROM lesson_words lw WHERE lw.lesson_id = l.id)::int AS word_count,
+              (SELECT COALESCE(ROUND(AVG(COALESCE(um.score, 0))), 0)
+                 FROM lesson_words lw
+                 LEFT JOIN user_mots um ON um.mot_id = lw.mot_id AND um.user_id = $1
+                 WHERE lw.lesson_id = l.id)::int AS knowledge
+       FROM lessons l
+       JOIN classrooms c ON c.id = l.classroom_id
+       JOIN classroom_students cs ON cs.classroom_id = c.id AND cs.student_id = $1 AND cs.status = 'active'
+       ORDER BY l.created_at DESC`,
+      [req.user.id]
+    );
+
+    const tasks = taskRows
+      .filter(t => t.word_count > 0)
+      .map(t => ({ id: t.id, title: t.title, word_count: t.word_count, knowledge: t.knowledge }));
+
+    res.json({ mentors, tasks });
+  } catch (err) {
+    console.error('❌ student my-classes:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
@@ -626,7 +697,8 @@ router.post('/api/student/tasks/:lessonId/result', ensureAuth, async (req, res) 
 router.get('/api/mentors', ensureAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT u.id, u.name, u.languages_spoken, u.years_experience, u.mentor_bio, u.mentor_links,
+      `SELECT u.id, u.name, u.languages_spoken, u.teaching_languages, u.session_price, u.session_currency,
+              u.years_experience, u.mentor_bio, u.mentor_links,
               (SELECT COUNT(DISTINCT cs.student_id)
                  FROM classrooms c JOIN classroom_students cs ON cs.classroom_id = c.id
                  WHERE c.teacher_id = u.id AND cs.status = 'active')::int AS student_count,
@@ -640,8 +712,13 @@ router.get('/api/mentors', ensureAuth, async (req, res) => {
     // On ne renvoie que le PREMIER lien de contact
     const mentors = rows.map(m => {
       const links = Array.isArray(m.mentor_links) ? m.mentor_links : [];
+      const teaching = (m.teaching_languages || '')
+        .split(',').map(s => s.trim()).filter(Boolean);
       return {
         id: m.id, name: m.name, languages_spoken: m.languages_spoken,
+        teaching_languages: teaching,
+        session_price: m.session_price != null ? Number(m.session_price) : null,
+        session_currency: m.session_currency || 'EUR',
         years_experience: m.years_experience, mentor_bio: m.mentor_bio,
         student_count: m.student_count, task_count: m.task_count,
         link: links[0] || null
@@ -696,6 +773,11 @@ router.get('/api/teach/students', ensureAuth, ensureTeacher, async (req, res) =>
 // ── Pages profil & élèves ────────────────────────────────────────────────────
 router.get('/teach/profile', ensureAuth, ensureTeacher, (req, res) => {
   res.render('teach-profile', {
+    user: req.user, balance: res.locals.balance || 0, isPremium: res.locals.isPremium || false
+  });
+});
+router.get('/teach/settings', ensureAuth, ensureTeacher, (req, res) => {
+  res.render('teach-settings', {
     user: req.user, balance: res.locals.balance || 0, isPremium: res.locals.isPremium || false
   });
 });

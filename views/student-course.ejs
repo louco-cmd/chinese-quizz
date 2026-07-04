@@ -59,6 +59,13 @@
   <script>
     const LESSON_ID = '<%= lessonId %>';
 
+    // Retour dynamique selon la provenance (?from=account → mon compte)
+    (function setBackLink(){
+      const from = new URLSearchParams(location.search).get('from');
+      const map = { account: '/account', mentors: '/mentors' };
+      document.getElementById('backLink').href = map[from] || '/mentors';
+    })();
+
     async function loadCourse(){
       try{
         const res = await fetch(`/api/student/lessons/${LESSON_ID}`, { credentials:'include' });

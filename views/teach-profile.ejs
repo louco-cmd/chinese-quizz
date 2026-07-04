@@ -19,6 +19,15 @@
     .save-toast { position:fixed; left:50%; bottom:90px; transform:translateX(-50%) translateY(20px); background:#0d6efd; color:#fff; padding:10px 20px; border-radius:999px; opacity:0; transition:all .3s ease; z-index:2000; }
     .save-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     .allowlist-hint { font-size:.72rem; color:#8a98b5; }
+    /* Chips langues enseignées */
+    .lang-chips { display:flex; flex-wrap:wrap; gap:8px; }
+    .lang-chip { border:1.5px solid #dbe3f1; background:#fff; color:#5a6b8a; border-radius:999px; padding:6px 14px; font-size:.85rem; font-weight:600; cursor:pointer; transition:all .15s ease; user-select:none; }
+    .lang-chip:hover { border-color:#a9c0e8; }
+    .lang-chip.active { background:#0d6efd; border-color:#0d6efd; color:#fff; }
+    /* Prix séance : devise + montant */
+    .price-input { display:flex; gap:8px; max-width:260px; }
+    .price-input select { flex:0 0 96px; }
+    .price-input input { flex:1; }
   </style>
 </head>
 <body>
@@ -46,6 +55,29 @@
           <input type="text" id="pLangs" class="form-control" maxlength="200" placeholder="English, 中文, Français">
         </div>
       </div>
+    </div>
+
+    <div class="p-card">
+      <label class="form-label d-block mb-2"><i class="bi bi-translate me-1"></i>Languages you teach</label>
+      <div id="teachChips" class="lang-chips mb-3"></div>
+
+      <label class="form-label d-block mb-2"><i class="bi bi-cash-coin me-1"></i>Price per session</label>
+      <div class="price-input">
+        <select id="pCurrency" class="form-select">
+          <option value="EUR">€ EUR</option>
+          <option value="USD">$ USD</option>
+          <option value="GBP">£ GBP</option>
+          <option value="CHF">CHF</option>
+          <option value="CNY">¥ CNY</option>
+          <option value="JPY">¥ JPY</option>
+          <option value="CAD">C$ CAD</option>
+          <option value="AUD">A$ AUD</option>
+          <option value="SGD">S$ SGD</option>
+          <option value="HKD">HK$ HKD</option>
+        </select>
+        <input type="number" id="pPrice" class="form-control" min="0" max="10000" step="1" placeholder="e.g. 25">
+      </div>
+      <div class="allowlist-hint mt-2">Shown to students as an indicative price for one lesson. Leave empty to hide it.</div>
     </div>
 
     <div class="p-card">
@@ -86,6 +118,19 @@
       document.getElementById('linksContainer').appendChild(row);
     }
 
+    // Langues enseignées : chips à bascule
+    const TEACH_LANGS = ['Chinese','English','French','Spanish','German','Italian','Japanese','Korean','Russian','Arabic'];
+    function renderTeachChips(selected) {
+      const set = new Set((selected || []).map(s => s.toLowerCase()));
+      document.getElementById('teachChips').innerHTML = TEACH_LANGS.map(l =>
+        `<span class="lang-chip ${set.has(l.toLowerCase()) ? 'active' : ''}" data-lang="${l}"
+               onclick="this.classList.toggle('active')">${l}</span>`
+      ).join('');
+    }
+    function selectedTeachLangs() {
+      return Array.from(document.querySelectorAll('#teachChips .lang-chip.active')).map(c => c.dataset.lang);
+    }
+
     async function loadProfile() {
       try {
         const res = await fetch('/api/teach/profile', { credentials: 'include' });
@@ -94,11 +139,16 @@
         document.getElementById('pBio').value = profile.mentor_bio || '';
         document.getElementById('pYears').value = (profile.years_experience ?? '') === null ? '' : (profile.years_experience ?? '');
         document.getElementById('pLangs').value = profile.languages_spoken || '';
+        document.getElementById('pPrice').value =
+          (profile.session_price ?? null) === null ? '' : profile.session_price;
+        document.getElementById('pCurrency').value = profile.session_currency || 'EUR';
+        renderTeachChips((profile.teaching_languages || '').split(',').map(s => s.trim()).filter(Boolean));
         document.getElementById('pListed').checked = !!profile.mentor_listed;
         const links = Array.isArray(profile.mentor_links) ? profile.mentor_links : [];
         if (links.length) links.forEach(l => addLinkRow(l.label, l.url));
         else addLinkRow();
       } catch (e) {
+        renderTeachChips([]);
         addLinkRow();
       }
     }
@@ -115,6 +165,9 @@
         bio: document.getElementById('pBio').value.trim(),
         languages: document.getElementById('pLangs').value.trim(),
         years_experience: document.getElementById('pYears').value,
+        teaching_languages: selectedTeachLangs(),
+        session_price: document.getElementById('pPrice').value,
+        session_currency: document.getElementById('pCurrency').value,
         mentor_listed: document.getElementById('pListed').checked,
         links
       };
