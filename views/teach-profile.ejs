@@ -34,8 +34,6 @@
   <%- include('partials/teacher-header') %>
 
   <div class="container py-3 py-md-4">
-    <h5 class="fw-bold mb-3" style="color:#0d6efd;"><i class="bi bi-person-badge me-2"></i>My teacher profile</h5>
-
     <div class="p-card">
       <div class="mb-3">
         <label class="form-label">Name</label>
@@ -119,7 +117,7 @@
     }
 
     // Langues enseignées : chips à bascule
-    const TEACH_LANGS = ['Chinese','English','French','Spanish','German','Italian','Japanese','Korean','Russian','Arabic'];
+    const TEACH_LANGS = ['English','Chinese']; // seules langues supportées pour l'instant
     function renderTeachChips(selected) {
       const set = new Set((selected || []).map(s => s.toLowerCase()));
       document.getElementById('teachChips').innerHTML = TEACH_LANGS.map(l =>

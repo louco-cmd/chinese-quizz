@@ -7,6 +7,29 @@ const { ensureAuth, ensureTeacher } = require('../middleware/index');
 // Devises acceptées pour le prix d'une séance (code ISO 4217)
 const ALLOWED_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'CNY', 'JPY', 'CAD', 'AUD', 'SGD', 'HKD'];
 
+// Limite d'élèves pour un prof non premium / non guest (comme les élèves gratuits)
+const FREE_TEACHER_STUDENT_LIMIT = 5;
+
+// Un prof "illimité" = special guest OU abonnement premium actif (3 colonnes d'accord).
+// Pas encore branché sur Stripe : seul le bypass guest est réellement opérant.
+async function teacherIsUnlimited(teacherId) {
+  const { rows } = await pool.query(
+    `SELECT u.special_guest, us.plan_name, us.status AS sub_status,
+            us.stripe_status, us.current_period_end
+     FROM users u
+     LEFT JOIN user_subscriptions us ON us.user_id = u.id
+     WHERE u.id = $1`,
+    [teacherId]
+  );
+  const row = rows[0] || {};
+  if (row.special_guest === true) return true;
+  const periodOk = !row.current_period_end || new Date(row.current_period_end) >= new Date();
+  return row.plan_name === 'premium'
+      && row.sub_status === 'active'
+      && row.stripe_status === 'active'
+      && periodOk;
+}
+
 // ── Génération d'un code de classe unique (sans caractères ambigus) ──────────
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // pas de O/0/I/1/L
 function randomCode(len = 5) {
@@ -233,6 +256,26 @@ router.post('/api/teach/join', ensureAuth, async (req, res) => {
       return res.status(400).json({ error: 'Vous êtes le professeur de cette classe' });
     }
 
+    // Plafond d'élèves pour un prof gratuit (non premium / non guest).
+    // On ne bloque pas un élève déjà rattaché au prof (autre classe / réinscription).
+    if (!(await teacherIsUnlimited(classroom.teacher_id))) {
+      const { rows: cnt } = await pool.query(
+        `SELECT COUNT(DISTINCT cs.student_id)::int AS total,
+                BOOL_OR(cs.student_id = $2) AS already
+         FROM classroom_students cs
+         JOIN classrooms c ON c.id = cs.classroom_id
+         WHERE c.teacher_id = $1 AND cs.status = 'active'`,
+        [classroom.teacher_id, req.user.id]
+      );
+      const total = cnt[0]?.total || 0;
+      const already = cnt[0]?.already === true;
+      if (!already && total >= FREE_TEACHER_STUDENT_LIMIT) {
+        return res.status(403).json({
+          error: `This class is full — the teacher's free plan is limited to ${FREE_TEACHER_STUDENT_LIMIT} students.`
+        });
+      }
+    }
+
     await pool.query(
       `INSERT INTO classroom_students (classroom_id, student_id)
        VALUES ($1, $2)
@@ -240,7 +283,7 @@ router.post('/api/teach/join', ensureAuth, async (req, res) => {
        DO UPDATE SET status = 'active'`,
       [classroom.id, req.user.id]
     );
-    res.json({ success: true, classroom: { id: classroom.id, name: classroom.name } });
+    res.json({ success: true, classroom: { id: classroom.id, name: classroom.name, teacher_id: classroom.teacher_id } });
   } catch (err) {
     console.error('❌ join class:', err);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -540,6 +583,8 @@ router.get('/api/student/tasks', ensureAuth, async (req, res) => {
        FROM lessons l
        JOIN classrooms c ON c.id = l.classroom_id
        JOIN classroom_students cs ON cs.classroom_id = c.id AND cs.student_id = $1 AND cs.status = 'active'
+       -- Uniquement les tasks créées après l'inscription (classes partagées)
+       WHERE l.created_at >= COALESCE(cs.joined_at, 'epoch')
        ORDER BY l.created_at DESC`,
       [req.user.id]
     );
@@ -578,17 +623,42 @@ router.get('/api/student/my-classes', ensureAuth, async (req, res) => {
        FROM lessons l
        JOIN classrooms c ON c.id = l.classroom_id
        JOIN classroom_students cs ON cs.classroom_id = c.id AND cs.student_id = $1 AND cs.status = 'active'
+       -- On n'affiche que les tasks créées après l'inscription de l'élève
+       -- (les classes partagées peuvent contenir d'anciennes tasks).
+       WHERE l.created_at >= COALESCE(cs.joined_at, 'epoch')
        ORDER BY l.created_at DESC`,
       [req.user.id]
     );
 
     const tasks = taskRows
-      .filter(t => t.word_count > 0)
+      .filter(t => t.word_count > 0 && t.knowledge < 100)   // masque les tasks maîtrisées (100%)
       .map(t => ({ id: t.id, title: t.title, word_count: t.word_count, knowledge: t.knowledge }));
 
     res.json({ mentors, tasks });
   } catch (err) {
     console.error('❌ student my-classes:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// L'élève quitte un mentor : se désinscrit de toutes ses classes actives
+router.post('/api/student/mentors/:teacherId/leave', ensureAuth, async (req, res) => {
+  try {
+    const teacherId = parseInt(req.params.teacherId, 10);
+    if (!teacherId) return res.status(400).json({ error: 'Mentor invalide' });
+    await pool.query(
+      `UPDATE classroom_students cs
+       SET status = 'removed'
+       FROM classrooms c
+       WHERE cs.classroom_id = c.id
+         AND c.teacher_id = $1
+         AND cs.student_id = $2
+         AND cs.status = 'active'`,
+      [teacherId, req.user.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ leave mentor:', err);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });

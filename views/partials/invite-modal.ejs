@@ -3,7 +3,9 @@
 <style>
   /* Duo de CTA côte à côte (existant + invitation) */
   .cta-duo { display:flex; gap:12px; }
-  .cta-duo > * { flex:1 1 0; min-width:0; display:flex; flex-direction:column; justify-content:center; }
+  .cta-duo > * { flex:1 1 0; min-width:0; min-height:124px; display:flex; flex-direction:column; justify-content:center; }
+  /* Un peu de marge horizontale pour que le texte ne passe pas sous la flèche */
+  .cta-duo > * > .text-center { padding-left:18px; padding-right:18px; }
 
   .invite-launch-card { background:linear-gradient(135deg,#4b5158,#2b2f36); border-radius:16px; color:#fff; cursor:pointer; position:relative; transition:transform .2s ease, box-shadow .2s ease; }
   .invite-launch-arrow { position:absolute; top:10px; right:12px; font-size:1.2rem; color:rgba(255,255,255,.6); transition:transform .25s ease, color .25s ease; pointer-events:none; }

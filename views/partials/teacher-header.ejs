@@ -8,6 +8,7 @@
     align-items: center;
     justify-content: space-between;
   }
+  .teacher-header .th-left { display: flex; align-items: center; gap: 10px; }
   .teacher-header .th-title {
     font-size: 1.5rem;
     font-weight: 800;
@@ -15,12 +16,28 @@
     user-select: none;
     letter-spacing: .5px;
   }
+  .teacher-header .th-badge {
+    font-size: .62rem; font-weight: 800; letter-spacing: .5px;
+    padding: 3px 9px; border-radius: 999px; text-decoration: none; white-space: nowrap;
+  }
+  .teacher-header .th-badge.free    { background: rgba(255,255,255,.92); color: #0d6efd; }
+  .teacher-header .th-badge.premium { background: #ffd54a; color: #5a4500; }
+  .teacher-header .th-badge.guest   { background: #fff; color: #585858; }
   .teacher-header .th-actions { display: flex; align-items: center; gap: 14px; }
   .teacher-header .th-actions a { color: rgba(255,255,255,0.92); font-size: 1.4rem; text-decoration: none; }
   .teacher-header .th-actions a:hover { color: #fff; }
 </style>
 <div class="teacher-header">
-  <span class="th-title" onclick="window.location='/teach'">加油 - Mentors</span>
+  <div class="th-left">
+    <span class="th-title" onclick="window.location='/teach'">加油 - Mentors</span>
+    <% if (typeof isSpecialGuest !== 'undefined' && isSpecialGuest) { %>
+      <span class="th-badge guest">GUEST</span>
+    <% } else if (typeof isPremium !== 'undefined' && isPremium) { %>
+      <span class="th-badge premium">PREMIUM</span>
+    <% } else { %>
+      <a href="/teach/settings" class="th-badge free">FREE</a>
+    <% } %>
+  </div>
   <div class="th-actions">
     <a href="/teach/settings" title="Settings"><i class="bi bi-gear-fill"></i></a>
   </div>
