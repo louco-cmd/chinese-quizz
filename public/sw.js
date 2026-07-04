@@ -124,11 +124,13 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      // Si une fenêtre est déjà ouverte, la focus et naviguer
+      // Si une fenêtre est déjà ouverte : la focus, lui demander de sauter en direct
+      // (postMessage, ne dépend pas d'un reload) ET tenter navigate en repli.
       for (const client of list) {
         if ('focus' in client) {
           client.focus();
-          if ('navigate' in client) client.navigate(targetUrl);
+          client.postMessage({ type: 'NAVIGATE', url: targetUrl });
+          if ('navigate' in client) client.navigate(targetUrl).catch(() => {});
           return;
         }
       }

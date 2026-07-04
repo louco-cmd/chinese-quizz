@@ -353,10 +353,30 @@
             cardContainer.classList.add('fade-in');
             return;
           }
+          // 🎯 Mot poussé par la notif (?word=<id>) : démarrer sur ce mot
           idx = 0;
+          const wid = parseInt(new URLSearchParams(location.search).get('word'), 10);
+          if (!isNaN(wid)) {
+            const found = words.findIndex(w => Number(w.id) === wid);
+            if (found >= 0) idx = found;
+          }
           showCard();
           showList();
           cardContainer.classList.add('fade-in');
+        }
+
+        // 🔔 Notif cliquée alors que l'app est déjà ouverte : sauter au mot en direct
+        // (le service worker ne peut pas toujours recharger un client PWA déjà ouvert)
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.addEventListener('message', (e) => {
+            if (!e.data || e.data.type !== 'NAVIGATE' || !e.data.url) return;
+            const target = new URL(e.data.url, location.origin);
+            if (target.pathname !== '/collection') { location.href = e.data.url; return; }
+            const wid = parseInt(target.searchParams.get('word'), 10);
+            if (isNaN(wid) || !words.length) return;
+            const found = words.findIndex(w => Number(w.id) === wid);
+            if (found >= 0) { idx = found; showCard(); }
+          });
         }
 
 
