@@ -594,21 +594,15 @@
               <!-- Label -->
               <div class="input-label"><%= t.add_a_word %></div>
 
-              <!-- Champ de saisie -->
+              <!-- Champ de saisie — recherche permissive : chinois, pinyin ou anglais -->
               <input type="text" id="chinese" class="chinese-input"
                 placeholder="<%= t.input_placeholder %>"
-                maxlength="<%= quizDirection === 'zh→en' ? '50' : '6' %>"
+                maxlength="50"
                 autocomplete="off"
-                <% if (quizDirection !== 'zh→en') { %>inputmode="text"<% } %>>
+                inputmode="text">
 
-              <!-- Message d'erreur + lien aide clavier -->
+              <!-- Message d'erreur / statut -->
               <div id="errorMessage" class="error-message"></div>
-              <div id="keyboardHelpLink" style="display: none; text-align: center; margin-top: 8px;">
-                <button type="button" onclick="openKeyboardHelp()"
-                  style="background: none; border: none; color: rgba(255,255,255,0.75); font-size: 0.8rem; cursor: pointer; text-decoration: underline; padding: 0;">
-                  <i class="bi bi-keyboard me-1"></i><%= t.how_to_type_chinese %>
-                </button>
-              </div>
 
               <!-- Bouton submit (caché par défaut) -->
               <button type="button" id="submitBtn" class="submit-btn">
@@ -785,67 +779,9 @@
           const value = this.value.trim();
           if (value) {
             submitBtn.classList.add('visible');
-            validateChineseInput(this);
           } else {
             submitBtn.classList.remove('visible');
             errorMessage.textContent = '';
-            document.getElementById('keyboardHelpLink').style.display = 'none';
-            this.classList.remove('valid', 'invalid');
-          }
-        });
-
-        function setErrorWithWhy(msg) {
-          errorMessage.innerHTML = msg + ' &nbsp;<button type="button" onclick="openImmersionPopup()" style="background:none;border:none;padding:0;color:rgba(255,255,255,0.8);font-size:0.85rem;text-decoration:underline;cursor:pointer;vertical-align:middle;">Why?</button>';
-        }
-
-        function validateChineseInput(input) {
-          const value = input.value;
-
-          if (LEARN_DIR === 'zh\u2192en') {
-            const chineseRegex = /[\u4e00-\u9fff\u3400-\u4dbf]/;
-            if (chineseRegex.test(value)) {
-              input.classList.add('invalid');
-              input.classList.remove('valid');
-              setErrorWithWhy('\u8bf7\u7528\u82f1\u6587\u641c\u7d22 \u00b7 Use English words to search');
-              document.getElementById('keyboardHelpLink').style.display = 'none';
-            } else {
-              input.classList.add('valid');
-              input.classList.remove('invalid');
-              errorMessage.innerHTML = '';
-            }
-          } else {
-            const nonChineseRegex = /[^\u4e00-\u9fff]/g;
-            const nonChineseChars = value.match(nonChineseRegex);
-            if (nonChineseChars) {
-              input.classList.add('invalid');
-              input.classList.remove('valid');
-              setErrorWithWhy('Only Chinese characters allowed');
-              document.getElementById('keyboardHelpLink').style.display = 'block';
-            } else {
-              input.classList.add('valid');
-              input.classList.remove('invalid');
-              errorMessage.innerHTML = '';
-              document.getElementById('keyboardHelpLink').style.display = 'none';
-            }
-          }
-        }
-
-        chineseInput.addEventListener('beforeinput', (e) => {
-          if (LEARN_DIR === 'zh\u2192en') {
-            if (e.data && /[\u4e00-\u9fff\u3400-\u4dbf]/.test(e.data)) {
-              e.preventDefault();
-              setErrorWithWhy('\u8bf7\u7528\u82f1\u6587\u641c\u7d22 \u00b7 Use English words to search');
-              chineseInput.classList.add('invalid');
-              chineseInput.classList.remove('valid');
-            }
-          } else {
-            if (e.data && !/[\u4e00-\u9fff]/.test(e.data)) {
-              e.preventDefault();
-              setErrorWithWhy('Only Chinese characters allowed');
-              chineseInput.classList.add('invalid');
-              chineseInput.classList.remove('valid');
-              document.getElementById('keyboardHelpLink').style.display = 'block';
-            }
           }
         });
 
@@ -856,20 +792,6 @@
 
           if (currentRequestController) currentRequestController.abort();
           currentRequestController = new AbortController();
-
-          if (LEARN_DIR === 'zh\u2192en') {
-            // Mode apprendre anglais : valider que c'est bien de l'anglais
-            if (/[\u4e00-\u9fff\u3400-\u4dbf]/.test(inputVal)) {
-              showStatus('\u8bf7\u7528\u82f1\u6587\u641c\u7d22 \u00b7 Use English words to search', 'error');
-              return;
-            }
-          } else {
-            // Mode apprendre chinois : valider que c'est du chinois
-            if (/[^\u4e00-\u9fff]/.test(inputVal)) {
-              showStatus('Only Chinese characters allowed', 'error');
-              return;
-            }
-          }
 
           const chinese = inputVal; // on garde le nom pour compatibilit\u00e9
           currentChinese = chinese;
@@ -1620,194 +1542,6 @@
         }
       </script>
 
-  <!-- ====== POPUP — Immersion philosophy ====== -->
-  <div id="immersionModal" class="confirm-popup" style="display: none;" onclick="if(event.target===this)closeImmersionPopup()">
-    <div class="confirm-popup-content" style="max-width: 420px;">
-      <div class="modal-header-row" style="margin-bottom: 0;">
-        <div style="display:flex; align-items:center; gap: 10px;">
-          <div style="width:40px; height:40px; border-radius:12px; background:#e3f2fd; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-            <i class="bi bi-water" style="color:#0d6efd; font-size:1.2rem;"></i>
-          </div>
-          <h5 style="margin:0; font-size:1.05rem; font-weight:700; color:#111;">Immersion mode</h5>
-        </div>
-        <button type="button" class="btn-close" onclick="closeImmersionPopup()" style="font-size:1rem;"></button>
-      </div>
-
-      <div style="margin-top:20px; color:#444; font-size:0.93rem; line-height:1.65;">
-        <p style="margin-bottom:12px;">
-          Jiayou isn't a dictionary. You're not here to look up words — you're here to <strong>collect words you've already met</strong>.
-        </p>
-        <p style="margin-bottom:12px;">
-          That's why you search in the language you're <strong>learning</strong>. If you've seen a word in the wild and want to capture it, you should already have a sense of it. That effort is the learning.
-        </p>
-        <p style="margin-bottom:0; color:#888; font-size:0.85rem;">
-          <i class="bi bi-lightbulb me-1 text-warning"></i><% if (quizDirection === 'zh→en') { %>Encountered an English word somewhere? Type it here to add it to your collection.<% } else { %>Spotted a Chinese character somewhere? Type it here to capture it.<% } %>
-        </p>
-      </div>
-
-      <button type="button" class="modal-btn-primary" onclick="closeImmersionPopup()" style="margin-top:24px; width:100%;">
-        Got it
-      </button>
-    </div>
-  </div>
-
-  <!-- ====== POPUP — Chinese keyboard setup guide ====== -->
-  <div id="keyboardHelpModal" class="confirm-popup" style="display: none;">
-    <div class="confirm-popup-content" style="max-width: 500px; max-height: 85vh; overflow-y: auto;">
-      <div class="modal-header-row">
-        <h5><i class="bi bi-keyboard text-primary me-2"></i>How to type Chinese?</h5>
-        <button type="button" class="btn-close" onclick="closeKeyboardHelp()" style="font-size: 1rem;"></button>
-      </div>
-
-      <p style="color: #555; font-size: 0.95rem; margin-bottom: 20px;">
-        You need a <strong>Chinese (Pinyin) keyboard</strong> installed on your device. Choose your platform:
-      </p>
-
-      <!-- Platform tabs -->
-      <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
-        <button onclick="showKbTab('iphone')" id="tab-iphone" class="kb-tab kb-tab-active">
-          <i class="bi bi-phone me-1"></i>iPhone
-        </button>
-        <button onclick="showKbTab('android')" id="tab-android" class="kb-tab">
-          <i class="bi bi-android2 me-1"></i>Android
-        </button>
-        <button onclick="showKbTab('windows')" id="tab-windows" class="kb-tab">
-          <i class="bi bi-windows me-1"></i>Windows
-        </button>
-        <button onclick="showKbTab('mac')" id="tab-mac" class="kb-tab">
-          <i class="bi bi-apple me-1"></i>Mac
-        </button>
-      </div>
-
-      <!-- iPhone -->
-      <div id="kb-iphone" class="kb-panel">
-        <ol class="kb-steps">
-          <li>Open <strong>Settings</strong> → <strong>General</strong></li>
-          <li>Tap <strong>Keyboard</strong> → <strong>Keyboards</strong></li>
-          <li>Tap <strong>Add New Keyboard…</strong></li>
-          <li>Scroll to <strong>Chinese (Simplified)</strong></li>
-          <li>Select <strong>Pinyin</strong> and tap Done</li>
-          <li>When typing, press 🌐 or hold the emoji key to switch keyboard</li>
-        </ol>
-        <div class="kb-tip">
-          <i class="bi bi-lightbulb-fill me-1 text-warning"></i>
-          Type pinyin letters (e.g. <strong>ni hao</strong>) and select the character from the suggestion bar above the keyboard.
-        </div>
-      </div>
-
-      <!-- Android -->
-      <div id="kb-android" class="kb-panel" style="display: none;">
-        <ol class="kb-steps">
-          <li>Open <strong>Settings</strong> → <strong>General Management</strong> (or <em>System</em>)</li>
-          <li>Tap <strong>Language and Input</strong> → <strong>On-screen keyboard</strong></li>
-          <li>Tap <strong>Manage keyboards</strong> (or <em>Add keyboard</em>)</li>
-          <li>Enable <strong>Google Pinyin Input</strong> or install <strong>Gboard</strong> from Play Store</li>
-          <li>In Gboard: go to <em>Settings → Languages → Add keyboard → Chinese (Simplified) → Pinyin</em></li>
-          <li>When typing, hold the space bar to change language</li>
-        </ol>
-        <div class="kb-tip">
-          <i class="bi bi-lightbulb-fill me-1 text-warning"></i>
-          Gboard is recommended — type pinyin and choose characters from the suggestion bar.
-        </div>
-      </div>
-
-      <!-- Windows -->
-      <div id="kb-windows" class="kb-panel" style="display: none;">
-        <ol class="kb-steps">
-          <li>Open <strong>Settings</strong> → <strong>Time &amp; Language</strong> → <strong>Language &amp; Region</strong></li>
-          <li>Click <strong>Add a language</strong>, search for <strong>Chinese (Simplified, China)</strong></li>
-          <li>Select it and click <strong>Next</strong> → <strong>Install</strong></li>
-          <li>Once installed, press <strong>Windows + Space</strong> to switch input language</li>
-          <li>Look for the <strong>中</strong> icon in the taskbar to confirm Chinese mode is active</li>
-          <li>Type pinyin and press <strong>Space</strong> or pick a character from the popup</li>
-        </ol>
-        <div class="kb-tip">
-          <i class="bi bi-lightbulb-fill me-1 text-warning"></i>
-          Use <strong>Win + Space</strong> to toggle between English and Chinese at any time.
-        </div>
-      </div>
-
-      <!-- Mac -->
-      <div id="kb-mac" class="kb-panel" style="display: none;">
-        <ol class="kb-steps">
-          <li>Open <strong>System Settings</strong> → <strong>Keyboard</strong></li>
-          <li>Click <strong>Edit…</strong> next to Input Sources</li>
-          <li>Click <strong>+</strong>, choose <strong>Chinese, Simplified</strong> → <strong>Pinyin – Simplified</strong></li>
-          <li>Click <strong>Add</strong></li>
-          <li>Use <strong>⌃Space</strong> (or click the flag in the menu bar) to switch input method</li>
-          <li>Type pinyin and press <strong>Space</strong> or select a character from the candidate window</li>
-        </ol>
-        <div class="kb-tip">
-          <i class="bi bi-lightbulb-fill me-1 text-warning"></i>
-          Enable <em>Show Input menu in menu bar</em> for quick access to the language switcher.
-        </div>
-      </div>
-
-      <div style="margin-top: 20px;">
-        <button type="button" class="modal-btn-primary" onclick="closeKeyboardHelp()">Got it!</button>
-      </div>
-    </div>
-  </div>
-
-  <style>
-    .kb-tab {
-      flex: 1;
-      min-width: 90px;
-      padding: 8px 12px;
-      border-radius: 10px;
-      border: 2px solid #e0e0e0;
-      background: #fff;
-      color: #555;
-      font-weight: 600;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .kb-tab:hover { background: #f5f5f7; }
-    .kb-tab-active {
-      border-color: #0d6efd;
-      background: #e7f1ff;
-      color: #0d6efd;
-    }
-    .kb-steps {
-      padding-left: 20px;
-      margin: 0 0 16px 0;
-      color: #333;
-      font-size: 0.93rem;
-      line-height: 1.7;
-    }
-    .kb-steps li { margin-bottom: 4px; }
-    .kb-tip {
-      background: #fffbea;
-      border: 1px solid #ffe082;
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 0.85rem;
-      color: #555;
-    }
-  </style>
-
-  <script>
-    function openKeyboardHelp() {
-      document.getElementById('keyboardHelpModal').style.display = 'flex';
-    }
-
-    function closeKeyboardHelp() {
-      document.getElementById('keyboardHelpModal').style.display = 'none';
-    }
-    function openImmersionPopup() {
-      document.getElementById('immersionModal').style.display = 'flex';
-    }
-    function closeImmersionPopup() {
-      document.getElementById('immersionModal').style.display = 'none';
-    }
-    function showKbTab(platform) {
-      ['iphone','android','windows','mac'].forEach(p => {
-        document.getElementById('kb-' + p).style.display = p === platform ? 'block' : 'none';
-        document.getElementById('tab-' + p).classList.toggle('kb-tab-active', p === platform);
-      });
-    }
-  </script>
 </body>
 
 </html>

@@ -410,7 +410,8 @@ app.get("/auth/google",
 
 app.get("/auth/google/callback",
   passport.authenticate("google", {
-    failureRedirect: "/?error=auth_failed"
+    failureRedirect: "/?error=auth_failed",
+    keepSessionInfo: true // conserve session.pendingRef (parrainage) au login (passport ≥0.6 régénère la session)
   }),
   (req, res) => {
     console.log("AUTH OK - USER :", req.user); // 👈 ajoute ça
@@ -482,7 +483,7 @@ app.post('/auth/google/one-tap', async (req, res) => {
     }
 
     // Connectez l'utilisateur (avec Passport.js si vous l'utilisez)
-    req.login(user, (err) => {
+    req.login(user, { keepSessionInfo: true }, (err) => {
       if (err) {
         return res.status(500).json({ error: 'Login failed' });
       }
@@ -645,7 +646,7 @@ app.post('/auth/login-basic', async (req, res) => {
     }
 
     console.log('🔐 Appel de req.login...');
-    req.login(user, (err) => {
+    req.login(user, { keepSessionInfo: true }, (err) => {
       if (err) {
         console.error('❌ Erreur req.login:', err);
         return res.status(500).json({ error: 'Login failed' });

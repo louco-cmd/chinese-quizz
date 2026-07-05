@@ -645,15 +645,25 @@ router.get('/search-mots', ensureAuth, async (req, res) => {
     const raw = (req.query.q || '').trim();
     if (!raw) return res.json({ results: [] });
 
-    const isZhEn = (req.user.quiz_direction === 'zh→en');
     // Échapper les wildcards LIKE pour que %/_ tapés soient littéraux
     const escaped = raw.replace(/[\\%_]/g, c => '\\' + c);
-    const pattern = `%${escaped}%`;
+    const like = `%${escaped}%`;
 
-    // Colonne cherchée selon la direction d'apprentissage
-    const field = isZhEn ? 'm.english' : 'm.chinese';
-    // Comparaison exacte insensible à la casse pour l'anglais, stricte pour le chinois
-    const exactExpr = isZhEn ? 'LOWER(m.english) = LOWER($3)' : 'm.chinese = $3';
+    // Normalisation du pinyin : minuscules, sans tons (diacritiques), lettres a-z uniquement.
+    // Permet de trouver 你好 en tapant "nihao", "ni hao" ou "nǐ hǎo" (sans clavier chinois).
+    const pinyinNorm = raw.normalize('NFD').replace(/[̀-ͯ]/g, '')
+                          .toLowerCase().replace(/[^a-z]/g, '');
+
+    // Recherche ULTRA permissive : chinois, anglais ET pinyin, quelle que soit la direction.
+    const clauses = [`m.chinese ILIKE $1 ESCAPE '\\'`, `m.english ILIKE $1 ESCAPE '\\'`];
+    const params = [like, req.user.id, raw];
+    // Colonne pinyin normalisée côté SQL (tons retirés via translate, puis on ne garde que a-z)
+    const pinyinColNorm =
+      `regexp_replace(translate(lower(m.pinyin),'üāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ','uaaaaeeeeiiiioooouuuuuuuu'),'[^a-z]','','g')`;
+    if (pinyinNorm) {
+      params.push(`%${pinyinNorm}%`);
+      clauses.push(`${pinyinColNorm} LIKE $${params.length}`);
+    }
 
     const { rows } = await pool.query(
       `SELECT m.id, m.chinese, m.pinyin, m.english, m.description, m.description_zh, m.hsk,
@@ -661,11 +671,11 @@ router.get('/search-mots', ensureAuth, async (req, res) => {
               BOOL_OR(um.user_id = $2) AS owned
        FROM mots m
        LEFT JOIN user_mots um ON um.mot_id = m.id
-       WHERE ${field} ILIKE $1 ESCAPE '\\'
+       WHERE ${clauses.join(' OR ')}
        GROUP BY m.id
-       ORDER BY (${exactExpr}) DESC, owner_count DESC, m.id ASC
-       LIMIT 3`,
-      [pattern, req.user.id, raw]
+       ORDER BY (m.chinese = $3 OR LOWER(m.english) = LOWER($3)) DESC, owner_count DESC, m.id ASC
+       LIMIT 8`,
+      params
     );
 
     res.json({ results: rows });
