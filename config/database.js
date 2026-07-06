@@ -137,6 +137,22 @@ const pool = new Pool({
     `);
     console.log("✅ Fix quiz_direction : anciens comptes remis à 'en→zh'.");
 
+    // ── Migration: interface_lang (langue de l'UI, DÉCOUPLÉE de la direction) ──
+    // 'en' | 'zh'. Découple la langue de l'interface de ce qu'on apprend.
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS interface_lang VARCHAR(5)
+    `);
+    // Backfill : dérive la langue UI de la direction pour les comptes existants
+    // (préserve le comportement actuel). Ne touche que les NULL → n'écrase jamais
+    // un choix explicite fait ensuite dans l'onboarding/les réglages.
+    await pool.query(`
+      UPDATE users
+      SET interface_lang = CASE WHEN quiz_direction = 'zh→en' THEN 'zh' ELSE 'en' END
+      WHERE interface_lang IS NULL
+    `);
+    console.log("✅ Colonne 'interface_lang' vérifiée + backfill.");
+
     // ⚠️ SUPPRIMÉ : ancienne migration "resync stripe_status = status" au démarrage.
     // Elle écrasait stripe_status (la source de vérité, alimentée par les webhooks
     // Stripe) avec la colonne `status`, ce qui annulait de vrais abonnements actifs

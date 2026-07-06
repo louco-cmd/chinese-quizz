@@ -830,7 +830,7 @@
             const c = escapeHtml(w.chinese), p = escapeHtml(w.pinyin), e = escapeHtml(w.english);
             const primary = isZhEn ? e : c;
             const secondary = isZhEn ? c : e;
-            const exact = (i === 0 && isExact(w));
+            const exact = isExact(w);
             const owners = (w.owner_count || 0) > 0
               ? `<div class="bc-meta"><i class="bi bi-people"></i> ${w.owner_count} ${w.owner_count == 1 ? 'user' : 'users'}</div>`
               : `<div class="bc-meta">&nbsp;</div>`;
@@ -855,8 +855,8 @@
           }).join('');
 
           // Carte "créer un nouveau" en dernier — SAUF si une correspondance exacte
-          // existe déjà (position 0), pour éviter les doublons du même mot.
-          const hasExact = results.length > 0 && isExact(results[0]);
+          // existe (sur n'importe quel champ), pour éviter les doublons du même mot.
+          const hasExact = results.some(isExact);
           if (!hasExact) {
             cards += `
               <div class="booster-card create" onclick="createFromSearch()">
@@ -908,11 +908,18 @@
           displayNewWordModal();
         }
 
+        // Perfect match = la saisie correspond exactement à N'IMPORTE quel champ
+        // (chinois, anglais, ou pinyin sans tons), quelle que soit la direction.
         function isExact(w) {
-          if (LEARN_DIR === 'zh→en') {
-            return (w.english || '').toLowerCase() === currentChinese.toLowerCase();
-          }
-          return w.chinese === currentChinese;
+          const q = (currentChinese || '').trim();
+          if (!q) return false;
+          const normPinyin = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+                                    .toLowerCase().replace(/[^a-z]/g, '');
+          const qLower = q.toLowerCase();
+          const qPin = normPinyin(q);
+          return (w.chinese || '') === q
+              || (w.english || '').toLowerCase() === qLower
+              || (qPin && normPinyin(w.pinyin) === qPin);
         }
 
         function closeSearchResults() {

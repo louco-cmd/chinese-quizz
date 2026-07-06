@@ -488,6 +488,26 @@
       </label>
     </div>
 
+    <hr class="my-4">
+
+    <!-- Interface language (découplé de la direction) -->
+    <div class="step-label"><i class="bi bi-translate me-1"></i>Interface language</div>
+
+    <div class="dir-options mb-3">
+      <label class="dir-option">
+        <input type="radio" name="onboardLang" value="en" checked>
+        <span class="dir-emoji">🇬🇧</span>
+        <div class="dir-title">English</div>
+        <div class="dir-sub">App menus in English</div>
+      </label>
+      <label class="dir-option">
+        <input type="radio" name="onboardLang" value="zh">
+        <span class="dir-emoji">🇨🇳</span>
+        <div class="dir-title">中文</div>
+        <div class="dir-sub">App menus in Chinese</div>
+      </label>
+    </div>
+
     <button class="btn btn-start" id="startBtn" onclick="submitOnboarding()">
       Let's go 加油！🚀
     </button>
@@ -593,6 +613,7 @@
     const tagline      = document.getElementById('onboardTagline').value.trim();
     const country      = document.getElementById('onboardCountry').value;
     const quiz_direction = document.querySelector('input[name="onboardDir"]:checked')?.value || 'zh→en';
+    const interface_lang = document.querySelector('input[name="onboardLang"]:checked')?.value || 'en';
 
     const btn = document.getElementById('startBtn');
     btn.disabled = true;
@@ -603,7 +624,7 @@
       const r1 = await fetch('/api/user/update-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, tagline, country, quiz_direction }),
+        body: JSON.stringify({ name, tagline, country, quiz_direction, interface_lang }),
         credentials: 'include'
       });
       if (!r1.ok) throw new Error('Profile save failed');

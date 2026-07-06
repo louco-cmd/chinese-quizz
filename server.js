@@ -159,7 +159,13 @@ app.use(async (req, res, next) => {
   res.locals.ghostMode            = req.user?.ghost_mode || false;
   res.locals.notificationsEnabled = req.user?.notifications_enabled || false;
   res.locals.wordReviewEnabled    = req.user?.word_review_enabled || false;
-  res.locals.t = i18n[req.user?.quiz_direction === 'zh→en' ? 'zh' : 'en'];
+  // Langue de l'interface : découplée de la direction d'apprentissage.
+  // Priorité à interface_lang ; sinon on dérive de la direction (comptes non backfillés).
+  const uiLang = (req.user?.interface_lang === 'zh' || req.user?.interface_lang === 'en')
+    ? req.user.interface_lang
+    : (req.user?.quiz_direction === 'zh→en' ? 'zh' : 'en');
+  res.locals.interfaceLang = uiLang;
+  res.locals.t = i18n[uiLang];
 
   if (!req.isAuthenticated()) return next();
 

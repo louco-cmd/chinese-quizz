@@ -1107,16 +1107,13 @@
         const dateStr = date.toISOString().split('T')[0];
         const dateNorm = new Date(date);
         dateNorm.setHours(0, 0, 0, 0);
-        const isFuture = dateNorm > todayNorm;
+        // Ne montrer que aujourd'hui et les jours passés (on masque les jours à venir)
+        if (dateNorm > todayNorm) return;
 
+        const count = map[dateStr] || 0;
         const day = document.createElement('div');
-        if (isFuture) {
-          day.className = 'contribution-day future-day';
-        } else {
-          const count = map[dateStr] || 0;
-          day.className = `contribution-day level-${getContributionLevel(count)}`;
-          day.title = `${formatDate(dateStr)}: ${count} quiz`;
-        }
+        day.className = `contribution-day level-${getContributionLevel(count)}`;
+        day.title = `${formatDate(dateStr)}: ${count} quiz`;
         grid.appendChild(day);
       });
     }

@@ -123,8 +123,10 @@ const translations = {
     // Settings
     settings_title:         'Settings',
     learning_section:       'Learning',
-    learning_direction:     'Learning direction',
+    learning_direction:     'Learning language',
     learning_direction_sub: 'What language are you learning?',
+    interface_language:     'Interface language',
+    interface_language_sub: 'The language of the app menus',
     learning_chinese:       "I'm learning Chinese",
     learning_english:       "I'm learning English",
     notif_section:          'Notifications',
@@ -258,8 +260,10 @@ const translations = {
     // Settings
     settings_title:         '设置',
     learning_section:       '学习',
-    learning_direction:     '测验方向',
+    learning_direction:     '学习语言',
     learning_direction_sub: '你在学习哪种语言？',
+    interface_language:     '界面语言',
+    interface_language_sub: '应用菜单的语言',
     learning_chinese:       '我在学中文',
     learning_english:       '我在学英文',
     notif_section:          '通知',

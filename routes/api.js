@@ -1113,6 +1113,23 @@ router.post('/api/user/learning-direction', ensureAuth, async (req, res) => {
   }
 });
 
+// ── Langue de l'interface (settings) — découplée de la direction ─────────────
+router.post('/api/user/interface-language', ensureAuth, async (req, res) => {
+  try {
+    const VALID = ['en', 'zh'];
+    const { interface_lang } = req.body;
+    if (!VALID.includes(interface_lang)) {
+      return res.status(400).json({ success: false, message: 'Invalid language' });
+    }
+    await pool.query('UPDATE users SET interface_lang = $1 WHERE id = $2', [interface_lang, req.user.id]);
+    req.user.interface_lang = interface_lang;
+    res.json({ success: true, interface_lang });
+  } catch (err) {
+    console.error('Interface language error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Définit le rôle (choisi à l'onboarding : élève ou professeur)
 router.post('/api/user/role', ensureAuth, async (req, res) => {
   try {
@@ -1136,9 +1153,10 @@ router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const { name, tagline, country, quiz_direction } = req.body;
+    const { name, tagline, country, quiz_direction, interface_lang } = req.body;
 
     const VALID_DIRECTIONS = ['zh→en', 'en→zh'];
+    const uiLang = ['en', 'zh'].includes(interface_lang) ? interface_lang : null;
 
     if (!name || name.length > 50) {
       await client.query('ROLLBACK');
@@ -1164,18 +1182,20 @@ router.post('/api/user/update-profile', ensureAuth, async (req, res) => {
       });
     }
 
-    // Mettre à jour le profil
+    // Mettre à jour le profil (interface_lang : COALESCE → ne l'écrase pas si absent)
     await client.query(
       `UPDATE users
-       SET name = $1, tagline = $2, country = $3, quiz_direction = $4
-       WHERE id = $5`,
-      [name, tagline, country, quiz_direction || 'en→zh', req.user.id]
+       SET name = $1, tagline = $2, country = $3, quiz_direction = $4,
+           interface_lang = COALESCE($5, interface_lang)
+       WHERE id = $6`,
+      [name, tagline, country, quiz_direction || 'en→zh', uiLang, req.user.id]
     );
 
     await client.query('COMMIT');
 
     // Mettre à jour req.user en mémoire
     req.user.quiz_direction = quiz_direction || req.user.quiz_direction;
+    if (uiLang) req.user.interface_lang = uiLang;
 
     res.json({
       success: true,
@@ -1254,7 +1274,8 @@ async function creditReferralIfAny(req) {
       [referrerId, req.user.id]
     );
     if (upd.rowCount === 1) {
-      await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [reward, referrerId]);
+      // Crédite via addTransaction pour que le bonus apparaisse dans l'historique (page bank)
+      await addTransaction(client, referrerId, reward, 'referral', 'Referral bonus');
     }
     await client.query('COMMIT');
   } catch (e) {
@@ -1695,6 +1716,7 @@ router.get('/api/duels/leaderboard', ensureAuth, async (req, res) => {
       LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
       WHERE u.quiz_direction = $1
         AND u.ghost_mode = FALSE
+        AND u.role <> 'teacher'
       GROUP BY u.id, u.name, u.email
       HAVING COUNT(CASE WHEN d.status = 'completed' THEN 1 END) > 0
       ORDER BY wins DESC, ratio DESC
@@ -1798,6 +1820,7 @@ router.get('/api/players/stats', ensureAuth, async (req, res) => {
       WHERE u.id IN (SELECT DISTINCT user_id FROM user_mots)
         AND u.quiz_direction = $1
         AND u.ghost_mode = FALSE
+        AND u.role <> 'teacher'
       GROUP BY u.id, u.name, u.tagline, u.country
       ORDER BY wins DESC, total_words DESC, losses ASC
     `, [req.user.quiz_direction || 'en→zh']);
@@ -1884,6 +1907,7 @@ router.get('/api/duels/stats', ensureAuth, async (req, res) => {
           LEFT JOIN user_mots uw ON u.id = uw.user_id
           LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id)
           WHERE u.quiz_direction = $2
+            AND u.role <> 'teacher'
           GROUP BY u.id
         ) sub
       ) ranked

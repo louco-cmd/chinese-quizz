@@ -79,16 +79,17 @@
       gap: 8px;
     }
 
+    /* Gélules légères, choix unique */
     .dir-btn {
       flex: 1;
-      border: 2px solid #e0e0e0;
-      border-radius: 12px;
-      padding: 8px 10px;
+      border: 1.5px solid #e2e6ea;
+      border-radius: 999px;
+      padding: 9px 14px;
       text-align: center;
       cursor: pointer;
       transition: all 0.18s ease;
       background: white;
-      font-size: 0.82rem;
+      font-size: 0.85rem;
       font-weight: 600;
       color: #555;
     }
@@ -97,12 +98,6 @@
       border-color: #0d6efd;
       background: #e8f0ff;
       color: #0d6efd;
-    }
-
-    .dir-btn .dir-flag {
-      font-size: 1.2rem;
-      display: block;
-      margin-bottom: 2px;
     }
 
     /* Ghost mode warning */
@@ -180,13 +175,35 @@
         <div class="dir-picker w-100" id="dirPicker">
           <button class="dir-btn <%= quizDirection === 'en→zh' ? 'active' : '' %>"
             data-dir="en→zh" onclick="setDirection('en→zh')">
-            <span class="dir-flag">🇬🇧 → 🇨🇳</span>
             I'm learning Chinese
           </button>
           <button class="dir-btn <%= quizDirection === 'zh→en' ? 'active' : '' %>"
             data-dir="zh→en" onclick="setDirection('zh→en')">
-            <span class="dir-flag">🇨🇳 → 🇬🇧</span>
             I'm learning English
+          </button>
+        </div>
+      </div>
+
+      <!-- ── INTERFACE LANGUAGE (découplée de la direction) ── -->
+      <div class="settings-row" style="flex-direction: column; align-items: flex-start;">
+        <div class="d-flex align-items-center gap-3 mb-3 w-100">
+          <div class="settings-row-icon" style="background:#e8f0ff; color:#0d6efd;">
+            <i class="bi bi-globe2"></i>
+          </div>
+          <div class="settings-row-label">
+            <div class="label-main"><%= t.interface_language %></div>
+            <div class="label-sub"><%= t.interface_language_sub %></div>
+          </div>
+        </div>
+
+        <div class="dir-picker w-100" id="langPicker">
+          <button class="dir-btn <%= interfaceLang === 'en' ? 'active' : '' %>"
+            data-lang="en" onclick="setInterfaceLang('en')">
+            English
+          </button>
+          <button class="dir-btn <%= interfaceLang === 'zh' ? 'active' : '' %>"
+            data-lang="zh" onclick="setInterfaceLang('zh')">
+            中文
           </button>
         </div>
       </div>
@@ -428,8 +445,8 @@
 
     // ── Learning direction ────────────────────────────────────────────────────
     async function setDirection(dir) {
-      // UI immediate
-      document.querySelectorAll('.dir-btn').forEach(b => {
+      // UI immediate (scopé au picker de direction uniquement)
+      document.querySelectorAll('#dirPicker .dir-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.dir === dir);
       });
 
@@ -445,6 +462,31 @@
           showToast('✓ Learning direction updated — reload to apply everywhere');
         } else {
           showToast('❌ Error saving direction');
+        }
+      } catch (e) {
+        showToast('❌ Network error');
+      }
+    }
+
+    // ── Interface language (langue de l'UI, découplée de la direction) ─────────
+    async function setInterfaceLang(lang) {
+      document.querySelectorAll('#langPicker .dir-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.lang === lang);
+      });
+
+      try {
+        const res = await fetch('/api/user/interface-language', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ interface_lang: lang }),
+          credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('✓ Interface language updated — reloading…');
+          setTimeout(() => location.reload(), 700);
+        } else {
+          showToast('❌ Error saving language');
         }
       } catch (e) {
         showToast('❌ Network error');
