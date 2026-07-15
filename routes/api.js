@@ -2511,14 +2511,13 @@ router.get('/api/subscription-status', ensureAuth, async (req, res) => {
 
     const row = rows[0] || {};
     const isSpecialGuest = row.special_guest === true;
-    const now = new Date();
-    const periodEnd = row.current_period_end ? new Date(row.current_period_end) : null;
 
+    // ⚠️ stripe_status='active' fait foi — pas de gate sur la date locale
+    // (cf. middleware/subscription.js et expireFinishedSubscriptions).
     const allActive = row.plan_name === 'premium'
                    && row.status        === 'active'
                    && row.stripe_status === 'active';
-    const periodOk  = !periodEnd || periodEnd > now;
-    const isPremium = isSpecialGuest || (allActive && periodOk);
+    const isPremium = isSpecialGuest || allActive;
 
     res.json({
       isPremium,

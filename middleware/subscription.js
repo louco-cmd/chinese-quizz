@@ -61,17 +61,14 @@ exports.withSubscription = async (req, res, next) => {
         && row.stripe_status === 'active';
 
       if (allActive) {
+        // ⚠️ stripe_status='active' fait foi. On NE se fie PAS à la date locale
+        // pour expirer (elle peut être périmée si un webhook de renouvellement a
+        // été manqué) — ne JAMAIS écrire 'free' ici. La réconciliation Stripe
+        // horaire (expireFinishedSubscriptions) rafraîchit la date, et ne coupe
+        // l'accès que si Stripe lui-même n'est plus actif.
+        isPremium = true;
         if (periodEnd && periodEnd < now) {
-          // Période dépassée sans webhook → on corrige et on passe en free
-          console.log(`⚠️ [SUBSCRIPTION] Période expirée pour user ${userId} → correction en base`);
-          await pool.query(`
-            UPDATE user_subscriptions
-            SET stripe_status = 'expired', status = 'expired', plan_name = 'free', updated_at = NOW()
-            WHERE user_id = $1
-          `, [userId]);
-          isPremium = false;
-        } else {
-          isPremium = true;
+          console.log(`ℹ️ [SUBSCRIPTION] user ${userId}: période locale périmée mais Stripe actif — premium conservé, réconciliation différée.`);
         }
       } else {
         // status ou stripe_status divergent → pas premium

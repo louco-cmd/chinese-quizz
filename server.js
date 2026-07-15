@@ -38,6 +38,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const PostgreSQLStore = require('connect-pg-simple')(session);
 const apiRoutes = require('./routes/api');
 const teachRoutes = require('./routes/teach');
+const { router: mobileRoutes } = require('./routes/mobile');
 const { pool } = require('./config/database');
 const { listenerCount } = require('process');
 const app = express();
@@ -186,13 +187,16 @@ app.use(async (req, res, next) => {
 
     const row = rows[0] || {};
     const isSpecialGuest = row.special_guest === true;
-    const periodEnd      = row.current_period_end ? new Date(row.current_period_end) : null;
-    const periodOk       = !periodEnd || periodEnd >= new Date();
-    // Exige l'accord des 3 colonnes (plan_name + status + stripe_status)
+    // Exige l'accord des 3 colonnes (plan_name + status + stripe_status).
+    // ⚠️ On NE gate PAS sur current_period_end (date locale) : si un webhook de
+    // renouvellement a été manqué, elle peut être périmée alors que Stripe est
+    // toujours actif. stripe_status='active' fait foi ; la réconciliation Stripe
+    // horaire (expireFinishedSubscriptions) corrige la date et coupe vraiment
+    // l'accès quand Stripe lui-même n'est plus actif.
     const allActive      = row.plan_name === 'premium'
                         && row.sub_status  === 'active'
                         && row.stripe_status === 'active';
-    const isPremium      = isSpecialGuest || (allActive && periodOk);
+    const isPremium      = isSpecialGuest || allActive;
 
     req.user.isPremium      = isPremium;
     req.user.isSpecialGuest = isSpecialGuest;
@@ -397,6 +401,7 @@ app.use('/api', apiLimiter);
 
 app.use("/", teachRoutes);
 app.use("/", apiRoutes);
+app.use("/", mobileRoutes); // API mobile (JWT) pour l'app React Native
 
 
 // Connexion google
@@ -1807,12 +1812,10 @@ app.get('/welcome-jiayou-premium', ensureAuth, async (req, res) => {
           let periodStart = null, periodEnd = null;
           try {
             const stripeSub = await stripe.subscriptions.retrieve(session.subscription);
-            periodStart = stripeSub.current_period_start
-              ? new Date(stripeSub.current_period_start * 1000)
-              : null;
-            periodEnd = stripeSub.current_period_end
-              ? new Date(stripeSub.current_period_end * 1000)
-              : null;
+            // API clover : les périodes sont sur l'item, pas à la racine.
+            const p = extractStripePeriod(stripeSub);
+            periodStart = p.periodStartDate;
+            periodEnd = p.periodEndDate;
           } catch (e) {
             console.warn('⚠️ Impossible de récupérer les dates de période:', e.message);
           }
@@ -1928,11 +1931,12 @@ app.get('/check-subscription-dates', ensureAuth, async (req, res) => {
         const stripeSub = await stripe.subscriptions.retrieve(
           subscription.stripe_subscription_id
         );
+        const p = extractStripePeriod(stripeSub);
         stripeData = {
           id: stripeSub.id,
           status: stripeSub.status,
-          current_period_start: new Date(stripeSub.current_period_start * 1000),
-          current_period_end: new Date(stripeSub.current_period_end * 1000),
+          current_period_start: p.periodStartDate,
+          current_period_end: p.periodEndDate,
           cancel_at_period_end: stripeSub.cancel_at_period_end
         };
       } catch (stripeError) {
@@ -2023,9 +2027,25 @@ app.post('/webhook',
           await handleSubscriptionEvent(event.data.object, event.type);
           break;
 
+        // Renouvellement payé → rafraîchir la période (source la plus fiable).
+        case 'invoice.paid':
+        case 'invoice.payment_succeeded': {
+          const subId = invoiceSubscriptionId(event.data.object);
+          console.log(`✅ ${event.type}:`, subId);
+          if (subId) {
+            try {
+              const stripeSub = await stripe.subscriptions.retrieve(subId);
+              await handleSubscriptionEvent(stripeSub, event.type);
+            } catch (e) {
+              console.warn('⚠️ invoice.paid: retrieve subscription échoué:', e.message);
+            }
+          }
+          break;
+        }
+
         // Paiement échoué → passer en past_due / free
         case 'invoice.payment_failed':
-          console.log('💸 invoice.payment_failed:', event.data.object.subscription);
+          console.log('💸 invoice.payment_failed:', invoiceSubscriptionId(event.data.object));
           await handleInvoicePaymentFailed(event.data.object);
           break;
 
@@ -2128,31 +2148,51 @@ async function handleCheckoutSessionCompleted(session) {
 }
 
 // ==========================================
+// 🧰 HELPERS STRIPE (API 2025-12-15.clover)
+// ==========================================
+// ⚠️ Depuis l'API "basil/clover", current_period_start/end n'existent PLUS au
+// niveau racine de l'objet Subscription : ils sont portés par l'item d'abonnement
+// (subscription.items.data[0]). Toujours passer par ce helper pour les lire,
+// sinon on récupère `undefined` → dates NULL → cache local incohérent.
+function extractStripePeriod(subscription) {
+  let periodEnd = null;
+  let periodStart = null;
+  if (subscription?.items?.data?.length > 0) {
+    const firstItem = subscription.items.data[0];
+    periodEnd = firstItem.current_period_end;
+    periodStart = firstItem.current_period_start;
+  }
+  // Fallback pour d'éventuels objets pré-basil.
+  if (!periodEnd && subscription?.current_period_end) periodEnd = subscription.current_period_end;
+  if (!periodStart && subscription?.current_period_start) periodStart = subscription.current_period_start;
+  return {
+    periodEndDate: periodEnd ? new Date(periodEnd * 1000) : null,
+    periodStartDate: periodStart ? new Date(periodStart * 1000) : null,
+  };
+}
+
+// Résout l'ID de subscription depuis un objet Invoice de façon défensive :
+// `invoice.subscription` a été retiré des API récentes au profit de
+// invoice.parent.subscription_details.subscription (ou côté line items).
+function invoiceSubscriptionId(invoice) {
+  return (
+    invoice.subscription ||
+    invoice.parent?.subscription_details?.subscription ||
+    invoice.lines?.data?.find((l) => l.parent?.subscription_item_details?.subscription)
+      ?.parent?.subscription_item_details?.subscription ||
+    null
+  );
+}
+
+// ==========================================
 // 📝 HANDLER SUBSCRIPTION - VERSION SIMPLIFIÉE
 // ==========================================
 async function handleSubscriptionEvent(subscription, eventType) {
   console.log(`🔔 ${eventType.toUpperCase()} - ID: ${subscription.id}`);
 
   try {
-    // 1. EXTRAIRE LES DATES
-    let periodEnd = null;
-    let periodStart = null;
-
-    if (subscription.items?.data?.length > 0) {
-      const firstItem = subscription.items.data[0];
-      periodEnd = firstItem.current_period_end;
-      periodStart = firstItem.current_period_start;
-    }
-
-    if (!periodEnd && subscription.current_period_end) {
-      periodEnd = subscription.current_period_end;
-    }
-    if (!periodStart && subscription.current_period_start) {
-      periodStart = subscription.current_period_start;
-    }
-
-    const periodEndDate = periodEnd ? new Date(periodEnd * 1000) : null;
-    const periodStartDate = periodStart ? new Date(periodStart * 1000) : null;
+    // 1. EXTRAIRE LES DATES (item-first, cf. extractStripePeriod)
+    const { periodEndDate, periodStartDate } = extractStripePeriod(subscription);
 
     // Extraire cancel_at (date programmée) et canceled_at (date effective)
     const cancelAt = subscription.cancel_at; // Date d'annulation programmée
@@ -2323,7 +2363,7 @@ async function handleSubscriptionEvent(subscription, eventType) {
  */
 async function handleInvoicePaymentFailed(invoice) {
   try {
-    const subscriptionId = invoice.subscription;
+    const subscriptionId = invoiceSubscriptionId(invoice);
     if (!subscriptionId) {
       console.warn('⚠️ handleInvoicePaymentFailed: pas de subscription_id dans la facture');
       return;
@@ -2351,33 +2391,67 @@ async function handleInvoicePaymentFailed(invoice) {
   }
 }
 
+// Downgrade "sec" en free (utilisé uniquement quand Stripe ne peut PAS être
+// consulté et qu'une annulation était explicitement programmée localement).
+async function downgradeToFree(userId, reason) {
+  await pool.query(`
+    UPDATE user_subscriptions
+    SET plan_name = 'free', status = 'expired', stripe_status = 'expired', updated_at = NOW()
+    WHERE user_id = $1
+  `, [userId]);
+  console.log(`⏰ user ${userId} → free (${reason})`);
+}
+
+// Filet de sécurité horaire.
+// ⚠️ RÈGLE D'OR : on ne downgrade JAMAIS un abonnement que Stripe rapporte
+// comme actif sur la seule foi d'une date locale (elle peut être périmée si un
+// webhook de renouvellement a été manqué). On reconsulte Stripe : s'il est
+// toujours actif, on RAFRAÎCHIT la période au lieu de couper l'accès ; sinon
+// seulement on applique le vrai statut Stripe (canceled/unpaid/…).
 async function expireFinishedSubscriptions() {
   try {
     console.log('🕐 Vérification des abonnements à expirer...');
 
-    const result = await pool.query(`
-      UPDATE user_subscriptions
-      SET
-        plan_name     = 'free',
-        status        = 'expired',
-        stripe_status = 'expired',
-        updated_at    = NOW()
-      WHERE
-        current_period_end < NOW()
+    const { rows: candidates } = await pool.query(`
+      SELECT user_id, stripe_subscription_id, status, stripe_status, current_period_end
+      FROM user_subscriptions
+      WHERE current_period_end < NOW()
         AND (
-          -- Annulation programmée arrivée à terme
           (status = 'active_canceling')
           OR
-          -- Abonnement actif dont la période est passée sans webhook (filet de sécurité)
           (stripe_status = 'active' AND current_period_end IS NOT NULL)
         )
-      RETURNING user_id, current_period_end, stripe_subscription_id
     `);
 
-    if (result.rows.length > 0) {
-      console.log(`⏰ ${result.rows.length} abonnement(s) expiré(s):`, result.rows);
-    } else {
-      console.log('✅ Aucun abonnement à expirer');
+    if (candidates.length === 0) {
+      console.log('✅ Aucun abonnement à vérifier');
+      return;
+    }
+    console.log(`🔎 ${candidates.length} abonnement(s) à revérifier auprès de Stripe`);
+
+    for (const sub of candidates) {
+      // Sans ID Stripe : impossible de vérifier. On n'expire QUE si une
+      // annulation était explicitement programmée localement.
+      if (!sub.stripe_subscription_id) {
+        if (sub.status === 'active_canceling') await downgradeToFree(sub.user_id, 'active_canceling sans stripe_id');
+        continue;
+      }
+      try {
+        const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+        if (stripeSub.status === 'active' || stripeSub.status === 'trialing') {
+          // Stripe = ACTIF → webhook de renouvellement manqué. On rafraîchit la
+          // période (et le statut) SANS couper l'accès.
+          await handleSubscriptionEvent(stripeSub, 'expire_check_refresh');
+          console.log(`🔄 user ${sub.user_id}: Stripe actif → période rafraîchie, premium conservé.`);
+        } else {
+          // Stripe confirme la fin → on applique le vrai statut.
+          await handleSubscriptionEvent(stripeSub, 'expire_check_downgrade');
+          console.log(`⏰ user ${sub.user_id}: Stripe=${stripeSub.status} → downgrade légitime.`);
+        }
+      } catch (e) {
+        // Lookup impossible (réseau, mismatch clé test/live) → NE PAS downgrader.
+        console.warn(`⚠️ expire: lookup Stripe échoué pour ${sub.stripe_subscription_id} (${e.type || e.message}) — on NE touche PAS à la base.`);
+      }
     }
   } catch (error) {
     console.error('❌ Erreur expireFinishedSubscriptions:', error);
