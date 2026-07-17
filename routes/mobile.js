@@ -703,7 +703,7 @@ router.post('/api/m/import/commit', requireToken, async (req, res) => {
   try {
     await client.query('BEGIN');
     const premium = await isUserPremium(uid);
-    const maxWords = premium ? 100000 : 350;
+    const maxWords = premium ? 100000 : 600;
     const { rows: cnt } = await client.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1', [uid]);
     let remaining = maxWords - cnt[0].n;
 

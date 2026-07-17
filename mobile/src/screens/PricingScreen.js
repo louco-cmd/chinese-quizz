@@ -14,9 +14,9 @@ const PREMIUM_FEATURES = [
   { icon: 'checkmark', kind: 'yes', title: 'Priority support', sub: "We've got your back" },
 ];
 const FREE_FEATURES = [
-  { icon: 'bookmark', kind: 'lim', title: '350 words', sub: 'Vocabulary limit' },
+  { icon: 'bookmark', kind: 'lim', title: '600 words', sub: 'Vocabulary limit' },
   { icon: 'time', kind: 'lim', title: '1 duel / day', sub: 'Challenge friends' },
-  { icon: 'time', kind: 'lim', title: '2 quizzes / day', sub: 'Practice daily' },
+  { icon: 'time', kind: 'lim', title: '4 quizzes / day', sub: 'Practice daily' },
   { icon: 'checkmark', kind: 'yes', title: 'HSK pack access', sub: 'HSK 1' },
   { icon: 'checkmark', kind: 'yes', title: 'Word Booster', sub: 'Discover new words' },
 ];

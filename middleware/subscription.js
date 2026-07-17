@@ -132,7 +132,7 @@ exports.canAddWord = async (req, res, next) => {
     );
 
     const currentCount = parseInt(rows[0].count);
-    const maxWords = user.isPremium ? 100000 : 350; // ← Limites simples
+    const maxWords = user.isPremium ? 100000 : 600; // ← Limites simples
 
     console.log(`🔍 [canAddWord] Limite: ${currentCount}/${maxWords} (Premium: ${user.isPremium})`);
 
@@ -215,7 +215,7 @@ exports.canTakeQuiz = async (req, res, next) => {
     );
 
     const quizzesToday = parseInt(result.rows[0].count);
-    const maxQuizzes = 2;
+    const maxQuizzes = 4;
 
     if (quizzesToday >= maxQuizzes) {
       return res.status(403).json({

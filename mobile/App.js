@@ -153,7 +153,7 @@ export default function App() {
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
-      case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} />;
+      case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} />;
       case 'store': return <StoreScreen onBack={() => setTab(bankReturn)} />;
       case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} />;
       case 'support': return <SupportScreen onBack={() => setTab(bankReturn)} />;
