@@ -513,29 +513,73 @@ function looksLikePinyin(s) {
   return false;
 }
 
-// Parse le texte collé en fragments par ligne : { chinese, pinyin, latin }.
-// Sniffe le séparateur (tab → CSV → point-virgule → sinon 1 colonne) puis
-// classe chaque fragment (chinois = Hanzi ; pinyin = signal fort ; reste = latin).
-// Le rôle clé/traduction est décidé plus tard selon la langue d'apprentissage.
+// Une ligne composée UNIQUEMENT de caractères chinois (headword sur sa ligne).
+const PURE_HAN_RE = /^[㐀-鿿·・]+$/;
+
+function splitDelim(line) {
+  if (line.includes('\t')) return line.split('\t');
+  if (line.includes(';')) return line.split(';');
+  if (line.includes(',')) return line.split(',');
+  return [line];
+}
+
+// Nettoie une définition CC-CEDICT/Pleco : retire les annotations [pin1 yin1],
+// les classificateurs « CL:… », et tout Hanzi résiduel (le champ est en latin).
+function cleanDefinition(s) {
+  return String(s || '')
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/;?\s*CL:.*$/i, '')
+    .replace(/[㐀-鿿·・｜|]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s*[;,]\s*$/g, '')
+    .replace(/^[\s;,]+/, '')
+    .trim();
+}
+
+// Extrait {pinyin, latin} d'une ligne "détail" (pinyin ⇥/, définition) sans y
+// chercher de headword chinois (les Hanzi d'une déf. sont dans les CL:…).
+function parseDetail(line) {
+  const parts = splitDelim(line).map((p) => p.trim()).filter(Boolean);
+  const pIdx = parts.findIndex(looksLikePinyin);
+  const pinyin = pIdx >= 0 ? parts[pIdx] : '';
+  const latin = cleanDefinition(parts.filter((_, i) => i !== pIdx).join(', '));
+  return { pinyin, latin };
+}
+
+// Extrait les fragments d'une ligne "tout-en-un" (ex. 工作⇥gōng zuò⇥job…).
+function fragmentsFrom(line) {
+  const parts = splitDelim(line).map((p) => p.trim()).filter(Boolean);
+  // headword = fragment PUREMENT chinois en priorité (évite les Hanzi de définition).
+  const chinese = parts.find((p) => PURE_HAN_RE.test(p)) || parts.find((p) => HAN_RE.test(p)) || '';
+  const rest = parts.filter((p) => p !== chinese);
+  const pIdx = rest.findIndex(looksLikePinyin);
+  const pinyin = pIdx >= 0 ? rest[pIdx] : '';
+  const latin = cleanDefinition(rest.filter((_, i) => i !== pIdx).join(', '));
+  return { chinese, pinyin, latin };
+}
+
+// Parse le texte collé en fragments { chinese, pinyin, latin }. Gère le format
+// CC-CEDICT/Pleco sur 2 lignes (caractère seul, puis « pinyin ⇥ définition »)
+// en fusionnant la paire, et le format tout-en-un sur une ligne.
 function parseImportText(text) {
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const out = [];
-  for (const line of lines) {
-    let parts;
-    if (line.includes('\t')) parts = line.split('\t');
-    else if (line.includes(';')) parts = line.split(';');
-    else if (line.includes(',')) parts = line.split(',');
-    else parts = [line];
-    parts = parts.map((p) => p.trim()).filter((p) => p !== '');
-    if (!parts.length) continue;
-
-    const chinese = parts.find((p) => HAN_RE.test(p)) || '';
-    const rest = parts.filter((p) => p !== chinese);
-    const pIdx = rest.findIndex(looksLikePinyin);
-    const pinyin = pIdx >= 0 ? rest[pIdx] : '';
-    const latin = rest.filter((_, i) => i !== pIdx).join(', ');
-    out.push({ chinese, pinyin, latin });
-    if (out.length >= 1000) break; // garde-fou
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (PURE_HAN_RE.test(line)) {
+      const next = lines[i + 1];
+      if (next && !PURE_HAN_RE.test(next) && /[a-zü]/i.test(next)) {
+        const d = parseDetail(next);
+        out.push({ chinese: line, pinyin: d.pinyin, latin: d.latin });
+        i++; // consomme la ligne détail
+      } else {
+        out.push({ chinese: line, pinyin: '', latin: '' });
+      }
+    } else {
+      const f = fragmentsFrom(line);
+      if (f.chinese || f.latin) out.push(f);
+    }
+    if (out.length >= 2000) break; // garde-fou
   }
   return out;
 }
