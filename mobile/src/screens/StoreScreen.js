@@ -51,7 +51,13 @@ function PackCard({ pack, onPress }) {
   );
 }
 
-export default function StoreScreen({ onBack }) {
+export default function StoreScreen({
+  onBack,
+  leadingCard = null,
+  heroTitle = 'JiaStore',
+  heroSubtitle = 'Word packs to grow your vocabulary',
+  backLabel = 'Back',
+}) {
   const [me, setMe] = useState(null);
   const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -103,11 +109,11 @@ export default function StoreScreen({ onBack }) {
       {onBack ? (
         <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 }}>
           <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.9)" />
-          <Text style={{ color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>Back</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>{backLabel}</Text>
         </Pressable>
       ) : null}
-      <Text style={{ color: '#fff', fontSize: 24, fontWeight: '800' }}>JiaStore</Text>
-      <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 2 }}>Word packs to grow your vocabulary</Text>
+      <Text style={{ color: '#fff', fontSize: 24, fontWeight: '800' }}>{heroTitle}</Text>
+      <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 2 }}>{heroSubtitle}</Text>
     </View>
   );
 
@@ -128,6 +134,7 @@ export default function StoreScreen({ onBack }) {
         numColumns={2}
         columnWrapperStyle={{ gap: 18 }}
         contentContainerStyle={{ width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30 }}
+        ListHeaderComponent={leadingCard}
         renderItem={({ item }) =>
           item._spacer ? <View style={{ flex: 1 }} /> : <PackCard pack={item} onPress={openPack} />
         }

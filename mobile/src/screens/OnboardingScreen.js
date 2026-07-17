@@ -7,6 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COUNTRIES } from '../data/countries';
 import { flagEmoji } from '../components/account/EditProfilePopup';
 import SegmentedPicker from '../components/settings/SegmentedPicker';
+import CtaCard from '../components/duels/CtaCard';
+import StoreScreen from './StoreScreen';
+import ImportWordsScreen from './ImportWordsScreen';
 import { completeOnboarding } from '../api';
 import { COLORS } from '../theme';
 
@@ -85,11 +88,13 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [importing, setImporting] = useState(false);
 
   const firstName = (initial?.name || '').split(' ')[0] || 'learner';
 
-  async function submit(role) {
-    if (!name.trim()) { setError('Name is required.'); return; }
+  // Enregistre le profil. Renvoie true en cas de succès (sans naviguer).
+  async function saveProfile(role) {
+    if (!name.trim()) { setError('Name is required.'); return false; }
     setSaving(true); setError('');
     try {
       await completeOnboarding({
@@ -101,11 +106,46 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
         interface_lang: role === 'teacher' ? undefined : lang,
         ref: refCode || undefined,
       });
-      onDone?.(role);
+      setSaving(false);
+      return true;
     } catch (e) {
       setError(e.message || 'Something went wrong. Please try again.');
       setSaving(false);
+      return false;
     }
+  }
+
+  // Prof → espace prof direct. Élève → étape "remplis ta collection".
+  async function submitTeacher() { if (await saveProfile('teacher')) onDone?.('teacher'); }
+  async function submitLearner() { if (await saveProfile('student')) setStep('words'); }
+
+  // ── Étape "remplis ta collection" (élève) : store réutilisé + carte upload ──
+  if (step === 'words') {
+    if (importing) {
+      return <ImportWordsScreen onBack={() => setImporting(false)} onDone={() => onDone?.('student')} />;
+    }
+    const uploadCard = (
+      <View style={{ marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row' }}>
+          <CtaCard
+            colors={['#0d6efd', '#0a4fcf']}
+            icon="cloud-upload"
+            title="Manual bulk upload"
+            text="Upload up to 600 words from your personal base"
+            onPress={() => setImporting(true)}
+          />
+        </View>
+      </View>
+    );
+    return (
+      <StoreScreen
+        onBack={() => onDone?.('student')}
+        backLabel="Skip for now"
+        heroTitle="Fill your collection"
+        heroSubtitle="Grab a pack or import your own list"
+        leadingCard={uploadCard}
+      />
+    );
   }
 
   // ── Sélecteur de pays ──
@@ -188,7 +228,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                   className={inputClass}
                 />
                 {error ? <Text className="text-danger text-[13px] font-semibold mt-2">{error}</Text> : null}
-                <PrimaryButton label="Open my teacher space 🧑‍🏫" onPress={() => submit('teacher')} saving={saving} />
+                <PrimaryButton label="Open my teacher space 🧑‍🏫" onPress={submitTeacher} saving={saving} />
                 <BackLink onPress={() => { setStep('role'); setError(''); }} />
               </>
             )}
@@ -255,7 +295,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                 </View>
 
                 {error ? <Text className="text-danger text-[13px] font-semibold mt-2">{error}</Text> : null}
-                <PrimaryButton label="Let's go 加油！🚀" onPress={() => submit('student')} saving={saving} />
+                <PrimaryButton label="Continue 加油！🚀" onPress={submitLearner} saving={saving} />
                 <BackLink onPress={() => { setStep('role'); setError(''); }} />
               </>
             )}
