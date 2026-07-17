@@ -126,31 +126,28 @@ export default function ImportWordsScreen({ onBack }) {
   // ── Étape 3 : résultat ──
   if (step === 'done') {
     return (
-      <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-        {Hero}
-        <View style={{ padding: 24, width: '100%', maxWidth: 640, alignSelf: 'center', alignItems: 'center', marginTop: 20 }}>
-          <Ionicons name="checkmark-circle" size={56} color={COLORS.success} />
-          <Text style={{ fontSize: 20, fontWeight: '800', color: '#1a1a2e', marginTop: 12 }}>
-            {result?.added || 0} word{result?.added === 1 ? '' : 's'} imported
+      <View style={{ flex: 1, backgroundColor: '#f8f9fa', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+        <Ionicons name="checkmark-circle" size={56} color={COLORS.success} />
+        <Text style={{ fontSize: 20, fontWeight: '800', color: '#1a1a2e', marginTop: 12 }}>
+          {result?.added || 0} word{result?.added === 1 ? '' : 's'} imported
+        </Text>
+        {result?.skippedOwned ? (
+          <Text style={{ fontSize: 13.5, color: COLORS.muted, marginTop: 6, textAlign: 'center' }}>
+            {result.skippedOwned} already in your collection were skipped.
           </Text>
-          {result?.skippedOwned ? (
-            <Text style={{ fontSize: 13.5, color: COLORS.muted, marginTop: 6, textAlign: 'center' }}>
-              {result.skippedOwned} already in your collection were skipped.
-            </Text>
-          ) : null}
-          {result?.limitReached ? (
-            <Text style={{ fontSize: 13.5, color: '#b8860b', marginTop: 6, textAlign: 'center', fontWeight: '600' }}>
-              You reached the free limit ({result.maxWords} words). Go Premium for unlimited.
-            </Text>
-          ) : null}
-          <Pressable onPress={() => { setText(''); setRows([]); setStats(null); setResult(null); setStep('paste'); }}
-            style={{ marginTop: 24, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, backgroundColor: COLORS.jiayou }}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Import more</Text>
-          </Pressable>
-          <Pressable onPress={onBack} style={{ marginTop: 10, paddingVertical: 10 }}>
-            <Text style={{ color: COLORS.muted, fontWeight: '600' }}>Done</Text>
-          </Pressable>
-        </View>
+        ) : null}
+        {result?.limitReached ? (
+          <Text style={{ fontSize: 13.5, color: '#b8860b', marginTop: 6, textAlign: 'center', fontWeight: '600' }}>
+            You reached the free limit ({result.maxWords} words). Go Premium for unlimited.
+          </Text>
+        ) : null}
+        <Pressable onPress={() => { setText(''); setRows([]); setStats(null); setResult(null); setStep('paste'); }}
+          style={{ marginTop: 24, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, backgroundColor: COLORS.jiayou }}>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>Import more</Text>
+        </Pressable>
+        <Pressable onPress={onBack} style={{ marginTop: 10, paddingVertical: 10 }}>
+          <Text style={{ color: COLORS.muted, fontWeight: '600' }}>Done</Text>
+        </Pressable>
       </View>
     );
   }
