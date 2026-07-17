@@ -202,7 +202,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     );
     const footer = (
       <View style={{ marginTop: 6 }}>
-        <PrimaryButton label="Start playing 加油！🚀" onPress={() => onDone?.('student')} />
+        <PrimaryButton label="Let's start" onPress={() => onDone?.('student')} />
       </View>
     );
     return (
