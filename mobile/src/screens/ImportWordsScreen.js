@@ -8,6 +8,7 @@ import { COLORS, SHADOW_CARD } from '../theme';
 
 const STATUS = {
   new: { label: 'New', color: COLORS.jiayou, bg: '#e8f0ff' },
+  known: { label: 'In dictionary', color: COLORS.success, bg: '#e8f5e9' },
   needs_translation: { label: 'Add translation', color: '#b8860b', bg: '#fff3cd' },
   owned: { label: 'In collection', color: COLORS.muted, bg: '#eceef1' },
 };
@@ -160,7 +161,8 @@ export default function ImportWordsScreen({ onBack }) {
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
         <Text style={{ fontSize: 13, color: COLORS.muted }}>
           <Text style={{ fontWeight: '800', color: '#1a1a2e' }}>{stats?.total || 0}</Text> found ·{' '}
-          <Text style={{ fontWeight: '700', color: '#b8860b' }}>{stats?.needsTranslation || 0}</Text> need translation ·{' '}
+          <Text style={{ fontWeight: '700', color: COLORS.success }}>{stats?.known || 0}</Text> recognized ·{' '}
+          <Text style={{ fontWeight: '700', color: '#b8860b' }}>{stats?.needsTranslation || 0}</Text> to translate ·{' '}
           <Text style={{ fontWeight: '700', color: COLORS.muted }}>{stats?.owned || 0}</Text> already owned
         </Text>
       </View>

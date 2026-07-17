@@ -620,17 +620,28 @@ router.post('/api/m/import/preview', requireToken, async (req, res) => {
       const duplicates = withCn.length - unique.length;
       if (!unique.length) return res.json({ rows: [], stats: emptyStats, direction: 'en→zh' });
 
+      // GROUP BY chinese : robuste aux doublons de `mots` (pas de contrainte
+      // unique). owned = true si AU MOINS un doublon est possédé ; english/pinyin
+      // privilégient la ligne possédée.
       const { rows: dict } = await pool.query(
-        `SELECT m.chinese, m.english, m.pinyin,
-                EXISTS(SELECT 1 FROM user_mots um WHERE um.user_id = $1 AND um.mot_id = m.id) AS owned
-         FROM mots m WHERE m.chinese = ANY($2::text[])`, [uid, unique.map((r) => r.chinese)]);
+        `SELECT m.chinese,
+                (array_agg(m.english ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS english,
+                (array_agg(m.pinyin  ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS pinyin,
+                bool_or(um.user_id IS NOT NULL) AS owned
+         FROM mots m
+         LEFT JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
+         WHERE m.chinese = ANY($2::text[])
+         GROUP BY m.chinese`, [uid, unique.map((r) => r.chinese)]);
       const dictMap = new Map(dict.map((d) => [d.chinese, d]));
 
       const rows = unique.map((r) => {
         const d = dictMap.get(r.chinese);
         const pinyin = r.pinyin || d?.pinyin || (toPinyin ? toPinyin(r.chinese, { toneType: 'symbol' }) : '');
         const english = r.latin || d?.english || '';
-        const status = d?.owned ? 'owned' : (english ? 'new' : 'needs_translation');
+        // owned = déjà dans ta collection ; known = reconnu dans le dictionnaire
+        // (traduction auto) ; new = traduit depuis ton texte ; sinon à traduire.
+        const status = d?.owned ? 'owned'
+          : (!english ? 'needs_translation' : (d ? 'known' : 'new'));
         return { chinese: r.chinese, pinyin, english, status };
       });
       return res.json({ rows, stats: buildStats(rows, duplicates), direction: 'en→zh' });
@@ -643,26 +654,26 @@ router.post('/api/m/import/preview', requireToken, async (req, res) => {
     const duplicates = withEn.length - unique.length;
     if (!unique.length) return res.json({ rows: [], stats: emptyStats, direction: 'zh→en' });
 
+    // GROUP BY lower(english) : owned = true si un mot d'anglais équivalent est
+    // possédé (robuste aux doublons) ; chinois/pinyin privilégient la ligne possédée.
     const { rows: dict } = await pool.query(
-      `SELECT DISTINCT ON (lower(m.english)) lower(m.english) AS key, m.chinese, m.pinyin, m.id
-       FROM mots m WHERE lower(m.english) = ANY($1::text[]) ORDER BY lower(m.english), m.id`,
-      [unique.map((r) => r.latin.toLowerCase())]);
+      `SELECT lower(m.english) AS key,
+              (array_agg(m.chinese ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS chinese,
+              (array_agg(m.pinyin  ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS pinyin,
+              bool_or(um.user_id IS NOT NULL) AS owned
+       FROM mots m
+       LEFT JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
+       WHERE lower(m.english) = ANY($2::text[])
+       GROUP BY lower(m.english)`,
+      [uid, unique.map((r) => r.latin.toLowerCase())]);
     const dictMap = new Map(dict.map((d) => [d.key, d]));
-    // Possession : parmi les mots matchés
-    const ownedIds = new Set();
-    if (dict.length) {
-      const { rows: ow } = await pool.query(
-        'SELECT mot_id FROM user_mots WHERE user_id = $1 AND mot_id = ANY($2::int[])',
-        [uid, dict.map((d) => d.id)]);
-      ow.forEach((o) => ownedIds.add(o.mot_id));
-    }
 
     const rows = unique.map((r) => {
       const d = dictMap.get(r.latin.toLowerCase());
       const chinese = r.chinese || d?.chinese || '';
       const pinyin = r.pinyin || d?.pinyin || (chinese && toPinyin ? toPinyin(chinese, { toneType: 'symbol' }) : '');
-      const owned = d && ownedIds.has(d.id);
-      const status = owned ? 'owned' : (chinese ? 'new' : 'needs_translation');
+      const status = d?.owned ? 'owned'
+        : (!chinese ? 'needs_translation' : (d ? 'known' : 'new'));
       return { chinese, pinyin, english: r.latin, status };
     });
     return res.json({ rows, stats: buildStats(rows, duplicates), direction: 'zh→en' });
@@ -676,6 +687,7 @@ function buildStats(rows, duplicates) {
   return {
     total: rows.length,
     new: rows.filter((r) => r.status === 'new').length,
+    known: rows.filter((r) => r.status === 'known').length,
     needsTranslation: rows.filter((r) => r.status === 'needs_translation').length,
     owned: rows.filter((r) => r.status === 'owned').length,
     duplicates,
