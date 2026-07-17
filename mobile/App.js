@@ -1,0 +1,237 @@
+import './global.css';
+import { useEffect, useState, useCallback } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { getToken, setToken, getMe } from './src/api';
+import { LangContext, makeT } from './src/i18n';
+import Header from './src/components/Header';
+import TabBar from './src/components/TabBar';
+import LoginScreen from './src/screens/LoginScreen';
+import TeachersScreen from './src/screens/TeachersScreen';
+import CollectionScreen from './src/screens/CollectionScreen';
+import AddWordScreen from './src/screens/AddWordScreen';
+import QuizScreen from './src/screens/QuizScreen';
+import DuelsScreen from './src/screens/DuelsScreen';
+import AccountScreen from './src/screens/AccountScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
+import BankScreen from './src/screens/BankScreen';
+import PricingScreen from './src/screens/PricingScreen';
+import StoreScreen from './src/screens/StoreScreen';
+import SupportScreen from './src/screens/SupportScreen';
+import LegalScreen from './src/screens/LegalScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import TutorialScreen from './src/screens/TutorialScreen';
+import TeacherHome from './src/screens/teacher/TeacherHome';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
+import WelcomePremiumScreen from './src/screens/WelcomePremiumScreen';
+
+export default function App() {
+  const [ready, setReady] = useState(false);
+  const [authed, setAuthed] = useState(false);
+  const [tab, setTab] = useState('add'); // page d'accueil = Add words
+  const [bankReturn, setBankReturn] = useState('add');
+
+  // Profil + aiguillage onboarding/tutoriel.
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [flow, setFlow] = useState(null); // null | 'onboarding' | 'tutorial'
+  const [flowFromSettings, setFlowFromSettings] = useState(false);
+  const [duelDefeat, setDuelDefeat] = useState(false); // duel perdu → header + fond rouge
+
+  // Flux d'auth hors connexion + entrées par URL (web) : reset password, retour Stripe.
+  const [authView, setAuthView] = useState('login'); // 'login' | 'forgot' | 'reset'
+  const [resetToken, setResetToken] = useState(null);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [lang, setLang] = useState('en'); // langue de l'interface (en | zh)
+
+  // Charge le profil et calcule l'aiguillage initial (sauf si `route:false`,
+  // p.ex. quand on rejoue un flow depuis les réglages).
+  const loadProfile = useCallback(async ({ route = true } = {}) => {
+    setProfileLoading(true);
+    try {
+      const me = await getMe();
+      setProfile(me);
+      if (route) {
+        if (!me.onboarding_done) setFlow('onboarding');
+        else if (!me.has_seen_tutorial) setFlow('tutorial');
+        else setFlow(null);
+      }
+      return me;
+    } catch {
+      return null; // échec réseau → pas de flow imposé, l'app reste utilisable
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
+
+  // Détecte les entrées par URL sur web (lien email de reset, retour de paiement Stripe).
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.location) return;
+    try {
+      const url = new URL(window.location.href);
+      const token = url.searchParams.get('token') || url.searchParams.get('reset_token');
+      if (url.pathname.includes('reset-password') && token) {
+        setResetToken(token); setAuthView('reset');
+      } else if (url.pathname.includes('welcome-jiayou-premium') || url.searchParams.get('session_id')) {
+        setShowWelcome(true);
+      }
+    } catch { /* ignore URL invalide */ }
+  }, []);
+
+  function clearUrl() {
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      window.history.replaceState({}, '', '/');
+    }
+  }
+
+  useEffect(() => {
+    getToken().then((t) => {
+      setAuthed(!!t);
+      setReady(true);
+      if (t) loadProfile();
+    });
+  }, [loadProfile]);
+
+  // Langue de l'interface = interface_lang du profil.
+  useEffect(() => {
+    if (profile?.interface_lang === 'en' || profile?.interface_lang === 'zh') setLang(profile.interface_lang);
+  }, [profile]);
+
+  async function onLoggedIn() {
+    setAuthed(true);
+    setTab('add');
+    await loadProfile();
+  }
+
+  async function logout() {
+    await setToken(null);
+    setAuthed(false);
+    setProfile(null);
+    setFlow(null);
+    setFlowFromSettings(false);
+    setTab('add');
+  }
+
+  const backToSettings = () => { setFlowFromSettings(false); setFlow(null); setTab('settings'); };
+
+  // Fin de l'onboarding : enchaîne vers le tutoriel pour un nouveau compte,
+  // ou revient aux réglages si rejoué depuis là.
+  async function onOnboardingDone(role) {
+    if (flowFromSettings) { backToSettings(); return; }
+    const me = await loadProfile({ route: false });
+    // Les profs vont directement à leur espace ; le tutoriel est côté élève.
+    if (role === 'teacher') { setFlow(null); return; }
+    setFlow(me && !me.has_seen_tutorial ? 'tutorial' : null);
+  }
+
+  async function onTutorialDone() {
+    await loadProfile({ route: false });
+    if (flowFromSettings) backToSettings();
+    else setFlow(null);
+  }
+
+  function handleSettingsOpen(name) {
+    if (name === 'tutorial' || name === 'onboarding') {
+      setFlowFromSettings(true);
+      setFlow(name);
+      return;
+    }
+    setBankReturn('settings');
+    setTab(name);
+  }
+
+  function renderScreen() {
+    switch (tab) {
+      case 'teachers': return <TeachersScreen />;
+      case 'collection': return <CollectionScreen />;
+      case 'add': return <AddWordScreen />;
+      case 'quiz': return <QuizScreen />;
+      case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} />;
+      case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} />;
+      case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} />;
+      case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
+      case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} />;
+      case 'store': return <StoreScreen onBack={() => setTab(bankReturn)} />;
+      case 'support': return <SupportScreen onBack={() => setTab(bankReturn)} />;
+      case 'legal': return <LegalScreen onBack={() => setTab(bankReturn)} />;
+      default: return <CollectionScreen />;
+    }
+  }
+
+  const spinner = (
+    <View className="flex-1 items-center justify-center bg-white">
+      <ActivityIndicator color="#0d6efd" />
+    </View>
+  );
+
+  function renderBody() {
+    if (!ready) return spinner;
+
+    // Reset password (lien email) : accessible connecté ou non.
+    if (authView === 'reset') {
+      return <ResetPasswordScreen token={resetToken} onDone={() => { clearUrl(); setResetToken(null); setAuthView('login'); }} />;
+    }
+
+    if (!authed) {
+      if (authView === 'forgot') return <ForgotPasswordScreen onBack={() => setAuthView('login')} />;
+      return <LoginScreen onLoggedIn={onLoggedIn} onForgot={() => setAuthView('forgot')} />;
+    }
+
+    // Retour de paiement Stripe.
+    if (showWelcome) {
+      return <WelcomePremiumScreen onDone={() => { clearUrl(); setShowWelcome(false); loadProfile({ route: false }); }} />;
+    }
+
+    if (flow === 'onboarding') {
+      return (
+        <OnboardingScreen
+          initial={{ name: profile?.name }}
+          onDone={onOnboardingDone}
+          onClose={flowFromSettings ? backToSettings : undefined}
+        />
+      );
+    }
+    if (flow === 'tutorial') {
+      return (
+        <TutorialScreen
+          onDone={onTutorialDone}
+          onClose={flowFromSettings ? backToSettings : undefined}
+        />
+      );
+    }
+    if (profileLoading && !profile) return spinner;
+
+    // Professeur : plateforme dédiée (onglets Classes/Students/Profile).
+    if (profile?.role === 'teacher') {
+      return <TeacherHome profile={profile} onLogout={logout} />;
+    }
+
+    return (
+      <View className="flex-1" style={{ backgroundColor: duelDefeat ? '#fbeceb' : '#f8f9fa' }}>
+        <Header
+          profile={profile}
+          bg={duelDefeat ? '#c0392b' : undefined}
+          onAccount={() => setTab(tab === 'account' ? 'settings' : 'account')}
+          accountIcon={tab === 'account' ? 'settings-outline' : 'person-circle'}
+          onLogo={() => setTab('add')}
+          onBalance={() => { if (tab !== 'bank') { setBankReturn(tab); setTab('bank'); } }}
+          onPlan={() => { if (tab !== 'pricing') { setBankReturn(tab); setTab('pricing'); } }}
+          hideLogo={tab === 'add'}
+        />
+        <View className="flex-1">{renderScreen()}</View>
+        <TabBar active={tab} onChange={setTab} />
+      </View>
+    );
+  }
+
+  return (
+    <LangContext.Provider value={{ lang, t: makeT(lang), setLang }}>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        {renderBody()}
+      </SafeAreaProvider>
+    </LangContext.Provider>
+  );
+}
