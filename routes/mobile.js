@@ -647,6 +647,9 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
       'SELECT 1 FROM pack_purchases WHERE pack_id = $1 AND buyer_id = $2', [id, uid]);
     if (already.length) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'You already own this pack.' }); }
 
+    const { rows: cnt } = await client.query('SELECT COUNT(*)::int AS n FROM word_pack_items WHERE pack_id = $1', [id]);
+    if (cnt[0].n === 0) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'This pack is not available yet.' }); }
+
     const { rows: bal } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [uid]);
     if (!bal.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'User not found' }); }
     if (bal[0].balance < pack.price) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Not enough coins' }); }

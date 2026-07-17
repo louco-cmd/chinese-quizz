@@ -1,85 +1,50 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, FlatList,
+  View, Text, Pressable, ActivityIndicator, FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import Popup from '../components/Popup';
 import { getMe, getMarketPacks, getMarketPack, buyMarketPack } from '../api';
 import { COLORS, SHADOW_CARD } from '../theme';
 
-// Illustrations fictives : chaque cover_key → dégradé + emoji.
-const COVERS = {
-  hsk1:     { colors: ['#0d6efd', '#6610f2'], glyph: '一' },
-  hsk2:     { colors: ['#198754', '#0d5c38'], glyph: '二' },
-  hsk3:     { colors: ['#0dcaf0', '#0a83a0'], glyph: '三' },
-  food:     { colors: ['#ff7e5f', '#feb47b'], glyph: '🍜' },
-  travel:   { colors: ['#2193b0', '#6dd5ed'], glyph: '✈️' },
-  business: { colors: ['#434343', '#4b6cb7'], glyph: '💼' },
-  street:   { colors: ['#8e2de2', '#e94dc0'], glyph: '🛵' },
-  verbs:    { colors: ['#f7971e', '#ffd200'], glyph: '⚡' },
-  _default: { colors: ['#6c757d', '#495057'], glyph: '📦' },
-};
-const coverOf = (k) => COVERS[k] || COVERS._default;
-
-const SORTS = [
-  { key: 'recent', label: 'Recent' },
-  { key: 'popular', label: 'Popular' },
-  { key: 'price_asc', label: 'Price ↑' },
-  { key: 'price_desc', label: 'Price ↓' },
-];
-const PRICE_FILTERS = [
-  { key: '', label: 'All' },
-  { key: '100', label: '≤ 100' },
-  { key: '200', label: '≤ 200' },
-  { key: '300', label: '≤ 300' },
-];
-
-function Chip({ label, active, onPress }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, marginRight: 8,
-        backgroundColor: active ? COLORS.jiayou : '#fff',
-        borderWidth: 1, borderColor: active ? COLORS.jiayou : COLORS.line,
-      }}
-    >
-      <Text style={{ fontSize: 13, fontWeight: '600', color: active ? '#fff' : COLORS.muted }}>{label}</Text>
-    </Pressable>
-  );
-}
+// Illustration fictive : fond bleu pâle uniforme + idéogramme du niveau HSK.
+const HSK_GLYPH = { hsk1: '一', hsk2: '二', hsk3: '三', hsk4: '四', hsk5: '五', hsk6: '六' };
+const glyphOf = (k) => HSK_GLYPH[k] || '汉';
+const COVER_BG = '#e8f0ff';
+const COVER_FG = '#5b8def';
 
 function PackCard({ pack, onPress }) {
-  const c = coverOf(pack.cover_key);
+  const soon = (pack.word_count || 0) === 0;
   return (
-    <Pressable onPress={() => onPress(pack)} style={{ flex: 1, marginBottom: 14 }}>
+    <Pressable onPress={soon ? undefined : () => onPress(pack)} style={{ flex: 1, marginBottom: 14, opacity: soon ? 0.75 : 1 }}>
       <View style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', ...SHADOW_CARD }}>
-        {/* Illustration fictive */}
-        <LinearGradient colors={c.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ height: 104, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 40 }}>{c.glyph}</Text>
-          {pack.is_official ? (
-            <View style={{ position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-              <Ionicons name="shield-checkmark" size={11} color="#fff" />
-              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>Official</Text>
-            </View>
-          ) : null}
+        {/* Illustration fictive (bleu pâle) */}
+        <View style={{ height: 72, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: 32, fontWeight: '700', color: COVER_FG }}>{glyphOf(pack.cover_key)}</Text>
           {pack.owned ? (
             <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: COLORS.success, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
               <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>Owned</Text>
             </View>
           ) : null}
-        </LinearGradient>
+        </View>
         {/* Infos */}
         <View style={{ padding: 11 }}>
           <Text numberOfLines={2} style={{ fontSize: 14, fontWeight: '700', color: '#1a1a2e', minHeight: 36 }}>{pack.title}</Text>
           <Text numberOfLines={1} style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>by {pack.creator}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-            <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.jiayou }}>
-              {pack.price === 0 ? 'Free' : `${pack.price} ₵`}
-            </Text>
-            <Text style={{ fontSize: 11.5, color: COLORS.mutedLight }}>{pack.word_count} words</Text>
-          </View>
+          {soon ? (
+            <View style={{ alignSelf: 'flex-start', backgroundColor: '#f1f3f5', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginTop: 10 }}>
+              <Text style={{ fontSize: 11.5, color: COLORS.muted, fontWeight: '600' }}>Soon available</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 8 }}>
+                {pack.word_count} words · {pack.sales_count || 0} bought
+              </Text>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.jiayou, marginTop: 3 }}>
+                {pack.price === 0 ? 'Free' : `${pack.price} ₵`}
+              </Text>
+            </>
+          )}
         </View>
       </View>
     </Pressable>
@@ -91,34 +56,19 @@ export default function StoreScreen({ onBack }) {
   const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const [q, setQ] = useState('');
-  const [sort, setSort] = useState('recent');
-  const [priceMax, setPriceMax] = useState('');
-
   const [selected, setSelected] = useState(null); // { loading, pack, preview, buying, msg, error }
 
   const balance = me?.balance;
 
-  const fetchPacks = useCallback(async (opts) => {
+  const fetchPacks = useCallback(async () => {
     setError('');
     try {
-      const d = await getMarketPacks(opts);
+      const d = await getMarketPacks({ sort: 'price_asc' });
       setPacks(d.packs || []);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { getMe().then(setMe).catch(() => {}); }, []);
-
-  // Recherche debouncée ; tri/prix immédiats.
-  const debounce = useRef(null);
-  useEffect(() => {
-    clearTimeout(debounce.current);
-    debounce.current = setTimeout(() => {
-      fetchPacks({ q, sort, max: priceMax });
-    }, q ? 300 : 0);
-    return () => clearTimeout(debounce.current);
-  }, [q, sort, priceMax, fetchPacks]);
+  useEffect(() => { getMe().then(setMe).catch(() => {}); fetchPacks(); }, [fetchPacks]);
 
   async function openPack(p) {
     setSelected({ loading: true, pack: p });
@@ -137,7 +87,7 @@ export default function StoreScreen({ onBack }) {
     try {
       const d = await buyMarketPack(id);
       setMe((m) => ({ ...m, balance: d.newBalance }));
-      setPacks((list) => list.map((p) => (p.id === id ? { ...p, owned: true } : p)));
+      setPacks((list) => list.map((p) => (p.id === id ? { ...p, owned: true, sales_count: (p.sales_count || 0) + 1 } : p)));
       setSelected((s) => ({
         ...s, buying: false,
         pack: { ...s.pack, owned: true },
@@ -156,73 +106,38 @@ export default function StoreScreen({ onBack }) {
           <Text style={{ color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>Back</Text>
         </Pressable>
       ) : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View>
-          <Text style={{ color: '#fff', fontSize: 24, fontWeight: '800' }}>JiaStore</Text>
-          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 2 }}>Word packs by the community</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-          <Ionicons name="wallet" size={14} color="#fff" />
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{balance == null ? '…' : `${balance} ₵`}</Text>
-        </View>
-      </View>
+      <Text style={{ color: '#fff', fontSize: 24, fontWeight: '800' }}>JiaStore</Text>
+      <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 2 }}>Word packs to grow your vocabulary</Text>
     </View>
   );
 
-  const Filters = (
-    <View style={{ marginBottom: 4 }}>
-      {/* Recherche */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 999, borderWidth: 1, borderColor: COLORS.line, paddingHorizontal: 14, marginBottom: 12 }}>
-        <Ionicons name="search" size={16} color={COLORS.mutedLight} />
-        <TextInput
-          value={q}
-          onChangeText={setQ}
-          placeholder="Search packs, creators…"
-          placeholderTextColor={COLORS.mutedLight}
-          autoCapitalize="none"
-          style={{ flex: 1, paddingVertical: 10, paddingHorizontal: 8, fontSize: 14.5 }}
-        />
-        {q ? (
-          <Pressable onPress={() => setQ('')} hitSlop={8}><Ionicons name="close-circle" size={16} color={COLORS.mutedLight} /></Pressable>
-        ) : null}
-      </View>
-      {/* Tri */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-        {SORTS.map((s) => <Chip key={s.key} label={s.label} active={sort === s.key} onPress={() => setSort(s.key)} />)}
-      </ScrollView>
-      {/* Filtre prix */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
-        {PRICE_FILTERS.map((f) => <Chip key={f.key} label={f.label} active={priceMax === f.key} onPress={() => setPriceMax(f.key)} />)}
-      </ScrollView>
-    </View>
-  );
+  // Colonnes égales même en nombre impair : on complète avec un item "vide".
+  const gridData = packs.length % 2 === 1 ? [...packs, { id: '__spacer__', _spacer: true }] : packs;
 
   const sel = selected;
   const selPack = sel?.pack;
-  const cover = selPack ? coverOf(selPack.cover_key) : null;
-  const canBuy = selPack && !selPack.owned && !selPack.isMine && balance != null && balance >= selPack.price;
+  const canBuy = selPack && !selPack.owned && !selPack.isMine && (selPack.word_count || 0) > 0
+    && balance != null && balance >= selPack.price;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       {Hero}
       <FlatList
-        data={packs}
+        data={gridData}
         keyExtractor={(p) => String(p.id)}
         numColumns={2}
         columnWrapperStyle={{ gap: 12 }}
-        contentContainerStyle={{ width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 30 }}
-        ListHeaderComponent={Filters}
-        renderItem={({ item }) => <PackCard pack={item} onPress={openPack} />}
+        contentContainerStyle={{ width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30 }}
+        renderItem={({ item }) =>
+          item._spacer ? <View style={{ flex: 1 }} /> : <PackCard pack={item} onPress={openPack} />
+        }
         ListEmptyComponent={
           loading ? (
             <ActivityIndicator color={COLORS.jiayou} style={{ marginTop: 30 }} />
           ) : error ? (
             <Text style={{ textAlign: 'center', color: COLORS.danger, marginTop: 30 }}>{error}</Text>
           ) : (
-            <View style={{ alignItems: 'center', marginTop: 40 }}>
-              <Ionicons name="search" size={34} color={COLORS.mutedLight} />
-              <Text style={{ color: COLORS.muted, marginTop: 10 }}>No pack matches your search.</Text>
-            </View>
+            <Text style={{ textAlign: 'center', color: COLORS.muted, marginTop: 40 }}>No packs yet.</Text>
           )
         }
       />
@@ -233,12 +148,12 @@ export default function StoreScreen({ onBack }) {
           <ActivityIndicator color={COLORS.jiayou} style={{ marginVertical: 30 }} />
         ) : selPack ? (
           <View>
-            <LinearGradient colors={cover.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ height: 96, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-              <Text style={{ fontSize: 44 }}>{cover.glyph}</Text>
-            </LinearGradient>
+            <View style={{ height: 84, borderRadius: 14, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+              <Text style={{ fontSize: 40, fontWeight: '700', color: COVER_FG }}>{glyphOf(selPack.cover_key)}</Text>
+            </View>
             <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e' }}>{selPack.title}</Text>
             <Text style={{ fontSize: 13, color: COLORS.muted, marginTop: 2 }}>
-              by {selPack.creator} · {selPack.word_count} words · {selPack.sales_count || 0} sold
+              by {selPack.creator} · {selPack.word_count} words · {selPack.sales_count || 0} bought
             </Text>
             {selPack.description ? (
               <Text style={{ fontSize: 13.5, color: '#444', marginTop: 10, lineHeight: 19 }}>{selPack.description}</Text>
@@ -273,14 +188,14 @@ export default function StoreScreen({ onBack }) {
               <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '600', marginTop: 12 }}>{sel.error}</Text>
             ) : null}
 
-            {/* CTA achat */}
+            {/* CTA */}
             {sel.msg || selPack.owned ? (
               <View style={{ marginTop: 16, backgroundColor: '#e9ecef', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}>
                 <Text style={{ color: COLORS.muted, fontWeight: '700' }}>✓ In your collection</Text>
               </View>
-            ) : selPack.isMine ? (
+            ) : (selPack.word_count || 0) === 0 ? (
               <View style={{ marginTop: 16, backgroundColor: '#e9ecef', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}>
-                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Your pack</Text>
+                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Coming soon</Text>
               </View>
             ) : (
               <Pressable
@@ -292,9 +207,7 @@ export default function StoreScreen({ onBack }) {
                   <>
                     <Ionicons name="cart" size={16} color={canBuy ? '#fff' : COLORS.muted} />
                     <Text style={{ color: canBuy ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>
-                      {canBuy
-                        ? (selPack.price === 0 ? 'Get for free' : `Buy for ${selPack.price} ₵`)
-                        : 'Not enough coins'}
+                      {canBuy ? `Buy for ${selPack.price} ₵` : 'Not enough coins'}
                     </Text>
                   </>
                 )}

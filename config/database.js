@@ -337,42 +337,24 @@ const pool = new Pool({
     console.log("✅ Tables JiaStore (word_packs/word_pack_items/pack_purchases) vérifiées.");
 
     // Seed idempotent : ne s'exécute que si aucun pack n'existe encore.
+    // Uniquement les packs HSK 1→6. Les niveaux sans mots en base restent
+    // affichés (word_count = 0 → "Soon available" côté app, non achetables).
     const { rows: pkCount } = await pool.query('SELECT COUNT(*)::int AS n FROM word_packs');
     if (pkCount[0].n === 0) {
-      // Crée un pack + remplit ses mots. `where` = clause SQL sur mots (sinon N aléatoires).
-      const seedPack = async (p) => {
-        const { rows } = await pool.query(
-          `INSERT INTO word_packs (creator_name, title, description, price, cover_key, is_official)
-           VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-          [p.creator, p.title, p.description, p.price, p.cover, !!p.official]);
-        const packId = rows[0].id;
-        if (p.hsk) {
+      const HSK_PRICE = { 1: 200, 2: 400, 3: 600, 4: 800, 5: 1000, 6: 1200 };
+      for (let lvl = 1; lvl <= 6; lvl++) {
+        try {
+          const { rows } = await pool.query(
+            `INSERT INTO word_packs (creator_name, title, description, price, cover_key, is_official)
+             VALUES ('JiaStore', $1, $2, $3, $4, TRUE) RETURNING id`,
+            [`HSK ${lvl} Pack`, `Essential vocabulary from HSK level ${lvl}.`, HSK_PRICE[lvl], `hsk${lvl}`]);
+          // Remplit avec les mots du niveau (0 si le niveau n'est pas encore en base).
           await pool.query(
             `INSERT INTO word_pack_items (pack_id, mot_id)
-             SELECT $1, id FROM mots WHERE hsk = $2 ON CONFLICT DO NOTHING`, [packId, p.hsk]);
-        } else {
-          await pool.query(
-            `INSERT INTO word_pack_items (pack_id, mot_id)
-             SELECT $1, id FROM mots ORDER BY RANDOM() LIMIT $2 ON CONFLICT DO NOTHING`, [packId, p.count || 20]);
-        }
-        // Supprime un pack vide (niveau HSK sans mots en base).
-        await pool.query(`DELETE FROM word_packs wp WHERE wp.id = $1
-                          AND NOT EXISTS (SELECT 1 FROM word_pack_items i WHERE i.pack_id = $1)`, [packId]);
-      };
-
-      const seeds = [
-        // Packs officiels (anciens packs HSK du store)
-        { creator: 'JiaStore', title: 'HSK 1 Pack', description: 'The 290 essential words of HSK level 1.', price: 200, cover: 'hsk1', official: true, hsk: '1' },
-        { creator: 'JiaStore', title: 'HSK 2 Pack', description: 'All words from HSK level 2.', price: 400, cover: 'hsk2', official: true, hsk: '2' },
-        // Packs communautaires de démo
-        { creator: 'Mei Lin',   title: 'Café & Restaurant', description: 'Order food & drinks like a local.', price: 120, cover: 'food',     count: 18 },
-        { creator: 'Thomas B.', title: 'Travel in China',   description: 'Get around: trains, hotels, directions.', price: 90,  cover: 'travel',   count: 15 },
-        { creator: 'Sophie L.', title: 'Business Mandarin',  description: 'Meetings, email & office vocabulary.', price: 260, cover: 'business', count: 25 },
-        { creator: 'Kevin Z.',  title: 'Street Slang',       description: 'Casual talk you won\'t find in textbooks.', price: 150, cover: 'street',   count: 20 },
-        { creator: 'Community',  title: 'Everyday Verbs',    description: '30 high-frequency verbs to power your sentences.', price: 300, cover: 'verbs', count: 30 },
-      ];
-      for (const s of seeds) { try { await seedPack(s); } catch (e) { console.error('seed pack failed:', s.title, e.message); } }
-      console.log("✅ JiaStore seedé (packs de démo).");
+             SELECT $1, id FROM mots WHERE hsk = $2 ON CONFLICT DO NOTHING`, [rows[0].id, String(lvl)]);
+        } catch (e) { console.error('seed HSK pack failed:', lvl, e.message); }
+      }
+      console.log("✅ JiaStore seedé (packs HSK 1→6).");
     }
 
   } catch (err) {
