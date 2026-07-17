@@ -155,7 +155,7 @@ export default function App() {
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} />;
       case 'store': return <StoreScreen onBack={() => setTab(bankReturn)} />;
-      case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} />;
+      case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} onDone={() => setTab('add')} />;
       case 'support': return <SupportScreen onBack={() => setTab(bankReturn)} />;
       case 'legal': return <LegalScreen onBack={() => setTab(bankReturn)} />;
       default: return <CollectionScreen />;

@@ -18,7 +18,7 @@ const PLACEHOLDER = `你好, hello
 再见
 学习, xué xí, to study`;
 
-export default function ImportWordsScreen({ onBack }) {
+export default function ImportWordsScreen({ onBack, onDone }) {
   const [step, setStep] = useState('paste'); // paste | preview | done
   const [text, setText] = useState('');
   const [rows, setRows] = useState([]);
@@ -141,12 +141,9 @@ export default function ImportWordsScreen({ onBack }) {
             You reached the free limit ({result.maxWords} words). Go Premium for unlimited.
           </Text>
         ) : null}
-        <Pressable onPress={() => { setText(''); setRows([]); setStats(null); setResult(null); setStep('paste'); }}
-          style={{ marginTop: 24, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 28, backgroundColor: COLORS.jiayou }}>
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Import more</Text>
-        </Pressable>
-        <Pressable onPress={onBack} style={{ marginTop: 10, paddingVertical: 10 }}>
-          <Text style={{ color: COLORS.muted, fontWeight: '600' }}>Done</Text>
+        <Pressable onPress={() => (onDone || onBack)?.()}
+          style={{ marginTop: 24, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 40, backgroundColor: COLORS.jiayou }}>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>Done</Text>
         </Pressable>
       </View>
     );

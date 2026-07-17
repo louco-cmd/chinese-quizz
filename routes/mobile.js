@@ -475,6 +475,18 @@ router.post('/api/m/words', requireToken, async (req, res) => {
       return res.status(409).json({ error: 'You already captured this word' });
     }
 
+    // Plafond du plan free (600 mots). Ne concerne que l'ajout d'un mot nouveau.
+    const premium = await isUserPremium(userId);
+    const maxWords = premium ? 100000 : 600;
+    const { rows: wc } = await client.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1', [userId]);
+    if (wc[0].n >= maxWords) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({
+        error: `Free limit reached (${maxWords} words). Go Premium for unlimited.`,
+        limitReached: true, max: maxWords,
+      });
+    }
+
     await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [COST, userId]);
     await client.query(
       `INSERT INTO transactions (user_id, amount, type, description)
