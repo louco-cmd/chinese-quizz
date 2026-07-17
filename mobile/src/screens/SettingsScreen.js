@@ -135,7 +135,7 @@ export default function SettingsScreen({ onLogout, onOpen }) {
 
           {/* ── Account ── */}
           <SettingsGroup title="Account">
-            <SettingsRow icon="cart" iconColor="#d97706" iconBg="#fef3e2" label="Store" sub="Spend your coins" onPress={() => onOpen?.('store')} />
+            <SettingsRow icon="storefront" iconColor="#d97706" iconBg="#fef3e2" label="JiaStore" sub="Buy & sell word packs" onPress={() => onOpen?.('store')} />
             <SettingsRow icon="star" iconColor="#856404" iconBg="#fff3cd" label="Go Premium" sub="Unlock all features" onPress={() => onOpen?.('pricing')} />
           </SettingsGroup>
 

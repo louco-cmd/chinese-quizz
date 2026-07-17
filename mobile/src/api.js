@@ -128,12 +128,23 @@ export function getWallet() {
   return request('/api/m/wallet');
 }
 
-export function buyPack(level) {
-  return request('/api/m/store/pack', { method: 'POST', body: { level } });
+// ── JiaStore (marketplace) ──
+export function getMarketPacks({ q = '', min = '', max = '', sort = 'recent' } = {}) {
+  const qs = new URLSearchParams();
+  if (q) qs.set('q', q);
+  if (min !== '' && min != null) qs.set('min', String(min));
+  if (max !== '' && max != null) qs.set('max', String(max));
+  if (sort) qs.set('sort', sort);
+  const s = qs.toString();
+  return request(`/api/m/market/packs${s ? `?${s}` : ''}`);
 }
 
-export function buyBooster() {
-  return request('/api/m/store/booster', { method: 'POST' });
+export function getMarketPack(id) {
+  return request(`/api/m/market/packs/${id}`);
+}
+
+export function buyMarketPack(id) {
+  return request(`/api/m/market/packs/${id}/buy`, { method: 'POST' });
 }
 
 export function getCollection() {

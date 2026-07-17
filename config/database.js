@@ -296,6 +296,85 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_rewarded BOOLEAN NOT NULL DEFAULT FALSE`);
     console.log("✅ Colonnes parrainage (referral_code/referred_by/referral_rewarded) vérifiées.");
 
+    // ── JiaStore : marketplace de packs de mots ───────────────────────────────
+    // word_packs = packs vendables ; word_pack_items = mots du pack ;
+    // pack_purchases = achats (empêche le rachat, trace les ventes).
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS word_packs (
+        id SERIAL PRIMARY KEY,
+        creator_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        creator_name TEXT,
+        title TEXT NOT NULL,
+        description TEXT,
+        price INTEGER NOT NULL DEFAULT 0 CHECK (price >= 0),
+        cover_key TEXT,
+        is_official BOOLEAN NOT NULL DEFAULT FALSE,
+        published BOOLEAN NOT NULL DEFAULT TRUE,
+        sales_count INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS word_pack_items (
+        pack_id INTEGER NOT NULL REFERENCES word_packs(id) ON DELETE CASCADE,
+        mot_id INTEGER NOT NULL REFERENCES mots(id) ON DELETE CASCADE,
+        PRIMARY KEY (pack_id, mot_id)
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS pack_purchases (
+        id SERIAL PRIMARY KEY,
+        pack_id INTEGER NOT NULL REFERENCES word_packs(id) ON DELETE CASCADE,
+        buyer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        price_paid INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (pack_id, buyer_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_word_packs_published ON word_packs(published)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_pack_items_pack ON word_pack_items(pack_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_pack_purchases_buyer ON pack_purchases(buyer_id)`);
+    console.log("✅ Tables JiaStore (word_packs/word_pack_items/pack_purchases) vérifiées.");
+
+    // Seed idempotent : ne s'exécute que si aucun pack n'existe encore.
+    const { rows: pkCount } = await pool.query('SELECT COUNT(*)::int AS n FROM word_packs');
+    if (pkCount[0].n === 0) {
+      // Crée un pack + remplit ses mots. `where` = clause SQL sur mots (sinon N aléatoires).
+      const seedPack = async (p) => {
+        const { rows } = await pool.query(
+          `INSERT INTO word_packs (creator_name, title, description, price, cover_key, is_official)
+           VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+          [p.creator, p.title, p.description, p.price, p.cover, !!p.official]);
+        const packId = rows[0].id;
+        if (p.hsk) {
+          await pool.query(
+            `INSERT INTO word_pack_items (pack_id, mot_id)
+             SELECT $1, id FROM mots WHERE hsk = $2 ON CONFLICT DO NOTHING`, [packId, p.hsk]);
+        } else {
+          await pool.query(
+            `INSERT INTO word_pack_items (pack_id, mot_id)
+             SELECT $1, id FROM mots ORDER BY RANDOM() LIMIT $2 ON CONFLICT DO NOTHING`, [packId, p.count || 20]);
+        }
+        // Supprime un pack vide (niveau HSK sans mots en base).
+        await pool.query(`DELETE FROM word_packs wp WHERE wp.id = $1
+                          AND NOT EXISTS (SELECT 1 FROM word_pack_items i WHERE i.pack_id = $1)`, [packId]);
+      };
+
+      const seeds = [
+        // Packs officiels (anciens packs HSK du store)
+        { creator: 'JiaStore', title: 'HSK 1 Pack', description: 'The 290 essential words of HSK level 1.', price: 200, cover: 'hsk1', official: true, hsk: '1' },
+        { creator: 'JiaStore', title: 'HSK 2 Pack', description: 'All words from HSK level 2.', price: 400, cover: 'hsk2', official: true, hsk: '2' },
+        // Packs communautaires de démo
+        { creator: 'Mei Lin',   title: 'Café & Restaurant', description: 'Order food & drinks like a local.', price: 120, cover: 'food',     count: 18 },
+        { creator: 'Thomas B.', title: 'Travel in China',   description: 'Get around: trains, hotels, directions.', price: 90,  cover: 'travel',   count: 15 },
+        { creator: 'Sophie L.', title: 'Business Mandarin',  description: 'Meetings, email & office vocabulary.', price: 260, cover: 'business', count: 25 },
+        { creator: 'Kevin Z.',  title: 'Street Slang',       description: 'Casual talk you won\'t find in textbooks.', price: 150, cover: 'street',   count: 20 },
+        { creator: 'Community',  title: 'Everyday Verbs',    description: '30 high-frequency verbs to power your sentences.', price: 300, cover: 'verbs', count: 30 },
+      ];
+      for (const s of seeds) { try { await seedPack(s); } catch (e) { console.error('seed pack failed:', s.title, e.message); } }
+      console.log("✅ JiaStore seedé (packs de démo).");
+    }
+
   } catch (err) {
     console.error("❌ Erreur lors de l'initialisation :", err);
   }

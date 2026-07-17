@@ -561,70 +561,127 @@ router.get('/api/m/character/:char', requireToken, async (req, res) => {
   }
 });
 
-// ── POST /api/m/store/pack : acheter un pack HSK (miroir /api/purchase-pack) ──
-const PACK_PRICES = { 1: 200, 2: 400 };
-router.post('/api/m/store/pack', requireToken, async (req, res) => {
-  const uid = req.tokenUser.id;
-  const level = parseInt(req.body?.level, 10);
-  const price = PACK_PRICES[level];
-  if (!price) return res.status(400).json({ error: 'Invalid pack' });
-  const client = await pool.connect();
+// ══ JiaStore : marketplace de packs de mots ═══════════════════════════════════
+
+// ── GET /api/m/market/packs : liste (recherche + filtre prix + tri) ──────────
+router.get('/api/m/market/packs', requireToken, async (req, res) => {
   try {
-    await client.query('BEGIN');
-    const { rows } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [uid]);
-    if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'User not found' }); }
-    if (rows[0].balance < price) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Not enough coins' }); }
+    const uid = req.tokenUser.id;
+    const q = (req.query.q || '').trim();
+    const min = Number.isFinite(+req.query.min) ? Math.max(0, parseInt(req.query.min, 10) || 0) : 0;
+    const max = Number.isFinite(+req.query.max) && req.query.max !== '' ? parseInt(req.query.max, 10) : 1000000;
+    const sortMap = {
+      recent: 'wp.created_at DESC',
+      price_asc: 'wp.price ASC, wp.created_at DESC',
+      price_desc: 'wp.price DESC, wp.created_at DESC',
+      popular: 'wp.sales_count DESC, wp.created_at DESC',
+    };
+    const orderBy = sortMap[req.query.sort] || sortMap.recent;
 
-    const ins = await client.query(
-      `INSERT INTO user_mots (user_id, mot_id, score, nb_quiz, nb_correct, last_seen)
-       SELECT $1, m.id, 0, 0, 0, NULL FROM mots m
-       WHERE m.hsk = $2 AND NOT EXISTS (SELECT 1 FROM user_mots um WHERE um.user_id = $1 AND um.mot_id = m.id)
-       RETURNING mot_id`, [uid, level]);
-    const added = ins.rowCount;
-    if (added === 0) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'You already own every word in this pack.' }); }
-
-    await client.query(
-      `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'pack_purchase', $3)`,
-      [uid, -price, `HSK${level} pack (${added} words)`]);
-    await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [price, uid]);
-    await client.query('COMMIT');
-    res.json({ success: true, wordsAdded: added, newBalance: rows[0].balance - price });
+    const params = [uid, min, max];
+    let where = 'wp.published = TRUE AND wp.price >= $2 AND wp.price <= $3';
+    if (q) {
+      params.push(`%${q}%`);
+      where += ` AND (wp.title ILIKE $${params.length} OR wp.description ILIKE $${params.length} OR COALESCE(u.name, wp.creator_name, '') ILIKE $${params.length})`;
+    }
+    const { rows } = await pool.query(
+      `SELECT wp.id, wp.title, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
+              COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
+              (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
+              EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1) AS owned
+       FROM word_packs wp
+       LEFT JOIN users u ON u.id = wp.creator_id
+       WHERE ${where}
+       ORDER BY ${orderBy}`, params);
+    res.json({ packs: rows });
   } catch (e) {
-    await client.query('ROLLBACK');
-    console.error('m/store pack error:', e);
+    console.error('m/market packs error:', e);
     res.status(500).json({ error: 'Server error' });
-  } finally { client.release(); }
+  }
 });
 
-// ── POST /api/m/store/booster : 5 mots aléatoires (miroir /api/acheter-booster) ─
-router.post('/api/m/store/booster', requireToken, async (req, res) => {
+// ── GET /api/m/market/packs/:id : détail + aperçu des mots ────────────────────
+router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid pack' });
+    const { rows } = await pool.query(
+      `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
+              wp.creator_id,
+              COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
+              (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
+              EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1) AS owned
+       FROM word_packs wp
+       LEFT JOIN users u ON u.id = wp.creator_id
+       WHERE wp.id = $2 AND wp.published = TRUE`, [uid, id]);
+    if (!rows.length) return res.status(404).json({ error: 'Pack not found' });
+    const pack = rows[0];
+    const { rows: preview } = await pool.query(
+      `SELECT m.id, m.chinese, m.pinyin, m.english FROM word_pack_items i
+       JOIN mots m ON m.id = i.mot_id WHERE i.pack_id = $1 ORDER BY m.id LIMIT 8`, [id]);
+    pack.isMine = pack.creator_id === uid;
+    delete pack.creator_id;
+    res.json({ pack, preview });
+  } catch (e) {
+    console.error('m/market pack detail error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/m/market/packs/:id/buy : achat atomique ────────────────────────
+router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
   const uid = req.tokenUser.id;
-  const COST = 20, COUNT = 5;
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: 'Invalid pack' });
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { rows } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [uid]);
-    if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'User not found' }); }
-    if (rows[0].balance < COST) { await client.query('ROLLBACK'); return res.status(402).json({ error: `Not enough coins (${COST} needed).` }); }
+    const { rows: pk } = await client.query(
+      'SELECT id, title, price, creator_id FROM word_packs WHERE id = $1 AND published = TRUE FOR UPDATE', [id]);
+    if (!pk.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pack not found' }); }
+    const pack = pk[0];
+    if (pack.creator_id === uid) { await client.query('ROLLBACK'); return res.status(400).json({ error: "It's your own pack." }); }
 
-    const { rows: words } = await client.query(
-      `SELECT id, chinese, pinyin, english, hsk FROM mots
-       WHERE id NOT IN (SELECT mot_id FROM user_mots WHERE user_id = $1)
-       ORDER BY RANDOM() LIMIT $2`, [uid, COUNT]);
-    if (words.length < COUNT) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Not enough new words to discover.' }); }
+    const { rows: already } = await client.query(
+      'SELECT 1 FROM pack_purchases WHERE pack_id = $1 AND buyer_id = $2', [id, uid]);
+    if (already.length) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'You already own this pack.' }); }
 
+    const { rows: bal } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [uid]);
+    if (!bal.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'User not found' }); }
+    if (bal[0].balance < pack.price) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Not enough coins' }); }
+
+    // Ajoute les mots du pack non déjà possédés
+    const ins = await client.query(
+      `INSERT INTO user_mots (user_id, mot_id, score, nb_quiz, nb_correct, last_seen)
+       SELECT $1, i.mot_id, 0, 0, 0, NULL FROM word_pack_items i
+       WHERE i.pack_id = $2 AND NOT EXISTS (SELECT 1 FROM user_mots um WHERE um.user_id = $1 AND um.mot_id = i.mot_id)
+       RETURNING mot_id`, [uid, id]);
+    const added = ins.rowCount;
+
+    // Débit acheteur
+    await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [pack.price, uid]);
     await client.query(
       `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'pack_purchase', $3)`,
-      [uid, -COST, `Word Booster (${COUNT} words)`]);
-    await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [COST, uid]);
-    for (const w of words) {
-      await client.query('INSERT INTO user_mots (user_id, mot_id) VALUES ($1, $2)', [uid, w.id]);
+      [uid, -pack.price, `Pack: ${pack.title}`]);
+
+    // Crédit créateur (packs communautaires uniquement ; officiels = puits de coins)
+    if (pack.creator_id && pack.price > 0) {
+      await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [pack.price, pack.creator_id]);
+      await client.query(
+        `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'pack_sale', $3)`,
+        [pack.creator_id, pack.price, `Sold: ${pack.title}`]);
     }
+
+    await client.query(
+      'INSERT INTO pack_purchases (pack_id, buyer_id, price_paid) VALUES ($1, $2, $3)', [id, uid, pack.price]);
+    await client.query('UPDATE word_packs SET sales_count = sales_count + 1 WHERE id = $1', [id]);
+
     await client.query('COMMIT');
-    res.json({ success: true, words, newBalance: rows[0].balance - COST });
+    res.json({ success: true, wordsAdded: added, newBalance: bal[0].balance - pack.price });
   } catch (e) {
     await client.query('ROLLBACK');
-    console.error('m/store booster error:', e);
+    console.error('m/market buy error:', e);
     res.status(500).json({ error: 'Server error' });
   } finally { client.release(); }
 });
