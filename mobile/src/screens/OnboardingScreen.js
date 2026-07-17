@@ -8,7 +8,7 @@ import { COUNTRIES } from '../data/countries';
 import { flagEmoji } from '../components/account/EditProfilePopup';
 import SegmentedPicker from '../components/settings/SegmentedPicker';
 import CtaCard from '../components/duels/CtaCard';
-import StoreScreen from './StoreScreen';
+import PackMarket from '../components/PackMarket';
 import ImportWordsScreen from './ImportWordsScreen';
 import { completeOnboarding } from '../api';
 import { COLORS } from '../theme';
@@ -119,32 +119,48 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   async function submitTeacher() { if (await saveProfile('teacher')) onDone?.('teacher'); }
   async function submitLearner() { if (await saveProfile('student')) setStep('words'); }
 
-  // ── Étape "remplis ta collection" (élève) : store réutilisé + carte upload ──
+  // ── Dernier chapitre (élève, optionnel) : remplis ta collection ──
+  // Grille de packs JiaStore + une tuile "upload" (bleue, style action) en 2e
+  // position (haut de la colonne droite). Optionnel → "Start playing" termine.
   if (step === 'words') {
     if (importing) {
       return <ImportWordsScreen onBack={() => setImporting(false)} onDone={() => onDone?.('student')} />;
     }
-    const uploadCard = (
-      <View style={{ marginBottom: 16 }}>
-        <View style={{ flexDirection: 'row' }}>
-          <CtaCard
-            colors={['#0d6efd', '#0a4fcf']}
-            icon="cloud-upload"
-            title="Manual bulk upload"
-            text="Upload up to 600 words from your personal base"
-            onPress={() => setImporting(true)}
-          />
-        </View>
+    const uploadTile = (
+      <View style={{ flex: 1, marginBottom: 18 }}>
+        <CtaCard
+          colors={['#0d6efd', '#0a4fcf']}
+          icon="cloud-upload"
+          title="Manual bulk upload"
+          text="Upload up to 600 words from your personal base"
+          onPress={() => setImporting(true)}
+        />
+      </View>
+    );
+    const header = (
+      <View style={{ paddingTop: 6, paddingBottom: 6 }}>
+        <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.jiayou, letterSpacing: 0.5 }}>LAST STEP</Text>
+        <Text style={{ fontSize: 23, fontWeight: '800', color: COLORS.ink, marginTop: 4 }}>Fill your collection</Text>
+        <Text style={{ fontSize: 13.5, color: COLORS.muted, marginTop: 4, marginBottom: 14 }}>
+          Optional — grab a pack or import your own list. You can always add more words later.
+        </Text>
+      </View>
+    );
+    const footer = (
+      <View style={{ marginTop: 6 }}>
+        <PrimaryButton label="Start playing 加油！🚀" onPress={() => onDone?.('student')} />
       </View>
     );
     return (
-      <StoreScreen
-        onBack={() => onDone?.('student')}
-        backLabel="Skip for now"
-        heroTitle="Fill your collection"
-        heroSubtitle="Grab a pack or import your own list"
-        leadingCard={uploadCard}
-      />
+      <SafeAreaView className="flex-1 bg-surface-page">
+        <PackMarket
+          extraTile={uploadTile}
+          extraTileAt={1}
+          ListHeaderComponent={header}
+          ListFooterComponent={footer}
+          contentContainerStyle={{ width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40 }}
+        />
+      </SafeAreaView>
     );
   }
 
