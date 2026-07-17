@@ -60,6 +60,9 @@ router.post('/api/auth/token', async (req, res) => {
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
+    // Trace la connexion (comme le login web) — sert p.ex. au filtre "rivaux actifs".
+    await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
+
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_TTL });
     res.json({
       token,
@@ -71,6 +74,75 @@ router.post('/api/auth/token', async (req, res) => {
     });
   } catch (e) {
     console.error('Token login error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/auth/check-email : email-first (signup / login / google_only) ──
+// Miroir de /auth/check-email : dit au client quelle étape présenter.
+router.post('/api/auth/check-email', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'Email required' });
+    const { rows } = await pool.query('SELECT password_hash, provider FROM users WHERE email = $1', [email]);
+    if (!rows.length) return res.json({ step: 'signup' });
+    if (!rows[0].password_hash && rows[0].provider === 'google') return res.json({ step: 'google_only' });
+    return res.json({ step: 'login' });
+  } catch (e) {
+    console.error('m/check-email error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/auth/register : créer un compte email/mot de passe → JWT ────────
+// Mêmes règles que /auth/signup-basic (mot de passe 8+/1 maj/1 chiffre) + envoi
+// de l'email de vérification. Auto-login (renvoie un JWT) pour une UX mobile fluide.
+router.post('/api/auth/register', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').toLowerCase().trim();
+    const password = String(req.body?.password || '');
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) {
+      return res.status(400).json({ error: 'Password: 8+ characters, 1 uppercase, 1 digit' });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    let user;
+    try {
+      const ins = await pool.query(
+        `INSERT INTO users (email, password_hash, provider, email_verified, balance)
+         VALUES ($1, $2, 'local', false, 200)
+         RETURNING id, email, name, role, onboarding_done`,
+        [email, hash]
+      );
+      user = ins.rows[0];
+    } catch (e) {
+      if (e.code === '23505') return res.status(409).json({ error: 'This email is already in use.' });
+      throw e;
+    }
+
+    // Email de vérification (best-effort, comme le web) — ne bloque jamais la création.
+    try {
+      const vtoken = crypto.randomBytes(32).toString('hex');
+      await pool.query(
+        `INSERT INTO email_verification_tokens (user_id, token, expires_at)
+         VALUES ($1, $2, NOW() + INTERVAL '24 hours')`,
+        [user.id, vtoken]
+      );
+      const { sendVerificationEmail } = require('../middleware/mail.service');
+      await sendVerificationEmail(user.email, vtoken);
+    } catch (mailErr) {
+      console.error('m/register verification email:', mailErr.message);
+    }
+
+    await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_TTL });
+    res.status(201).json({
+      token,
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, onboarding_done: user.onboarding_done },
+    });
+  } catch (e) {
+    console.error('m/register error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -108,6 +180,9 @@ router.post('/api/auth/google-token', async (req, res) => {
       user = ins.rows[0];
     }
 
+    // Trace la connexion (comme le login web) — sert p.ex. au filtre "rivaux actifs".
+    await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
+
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_TTL });
     res.json({
       token,
@@ -125,15 +200,149 @@ router.post('/api/auth/google-token', async (req, res) => {
 // ── GET /api/m/me : profil courant ───────────────────────────────────────────
 router.get('/api/m/me', requireToken, async (req, res) => {
   try {
+    // Heartbeat d'activité : l'app reste connectée via son JWT sans repasser par
+    // le login, donc on rafraîchit last_login ici (appelé à chaque ouverture),
+    // throttlé à 1×/heure. Utile p.ex. au filtre "rivaux actifs (30 j)".
+    // Fire-and-forget : ne bloque pas la réponse.
+    pool.query(
+      `UPDATE users SET last_login = NOW()
+       WHERE id = $1 AND (last_login IS NULL OR last_login < NOW() - INTERVAL '1 hour')`,
+      [req.tokenUser.id]
+    ).catch(() => {});
+
     const { rows } = await pool.query(
-      `SELECT id, email, name, balance, role, quiz_direction, interface_lang
-       FROM users WHERE id = $1`,
+      `SELECT u.id, u.email, u.name, u.balance, u.role,
+              u.quiz_direction, u.interface_lang, u.special_guest,
+              u.onboarding_done, u.has_seen_tutorial,
+              us.plan_name, us.status AS sub_status, us.stripe_status
+       FROM users u
+       LEFT JOIN user_subscriptions us ON us.user_id = u.id
+       WHERE u.id = $1`,
       [req.tokenUser.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
-    res.json(rows[0]);
+    const row = rows[0];
+
+    // Statut premium : même logique que le web (stripe_status='active' fait foi,
+    // pas de gate sur la date locale — cf. middleware/subscription.js).
+    const isSpecialGuest = row.special_guest === true;
+    const allActive = row.plan_name === 'premium'
+      && row.sub_status === 'active'
+      && row.stripe_status === 'active';
+    const isPremium = isSpecialGuest || allActive;
+    const plan = isSpecialGuest ? 'guest' : (isPremium ? 'premium' : 'free');
+
+    res.json({
+      id: row.id,
+      email: row.email,
+      name: row.name,
+      balance: row.balance,
+      role: row.role,
+      quiz_direction: row.quiz_direction,
+      interface_lang: row.interface_lang,
+      onboarding_done: row.onboarding_done,
+      has_seen_tutorial: row.has_seen_tutorial,
+      isPremium,
+      isSpecialGuest,
+      plan, // 'premium' | 'guest' | 'free'
+    });
   } catch (e) {
     console.error('me error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/m/onboarding : sauve le profil + marque l'onboarding fini ───────
+// Miroir JWT de /api/user/update-profile + /api/user/complete-onboarding (web).
+// `ref` (optionnel) = code de parrainage capté côté client → crédite le parrain.
+const REFERRAL_REWARD = { student: 80, teacher: 150 };
+
+// Crédite le parrain une seule fois, montant selon le rôle réel de l'invité.
+async function creditReferralByCode(userId, code) {
+  if (!code) return;
+  const me = await pool.query(
+    'SELECT role, referred_by, referral_rewarded FROM users WHERE id = $1',
+    [userId]
+  );
+  if (!me.rows.length) return;
+  if (me.rows[0].referred_by || me.rows[0].referral_rewarded) return;
+
+  const ref = await pool.query('SELECT id FROM users WHERE referral_code = $1', [code]);
+  if (!ref.rows.length) return;
+  const referrerId = ref.rows[0].id;
+  if (referrerId === userId) return; // pas d'auto-parrainage
+
+  const reward = REFERRAL_REWARD[me.rows[0].role] || REFERRAL_REWARD.student;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const upd = await client.query(
+      `UPDATE users SET referred_by = $1, referral_rewarded = TRUE
+       WHERE id = $2 AND referred_by IS NULL AND referral_rewarded = FALSE`,
+      [referrerId, userId]
+    );
+    if (upd.rowCount === 1) {
+      await addTransaction(client, referrerId, reward, 'referral', 'Referral bonus');
+    }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+router.post('/api/m/onboarding', requireToken, async (req, res) => {
+  const uid = req.tokenUser.id;
+  const { role, name, tagline, country, quiz_direction, interface_lang, ref } = req.body || {};
+
+  const VALID_ROLES = ['student', 'teacher'];
+  const VALID_DIRECTIONS = ['zh→en', 'en→zh'];
+  const chosenRole = VALID_ROLES.includes(role) ? role : 'student';
+  const uiLang = ['en', 'zh'].includes(interface_lang) ? interface_lang : null;
+
+  if (!name || String(name).trim().length === 0 || String(name).length > 50) {
+    return res.status(400).json({ error: 'Name is required (max 50 characters)' });
+  }
+  if (tagline && String(tagline).length > 100) {
+    return res.status(400).json({ error: 'Tagline must be under 100 characters' });
+  }
+  if (quiz_direction && !VALID_DIRECTIONS.includes(quiz_direction)) {
+    return res.status(400).json({ error: 'Invalid quiz direction' });
+  }
+  const code = country ? String(country).toUpperCase().slice(0, 2) : null;
+
+  try {
+    await pool.query(
+      `UPDATE users
+       SET role = $1, name = $2, tagline = $3, country = $4,
+           quiz_direction = $5, interface_lang = COALESCE($6, interface_lang),
+           onboarding_done = TRUE
+       WHERE id = $7`,
+      [chosenRole, String(name).trim(), tagline ? String(tagline).trim() : null, code,
+        quiz_direction || 'en→zh', uiLang, uid]
+    );
+
+    // Parrainage : montant selon le rôle réel choisi ici.
+    try {
+      await creditReferralByCode(uid, ref ? String(ref).trim().slice(0, 12) : null);
+    } catch (e) { console.error('m/onboarding referral error:', e); }
+
+    res.json({ success: true, role: chosenRole, onboarding_done: true });
+  } catch (e) {
+    console.error('m/onboarding error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/m/tutorial-complete : marque le tutoriel comme vu ───────────────
+router.post('/api/m/tutorial-complete', requireToken, async (req, res) => {
+  try {
+    await pool.query('UPDATE users SET has_seen_tutorial = true WHERE id = $1', [req.tokenUser.id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('m/tutorial-complete error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -143,6 +352,7 @@ router.get('/api/m/collection', requireToken, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT mots.id, mots.chinese, mots.pinyin, mots.english, mots.hsk,
+              mots.description, mots.description_zh,
               user_mots.score
        FROM mots
        JOIN user_mots ON mots.id = user_mots.mot_id
@@ -742,6 +952,69 @@ router.put('/api/m/account', requireToken, async (req, res) => {
   }
 });
 
+// ── GET /api/m/users/:id : profil public d'un joueur (page user-profile EJS) ──
+// Identité + stats globales + maîtrise (pinyin/caractères) + répartition HSK.
+router.get('/api/m/users/:id', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const targetId = parseInt(req.params.id, 10);
+    if (!targetId) return res.status(400).json({ error: 'Invalid user' });
+
+    const [me, wordRows, quizzes, duels] = await Promise.all([
+      pool.query('SELECT id, name, tagline, country, created_at FROM users WHERE id = $1', [targetId]),
+      pool.query(
+        `SELECT um.score, um.score_character, m.hsk
+         FROM user_mots um JOIN mots m ON m.id = um.mot_id
+         WHERE um.user_id = $1`, [targetId]),
+      pool.query('SELECT COUNT(*)::int AS n FROM quiz_history WHERE user_id = $1', [targetId]),
+      pool.query(
+        `SELECT COUNT(*)::int AS n FROM duels
+         WHERE (challenger_id = $1 OR opponent_id = $1) AND status = 'completed'`, [targetId]),
+    ]);
+    if (!me.rows.length) return res.status(404).json({ error: 'User not found' });
+    const u = me.rows[0];
+    const words = wordRows.rows;
+
+    // Distribution de maîtrise (mêmes seuils que l'EJS)
+    const bucket = (scores) => ({
+      mastered: scores.filter((s) => s >= 90).length,
+      learning: scores.filter((s) => s >= 60 && s < 90).length,
+      medium:   scores.filter((s) => s >= 30 && s < 60).length,
+      novice:   scores.filter((s) => s < 30).length,
+    });
+    const pinyinDist = bucket(words.map((w) => w.score || 0));
+    const charDist   = bucket(words.map((w) => w.score_character || 0));
+
+    // Répartition HSK (nombre de mots par niveau)
+    const HSK_ORDER = ['HSK1', 'HSK2', 'HSK3', 'HSK4', 'HSK5', 'HSK6', 'Street'];
+    const groups = {};
+    words.forEach((w) => {
+      const lvl = w.hsk ? `HSK${w.hsk}` : 'Street';
+      groups[lvl] = (groups[lvl] || 0) + 1;
+    });
+    const hsk = HSK_ORDER
+      .filter((key) => groups[key])
+      .map((key) => ({ label: key === 'Street' ? 'Street' : key.replace('HSK', 'HSK '), count: groups[key] }));
+
+    res.json({
+      id: u.id,
+      name: u.name || '',
+      tagline: u.tagline || null,
+      country: u.country || null,
+      created_at: u.created_at instanceof Date ? u.created_at.toISOString() : (u.created_at || null),
+      isMe: u.id === uid,
+      words: words.length,
+      quizzes: quizzes.rows[0].n,
+      duels: duels.rows[0].n,
+      mastery: { pinyin: pinyinDist, character: charDist, total: words.length },
+      hsk,
+    });
+  } catch (e) {
+    console.error('m/user profile error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ── GET /api/m/settings : préférences (direction, langue, toggles) ───────────
 router.get('/api/m/settings', requireToken, async (req, res) => {
   try {
@@ -836,8 +1109,6 @@ router.delete('/api/m/account/delete', requireToken, async (req, res) => {
 router.get('/api/m/duels', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
-    const dirRow = await pool.query('SELECT quiz_direction FROM users WHERE id = $1', [uid]);
-    const dir = dirRow.rows[0]?.quiz_direction || 'en→zh';
     const [pending, stats, recent, bullies] = await Promise.all([
       pool.query(
         `SELECT d.id, d.bet_amount, d.status, d.created_at,
@@ -848,6 +1119,8 @@ router.get('/api/m/duels', requireToken, async (req, res) => {
          JOIN users u1 ON d.challenger_id = u1.id
          JOIN users u2 ON d.opponent_id = u2.id
          WHERE (d.challenger_id = $1 OR d.opponent_id = $1) AND d.status = 'pending'
+           -- Un duel en attente > 7 jours est considéré périmé : on ne l'affiche pas.
+           AND d.created_at > NOW() - INTERVAL '7 days'
          ORDER BY d.created_at DESC`, [uid]),
       pool.query(
         `SELECT
@@ -884,9 +1157,12 @@ router.get('/api/m/duels', requireToken, async (req, res) => {
            (d.opponent_id = $1 AND d.challenger_id = opponent.id))
          WHERE d.challenger_score IS NOT NULL AND d.opponent_score IS NOT NULL
            AND d.bet_amount > 0 AND opponent.id <> $1
-           AND opponent.quiz_direction = $2 AND opponent.ghost_mode = FALSE
+           AND opponent.quiz_direction = (SELECT quiz_direction FROM users WHERE id = $1)
+           AND opponent.ghost_mode = FALSE
+           -- Seulement les rivaux connectés au moins une fois ces 30 derniers jours.
+           AND opponent.last_login >= NOW() - INTERVAL '30 days'
          GROUP BY opponent.id, opponent.name
-         ORDER BY balance DESC LIMIT 8`, [uid, dir]),
+         ORDER BY balance DESC LIMIT 8`, [uid]),
     ]);
     res.json({
       pending: pending.rows,
@@ -905,8 +1181,6 @@ router.get('/api/m/duels', requireToken, async (req, res) => {
 router.get('/api/m/leaderboard', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
-    const dir = await pool.query('SELECT quiz_direction FROM users WHERE id = $1', [uid]);
-    const quizDirection = dir.rows[0]?.quiz_direction || 'en→zh';
     const { rows } = await pool.query(
       `SELECT u.id, u.name, u.tagline, u.country,
          COUNT(*) FILTER (WHERE d.winner_id = u.id)::int AS wins,
@@ -915,11 +1189,12 @@ router.get('/api/m/leaderboard', requireToken, async (req, res) => {
          (SELECT COUNT(*)::int FROM user_mots um WHERE um.user_id = u.id) AS total_words
        FROM users u
        LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
-       WHERE u.quiz_direction = $1 AND u.ghost_mode = FALSE AND u.role <> 'teacher'
+       WHERE u.quiz_direction = (SELECT quiz_direction FROM users WHERE id = $1)
+         AND u.ghost_mode = FALSE AND u.role <> 'teacher'
        GROUP BY u.id, u.name, u.tagline, u.country
        HAVING COUNT(*) FILTER (WHERE d.status = 'completed') > 0
        ORDER BY wins DESC, losses ASC
-       LIMIT 50`, [quizDirection]);
+       LIMIT 50`, [uid]);
     const leaderboard = rows.map((r) => {
       const played = r.wins + r.losses;
       return { ...r, ratio: played > 0 ? Math.round((r.wins / played) * 100) : 0, isMe: r.id === uid };
@@ -970,17 +1245,41 @@ router.get('/api/m/duels/players', requireToken, async (req, res) => {
   try {
     const q = (req.query.q || '').trim();
     if (!q) return res.json({ players: [] });
-    const me = await pool.query('SELECT quiz_direction FROM users WHERE id = $1', [req.tokenUser.id]);
-    const dir = me.rows[0]?.quiz_direction || 'en→zh';
     const { rows } = await pool.query(
       `SELECT id, name FROM users
-       WHERE name ILIKE $1 AND id <> $2 AND quiz_direction = $3 AND ghost_mode = FALSE
+       WHERE name ILIKE $1 AND id <> $2 AND ghost_mode = FALSE
+         AND quiz_direction = (SELECT quiz_direction FROM users WHERE id = $2)
        ORDER BY name ASC LIMIT 8`,
-      [`%${q}%`, req.tokenUser.id, dir]
+      [`%${q}%`, req.tokenUser.id]
     );
     res.json({ players: rows });
   } catch (e) {
     console.error('m/duels players error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── GET /api/m/duels/recent-opponents : adversaires déjà affrontés ────────────
+// Suggestions sous le champ "opponent" du popup. Distinct, plus récents d'abord,
+// même direction, non fantômes. (Enregistrée AVANT /:id pour ne pas être masquée.)
+router.get('/api/m/duels/recent-opponents', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const { rows } = await pool.query(
+      `SELECT o.id, o.name, MAX(d.created_at) AS last_at
+       FROM duels d
+       JOIN users o ON o.id = CASE WHEN d.challenger_id = $1 THEN d.opponent_id ELSE d.challenger_id END
+       WHERE (d.challenger_id = $1 OR d.opponent_id = $1)
+         AND o.id <> $1 AND o.ghost_mode = FALSE
+         AND o.quiz_direction = (SELECT quiz_direction FROM users WHERE id = $1)
+       GROUP BY o.id, o.name
+       ORDER BY last_at DESC
+       LIMIT 5`,
+      [uid]
+    );
+    res.json({ players: rows.map((r) => ({ id: r.id, name: r.name })) });
+  } catch (e) {
+    console.error('m/duels recent-opponents error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1254,12 +1553,43 @@ router.get('/api/m/difficult-words', requireToken, async (req, res) => {
        WHERE um.user_id = $1 AND um.nb_quiz > 0
          AND ((um.nb_quiz >= 2 AND (um.nb_correct::float / um.nb_quiz) < 0.6) OR COALESCE(um.score,0) < 50)
        ORDER BY error_rate DESC, COALESCE(um.score,0) ASC, um.last_seen ASC NULLS FIRST
-       LIMIT 10`,
+       LIMIT 12`,
       [req.tokenUser.id]
     );
     res.json({ words: rows.map((r) => ({ id: r.id, chinese: r.chinese, pinyin: r.pinyin, english: r.english })) });
   } catch (e) {
     console.error('m/difficult-words error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── GET /api/m/quiz/stats : stats de quiz (section "My statistics") ───────────
+// Quizzes joués + précision moyenne/meilleure (ratio 0-100) + mots & maîtrisés.
+router.get('/api/m/quiz/stats', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const [hist, words, me] = await Promise.all([
+      pool.query(
+        `SELECT COUNT(*)::int AS quizzes,
+                COALESCE(ROUND(AVG(ratio)), 0)::int AS avg_pct,
+                COALESCE(ROUND(MAX(ratio)), 0)::int AS best_pct
+         FROM quiz_history WHERE user_id = $1`, [uid]),
+      pool.query(
+        `SELECT COUNT(*)::int AS words,
+                COUNT(*) FILTER (WHERE COALESCE(score, 0) >= 90)::int AS mastered
+         FROM user_mots WHERE user_id = $1`, [uid]),
+      pool.query('SELECT quiz_direction FROM users WHERE id = $1', [uid]),
+    ]);
+    res.json({
+      quizzes: hist.rows[0].quizzes,
+      avg: hist.rows[0].avg_pct,
+      best: hist.rows[0].best_pct,
+      words: words.rows[0].words,
+      mastered: words.rows[0].mastered,
+      direction: me.rows[0]?.quiz_direction || 'en→zh',
+    });
+  } catch (e) {
+    console.error('m/quiz stats error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1349,6 +1679,394 @@ router.get('/api/m/quiz', requireToken, async (req, res) => {
     console.error('m/quiz error:', e);
     res.status(500).json({ error: 'Server error' });
   }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+//  PLATEFORME PROFESSEUR (JWT) — miroir de routes/teach.js pour l'app mobile.
+// ════════════════════════════════════════════════════════════════════════════
+const TEACH_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'CNY', 'JPY', 'CAD', 'AUD', 'SGD', 'HKD'];
+const MENTOR_LINK_ALLOWLIST = [
+  'preply.com', 'italki.com', 'superprof.', 'verbling.com', 'lingoda.com',
+  'amazingtalker.com', 'wyzant.com', 'tutoroo.co', 'calendly.com', 'cal.com',
+  'linktr.ee', 'youtube.com', 'instagram.com',
+];
+function isAllowedMentorUrl(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'https:') return false;
+    const host = u.hostname.toLowerCase();
+    return MENTOR_LINK_ALLOWLIST.some((d) =>
+      d.endsWith('.') ? host.includes(d) : (host === d || host.endsWith('.' + d)));
+  } catch { return false; }
+}
+
+// Middleware : exige que l'utilisateur du token soit professeur.
+async function requireTeacher(req, res, next) {
+  try {
+    const { rows } = await pool.query('SELECT role, quiz_direction FROM users WHERE id = $1', [req.tokenUser.id]);
+    if (!rows.length || rows[0].role !== 'teacher') return res.status(403).json({ error: 'Teachers only' });
+    req.teacher = { id: req.tokenUser.id, quiz_direction: rows[0].quiz_direction || 'en→zh' };
+    next();
+  } catch (e) {
+    console.error('requireTeacher error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+}
+
+async function teacherOwnsClass(teacherId, classId) {
+  const { rows } = await pool.query('SELECT 1 FROM classrooms WHERE id = $1 AND teacher_id = $2', [classId, teacherId]);
+  return rows.length > 0;
+}
+async function genClassCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const bytes = crypto.randomBytes(6);
+    let code = '';
+    for (let i = 0; i < 6; i++) code += chars[bytes[i] % chars.length];
+    const { rows } = await pool.query('SELECT 1 FROM classrooms WHERE join_code = $1', [code]);
+    if (!rows.length) return code;
+  }
+  throw new Error('code generation failed');
+}
+
+// ── Stats globales du prof ───────────────────────────────────────────────────
+router.get('/api/m/teacher/overview', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+         (SELECT COUNT(*) FROM classrooms WHERE teacher_id = $1 AND archived = FALSE)::int AS classes,
+         (SELECT COUNT(DISTINCT cs.student_id)
+            FROM classroom_students cs JOIN classrooms cl ON cl.id = cs.classroom_id
+            WHERE cl.teacher_id = $1 AND cs.status = 'active')::int AS students,
+         (SELECT COUNT(l.id)
+            FROM lessons l JOIN classrooms cl ON cl.id = l.classroom_id
+            WHERE cl.teacher_id = $1)::int AS tasks,
+         (SELECT COALESCE(ROUND(AVG(um.score)), 0)
+            FROM classroom_students cs
+            JOIN classrooms cl ON cl.id = cs.classroom_id AND cl.teacher_id = $1
+            JOIN user_mots um ON um.user_id = cs.student_id
+            WHERE cs.status = 'active')::int AS avg_knowledge`,
+      [req.teacher.id]
+    );
+    res.json(rows[0]);
+  } catch (e) { console.error('m/teacher overview:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── Classes du prof ──────────────────────────────────────────────────────────
+router.get('/api/m/teacher/classes', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT c.id, c.name, c.type, c.join_code, c.archived, c.created_at,
+              COUNT(DISTINCT cs.student_id) FILTER (WHERE cs.status = 'active')::int AS student_count,
+              COUNT(DISTINCT l.id)::int AS lesson_count
+       FROM classrooms c
+       LEFT JOIN classroom_students cs ON cs.classroom_id = c.id
+       LEFT JOIN lessons l ON l.classroom_id = c.id
+       WHERE c.teacher_id = $1
+       GROUP BY c.id
+       ORDER BY c.archived ASC, c.created_at DESC`,
+      [req.teacher.id]
+    );
+    res.json({ classrooms: rows });
+  } catch (e) { console.error('m/teacher classes:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.post('/api/m/teacher/classes', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const name = (req.body?.name || '').trim();
+    const type = req.body?.type === 'private' ? 'private' : 'group';
+    if (!name || name.length > 80) return res.status(400).json({ error: 'Class name required (max 80 characters)' });
+    const join_code = await genClassCode();
+    const { rows } = await pool.query(
+      `INSERT INTO classrooms (teacher_id, name, type, join_code)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, type, join_code, archived, created_at`,
+      [req.teacher.id, name, type, join_code]
+    );
+    res.json({ success: true, classroom: rows[0] });
+  } catch (e) { console.error('m/teacher create class:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── Détail d'une classe : élèves ─────────────────────────────────────────────
+router.get('/api/m/teacher/classes/:id', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const { rows: classRows } = await pool.query(
+      `SELECT id, name, type, join_code, archived, created_at
+       FROM classrooms WHERE id = $1 AND teacher_id = $2`,
+      [req.params.id, req.teacher.id]
+    );
+    if (!classRows.length) return res.status(404).json({ error: 'Class not found' });
+    const { rows: students } = await pool.query(
+      `SELECT u.id, u.name, cs.joined_at,
+              COUNT(um.mot_id)::int AS word_count,
+              COALESCE(ROUND(AVG(um.score)), 0)::int AS avg_score
+       FROM classroom_students cs
+       JOIN users u ON u.id = cs.student_id
+       LEFT JOIN user_mots um ON um.user_id = u.id
+       WHERE cs.classroom_id = $1 AND cs.status = 'active'
+       GROUP BY u.id, u.name, cs.joined_at
+       ORDER BY u.name ASC`,
+      [req.params.id]
+    );
+    res.json({ classroom: classRows[0], students });
+  } catch (e) { console.error('m/teacher class detail:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.delete('/api/m/teacher/classes/:id', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      'DELETE FROM classrooms WHERE id = $1 AND teacher_id = $2', [req.params.id, req.teacher.id]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Class not found' });
+    res.json({ success: true });
+  } catch (e) { console.error('m/teacher delete class:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.post('/api/m/teacher/classes/:id/students/:studentId/revoke', requireToken, requireTeacher, async (req, res) => {
+  try {
+    if (!(await teacherOwnsClass(req.teacher.id, req.params.id))) return res.status(404).json({ error: 'Class not found' });
+    await pool.query(
+      `UPDATE classroom_students SET status = 'removed' WHERE classroom_id = $1 AND student_id = $2`,
+      [req.params.id, req.params.studentId]
+    );
+    res.json({ success: true });
+  } catch (e) { console.error('m/teacher revoke:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── Tasks d'une classe ───────────────────────────────────────────────────────
+router.get('/api/m/teacher/classes/:id/lessons', requireToken, requireTeacher, async (req, res) => {
+  try {
+    if (!(await teacherOwnsClass(req.teacher.id, req.params.id))) return res.status(404).json({ error: 'Class not found' });
+    const { rows } = await pool.query(
+      `SELECT l.id, l.title, l.summary, l.created_at,
+              (SELECT COUNT(*) FROM lesson_words lw WHERE lw.lesson_id = l.id)::int AS word_count,
+              (SELECT COALESCE(ROUND(AVG(COALESCE(um.score, 0))), 0)
+                 FROM lesson_words lw
+                 JOIN classroom_students cs ON cs.classroom_id = l.classroom_id AND cs.status = 'active'
+                 LEFT JOIN user_mots um ON um.mot_id = lw.mot_id AND um.user_id = cs.student_id
+                 WHERE lw.lesson_id = l.id)::int AS avg_knowledge
+       FROM lessons l WHERE l.classroom_id = $1 ORDER BY l.created_at DESC`,
+      [req.params.id]
+    );
+    res.json({ lessons: rows });
+  } catch (e) { console.error('m/teacher lessons:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.post('/api/m/teacher/classes/:id/lessons', requireToken, requireTeacher, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const classId = req.params.id;
+    const title = (req.body?.title || '').trim();
+    const summary = (req.body?.summary || '').trim();
+    const words = Array.isArray(req.body?.words) ? req.body.words.slice(0, 50) : [];
+    if (!title || title.length > 120) return res.status(400).json({ error: 'Title required (max 120)' });
+    if (summary.length > 2000) return res.status(400).json({ error: 'Summary too long (max 2000)' });
+    if (!(await teacherOwnsClass(req.teacher.id, classId))) return res.status(404).json({ error: 'Class not found' });
+
+    await client.query('BEGIN');
+    const { rows: lrows } = await client.query(
+      `INSERT INTO lessons (classroom_id, title, summary) VALUES ($1, $2, $3) RETURNING id`,
+      [classId, title, summary]
+    );
+    const lessonId = lrows[0].id;
+    const motIds = [];
+    for (const w of words) {
+      const chinese = String(w.chinese || '').trim();
+      if (!chinese) continue;
+      const pinyin = String(w.pinyin || '').trim().slice(0, 100);
+      const english = String(w.english || '').trim().slice(0, 300);
+      const existing = await client.query('SELECT id, hsk FROM mots WHERE chinese = $1 LIMIT 1', [chinese]);
+      let motId;
+      if (existing.rows.length) {
+        motId = existing.rows[0].id;
+        if (existing.rows[0].hsk == null && english) {
+          await client.query('UPDATE mots SET pinyin = $1, english = $2 WHERE id = $3', [pinyin, english, motId]);
+        }
+      } else {
+        if (!english) continue;
+        const ins = await client.query(
+          `INSERT INTO mots (chinese, pinyin, english) VALUES ($1, $2, $3) RETURNING id`,
+          [chinese.slice(0, 50), pinyin, english]
+        );
+        motId = ins.rows[0].id;
+      }
+      motIds.push(motId);
+    }
+    for (const motId of [...new Set(motIds)]) {
+      await client.query(
+        `INSERT INTO lesson_words (lesson_id, mot_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [lessonId, motId]
+      );
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, lesson_id: lessonId });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('m/teacher create lesson:', e);
+    res.status(500).json({ error: 'Server error' });
+  } finally { client.release(); }
+});
+
+// ── Progression d'une task ───────────────────────────────────────────────────
+router.get('/api/m/teacher/lessons/:lessonId/progress', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const { rows: lrows } = await pool.query(
+      `SELECT l.id, l.title, l.summary, l.classroom_id, l.created_at
+       FROM lessons l JOIN classrooms c ON c.id = l.classroom_id
+       WHERE l.id = $1 AND c.teacher_id = $2`,
+      [req.params.lessonId, req.teacher.id]
+    );
+    if (!lrows.length) return res.status(404).json({ error: 'Task not found' });
+    const lesson = lrows[0];
+    const { rows: words } = await pool.query(
+      `SELECT m.id, m.chinese, m.pinyin, m.english
+       FROM lesson_words lw JOIN mots m ON m.id = lw.mot_id
+       WHERE lw.lesson_id = $1 ORDER BY lw.id ASC`, [lesson.id]);
+    const { rows: students } = await pool.query(
+      `SELECT cs.student_id, u.name,
+              ROUND(AVG(COALESCE(um.score, 0)))::int AS knowledge,
+              COALESCE(qc.cnt, 0)::int AS quiz_count
+       FROM classroom_students cs
+       JOIN users u ON u.id = cs.student_id
+       JOIN lesson_words lw ON lw.lesson_id = $1
+       LEFT JOIN user_mots um ON um.mot_id = lw.mot_id AND um.user_id = cs.student_id
+       LEFT JOIN (
+         SELECT student_id, COUNT(*) AS cnt FROM lesson_quiz_results WHERE lesson_id = $1 GROUP BY student_id
+       ) qc ON qc.student_id = cs.student_id
+       WHERE cs.classroom_id = $2 AND cs.status = 'active'
+       GROUP BY cs.student_id, u.name, qc.cnt
+       ORDER BY knowledge DESC, u.name ASC`,
+      [lesson.id, lesson.classroom_id]
+    );
+    res.json({ lesson, words, students });
+  } catch (e) { console.error('m/teacher progress:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.delete('/api/m/teacher/lessons/:lessonId', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      `DELETE FROM lessons l USING classrooms c
+       WHERE l.id = $1 AND l.classroom_id = c.id AND c.teacher_id = $2`,
+      [req.params.lessonId, req.teacher.id]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Task not found' });
+    res.json({ success: true });
+  } catch (e) { console.error('m/teacher delete lesson:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── Résolution des mots (find dans le dico partagé, direction-aware) ──────────
+router.post('/api/m/teacher/mots/lookup', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const words = Array.isArray(req.body?.words) ? req.body.words : [];
+    const cleaned = [...new Set(words.map((w) => String(w || '').trim()).filter(Boolean))].slice(0, 50);
+    if (!cleaned.length) return res.json({ results: [] });
+    const isZhEn = req.teacher.quiz_direction === 'zh→en';
+    const byKey = {};
+    if (isZhEn) {
+      const { rows } = await pool.query(
+        `SELECT id, chinese, pinyin, english FROM mots WHERE LOWER(english) = ANY($1::text[])`,
+        [cleaned.map((w) => w.toLowerCase())]
+      );
+      rows.forEach((r) => { byKey[(r.english || '').toLowerCase()] = r; });
+      return res.json({ results: cleaned.map((w) => ({ input: w, mot: byKey[w.toLowerCase()] || null })) });
+    }
+    const { rows } = await pool.query(
+      `SELECT id, chinese, pinyin, english FROM mots WHERE chinese = ANY($1::text[])`, [cleaned]
+    );
+    rows.forEach((r) => { byKey[r.chinese] = r; });
+    // Mot introuvable dans le dico → on génère le pinyin (pinyin-pro), comme le web.
+    let toPinyin = null;
+    try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente → pinyin vide */ }
+    const genPinyin = (cn) => {
+      if (!toPinyin) return '';
+      try { return toPinyin(cn, { toneType: 'symbol' }) || ''; } catch { return ''; }
+    };
+    res.json({
+      results: cleaned.map((w) => ({
+        input: w,
+        mot: byKey[w] || null,
+        pinyin: byKey[w] ? undefined : genPinyin(w),
+      })),
+    });
+  } catch (e) { console.error('m/teacher lookup:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── Tous les élèves du prof ──────────────────────────────────────────────────
+router.get('/api/m/teacher/students', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT u.id, u.name,
+              COUNT(DISTINCT um.mot_id)::int AS word_count,
+              COALESCE(ROUND(AVG(um.score)), 0)::int AS avg_score,
+              COUNT(DISTINCT cs.classroom_id)::int AS class_count
+       FROM classroom_students cs
+       JOIN classrooms c ON c.id = cs.classroom_id AND c.teacher_id = $1
+       JOIN users u ON u.id = cs.student_id
+       LEFT JOIN user_mots um ON um.user_id = u.id
+       WHERE cs.status = 'active'
+       GROUP BY u.id, u.name
+       ORDER BY word_count DESC, u.name ASC`,
+      [req.teacher.id]
+    );
+    res.json({ students: rows });
+  } catch (e) { console.error('m/teacher students:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── Profil mentor ────────────────────────────────────────────────────────────
+router.get('/api/m/teacher/profile', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT name, mentor_bio, mentor_links, years_experience, languages_spoken,
+              teaching_languages, session_price, session_currency, mentor_listed
+       FROM users WHERE id = $1`, [req.teacher.id]
+    );
+    res.json({ profile: rows[0] || {} });
+  } catch (e) { console.error('m/teacher get profile:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.post('/api/m/teacher/profile', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const name = (req.body?.name || '').trim();
+    const bio = (req.body?.bio || '').trim();
+    const languages = (req.body?.languages || '').trim();
+    let years = parseInt(req.body?.years_experience, 10);
+    const listed = req.body?.mentor_listed === true;
+    let links = Array.isArray(req.body?.links) ? req.body.links : [];
+
+    const teachingArr = Array.isArray(req.body?.teaching_languages)
+      ? req.body.teaching_languages
+      : String(req.body?.teaching_languages || '').split(',');
+    const teaching = teachingArr.map((s) => String(s).trim()).filter(Boolean).slice(0, 12).join(', ').slice(0, 200);
+
+    let price = null;
+    const rawPrice = req.body?.session_price;
+    if (rawPrice !== '' && rawPrice != null) {
+      const p = parseFloat(rawPrice);
+      if (!isNaN(p) && p >= 0) price = Math.min(Math.round(p * 100) / 100, 100000);
+    }
+    const currency = TEACH_CURRENCIES.includes(req.body?.session_currency) ? req.body.session_currency : 'EUR';
+
+    if (!name || name.length > 50) return res.status(400).json({ error: 'Name required (max 50)' });
+    if (bio.length > 500) return res.status(400).json({ error: 'Intro too long (max 500)' });
+    if (languages.length > 200) return res.status(400).json({ error: 'Languages: max 200 characters' });
+    if (isNaN(years) || years < 0) years = null; else if (years > 80) years = 80;
+
+    links = links
+      .filter((l) => l && typeof l.url === 'string')
+      .slice(0, 5)
+      .map((l) => ({ label: String(l.label || '').trim().slice(0, 30), url: l.url.trim() }));
+    const bad = links.find((l) => !isAllowedMentorUrl(l.url));
+    if (bad) return res.status(400).json({ error: `Link not allowed: ${bad.url}. Accepted: Preply, iTalki, Superprof, Calendly, etc.` });
+
+    await pool.query(
+      `UPDATE users SET name = $1, mentor_bio = $2, languages_spoken = $3,
+              years_experience = $4, mentor_links = $5::jsonb, mentor_listed = $6,
+              teaching_languages = $7, session_price = $8, session_currency = $9
+       WHERE id = $10`,
+      [name, bio, languages, years, JSON.stringify(links), listed, teaching, price, currency, req.teacher.id]
+    );
+    res.json({ success: true });
+  } catch (e) { console.error('m/teacher save profile:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
 module.exports = { router, requireToken };

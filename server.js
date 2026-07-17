@@ -105,6 +105,30 @@ const vendorOpts = { maxAge: '1y', immutable: true };
 app.use('/vendor/bootstrap/css', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/css'), vendorOpts));
 app.use('/vendor/bootstrap/js', express.static(path.join(__dirname, 'node_modules/bootstrap/dist/js'), vendorOpts));
 app.use('/vendor/bootstrap-icons/font', express.static(path.join(__dirname, 'node_modules/bootstrap-icons/font'), vendorOpts));
+// ── App web React (Expo web) ──────────────────────────────────────────────
+// Cutover de la migration : quand SERVE_WEB_APP=true, Express sert le bundle
+// buildé (mobile/dist) et laisse le SPA gérer toutes les routes applicatives.
+// Les routes /api, /auth, /webhook + les pages publiques EJS (/legal, /support)
+// restent servies par le serveur. Flag OFF → comportement EJS actuel inchangé
+// (rollback instantané en désactivant la variable d'env sur Render).
+if (process.env.SERVE_WEB_APP === 'true') {
+  const webDist = path.join(__dirname, 'mobile', 'dist');
+  // Assets buildés (JS/CSS/fonts) : versionnés → cache long. index.html sert '/'.
+  app.use(express.static(webDist, { setHeaders: publicCacheControl }));
+
+  const PASSTHROUGH = ['/api', '/auth', '/webhook', '/vendor'];
+  const PUBLIC_EJS = new Set(['/legal', '/support']);
+  // Express 5 : pas de wildcard string ('*') → middleware sans path.
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    // Laisse passer l'API et les pages publiques EJS vers leurs handlers.
+    if (PASSTHROUGH.some((p) => req.path === p || req.path.startsWith(p + '/'))) return next();
+    if (PUBLIC_EJS.has(req.path)) return next();
+    // Tout le reste = SPA React (navigation state-based côté client).
+    res.sendFile(path.join(webDist, 'index.html'));
+  });
+}
+
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(session({

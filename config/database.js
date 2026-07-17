@@ -125,6 +125,15 @@ const pool = new Pool({
     `);
     console.log("✅ Colonne 'word_review_enabled' vérifiée ou créée sur 'users'.");
 
+    // ── Migration: has_seen_tutorial (aiguillage du tutoriel) ─────────────────
+    // Utilisée par le web (server.js) et l'app mobile (routes/mobile.js) ;
+    // ajoutée ici pour garantir sa présence sur toute base (dev incluse).
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS has_seen_tutorial BOOLEAN NOT NULL DEFAULT FALSE
+    `);
+    console.log("✅ Colonne 'has_seen_tutorial' vérifiée ou créée sur 'users'.");
+
     // ── Fix: tous les users sans onboarding = apprennent le chinois (en→zh) ──
     // La colonne a été créée avec DEFAULT 'zh→en' dans une version précédente,
     // ce qui a affecté tous les anciens comptes. On corrige tous sauf ceux
