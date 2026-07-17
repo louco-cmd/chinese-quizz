@@ -636,10 +636,12 @@ router.post('/api/m/import/preview', requireToken, async (req, res) => {
 
       const rows = unique.map((r) => {
         const d = dictMap.get(r.chinese);
-        const pinyin = r.pinyin || d?.pinyin || (toPinyin ? toPinyin(r.chinese, { toneType: 'symbol' }) : '');
-        const english = r.latin || d?.english || '';
-        // owned = déjà dans ta collection ; known = reconnu dans le dictionnaire
-        // (traduction auto) ; new = traduit depuis ton texte ; sinon à traduire.
+        // Mot connu → on GARDE la traduction/pinyin du dico (ce qui sera stocké,
+        // l'import n'écrase jamais). Mot inconnu → on prend ceux de ta liste.
+        const pinyin = d?.pinyin || r.pinyin || (toPinyin ? toPinyin(r.chinese, { toneType: 'symbol' }) : '');
+        const english = d?.english || r.latin || '';
+        // owned = déjà dans ta collection ; known = reconnu dans le dictionnaire ;
+        // new = créé avec ta traduction ; sinon à traduire.
         const status = d?.owned ? 'owned'
           : (!english ? 'needs_translation' : (d ? 'known' : 'new'));
         return { chinese: r.chinese, pinyin, english, status };
@@ -670,8 +672,9 @@ router.post('/api/m/import/preview', requireToken, async (req, res) => {
 
     const rows = unique.map((r) => {
       const d = dictMap.get(r.latin.toLowerCase());
-      const chinese = r.chinese || d?.chinese || '';
-      const pinyin = r.pinyin || d?.pinyin || (chinese && toPinyin ? toPinyin(chinese, { toneType: 'symbol' }) : '');
+      // Mot connu → traduction (chinois) du dico ; inconnu → celle de ta liste.
+      const chinese = d?.chinese || r.chinese || '';
+      const pinyin = d?.pinyin || r.pinyin || (chinese && toPinyin ? toPinyin(chinese, { toneType: 'symbol' }) : '');
       const status = d?.owned ? 'owned'
         : (!chinese ? 'needs_translation' : (d ? 'known' : 'new'));
       return { chinese, pinyin, english: r.latin, status };

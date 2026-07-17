@@ -184,8 +184,12 @@ export default function ImportWordsScreen({ onBack }) {
           const st = STATUS[item.status] || STATUS.new;
           const owned = item.status === 'owned';
           const keyText = learningChinese ? item.chinese : item.english;   // le mot appris
-          const transVal = item[transKey] || '';                          // la traduction (éditable)
-          const missing = !owned && !transVal.trim();
+          const transVal = item[transKey] || '';                          // la traduction
+          // Éditable seulement pour les mots CRÉÉS (new / à traduire) : pour un mot
+          // connu (known) ou déjà à toi (owned), la traduction du dico est gardée
+          // telle quelle — pas d'écrasement, donc champ en lecture seule.
+          const editable = item.status === 'new' || item.status === 'needs_translation';
+          const missing = item.status === 'needs_translation';
           return (
             <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 10, opacity: owned ? 0.6 : 1, ...SHADOW_CARD }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -194,21 +198,23 @@ export default function ImportWordsScreen({ onBack }) {
                   {learningChinese && item.pinyin ? <Text style={{ fontSize: 11.5, color: COLORS.muted }}>{item.pinyin}</Text> : null}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <TextInput
-                    value={transVal}
-                    onChangeText={(t) => updateRow(index, {
-                      [transKey]: t,
-                      status: owned ? 'owned' : (t.trim() ? 'new' : 'needs_translation'),
-                    })}
-                    editable={!owned}
-                    placeholder={learningChinese ? 'English…' : '中文…'}
-                    placeholderTextColor={COLORS.mutedLight}
-                    style={{
-                      borderWidth: 1, borderColor: missing ? '#f0c36d' : COLORS.line,
-                      borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: 14,
-                      backgroundColor: owned ? '#f5f5f5' : '#fff',
-                    }}
-                  />
+                  {editable ? (
+                    <TextInput
+                      value={transVal}
+                      onChangeText={(t) => updateRow(index, {
+                        [transKey]: t,
+                        status: t.trim() ? 'new' : 'needs_translation',
+                      })}
+                      placeholder={learningChinese ? 'English…' : '中文…'}
+                      placeholderTextColor={COLORS.mutedLight}
+                      style={{
+                        borderWidth: 1, borderColor: missing ? '#f0c36d' : COLORS.line,
+                        borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: 14, backgroundColor: '#fff',
+                      }}
+                    />
+                  ) : (
+                    <Text numberOfLines={2} style={{ fontSize: 14, color: COLORS.muted, paddingVertical: 4 }}>{transVal}</Text>
+                  )}
                 </View>
                 <View style={{ backgroundColor: st.bg, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
                   <Text style={{ fontSize: 10, fontWeight: '700', color: st.color }}>{st.label}</Text>
