@@ -336,26 +336,34 @@ const pool = new Pool({
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_pack_purchases_buyer ON pack_purchases(buyer_id)`);
     console.log("✅ Tables JiaStore (word_packs/word_pack_items/pack_purchases) vérifiées.");
 
-    // Seed idempotent : ne s'exécute que si aucun pack n'existe encore.
-    // Uniquement les packs HSK 1→6. Les niveaux sans mots en base restent
-    // affichés (word_count = 0 → "Soon available" côté app, non achetables).
-    const { rows: pkCount } = await pool.query('SELECT COUNT(*)::int AS n FROM word_packs');
-    if (pkCount[0].n === 0) {
+    // Réconciliation des packs officiels HSK (idempotente, à chaque démarrage).
+    // 1) Retire les anciens packs de démo seedés (is_official=false ET créateur
+    //    NULL) — préserve les packs créés par de vrais users (creator_id non NULL).
+    // 2) Garantit les 6 packs HSK 1→6 ; les niveaux sans mots en base restent
+    //    "Soon available" (word_count 0) et se remplissent automatiquement dès
+    //    que des mots de ce niveau existent (au prochain boot).
+    try {
+      await pool.query(`DELETE FROM word_packs WHERE is_official = FALSE AND creator_id IS NULL`);
       const HSK_PRICE = { 1: 200, 2: 400, 3: 600, 4: 800, 5: 1000, 6: 1200 };
       for (let lvl = 1; lvl <= 6; lvl++) {
-        try {
-          const { rows } = await pool.query(
+        const cover = `hsk${lvl}`;
+        const ex = await pool.query(`SELECT id FROM word_packs WHERE cover_key = $1 AND is_official = TRUE LIMIT 1`, [cover]);
+        let packId;
+        if (ex.rows.length) {
+          packId = ex.rows[0].id;
+        } else {
+          const ins = await pool.query(
             `INSERT INTO word_packs (creator_name, title, description, price, cover_key, is_official)
              VALUES ('JiaStore', $1, $2, $3, $4, TRUE) RETURNING id`,
-            [`HSK ${lvl} Pack`, `Essential vocabulary from HSK level ${lvl}.`, HSK_PRICE[lvl], `hsk${lvl}`]);
-          // Remplit avec les mots du niveau (0 si le niveau n'est pas encore en base).
-          await pool.query(
-            `INSERT INTO word_pack_items (pack_id, mot_id)
-             SELECT $1, id FROM mots WHERE hsk = $2 ON CONFLICT DO NOTHING`, [rows[0].id, String(lvl)]);
-        } catch (e) { console.error('seed HSK pack failed:', lvl, e.message); }
+            [`HSK ${lvl} Pack`, `Essential vocabulary from HSK level ${lvl}.`, HSK_PRICE[lvl], cover]);
+          packId = ins.rows[0].id;
+        }
+        await pool.query(
+          `INSERT INTO word_pack_items (pack_id, mot_id)
+           SELECT $1, id FROM mots WHERE hsk = $2 ON CONFLICT DO NOTHING`, [packId, String(lvl)]);
       }
-      console.log("✅ JiaStore seedé (packs HSK 1→6).");
-    }
+      console.log("✅ JiaStore réconcilié (packs HSK 1→6, démos retirées).");
+    } catch (e) { console.error('JiaStore reconcile failed:', e.message); }
 
   } catch (err) {
     console.error("❌ Erreur lors de l'initialisation :", err);

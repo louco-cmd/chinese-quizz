@@ -16,7 +16,7 @@ const COVER_FG = '#5b8def';
 function PackCard({ pack, onPress }) {
   const soon = (pack.word_count || 0) === 0;
   return (
-    <Pressable onPress={soon ? undefined : () => onPress(pack)} style={{ flex: 1, marginBottom: 14, opacity: soon ? 0.75 : 1 }}>
+    <Pressable onPress={soon ? undefined : () => onPress(pack)} style={{ flex: 1, marginBottom: 18, opacity: soon ? 0.75 : 1 }}>
       <View style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', ...SHADOW_CARD }}>
         {/* Illustration fictive (bleu pâle) */}
         <View style={{ height: 72, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center' }}>
@@ -126,7 +126,7 @@ export default function StoreScreen({ onBack }) {
         data={gridData}
         keyExtractor={(p) => String(p.id)}
         numColumns={2}
-        columnWrapperStyle={{ gap: 12 }}
+        columnWrapperStyle={{ gap: 18 }}
         contentContainerStyle={{ width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30 }}
         renderItem={({ item }) =>
           item._spacer ? <View style={{ flex: 1 }} /> : <PackCard pack={item} onPress={openPack} />
