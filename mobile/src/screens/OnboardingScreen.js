@@ -64,11 +64,44 @@ function PrimaryButton({ label, onPress, saving }) {
   );
 }
 
-function BackLink({ onPress }) {
+// (Le retour se fait via TopBar en haut ; l'ancien BackLink du bas a été retiré.)
+
+// Stepper à points ; le point courant est allongé.
+function Stepper({ index, total }) {
   return (
-    <Pressable onPress={onPress} className="self-center mt-3.5 py-1.5">
-      <Text className="text-muted text-[13.5px]">← Back</Text>
-    </Pressable>
+    <View className="flex-row items-center gap-1.5">
+      {Array.from({ length: total }).map((_, i) => (
+        <View key={i} style={{ width: i === index ? 20 : 7, height: 7, borderRadius: 4, backgroundColor: i <= index ? COLORS.jiayou : '#dfe3e8' }} />
+      ))}
+    </View>
+  );
+}
+
+// Barre du haut : retour à gauche, stepper au centre, slot à droite (balance).
+function TopBar({ onBack, index, total, right }) {
+  return (
+    <View className="flex-row items-center justify-between mb-4" style={{ minHeight: 30 }}>
+      <View style={{ width: 72 }}>
+        {onBack ? (
+          <Pressable onPress={onBack} hitSlop={10} className="flex-row items-center gap-1">
+            <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
+            <Text className="text-jiayou font-semibold text-[14px]">Back</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      <Stepper index={index} total={total} />
+      <View style={{ width: 72, alignItems: 'flex-end' }}>{right || null}</View>
+    </View>
+  );
+}
+
+// Pastille de solde (coins).
+function BalanceChip({ balance }) {
+  return (
+    <View className="flex-row items-center gap-1" style={{ backgroundColor: '#eef4ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
+      <Ionicons name="wallet" size={13} color={COLORS.jiayou} />
+      <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 12.5 }}>{balance == null ? '…' : `${balance} ₵`}</Text>
+    </View>
   );
 }
 
@@ -89,6 +122,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
+  const [balance, setBalance] = useState(null);
 
   const firstName = (initial?.name || '').split(' ')[0] || 'learner';
 
@@ -126,9 +160,12 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     if (importing) {
       return <ImportWordsScreen onBack={() => setImporting(false)} onDone={() => onDone?.('student')} />;
     }
+    // Tuile upload : même design que les tuiles d'action (CtaCard bleue) et
+    // `fill` pour épouser la hauteur des cartes du store dans la même rangée.
     const uploadTile = (
       <View style={{ flex: 1, marginBottom: 18 }}>
         <CtaCard
+          fill
           colors={['#0d6efd', '#0a4fcf']}
           icon="cloud-upload"
           title="Manual bulk upload"
@@ -138,7 +175,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
       </View>
     );
     const header = (
-      <View style={{ paddingTop: 6, paddingBottom: 6 }}>
+      <View style={{ paddingBottom: 6 }}>
         <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.jiayou, letterSpacing: 0.5 }}>LAST STEP</Text>
         <Text style={{ fontSize: 23, fontWeight: '800', color: COLORS.ink, marginTop: 4 }}>Fill your collection</Text>
         <Text style={{ fontSize: 13.5, color: COLORS.muted, marginTop: 4, marginBottom: 14 }}>
@@ -153,12 +190,21 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     );
     return (
       <SafeAreaView className="flex-1 bg-surface-page">
+        <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 8 }}>
+          <TopBar
+            onBack={() => setStep('learner')}
+            index={2}
+            total={3}
+            right={<BalanceChip balance={balance} />}
+          />
+        </View>
         <PackMarket
           extraTile={uploadTile}
           extraTileAt={1}
+          onBalance={setBalance}
           ListHeaderComponent={header}
           ListFooterComponent={footer}
-          contentContainerStyle={{ width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40 }}
+          contentContainerStyle={{ width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 4, paddingBottom: 40 }}
         />
       </SafeAreaView>
     );
@@ -202,17 +248,21 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
 
   const currentCountry = COUNTRIES.find((c) => c.code === country);
 
+  // Retour + position dans le stepper selon l'étape. À l'étape 'role', le retour
+  // ferme (si rejoué depuis les réglages), sinon rien (c'est la 1re étape).
+  const stepMeta = {
+    role: { index: 0, total: 3, back: onClose || null },
+    learner: { index: 1, total: 3, back: () => { setStep('role'); setError(''); } },
+    teacher: { index: 1, total: 2, back: () => { setStep('role'); setError(''); } },
+  }[step] || { index: 0, total: 3, back: null };
+
   return (
     <SafeAreaView className="flex-1 bg-surface-page">
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
         <View className="w-full max-w-[480px] self-center">
 
-          {/* Bouton fermer (rejoué depuis les réglages) */}
-          {onClose ? (
-            <Pressable onPress={onClose} hitSlop={10} className="self-end mb-1">
-              <Ionicons name="close" size={24} color={COLORS.muted} />
-            </Pressable>
-          ) : null}
+          {/* Barre du haut : retour + stepper */}
+          <TopBar onBack={stepMeta.back} index={stepMeta.index} total={stepMeta.total} />
 
           {/* Header */}
           <View className={`items-center mb-7 ${onClose ? '' : 'mt-3'}`}>
@@ -245,7 +295,6 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                 />
                 {error ? <Text className="text-danger text-[13px] font-semibold mt-2">{error}</Text> : null}
                 <PrimaryButton label="Open my teacher space 🧑‍🏫" onPress={submitTeacher} saving={saving} />
-                <BackLink onPress={() => { setStep('role'); setError(''); }} />
               </>
             )}
 
@@ -312,7 +361,6 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
 
                 {error ? <Text className="text-danger text-[13px] font-semibold mt-2">{error}</Text> : null}
                 <PrimaryButton label="Continue 加油！🚀" onPress={submitLearner} saving={saving} />
-                <BackLink onPress={() => { setStep('role'); setError(''); }} />
               </>
             )}
           </View>
