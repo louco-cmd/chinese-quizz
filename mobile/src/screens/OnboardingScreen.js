@@ -78,29 +78,38 @@ function Stepper({ index, total }) {
 }
 
 // Barre du haut : retour à gauche, stepper au centre, slot à droite (balance).
+// Slots latéraux en flex:1 pour centrer le stepper sans contraindre la balance.
 function TopBar({ onBack, index, total, right }) {
   return (
-    <View className="flex-row items-center justify-between mb-4" style={{ minHeight: 30 }}>
-      <View style={{ width: 72 }}>
+    <View className="flex-row items-center mb-4" style={{ minHeight: 34 }}>
+      <View style={{ flex: 1 }}>
         {onBack ? (
-          <Pressable onPress={onBack} hitSlop={10} className="flex-row items-center gap-1">
+          <Pressable onPress={onBack} hitSlop={10} className="flex-row items-center gap-1 self-start">
             <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
             <Text className="text-jiayou font-semibold text-[14px]">Back</Text>
           </Pressable>
         ) : null}
       </View>
       <Stepper index={index} total={total} />
-      <View style={{ width: 72, alignItems: 'flex-end' }}>{right || null}</View>
+      <View style={{ flex: 1, alignItems: 'flex-end' }}>{right || null}</View>
     </View>
   );
 }
 
-// Pastille de solde (coins).
+// Pastille de solde — même composant que le Header (label « balance : » + montant),
+// décliné en bleu pour le fond clair de l'onboarding.
 function BalanceChip({ balance }) {
   return (
-    <View className="flex-row items-center gap-1" style={{ backgroundColor: '#eef4ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
-      <Ionicons name="wallet" size={13} color={COLORS.jiayou} />
-      <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 12.5 }}>{balance == null ? '…' : `${balance} ₵`}</Text>
+    <View
+      style={{
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: '#eef4ff', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
+      }}
+    >
+      <Text style={{ color: COLORS.jiayou, fontSize: 12, opacity: 0.9 }}>balance :</Text>
+      <Text numberOfLines={1} style={{ color: COLORS.jiayou, fontSize: 15, fontWeight: '800' }}>
+        {balance == null ? '…' : `${balance}₵`}
+      </Text>
     </View>
   );
 }
