@@ -344,7 +344,7 @@ const pool = new Pool({
     //    que des mots de ce niveau existent (au prochain boot).
     try {
       await pool.query(`DELETE FROM word_packs WHERE is_official = FALSE AND creator_id IS NULL`);
-      const HSK_PRICE = { 1: 200, 2: 400, 3: 600, 4: 800, 5: 1000, 6: 1200 };
+      const HSK_PRICE = { 1: 180, 2: 380, 3: 600, 4: 800, 5: 1000, 6: 1200 };
       for (let lvl = 1; lvl <= 6; lvl++) {
         const cover = `hsk${lvl}`;
         const ex = await pool.query(`SELECT id FROM word_packs WHERE cover_key = $1 AND is_official = TRUE LIMIT 1`, [cover]);
@@ -358,6 +358,8 @@ const pool = new Pool({
             [`HSK ${lvl} Pack`, `Essential vocabulary from HSK level ${lvl}.`, HSK_PRICE[lvl], cover]);
           packId = ins.rows[0].id;
         }
+        // HSK_PRICE fait autorité : synchronise le prix des packs existants.
+        await pool.query(`UPDATE word_packs SET price = $1 WHERE id = $2`, [HSK_PRICE[lvl], packId]);
         await pool.query(
           `INSERT INTO word_pack_items (pack_id, mot_id)
            SELECT $1, id FROM mots WHERE hsk = $2 ON CONFLICT DO NOTHING`, [packId, String(lvl)]);
