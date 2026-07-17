@@ -67,15 +67,14 @@ export default function ImportWordsScreen({ onBack }) {
   }
 
   const Hero = (
-    <View style={{ backgroundColor: COLORS.jiayou, paddingTop: 16, paddingBottom: 20, paddingHorizontal: 16 }}>
+    <View style={{ paddingTop: 14, paddingHorizontal: 16, paddingBottom: 6 }}>
       {onBack ? (
-        <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 }}>
-          <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.9)" />
-          <Text style={{ color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>Back</Text>
+        <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+          <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
+          <Text style={{ color: COLORS.jiayou, fontWeight: '600' }}>Back</Text>
         </Pressable>
       ) : null}
-      <Text style={{ color: '#fff', fontSize: 24, fontWeight: '800' }}>Import words</Text>
-      <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 2 }}>Paste a list from Notes, Pleco, a CSV…</Text>
+      <Text style={{ color: '#1a1a2e', fontSize: 22, fontWeight: '800' }}>Import words</Text>
     </View>
   );
 
@@ -222,20 +221,20 @@ export default function ImportWordsScreen({ onBack }) {
         }}
       />
 
-      {/* Barre d'action fixe */}
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: COLORS.line, padding: 12, flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-        <Pressable onPress={() => setStep('paste')} style={{ paddingHorizontal: 16, paddingVertical: 13 }}>
+      {/* Barre d'action fixe : bouton Importer centré + lien Edit à gauche */}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: COLORS.line, paddingVertical: 12, justifyContent: 'center', alignItems: 'center' }}>
+        <Pressable onPress={() => setStep('paste')} hitSlop={8} style={{ position: 'absolute', left: 16, top: 0, bottom: 0, justifyContent: 'center' }}>
           <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Edit</Text>
         </Pressable>
         <Pressable
           onPress={runCommit}
           disabled={busy || !importable.length}
-          style={{ flex: 1, borderRadius: 12, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: importable.length ? COLORS.jiayou : '#e9ecef' }}
+          style={{ borderRadius: 10, paddingVertical: 11, paddingHorizontal: 28, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 7, backgroundColor: importable.length ? COLORS.jiayou : '#e9ecef' }}
         >
-          {busy ? <ActivityIndicator color="#fff" /> : (
+          {busy ? <ActivityIndicator color="#fff" size="small" /> : (
             <>
-              <Ionicons name="download" size={16} color={importable.length ? '#fff' : COLORS.muted} />
-              <Text style={{ color: importable.length ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>
+              <Ionicons name="download" size={15} color={importable.length ? '#fff' : COLORS.muted} />
+              <Text style={{ color: importable.length ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 14 }}>
                 Import {importable.length} word{importable.length === 1 ? '' : 's'}
               </Text>
             </>
