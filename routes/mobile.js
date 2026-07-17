@@ -497,6 +497,169 @@ router.post('/api/m/words', requireToken, async (req, res) => {
   }
 });
 
+// ══ Import en masse (copier-coller) ══════════════════════════════════════════
+
+const HAN_RE = /[㐀-鿿]/;
+const PINYIN_TONE_RE = /[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜüńňǹ]/i;
+
+// Détecte le pinyin par SIGNAL FORT uniquement : accents de ton (xué) ou
+// numéro de ton (ma1). Sans signal fort, un fragment latin seul est ambigu
+// (« hello » ≈ une syllabe pinyin) → on le traite comme anglais, cas dominant
+// d'une liste « chinois, anglais ». Le preview reste éditable.
+function looksLikePinyin(s) {
+  if (!s || HAN_RE.test(s)) return false;
+  if (PINYIN_TONE_RE.test(s)) return true;                                  // accents de ton
+  if (/[a-zü]+[1-5](\s|$)/i.test(s) && /^[a-zü1-5\s'’·-]+$/i.test(s)) return true; // pinyin numéroté
+  return false;
+}
+
+// Parse le texte collé en lignes {chinese, pinyin, english}. Sniffe le séparateur
+// (tab → CSV → point-virgule → sinon 1 seule colonne). Mappe les colonnes par
+// détection (chinois = fragment avec Hanzi ; pinyin = fragment "pinyin").
+function parseImportText(text) {
+  const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const out = [];
+  for (const line of lines) {
+    let parts;
+    if (line.includes('\t')) parts = line.split('\t');
+    else if (line.includes(';')) parts = line.split(';');
+    else if (line.includes(',')) parts = line.split(',');
+    else parts = [line];
+    parts = parts.map((p) => p.trim()).filter((p) => p !== '');
+    if (!parts.length) continue;
+
+    const chinese = parts.find((p) => HAN_RE.test(p)) || parts[0];
+    const rest = parts.filter((p) => p !== chinese);
+    // Le pinyin = le fragment à signal fort (s'il existe) ; tout le reste = anglais.
+    const pIdx = rest.findIndex(looksLikePinyin);
+    const pinyin = pIdx >= 0 ? rest[pIdx] : '';
+    const englishParts = rest.filter((_, i) => i !== pIdx);
+    out.push({ chinese, pinyin, english: englishParts.join(', ') });
+    if (out.length >= 1000) break; // garde-fou
+  }
+  return out;
+}
+
+async function isUserPremium(userId) {
+  const { rows } = await pool.query(
+    `SELECT u.special_guest, us.plan_name, us.status AS sub_status, us.stripe_status
+     FROM users u LEFT JOIN user_subscriptions us ON us.user_id = u.id WHERE u.id = $1`, [userId]);
+  if (!rows.length) return false;
+  const r = rows[0];
+  return r.special_guest === true
+    || (r.plan_name === 'premium' && r.sub_status === 'active' && r.stripe_status === 'active');
+}
+
+// ── POST /api/m/import/preview : parse + enrichit, sans rien écrire ───────────
+router.post('/api/m/import/preview', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const parsed = parseImportText(req.body?.text);
+    if (!parsed.length) return res.json({ rows: [], stats: { total: 0, new: 0, needsTranslation: 0, owned: 0, duplicates: 0 } });
+
+    let toPinyin = null;
+    try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente */ }
+
+    // Dédoublonnage intra-fichier (par chinois)
+    const seen = new Set();
+    const unique = [];
+    for (const r of parsed) {
+      const key = r.chinese;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(r);
+    }
+    const duplicates = parsed.length - unique.length;
+
+    const chineseList = unique.map((r) => r.chinese);
+    // Un seul aller-retour DB : dico existant (english/pinyin) + déjà possédés.
+    const { rows: dict } = await pool.query(
+      `SELECT m.chinese, m.english, m.pinyin,
+              EXISTS(SELECT 1 FROM user_mots um WHERE um.user_id = $1 AND um.mot_id = m.id) AS owned
+       FROM mots m WHERE m.chinese = ANY($2::text[])`, [uid, chineseList]);
+    const dictMap = new Map(dict.map((d) => [d.chinese, d]));
+
+    const rows = unique.map((r) => {
+      const d = dictMap.get(r.chinese);
+      const pinyin = r.pinyin || d?.pinyin || (toPinyin ? toPinyin(r.chinese, { toneType: 'symbol' }) : '');
+      const english = r.english || d?.english || '';
+      let status = 'new';
+      if (d?.owned) status = 'owned';
+      else if (!english) status = 'needs_translation';
+      return { chinese: r.chinese, pinyin, english, status };
+    });
+
+    const stats = {
+      total: rows.length,
+      new: rows.filter((r) => r.status === 'new').length,
+      needsTranslation: rows.filter((r) => r.status === 'needs_translation').length,
+      owned: rows.filter((r) => r.status === 'owned').length,
+      duplicates,
+    };
+    res.json({ rows, stats });
+  } catch (e) {
+    console.error('m/import preview error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/m/import/commit : insère les mots confirmés (gratuit) ───────────
+router.post('/api/m/import/commit', requireToken, async (req, res) => {
+  const uid = req.tokenUser.id;
+  const words = Array.isArray(req.body?.words) ? req.body.words : [];
+  // On ne garde que les lignes valides (chinois + anglais).
+  const clean = [];
+  const seen = new Set();
+  for (const w of words) {
+    const chinese = (w?.chinese || '').trim();
+    const english = (w?.english || '').trim();
+    const pinyin = (w?.pinyin || '').trim();
+    if (!chinese || !english || seen.has(chinese)) continue;
+    seen.add(chinese);
+    clean.push({ chinese, english, pinyin });
+  }
+  if (!clean.length) return res.status(400).json({ error: 'Nothing to import (each word needs a Chinese and an English).' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const premium = await isUserPremium(uid);
+    const maxWords = premium ? 100000 : 350;
+    const { rows: cnt } = await client.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1', [uid]);
+    let remaining = maxWords - cnt[0].n;
+
+    let added = 0, skippedOwned = 0;
+    for (const w of clean) {
+      if (remaining <= 0) break;
+      // Upsert du mot par `chinese`
+      let motId;
+      const found = await client.query('SELECT id FROM mots WHERE chinese = $1', [w.chinese]);
+      if (found.rows.length) {
+        motId = found.rows[0].id;
+      } else {
+        const ins = await client.query(
+          `INSERT INTO mots (chinese, pinyin, english) VALUES ($1, $2, $3) RETURNING id`,
+          [w.chinese, w.pinyin || null, w.english]);
+        motId = ins.rows[0].id;
+      }
+      const owned = await client.query('SELECT 1 FROM user_mots WHERE user_id = $1 AND mot_id = $2', [uid, motId]);
+      if (owned.rows.length) { skippedOwned++; continue; }
+      await client.query('INSERT INTO user_mots (user_id, mot_id, score) VALUES ($1, $2, 0)', [uid, motId]);
+      added++;
+      remaining--;
+    }
+    const limitReached = remaining <= 0 && (added + skippedOwned) < clean.length;
+    await client.query('COMMIT');
+    res.json({ success: true, added, skippedOwned, limitReached, maxWords });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('m/import commit error:', e);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
+
 // ── PUT /api/m/words/:motId : éditer un mot (chinois/pinyin/anglais) ──────────
 router.put('/api/m/words/:motId', requireToken, async (req, res) => {
   try {

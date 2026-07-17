@@ -128,6 +128,14 @@ export function getWallet() {
   return request('/api/m/wallet');
 }
 
+// ── Import en masse ──
+export function importPreview(text) {
+  return request('/api/m/import/preview', { method: 'POST', body: { text } });
+}
+export function importCommit(words) {
+  return request('/api/m/import/commit', { method: 'POST', body: { words } });
+}
+
 // ── JiaStore (marketplace) ──
 export function getMarketPacks({ q = '', min = '', max = '', sort = 'recent' } = {}) {
   const qs = new URLSearchParams();

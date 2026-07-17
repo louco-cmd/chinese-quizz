@@ -18,6 +18,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import BankScreen from './src/screens/BankScreen';
 import PricingScreen from './src/screens/PricingScreen';
 import StoreScreen from './src/screens/StoreScreen';
+import ImportWordsScreen from './src/screens/ImportWordsScreen';
 import SupportScreen from './src/screens/SupportScreen';
 import LegalScreen from './src/screens/LegalScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
@@ -154,6 +155,7 @@ export default function App() {
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} />;
       case 'store': return <StoreScreen onBack={() => setTab(bankReturn)} />;
+      case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} />;
       case 'support': return <SupportScreen onBack={() => setTab(bankReturn)} />;
       case 'legal': return <LegalScreen onBack={() => setTab(bankReturn)} />;
       default: return <CollectionScreen />;
