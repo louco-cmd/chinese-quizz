@@ -113,8 +113,24 @@ app.use('/vendor/bootstrap-icons/font', express.static(path.join(__dirname, 'nod
 // (rollback instantané en désactivant la variable d'env sur Render).
 if (process.env.SERVE_WEB_APP === 'true') {
   const webDist = path.join(__dirname, 'mobile', 'dist');
-  // Assets buildés (JS/CSS/fonts) : versionnés → cache long. index.html sert '/'.
-  app.use(express.static(webDist, { setHeaders: publicCacheControl }));
+  const indexHtml = path.join(webDist, 'index.html');
+  // Le bundle doit avoir été généré au build (npm run build:web). S'il manque,
+  // le Build Command Render n'a pas lancé build:web → on log clairement.
+  if (!require('fs').existsSync(indexHtml)) {
+    console.error('⚠️  SERVE_WEB_APP=true mais ' + indexHtml + ' est absent.');
+    console.error('    → Ajoute "npm run build:web" au Build Command Render (npm install && npm run build:web).');
+  }
+  // Assets buildés (JS/CSS/fonts) : noms hashés → cache immuable 1 an.
+  // index.html : JAMAIS mis en cache (sinon après un deploy, un visiteur avec
+  // l'ancien index.html en cache pointe vers des assets hashés disparus → écran
+  // blanc). index:false → '/' passe par le fallback SPA ci-dessous.
+  app.use(express.static(webDist, {
+    index: false,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache');
+      else res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    },
+  }));
 
   const PASSTHROUGH = ['/api', '/auth', '/webhook', '/vendor'];
   const PUBLIC_EJS = new Set(['/legal', '/support']);
@@ -125,7 +141,11 @@ if (process.env.SERVE_WEB_APP === 'true') {
     if (PASSTHROUGH.some((p) => req.path === p || req.path.startsWith(p + '/'))) return next();
     if (PUBLIC_EJS.has(req.path)) return next();
     // Tout le reste = SPA React (navigation state-based côté client).
-    res.sendFile(path.join(webDist, 'index.html'));
+    if (!require('fs').existsSync(indexHtml)) {
+      return res.status(503).send('Web app non buildée : lance "npm run build:web" au déploiement.');
+    }
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(indexHtml);
   });
 }
 
