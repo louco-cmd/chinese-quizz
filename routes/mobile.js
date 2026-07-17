@@ -513,9 +513,10 @@ function looksLikePinyin(s) {
   return false;
 }
 
-// Parse le texte collé en lignes {chinese, pinyin, english}. Sniffe le séparateur
-// (tab → CSV → point-virgule → sinon 1 seule colonne). Mappe les colonnes par
-// détection (chinois = fragment avec Hanzi ; pinyin = fragment "pinyin").
+// Parse le texte collé en fragments par ligne : { chinese, pinyin, latin }.
+// Sniffe le séparateur (tab → CSV → point-virgule → sinon 1 colonne) puis
+// classe chaque fragment (chinois = Hanzi ; pinyin = signal fort ; reste = latin).
+// Le rôle clé/traduction est décidé plus tard selon la langue d'apprentissage.
 function parseImportText(text) {
   const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const out = [];
@@ -528,13 +529,12 @@ function parseImportText(text) {
     parts = parts.map((p) => p.trim()).filter((p) => p !== '');
     if (!parts.length) continue;
 
-    const chinese = parts.find((p) => HAN_RE.test(p)) || parts[0];
+    const chinese = parts.find((p) => HAN_RE.test(p)) || '';
     const rest = parts.filter((p) => p !== chinese);
-    // Le pinyin = le fragment à signal fort (s'il existe) ; tout le reste = anglais.
     const pIdx = rest.findIndex(looksLikePinyin);
     const pinyin = pIdx >= 0 ? rest[pIdx] : '';
-    const englishParts = rest.filter((_, i) => i !== pIdx);
-    out.push({ chinese, pinyin, english: englishParts.join(', ') });
+    const latin = rest.filter((_, i) => i !== pIdx).join(', ');
+    out.push({ chinese, pinyin, latin });
     if (out.length >= 1000) break; // garde-fou
   }
   return out;
@@ -551,57 +551,92 @@ async function isUserPremium(userId) {
 }
 
 // ── POST /api/m/import/preview : parse + enrichit, sans rien écrire ───────────
+// Direction-aware : on isole les mots dans la langue APPRISE.
+//  • en→zh (apprend le chinois) → on ne garde que les lignes contenant du chinois ;
+//    clé = chinois, traduction = anglais (auto depuis le dico si absente).
+//  • zh→en (apprend l'anglais)  → on ne garde que les lignes contenant du latin ;
+//    clé = anglais, traduction = chinois (auto depuis le dico si absente).
 router.post('/api/m/import/preview', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
-    const parsed = parseImportText(req.body?.text);
-    if (!parsed.length) return res.json({ rows: [], stats: { total: 0, new: 0, needsTranslation: 0, owned: 0, duplicates: 0 } });
+    const dir = await pool.query('SELECT quiz_direction FROM users WHERE id = $1', [uid]);
+    const learningChinese = (dir.rows[0]?.quiz_direction || 'en→zh') !== 'zh→en';
 
+    const parsed = parseImportText(req.body?.text);
     let toPinyin = null;
     try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente */ }
 
-    // Dédoublonnage intra-fichier (par chinois)
-    const seen = new Set();
-    const unique = [];
-    for (const r of parsed) {
-      const key = r.chinese;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      unique.push(r);
-    }
-    const duplicates = parsed.length - unique.length;
+    const emptyStats = { total: 0, new: 0, needsTranslation: 0, owned: 0, duplicates: 0 };
 
-    const chineseList = unique.map((r) => r.chinese);
-    // Un seul aller-retour DB : dico existant (english/pinyin) + déjà possédés.
+    if (learningChinese) {
+      // On ne relève QUE les mots chinois trouvés dans le texte.
+      const withCn = parsed.filter((r) => r.chinese);
+      const seen = new Set();
+      const unique = withCn.filter((r) => (seen.has(r.chinese) ? false : seen.add(r.chinese)));
+      const duplicates = withCn.length - unique.length;
+      if (!unique.length) return res.json({ rows: [], stats: emptyStats, direction: 'en→zh' });
+
+      const { rows: dict } = await pool.query(
+        `SELECT m.chinese, m.english, m.pinyin,
+                EXISTS(SELECT 1 FROM user_mots um WHERE um.user_id = $1 AND um.mot_id = m.id) AS owned
+         FROM mots m WHERE m.chinese = ANY($2::text[])`, [uid, unique.map((r) => r.chinese)]);
+      const dictMap = new Map(dict.map((d) => [d.chinese, d]));
+
+      const rows = unique.map((r) => {
+        const d = dictMap.get(r.chinese);
+        const pinyin = r.pinyin || d?.pinyin || (toPinyin ? toPinyin(r.chinese, { toneType: 'symbol' }) : '');
+        const english = r.latin || d?.english || '';
+        const status = d?.owned ? 'owned' : (english ? 'new' : 'needs_translation');
+        return { chinese: r.chinese, pinyin, english, status };
+      });
+      return res.json({ rows, stats: buildStats(rows, duplicates), direction: 'en→zh' });
+    }
+
+    // Apprend l'anglais : on relève les mots latins (anglais).
+    const withEn = parsed.filter((r) => r.latin);
+    const seen = new Set();
+    const unique = withEn.filter((r) => { const k = r.latin.toLowerCase(); return seen.has(k) ? false : seen.add(k); });
+    const duplicates = withEn.length - unique.length;
+    if (!unique.length) return res.json({ rows: [], stats: emptyStats, direction: 'zh→en' });
+
     const { rows: dict } = await pool.query(
-      `SELECT m.chinese, m.english, m.pinyin,
-              EXISTS(SELECT 1 FROM user_mots um WHERE um.user_id = $1 AND um.mot_id = m.id) AS owned
-       FROM mots m WHERE m.chinese = ANY($2::text[])`, [uid, chineseList]);
-    const dictMap = new Map(dict.map((d) => [d.chinese, d]));
+      `SELECT DISTINCT ON (lower(m.english)) lower(m.english) AS key, m.chinese, m.pinyin, m.id
+       FROM mots m WHERE lower(m.english) = ANY($1::text[]) ORDER BY lower(m.english), m.id`,
+      [unique.map((r) => r.latin.toLowerCase())]);
+    const dictMap = new Map(dict.map((d) => [d.key, d]));
+    // Possession : parmi les mots matchés
+    const ownedIds = new Set();
+    if (dict.length) {
+      const { rows: ow } = await pool.query(
+        'SELECT mot_id FROM user_mots WHERE user_id = $1 AND mot_id = ANY($2::int[])',
+        [uid, dict.map((d) => d.id)]);
+      ow.forEach((o) => ownedIds.add(o.mot_id));
+    }
 
     const rows = unique.map((r) => {
-      const d = dictMap.get(r.chinese);
-      const pinyin = r.pinyin || d?.pinyin || (toPinyin ? toPinyin(r.chinese, { toneType: 'symbol' }) : '');
-      const english = r.english || d?.english || '';
-      let status = 'new';
-      if (d?.owned) status = 'owned';
-      else if (!english) status = 'needs_translation';
-      return { chinese: r.chinese, pinyin, english, status };
+      const d = dictMap.get(r.latin.toLowerCase());
+      const chinese = r.chinese || d?.chinese || '';
+      const pinyin = r.pinyin || d?.pinyin || (chinese && toPinyin ? toPinyin(chinese, { toneType: 'symbol' }) : '');
+      const owned = d && ownedIds.has(d.id);
+      const status = owned ? 'owned' : (chinese ? 'new' : 'needs_translation');
+      return { chinese, pinyin, english: r.latin, status };
     });
-
-    const stats = {
-      total: rows.length,
-      new: rows.filter((r) => r.status === 'new').length,
-      needsTranslation: rows.filter((r) => r.status === 'needs_translation').length,
-      owned: rows.filter((r) => r.status === 'owned').length,
-      duplicates,
-    };
-    res.json({ rows, stats });
+    return res.json({ rows, stats: buildStats(rows, duplicates), direction: 'zh→en' });
   } catch (e) {
     console.error('m/import preview error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+function buildStats(rows, duplicates) {
+  return {
+    total: rows.length,
+    new: rows.filter((r) => r.status === 'new').length,
+    needsTranslation: rows.filter((r) => r.status === 'needs_translation').length,
+    owned: rows.filter((r) => r.status === 'owned').length,
+    duplicates,
+  };
+}
 
 // ── POST /api/m/import/commit : insère les mots confirmés (gratuit) ───────────
 router.post('/api/m/import/commit', requireToken, async (req, res) => {

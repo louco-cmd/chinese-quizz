@@ -22,23 +22,33 @@ export default function ImportWordsScreen({ onBack }) {
   const [text, setText] = useState('');
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState(null);
+  const [direction, setDirection] = useState('en→zh');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+
+  const learningChinese = direction !== 'zh→en';
+  // Le champ « traduction » (éditable) dépend de la langue apprise.
+  const transKey = learningChinese ? 'english' : 'chinese';
 
   async function runPreview() {
     setBusy(true); setError('');
     try {
       const d = await importPreview(text);
-      if (!d.rows.length) { setError('No words found. Put one entry per line.'); setBusy(false); return; }
-      // include par défaut : tout sauf ce qui est déjà possédé
-      setRows(d.rows.map((r) => ({ ...r, include: r.status !== 'owned' })));
+      if (!d.rows.length) {
+        setError((d.direction || 'en→zh') !== 'zh→en'
+          ? 'No Chinese words found in your text.'
+          : 'No words found. Put one entry per line.');
+        setBusy(false); return;
+      }
+      setDirection(d.direction || 'en→zh');
+      setRows(d.rows);
       setStats(d.stats);
       setStep('preview');
     } catch (e) { setError(e.message); } finally { setBusy(false); }
   }
 
-  const importable = rows.filter((r) => r.include && r.status !== 'owned' && (r.english || '').trim());
+  const importable = rows.filter((r) => r.status !== 'owned' && (r[transKey] || '').trim());
 
   async function runCommit() {
     setBusy(true); setError('');
@@ -51,6 +61,9 @@ export default function ImportWordsScreen({ onBack }) {
 
   function updateRow(i, patch) {
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function deleteRow(i) {
+    setRows((rs) => rs.filter((_, idx) => idx !== i));
   }
 
   const Hero = (
@@ -153,7 +166,7 @@ export default function ImportWordsScreen({ onBack }) {
         </Text>
       </View>
       <Text style={{ fontSize: 12, color: COLORS.mutedLight }}>
-        Edit any English, untick lines you don't want. Rows without an English are skipped.
+        Fill missing translations, delete lines you don't want. Rows without a translation are skipped.
       </Text>
     </View>
   );
@@ -169,30 +182,28 @@ export default function ImportWordsScreen({ onBack }) {
         renderItem={({ item, index }) => {
           const st = STATUS[item.status] || STATUS.new;
           const owned = item.status === 'owned';
+          const keyText = learningChinese ? item.chinese : item.english;   // le mot appris
+          const transVal = item[transKey] || '';                          // la traduction (éditable)
+          const missing = !owned && !transVal.trim();
           return (
             <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 10, opacity: owned ? 0.6 : 1, ...SHADOW_CARD }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                {/* Toggle include */}
-                <Pressable onPress={() => !owned && updateRow(index, { include: !item.include })} hitSlop={6} disabled={owned}>
-                  <Ionicons
-                    name={owned ? 'checkmark-circle' : (item.include ? 'checkbox' : 'square-outline')}
-                    size={22}
-                    color={owned ? COLORS.mutedLight : (item.include ? COLORS.jiayou : COLORS.mutedLight)}
-                  />
-                </Pressable>
                 <View style={{ minWidth: 54 }}>
-                  <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e' }}>{item.chinese}</Text>
-                  {item.pinyin ? <Text style={{ fontSize: 11.5, color: COLORS.muted }}>{item.pinyin}</Text> : null}
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e' }}>{keyText}</Text>
+                  {learningChinese && item.pinyin ? <Text style={{ fontSize: 11.5, color: COLORS.muted }}>{item.pinyin}</Text> : null}
                 </View>
                 <View style={{ flex: 1 }}>
                   <TextInput
-                    value={item.english}
-                    onChangeText={(t) => updateRow(index, { english: t, status: t.trim() ? (item.status === 'needs_translation' ? 'new' : item.status) : item.status })}
+                    value={transVal}
+                    onChangeText={(t) => updateRow(index, {
+                      [transKey]: t,
+                      status: owned ? 'owned' : (t.trim() ? 'new' : 'needs_translation'),
+                    })}
                     editable={!owned}
-                    placeholder="English…"
+                    placeholder={learningChinese ? 'English…' : '中文…'}
                     placeholderTextColor={COLORS.mutedLight}
                     style={{
-                      borderWidth: 1, borderColor: (!owned && !item.english.trim()) ? '#f0c36d' : COLORS.line,
+                      borderWidth: 1, borderColor: missing ? '#f0c36d' : COLORS.line,
                       borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: 14,
                       backgroundColor: owned ? '#f5f5f5' : '#fff',
                     }}
@@ -201,6 +212,10 @@ export default function ImportWordsScreen({ onBack }) {
                 <View style={{ backgroundColor: st.bg, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
                   <Text style={{ fontSize: 10, fontWeight: '700', color: st.color }}>{st.label}</Text>
                 </View>
+                {/* Supprimer la ligne */}
+                <Pressable onPress={() => deleteRow(index)} hitSlop={6}>
+                  <Ionicons name="trash-outline" size={19} color={COLORS.mutedLight} />
+                </Pressable>
               </View>
             </View>
           );
