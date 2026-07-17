@@ -720,29 +720,51 @@ router.post('/api/m/import/commit', requireToken, async (req, res) => {
     const premium = await isUserPremium(uid);
     const maxWords = premium ? 100000 : 600;
     const { rows: cnt } = await client.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1', [uid]);
-    let remaining = maxWords - cnt[0].n;
+    const remaining = Math.max(0, maxWords - cnt[0].n);
 
-    let added = 0, skippedOwned = 0;
-    for (const w of clean) {
-      if (remaining <= 0) break;
-      // Upsert du mot par `chinese`
-      let motId;
-      const found = await client.query('SELECT id FROM mots WHERE chinese = $1', [w.chinese]);
-      if (found.rows.length) {
-        motId = found.rows[0].id;
-      } else {
-        const ins = await client.query(
-          `INSERT INTO mots (chinese, pinyin, english) VALUES ($1, $2, $3) RETURNING id`,
-          [w.chinese, w.pinyin || null, w.english]);
-        motId = ins.rows[0].id;
-      }
-      const owned = await client.query('SELECT 1 FROM user_mots WHERE user_id = $1 AND mot_id = $2', [uid, motId]);
-      if (owned.rows.length) { skippedOwned++; continue; }
-      await client.query('INSERT INTO user_mots (user_id, mot_id, score) VALUES ($1, $2, 0)', [uid, motId]);
-      added++;
-      remaining--;
+    // ── Version ensembliste (quelques requêtes, pas une boucle N×round-trips) ──
+    // 1. Mots déjà présents dans le dico (par chinois).
+    const chineseArr = clean.map((w) => w.chinese);
+    const { rows: existing } = await client.query(
+      `SELECT DISTINCT ON (chinese) chinese, id FROM mots WHERE chinese = ANY($1::text[]) ORDER BY chinese, id`,
+      [chineseArr]);
+    const idByChinese = new Map(existing.map((r) => [r.chinese, r.id]));
+
+    // 2. Insertion en masse des mots manquants (avec la trad de ta liste).
+    const missing = clean.filter((w) => !idByChinese.has(w.chinese));
+    if (missing.length) {
+      const { rows: ins } = await client.query(
+        `INSERT INTO mots (chinese, pinyin, english)
+         SELECT * FROM unnest($1::text[], $2::text[], $3::text[]) RETURNING chinese, id`,
+        [missing.map((w) => w.chinese), missing.map((w) => w.pinyin || null), missing.map((w) => w.english)]);
+      ins.forEach((r) => idByChinese.set(r.chinese, r.id));
     }
-    const limitReached = remaining <= 0 && (added + skippedOwned) < clean.length;
+
+    // 3. Mots déjà dans la collection (pour ne pas les recompter).
+    const allIds = [...new Set(clean.map((w) => idByChinese.get(w.chinese)).filter(Boolean))];
+    const { rows: ownedRows } = await client.query(
+      'SELECT mot_id FROM user_mots WHERE user_id = $1 AND mot_id = ANY($2::int[])', [uid, allIds]);
+    const ownedSet = new Set(ownedRows.map((r) => r.mot_id));
+
+    // 4. Candidats = non possédés, dédoublonnés ; on cape à la limite free.
+    const candidates = [];
+    const pushed = new Set();
+    let skippedOwned = 0;
+    for (const w of clean) {
+      const id = idByChinese.get(w.chinese);
+      if (!id || pushed.has(id)) continue;
+      if (ownedSet.has(id)) { skippedOwned++; continue; }
+      pushed.add(id);
+      candidates.push(id);
+    }
+    const toAdd = candidates.slice(0, remaining);
+    if (toAdd.length) {
+      await client.query(
+        `INSERT INTO user_mots (user_id, mot_id, score)
+         SELECT $1, x, 0 FROM unnest($2::int[]) AS x`, [uid, toAdd]);
+    }
+    const added = toAdd.length;
+    const limitReached = candidates.length > added;
     await client.query('COMMIT');
     res.json({ success: true, added, skippedOwned, limitReached, maxWords });
   } catch (e) {
