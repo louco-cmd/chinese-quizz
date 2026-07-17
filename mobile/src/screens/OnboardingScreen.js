@@ -174,13 +174,21 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
         />
       </View>
     );
+    // En-tête : même structure/marges que les autres étapes (TopBar + header 加油).
+    // Tout est dans le ListHeaderComponent → un seul scroller, marges identiques.
     const header = (
-      <View style={{ paddingBottom: 6 }}>
-        <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.jiayou, letterSpacing: 0.5 }}>LAST STEP</Text>
-        <Text style={{ fontSize: 23, fontWeight: '800', color: COLORS.ink, marginTop: 4 }}>Fill your collection</Text>
-        <Text style={{ fontSize: 13.5, color: COLORS.muted, marginTop: 4, marginBottom: 14 }}>
-          Optional — grab a pack or import your own list. You can always add more words later.
-        </Text>
+      <View>
+        <TopBar
+          onBack={() => setStep('learner')}
+          index={2}
+          total={3}
+          right={<BalanceChip balance={balance} />}
+        />
+        <View className="items-center mb-7">
+          <Text className="text-[44px] font-extrabold text-jiayou">加油！</Text>
+          <Text className="text-[22px] font-bold text-ink mt-1.5">Get a good start</Text>
+          <Text className="text-muted text-[14.5px] mt-1">buy a pack or upload your words</Text>
+        </View>
       </View>
     );
     const footer = (
@@ -190,21 +198,13 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     );
     return (
       <SafeAreaView className="flex-1 bg-surface-page">
-        <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 8 }}>
-          <TopBar
-            onBack={() => setStep('learner')}
-            index={2}
-            total={3}
-            right={<BalanceChip balance={balance} />}
-          />
-        </View>
         <PackMarket
           extraTile={uploadTile}
           extraTileAt={1}
           onBalance={setBalance}
           ListHeaderComponent={header}
           ListFooterComponent={footer}
-          contentContainerStyle={{ width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 20, paddingTop: 4, paddingBottom: 40 }}
+          contentContainerStyle={{ width: '100%', maxWidth: 520, alignSelf: 'center', padding: 20, paddingBottom: 40 }}
         />
       </SafeAreaView>
     );
