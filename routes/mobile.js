@@ -996,34 +996,56 @@ function extractWordList(body) {
   return words.filter((w) => (seen.has(w) ? false : seen.add(w)));
 }
 
-// ── POST /api/m/market/my-words/check : sépare possédés / manquants ──────────
-// Un user ne peut vendre que des mots de SA collection. Sert au preview live.
-router.post('/api/m/market/my-words/check', requireToken, async (req, res) => {
+const ACQUIRE_COST = 3; // coût pour ajouter à sa collection un mot manquant
+
+// ── POST /api/m/market/packs/plan : classe les mots avant publication ────────
+// possédés / à acheter (dans le dico) / à traduire (hors dico) + coût (3 ₵/mot
+// manquant) + solde. Le client s'en sert pour le checkout.
+router.post('/api/m/market/packs/plan', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
     const words = extractWordList(req.body);
-    if (!words.length) return res.json({ owned: [], missing: [] });
-    const { rows } = await pool.query(
+    const { rows: bal } = await pool.query('SELECT balance FROM users WHERE id = $1', [uid]);
+    const balance = bal[0]?.balance ?? 0;
+    if (!words.length) return res.json({ owned: [], toBuy: [], needsTranslation: [], cost: 0, balance });
+
+    const { rows: ownedRows } = await pool.query(
       `SELECT DISTINCT ON (m.chinese) m.id, m.chinese, m.pinyin, m.english
        FROM mots m JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
        WHERE m.chinese = ANY($2::text[]) ORDER BY m.chinese, m.id`, [uid, words]);
-    const byCn = new Map(rows.map((r) => [r.chinese, r]));
-    const owned = words.filter((w) => byCn.has(w)).map((w) => byCn.get(w));
-    const missing = words.filter((w) => !byCn.has(w));
-    res.json({ owned, missing });
+    const ownedSet = new Set(ownedRows.map((r) => r.chinese));
+    const owned = words.filter((w) => ownedSet.has(w)).map((w) => ownedRows.find((r) => r.chinese === w));
+
+    const notOwned = words.filter((w) => !ownedSet.has(w));
+    let dictMap = new Map();
+    if (notOwned.length) {
+      const { rows: dictRows } = await pool.query(
+        `SELECT DISTINCT ON (m.chinese) m.chinese, m.pinyin, m.english
+         FROM mots m WHERE m.chinese = ANY($1::text[]) ORDER BY m.chinese, m.id`, [notOwned]);
+      dictMap = new Map(dictRows.map((d) => [d.chinese, d]));
+    }
+    const toBuy = notOwned.filter((w) => dictMap.has(w)).map((w) => dictMap.get(w));
+    const needsTranslation = notOwned.filter((w) => !dictMap.has(w)).map((w) => ({ chinese: w }));
+    const cost = ACQUIRE_COST * (toBuy.length + needsTranslation.length);
+    res.json({ owned, toBuy, needsTranslation, cost, balance });
   } catch (e) {
-    console.error('m/market check error:', e);
+    console.error('m/market plan error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// ── POST /api/m/market/packs : créer un pack à vendre ────────────────────────
+// ── POST /api/m/market/packs : créer un pack (acquiert les mots manquants) ────
+// body: title, description, price, text|words, translations {cn:en}, acquire.
+// Si des mots ne sont pas possédés : refus (400) sauf `acquire=true`, auquel cas
+// on les ajoute à la collection (3 ₵/mot ; création + traduction si hors dico).
 router.post('/api/m/market/packs', requireToken, async (req, res) => {
   const uid = req.tokenUser.id;
   const title = String(req.body?.title || '').trim();
   const description = String(req.body?.description || '').trim();
   const price = parseInt(req.body?.price, 10);
   const words = extractWordList(req.body);
+  const translations = (req.body?.translations && typeof req.body.translations === 'object') ? req.body.translations : {};
+  const acquire = req.body?.acquire === true;
 
   if (!title || title.length > 80) return res.status(400).json({ error: 'Title is required (max 80 characters).' });
   if (description.length > 300) return res.status(400).json({ error: 'Description is too long (max 300 characters).' });
@@ -1034,16 +1056,48 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    // On ne garde que les mots réellement possédés (sécurité serveur).
     const { rows: owned } = await client.query(
       `SELECT DISTINCT ON (m.chinese) m.id, m.chinese
        FROM mots m JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
        WHERE m.chinese = ANY($2::text[]) ORDER BY m.chinese, m.id`, [uid, words]);
     const ownedMap = new Map(owned.map((r) => [r.chinese, r.id]));
-    const missing = words.filter((w) => !ownedMap.has(w));
-    if (missing.length) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'You can only sell words you own. Add the missing ones first.', missing });
+    const notOwned = words.filter((w) => !ownedMap.has(w));
+
+    if (notOwned.length) {
+      if (!acquire) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: "You cannot sell words you don't own yourself.", missing: notOwned });
+      }
+      const cost = ACQUIRE_COST * notOwned.length;
+      const { rows: balRows } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [uid]);
+      if ((balRows[0]?.balance ?? 0) < cost) {
+        await client.query('ROLLBACK');
+        return res.status(402).json({ error: `Not enough coins (need ${cost} ₵).`, cost });
+      }
+      let toPinyin = null;
+      try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente */ }
+      for (const w of notOwned) {
+        const found = await client.query('SELECT id FROM mots WHERE chinese = $1 LIMIT 1', [w]);
+        let motId;
+        if (found.rows.length) {
+          motId = found.rows[0].id;
+        } else {
+          const english = String(translations[w] || '').trim();
+          if (!english) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: `Add a translation for ${w}.`, needsTranslation: [w] });
+          }
+          const pinyin = toPinyin ? toPinyin(w, { toneType: 'symbol' }) : null;
+          const ins = await client.query('INSERT INTO mots (chinese, pinyin, english) VALUES ($1, $2, $3) RETURNING id', [w, pinyin, english]);
+          motId = ins.rows[0].id;
+        }
+        await client.query('INSERT INTO user_mots (user_id, mot_id, score) VALUES ($1, $2, 0)', [uid, motId]);
+        ownedMap.set(w, motId);
+      }
+      await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [cost, uid]);
+      await client.query(
+        `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'capture_word', $3)`,
+        [uid, -cost, `Acquired ${notOwned.length} word(s) for a pack`]);
     }
 
     const { rows: pk } = await client.query(
@@ -1056,7 +1110,7 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       `INSERT INTO word_pack_items (pack_id, mot_id) SELECT $1, UNNEST($2::int[]) ON CONFLICT DO NOTHING`,
       [packId, motIds]);
     await client.query('COMMIT');
-    res.json({ success: true, id: packId, wordCount: motIds.length });
+    res.json({ success: true, id: packId, wordCount: motIds.length, acquired: notOwned.length });
   } catch (e) {
     await client.query('ROLLBACK');
     console.error('m/market create error:', e);

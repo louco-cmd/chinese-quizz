@@ -160,12 +160,15 @@ export function buyMarketPack(id) {
   return request(`/api/m/market/packs/${id}/buy`, { method: 'POST' });
 }
 
-export function checkMyWords(text) {
-  return request('/api/m/market/my-words/check', { method: 'POST', body: { text } });
+export function planPack(text) {
+  return request('/api/m/market/packs/plan', { method: 'POST', body: { text } });
 }
 
-export function createPack({ title, description, price, text }) {
-  return request('/api/m/market/packs', { method: 'POST', body: { title, description, price, text } });
+export function createPack({ title, description, price, text, translations, acquire }) {
+  return request('/api/m/market/packs', {
+    method: 'POST',
+    body: { title, description, price, text, translations, acquire },
+  });
 }
 
 export function getCollection() {
