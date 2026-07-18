@@ -49,6 +49,7 @@ export function SendRedEnvelopePopup({ visible, onClose, balance, onSent }) {
     try {
       const d = await sendRedEnvelope({ recipientId: selected.id, amount: amountNum, message: message.trim() });
       onSent?.(d.newBalance);
+      setSending(false);
       setDone(true);
     } catch (e) { setError(e.message || 'Could not send.'); setSending(false); }
   }
