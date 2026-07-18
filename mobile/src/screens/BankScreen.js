@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
+import { SendRedEnvelopePopup } from '../components/RedEnvelopePopups';
 import { getWallet } from '../api';
 import { COLORS, SHADOW_CARD } from '../theme';
 
@@ -23,6 +24,8 @@ const TX_META = {
   referral: { icon: 'person-add', label: 'Referral bonus' },
   subscription: { icon: 'star', label: 'Premium' },
   refund: { icon: 'arrow-undo', label: 'Refund' },
+  red_envelope_sent: { icon: 'gift', label: 'Red envelope' },
+  red_envelope_received: { icon: 'gift', label: 'Red envelope' },
 };
 function meta(type, amount) {
   return TX_META[type] || TX_META[(type || '').toLowerCase()]
@@ -67,6 +70,7 @@ export default function BankScreen({ onBack }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('month');
+  const [sendOpen, setSendOpen] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -106,6 +110,15 @@ export default function BankScreen({ onBack }) {
           </Text>
           <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 24, fontWeight: '700', marginLeft: 4, marginBottom: 4 }}>₵</Text>
         </View>
+
+        {/* Envoyer une red envelope */}
+        <Pressable
+          onPress={() => setSendOpen(true)}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, marginTop: 14 }}
+        >
+          <Text style={{ fontSize: 15 }}>🧧</Text>
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13.5 }}>Send a red envelope</Text>
+        </Pressable>
       </View>
 
       {/* Courbe arrondie qui fait la jonction avec le corps clair (comme la page account) */}
@@ -170,6 +183,16 @@ export default function BankScreen({ onBack }) {
           </View>
         </View>
       </ScrollView>
+
+      <SendRedEnvelopePopup
+        visible={sendOpen}
+        onClose={() => setSendOpen(false)}
+        balance={data?.balance}
+        onSent={(newBalance) => {
+          setData((d) => (d ? { ...d, balance: newBalance } : d));
+          load(); // rafraîchit l'historique
+        }}
+      />
     </View>
   );
 }

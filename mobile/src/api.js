@@ -133,6 +133,20 @@ export function getWallet() {
   return request('/api/m/wallet');
 }
 
+// ── Red envelopes ──
+export function searchUsers(q) {
+  return request(`/api/m/users/search?q=${encodeURIComponent(q)}`);
+}
+export function sendRedEnvelope({ recipientId, amount, message }) {
+  return request('/api/m/bank/red-envelope', { method: 'POST', body: { recipientId, amount, message } });
+}
+export function getUnseenEnvelopes() {
+  return request('/api/m/red-envelopes/unseen');
+}
+export function markEnvelopesSeen() {
+  return request('/api/m/red-envelopes/seen', { method: 'POST' });
+}
+
 // ── Import en masse ──
 export function importPreview(text, direction) {
   return request('/api/m/import/preview', { method: 'POST', body: { text, direction } });

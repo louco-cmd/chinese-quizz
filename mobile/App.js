@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { getToken, setToken, getMe } from './src/api';
+import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen } from './src/api';
 import { LangContext, makeT } from './src/i18n';
 import Header from './src/components/Header';
 import TabBar from './src/components/TabBar';
@@ -28,6 +28,7 @@ import TeacherHome from './src/screens/teacher/TeacherHome';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import WelcomePremiumScreen from './src/screens/WelcomePremiumScreen';
+import { RedEnvelopeReceivedPopup } from './src/components/RedEnvelopePopups';
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -46,6 +47,7 @@ export default function App() {
   const [authView, setAuthView] = useState('login'); // 'login' | 'forgot' | 'reset'
   const [resetToken, setResetToken] = useState(null);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [envelopes, setEnvelopes] = useState([]); // red envelopes non vues
   const [lang, setLang] = useState('en'); // langue de l'interface (en | zh)
 
   // Charge le profil et calcule l'aiguillage initial (sauf si `route:false`,
@@ -59,6 +61,12 @@ export default function App() {
         if (!me.onboarding_done) setFlow('onboarding');
         else if (!me.has_seen_tutorial) setFlow('tutorial');
         else setFlow(null);
+        // Red envelopes reçues à révéler (utilisateur déjà onboardé).
+        if (me.onboarding_done) {
+          getUnseenEnvelopes()
+            .then((d) => { if (d.envelopes?.length) setEnvelopes(d.envelopes); })
+            .catch(() => {});
+        }
       }
       return me;
     } catch {
@@ -235,6 +243,11 @@ export default function App() {
       <SafeAreaProvider>
         <StatusBar style="light" />
         {renderBody()}
+        <RedEnvelopeReceivedPopup
+          visible={envelopes.length > 0}
+          envelopes={envelopes}
+          onClose={() => { markEnvelopesSeen().catch(() => {}); setEnvelopes([]); }}
+        />
       </SafeAreaProvider>
     </LangContext.Provider>
   );

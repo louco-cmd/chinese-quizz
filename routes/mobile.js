@@ -1195,6 +1195,92 @@ router.get('/api/m/wallet', requireToken, async (req, res) => {
   }
 });
 
+// ══ Red envelopes (虹包) : virements de coins ═════════════════════════════════
+
+// ── GET /api/m/users/search?q= : trouver un destinataire (par nom) ───────────
+router.get('/api/m/users/search', requireToken, async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim();
+    if (q.length < 1) return res.json({ users: [] });
+    const { rows } = await pool.query(
+      `SELECT id, name FROM users
+       WHERE name ILIKE $1 AND id <> $2 AND ghost_mode = FALSE
+       ORDER BY name ASC LIMIT 8`,
+      [`%${q}%`, req.tokenUser.id]);
+    res.json({ users: rows });
+  } catch (e) {
+    console.error('m/users search error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/m/bank/red-envelope : envoyer un virement ──────────────────────
+router.post('/api/m/bank/red-envelope', requireToken, async (req, res) => {
+  const uid = req.tokenUser.id;
+  const recipientId = parseInt(req.body?.recipientId, 10);
+  const amount = parseInt(req.body?.amount, 10);
+  const message = String(req.body?.message || '').trim().slice(0, 140) || null;
+
+  if (!recipientId || recipientId === uid) return res.status(400).json({ error: 'Pick a friend to send to.' });
+  if (!Number.isInteger(amount) || amount <= 0 || amount > 100000) return res.status(400).json({ error: 'Enter a valid amount.' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: rcpt } = await client.query('SELECT id, name FROM users WHERE id = $1', [recipientId]);
+    if (!rcpt.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Recipient not found.' }); }
+
+    const { rows: me } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [uid]);
+    if ((me[0]?.balance ?? 0) < amount) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Not enough coins.' }); }
+
+    await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [amount, uid]);
+    await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [amount, recipientId]);
+    await client.query(
+      `INSERT INTO red_envelopes (sender_id, recipient_id, amount, message) VALUES ($1, $2, $3, $4)`,
+      [uid, recipientId, amount, message]);
+    const { rows: sender } = await client.query('SELECT name FROM users WHERE id = $1', [uid]);
+    await client.query(
+      `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'red_envelope_sent', $3)`,
+      [uid, -amount, `Red envelope to ${rcpt[0].name || 'a friend'}`]);
+    await client.query(
+      `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'red_envelope_received', $3)`,
+      [recipientId, amount, `Red envelope from ${sender[0]?.name || 'a friend'}`]);
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance: (me[0].balance - amount) });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('m/red-envelope send error:', e);
+    res.status(500).json({ error: 'Server error' });
+  } finally { client.release(); }
+});
+
+// ── GET /api/m/red-envelopes/unseen : à révéler à la prochaine connexion ─────
+router.get('/api/m/red-envelopes/unseen', requireToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT re.id, re.amount, re.message, re.created_at, COALESCE(s.name, 'A friend') AS sender_name
+       FROM red_envelopes re
+       LEFT JOIN users s ON s.id = re.sender_id
+       WHERE re.recipient_id = $1 AND re.seen = FALSE
+       ORDER BY re.created_at ASC`, [req.tokenUser.id]);
+    res.json({ envelopes: rows });
+  } catch (e) {
+    console.error('m/red-envelopes unseen error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/m/red-envelopes/seen : marquer comme vues ──────────────────────
+router.post('/api/m/red-envelopes/seen', requireToken, async (req, res) => {
+  try {
+    await pool.query('UPDATE red_envelopes SET seen = TRUE WHERE recipient_id = $1 AND seen = FALSE', [req.tokenUser.id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('m/red-envelopes seen error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ── GET /api/m/mentors : annuaire des mentors ────────────────────────────────
 router.get('/api/m/mentors', requireToken, async (req, res) => {
   try {

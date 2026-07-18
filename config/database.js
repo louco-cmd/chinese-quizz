@@ -336,6 +336,21 @@ const pool = new Pool({
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_pack_purchases_buyer ON pack_purchases(buyer_id)`);
     console.log("✅ Tables JiaStore (word_packs/word_pack_items/pack_purchases) vérifiées.");
 
+    // ── Red envelopes (虹包) : virements de coins entre utilisateurs ───────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS red_envelopes (
+        id SERIAL PRIMARY KEY,
+        sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        recipient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        amount INTEGER NOT NULL CHECK (amount > 0),
+        message TEXT,
+        seen BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_red_env_recipient_unseen ON red_envelopes(recipient_id) WHERE seen = FALSE`);
+    console.log("✅ Table 'red_envelopes' vérifiée.");
+
     // Réconciliation des packs officiels HSK (idempotente, à chaque démarrage).
     // 1) Retire les anciens packs de démo seedés (is_official=false ET créateur
     //    NULL) — préserve les packs créés par de vrais users (creator_id non NULL).
