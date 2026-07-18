@@ -9,6 +9,7 @@ import HskStatList from '../components/account/HskStatList';
 import RecentQuizzes from '../components/account/RecentQuizzes';
 import EditProfilePopup, { flagEmoji } from '../components/account/EditProfilePopup';
 import YourMentorsCard from '../components/teachers/YourMentorsCard';
+import MyPacksCard from '../components/account/MyPacksCard';
 import Popup from '../components/Popup';
 import CoursePage from './CoursePage';
 import { ErrorRetry } from '../components/ErrorRetry';
@@ -154,6 +155,8 @@ export default function AccountScreen({ onLogout, onNavigate }) {
               <AccountCard icon="time-outline" title="Recent quizzes" actionLabel="Start a new quiz" onPress={() => onNavigate?.('quiz')}>
                 <RecentQuizzes quizzes={data.recentQuizzes} />
               </AccountCard>
+
+              <MyPacksCard onNavigate={onNavigate} />
             </View>
           </View>
 

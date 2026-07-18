@@ -171,6 +171,18 @@ export function createPack({ title, description, price, text, translations, acqu
   });
 }
 
+export function getMyPacks() {
+  return request('/api/m/market/my-packs');
+}
+
+export function updatePack(id, { title, description, price }) {
+  return request(`/api/m/market/packs/${id}`, { method: 'PUT', body: { title, description, price } });
+}
+
+export function deletePack(id) {
+  return request(`/api/m/market/packs/${id}`, { method: 'DELETE' });
+}
+
 export function getCollection() {
   return request('/api/m/collection');
 }

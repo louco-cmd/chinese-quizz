@@ -916,7 +916,7 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
     const pack = rows[0];
     const { rows: preview } = await pool.query(
       `SELECT m.id, m.chinese, m.pinyin, m.english FROM word_pack_items i
-       JOIN mots m ON m.id = i.mot_id WHERE i.pack_id = $1 ORDER BY m.id LIMIT 8`, [id]);
+       JOIN mots m ON m.id = i.mot_id WHERE i.pack_id = $1 ORDER BY m.id LIMIT 3`, [id]);
     pack.isMine = pack.creator_id === uid;
     delete pack.creator_id;
     res.json({ pack, preview });
@@ -1116,6 +1116,65 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
     console.error('m/market create error:', e);
     res.status(500).json({ error: 'Server error' });
   } finally { client.release(); }
+});
+
+// ── GET /api/m/market/my-packs : packs créés par l'utilisateur ───────────────
+router.get('/api/m/market/my-packs', requireToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT wp.id, wp.title, wp.description, wp.price, wp.published, wp.sales_count,
+              (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count
+       FROM word_packs wp
+       WHERE wp.creator_id = $1
+       ORDER BY wp.created_at DESC`, [req.tokenUser.id]);
+    res.json({ packs: rows });
+  } catch (e) {
+    console.error('m/market my-packs error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── PUT /api/m/market/packs/:id : éditer un pack (titre/description/prix) ─────
+router.put('/api/m/market/packs/:id', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid pack' });
+    const title = String(req.body?.title || '').trim();
+    const description = String(req.body?.description || '').trim();
+    const price = parseInt(req.body?.price, 10);
+    if (!title || title.length > 80) return res.status(400).json({ error: 'Title is required (max 80 characters).' });
+    if (description.length > 300) return res.status(400).json({ error: 'Description is too long (max 300 characters).' });
+    if (!Number.isInteger(price) || price < 0 || price > 100000) return res.status(400).json({ error: 'Enter a valid price.' });
+
+    const { rowCount } = await pool.query(
+      `UPDATE word_packs SET title = $1, description = $2, price = $3
+       WHERE id = $4 AND creator_id = $5`,
+      [title, description || null, price, id, uid]);
+    if (!rowCount) return res.status(404).json({ error: 'Pack not found' });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('m/market update error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── DELETE /api/m/market/packs/:id : supprimer un pack (créateur) ─────────────
+router.delete('/api/m/market/packs/:id', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid pack' });
+    // items + purchases suivent via ON DELETE CASCADE ; les mots déjà achetés
+    // restent dans les collections (user_mots n'est pas lié au pack).
+    const { rowCount } = await pool.query(
+      'DELETE FROM word_packs WHERE id = $1 AND creator_id = $2', [id, uid]);
+    if (!rowCount) return res.status(404).json({ error: 'Pack not found' });
+    res.json({ success: true });
+  } catch (e) {
+    console.error('m/market delete error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // ── GET /api/m/wallet : solde + transactions (page bank) ─────────────────────
