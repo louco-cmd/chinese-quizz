@@ -986,6 +986,84 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
   } finally { client.release(); }
 });
 
+// Extrait la liste de mots chinois (texte collé OU tableau), dédoublonnée.
+function extractWordList(body) {
+  let words;
+  if (typeof body?.text === 'string') words = parseImportText(body.text).map((r) => r.chinese).filter(Boolean);
+  else if (Array.isArray(body?.words)) words = body.words.map((w) => String(w || '').trim()).filter(Boolean);
+  else words = [];
+  const seen = new Set();
+  return words.filter((w) => (seen.has(w) ? false : seen.add(w)));
+}
+
+// ── POST /api/m/market/my-words/check : sépare possédés / manquants ──────────
+// Un user ne peut vendre que des mots de SA collection. Sert au preview live.
+router.post('/api/m/market/my-words/check', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const words = extractWordList(req.body);
+    if (!words.length) return res.json({ owned: [], missing: [] });
+    const { rows } = await pool.query(
+      `SELECT DISTINCT ON (m.chinese) m.id, m.chinese, m.pinyin, m.english
+       FROM mots m JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
+       WHERE m.chinese = ANY($2::text[]) ORDER BY m.chinese, m.id`, [uid, words]);
+    const byCn = new Map(rows.map((r) => [r.chinese, r]));
+    const owned = words.filter((w) => byCn.has(w)).map((w) => byCn.get(w));
+    const missing = words.filter((w) => !byCn.has(w));
+    res.json({ owned, missing });
+  } catch (e) {
+    console.error('m/market check error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/m/market/packs : créer un pack à vendre ────────────────────────
+router.post('/api/m/market/packs', requireToken, async (req, res) => {
+  const uid = req.tokenUser.id;
+  const title = String(req.body?.title || '').trim();
+  const description = String(req.body?.description || '').trim();
+  const price = parseInt(req.body?.price, 10);
+  const words = extractWordList(req.body);
+
+  if (!title || title.length > 80) return res.status(400).json({ error: 'Title is required (max 80 characters).' });
+  if (description.length > 300) return res.status(400).json({ error: 'Description is too long (max 300 characters).' });
+  if (!Number.isInteger(price) || price < 0 || price > 100000) return res.status(400).json({ error: 'Enter a valid price.' });
+  if (words.length < 1) return res.status(400).json({ error: 'Add at least one word.' });
+  if (words.length > 500) return res.status(400).json({ error: 'Too many words (max 500).' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // On ne garde que les mots réellement possédés (sécurité serveur).
+    const { rows: owned } = await client.query(
+      `SELECT DISTINCT ON (m.chinese) m.id, m.chinese
+       FROM mots m JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
+       WHERE m.chinese = ANY($2::text[]) ORDER BY m.chinese, m.id`, [uid, words]);
+    const ownedMap = new Map(owned.map((r) => [r.chinese, r.id]));
+    const missing = words.filter((w) => !ownedMap.has(w));
+    if (missing.length) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'You can only sell words you own. Add the missing ones first.', missing });
+    }
+
+    const { rows: pk } = await client.query(
+      `INSERT INTO word_packs (creator_id, title, description, price, cover_key, is_official, published)
+       VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE) RETURNING id`,
+      [uid, title, description || null, price]);
+    const packId = pk[0].id;
+    const motIds = words.map((w) => ownedMap.get(w));
+    await client.query(
+      `INSERT INTO word_pack_items (pack_id, mot_id) SELECT $1, UNNEST($2::int[]) ON CONFLICT DO NOTHING`,
+      [packId, motIds]);
+    await client.query('COMMIT');
+    res.json({ success: true, id: packId, wordCount: motIds.length });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('m/market create error:', e);
+    res.status(500).json({ error: 'Server error' });
+  } finally { client.release(); }
+});
+
 // ── GET /api/m/wallet : solde + transactions (page bank) ─────────────────────
 router.get('/api/m/wallet', requireToken, async (req, res) => {
   try {

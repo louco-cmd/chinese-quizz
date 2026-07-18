@@ -56,7 +56,12 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data.error || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.data = data; // ex. { missing: [...] } pour la création de pack
+    throw err;
+  }
   return data;
 }
 
@@ -153,6 +158,14 @@ export function getMarketPack(id) {
 
 export function buyMarketPack(id) {
   return request(`/api/m/market/packs/${id}/buy`, { method: 'POST' });
+}
+
+export function checkMyWords(text) {
+  return request('/api/m/market/my-words/check', { method: 'POST', body: { text } });
+}
+
+export function createPack({ title, description, price, text }) {
+  return request('/api/m/market/packs', { method: 'POST', body: { title, description, price, text } });
 }
 
 export function getCollection() {

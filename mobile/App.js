@@ -18,6 +18,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import BankScreen from './src/screens/BankScreen';
 import PricingScreen from './src/screens/PricingScreen';
 import StoreScreen from './src/screens/StoreScreen';
+import CreatePackScreen from './src/screens/CreatePackScreen';
 import ImportWordsScreen from './src/screens/ImportWordsScreen';
 import SupportScreen from './src/screens/SupportScreen';
 import LegalScreen from './src/screens/LegalScreen';
@@ -154,7 +155,8 @@ export default function App() {
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} />;
-      case 'store': return <StoreScreen onBack={() => setTab(bankReturn)} />;
+      case 'store': return <StoreScreen onBack={() => setTab(bankReturn)} onCreate={() => setTab('create-pack')} />;
+      case 'create-pack': return <CreatePackScreen onBack={() => setTab('store')} onCreated={() => setTab('store')} />;
       case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} onDone={() => setTab('add')} />;
       case 'support': return <SupportScreen onBack={() => setTab(bankReturn)} />;
       case 'legal': return <LegalScreen onBack={() => setTab(bankReturn)} />;
