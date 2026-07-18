@@ -18,7 +18,7 @@ const PLACEHOLDER = `你好, hello
 再见
 学习, xué xí, to study`;
 
-export default function ImportWordsScreen({ onBack, onDone }) {
+export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir }) {
   const [step, setStep] = useState('paste'); // paste | preview | done
   const [text, setText] = useState('');
   const [rows, setRows] = useState([]);
@@ -35,7 +35,7 @@ export default function ImportWordsScreen({ onBack, onDone }) {
   async function runPreview() {
     setBusy(true); setError('');
     try {
-      const d = await importPreview(text);
+      const d = await importPreview(text, forcedDir);
       if (!d.rows.length) {
         setError((d.direction || 'en→zh') !== 'zh→en'
           ? 'No Chinese words found in your text.'

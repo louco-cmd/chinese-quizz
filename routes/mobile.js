@@ -615,8 +615,14 @@ async function isUserPremium(userId) {
 router.post('/api/m/import/preview', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
-    const dir = await pool.query('SELECT quiz_direction FROM users WHERE id = $1', [uid]);
-    const learningChinese = (dir.rows[0]?.quiz_direction || 'en→zh') !== 'zh→en';
+    // Direction fournie par le client (onboarding, avant sauvegarde) sinon en base.
+    const bodyDir = req.body?.direction;
+    let direction = (bodyDir === 'en→zh' || bodyDir === 'zh→en') ? bodyDir : null;
+    if (!direction) {
+      const dir = await pool.query('SELECT quiz_direction FROM users WHERE id = $1', [uid]);
+      direction = dir.rows[0]?.quiz_direction || 'en→zh';
+    }
+    const learningChinese = direction !== 'zh→en';
 
     const parsed = parseImportText(req.body?.text);
     let toPinyin = null;

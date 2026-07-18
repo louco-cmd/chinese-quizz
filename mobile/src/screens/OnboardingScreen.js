@@ -158,16 +158,24 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     }
   }
 
-  // Prof → espace prof direct. Élève → étape "remplis ta collection".
+  // Prof → sauvegarde puis espace prof.
   async function submitTeacher() { if (await saveProfile('teacher')) onDone?.('teacher'); }
-  async function submitLearner() { if (await saveProfile('student')) setStep('words'); }
+  // Élève → on NE sauvegarde PAS ici : on valide juste le nom et on passe au
+  // dernier chapitre. Tout est enregistré d'un coup à la fin (finishLearner).
+  function submitLearner() {
+    if (!name.trim()) { setError('Name is required.'); return; }
+    setError('');
+    setStep('words');
+  }
+  // Fin de l'onboarding élève : un seul appel base, puis on entre dans le jeu.
+  async function finishLearner() { if (await saveProfile('student')) onDone?.('student'); }
 
   // ── Dernier chapitre (élève, optionnel) : remplis ta collection ──
   // Grille de packs JiaStore + une tuile "upload" (bleue, style action) en 2e
   // position (haut de la colonne droite). Optionnel → "Start playing" termine.
   if (step === 'words') {
     if (importing) {
-      return <ImportWordsScreen onBack={() => setImporting(false)} onDone={() => onDone?.('student')} />;
+      return <ImportWordsScreen direction={dir} onBack={() => setImporting(false)} onDone={finishLearner} />;
     }
     // Tuile upload : même design que les tuiles d'action (CtaCard bleue) et
     // `fill` pour épouser la hauteur des cartes du store dans la même rangée.
@@ -202,7 +210,8 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     );
     const footer = (
       <View style={{ marginTop: 6 }}>
-        <PrimaryButton label="Let's start" onPress={() => onDone?.('student')} />
+        {error ? <Text className="text-danger text-[13px] font-semibold mb-2 text-center">{error}</Text> : null}
+        <PrimaryButton label="Let's start" onPress={finishLearner} saving={saving} />
       </View>
     );
     return (

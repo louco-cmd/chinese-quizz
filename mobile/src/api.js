@@ -129,8 +129,8 @@ export function getWallet() {
 }
 
 // ── Import en masse ──
-export function importPreview(text) {
-  return request('/api/m/import/preview', { method: 'POST', body: { text } });
+export function importPreview(text, direction) {
+  return request('/api/m/import/preview', { method: 'POST', body: { text, direction } });
 }
 export function importCommit(words) {
   return request('/api/m/import/commit', { method: 'POST', body: { words } });
