@@ -66,7 +66,7 @@ export default function Header({ onAccount, onLogo, onBalance, onPlan, plan: pla
         </View>
 
         {/* Droite : solde + compte */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
           <Pressable
             onPress={onBalance}
             style={{
@@ -75,7 +75,6 @@ export default function Header({ onAccount, onLogo, onBalance, onPlan, plan: pla
               paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
             }}
           >
-            <Text style={{ color: '#fff', fontSize: 12, opacity: 0.85 }}>balance :</Text>
             <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>
               {balance == null ? '…' : `${balance}₵`}
             </Text>
