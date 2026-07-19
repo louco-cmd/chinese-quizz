@@ -405,6 +405,20 @@ router.get('/api/m/search', requireToken, async (req, res) => {
   }
 });
 
+// ── GET /api/m/pinyin?cn= : génère le pinyin d'un mot chinois (pinyin-pro) ────
+router.get('/api/m/pinyin', requireToken, async (req, res) => {
+  try {
+    const cn = (req.query.cn || '').trim();
+    if (!cn || !/[㐀-鿿]/.test(cn)) return res.json({ pinyin: '' });
+    let toPinyin = null;
+    try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente */ }
+    res.json({ pinyin: toPinyin ? toPinyin(cn, { toneType: 'symbol' }) : '' });
+  } catch (e) {
+    console.error('m/pinyin error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ── POST /api/m/words/:motId/capture : ajoute un mot existant à sa collection ──
 router.post('/api/m/words/:motId/capture', requireToken, async (req, res) => {
   try {
@@ -458,10 +472,15 @@ router.post('/api/m/words', requireToken, async (req, res) => {
     if (rows.length) {
       motId = rows[0].id;
     } else {
+      // Filet de sécurité : génère le pinyin si absent.
+      let py = (pinyin || '').trim();
+      if (!py && /[㐀-鿿]/.test(chinese)) {
+        try { py = require('pinyin-pro').pinyin(chinese, { toneType: 'symbol' }); } catch { /* lib absente */ }
+      }
       const ins = await client.query(
         `INSERT INTO mots (chinese, pinyin, english, description)
          VALUES ($1, $2, $3, $4) RETURNING id`,
-        [chinese, pinyin || null, english, description || null]
+        [chinese, py || null, english, description || null]
       );
       motId = ins.rows[0].id;
     }

@@ -205,6 +205,10 @@ export function searchWords(q) {
   return request(`/api/m/search?q=${encodeURIComponent(q)}`);
 }
 
+export function getPinyin(cn) {
+  return request(`/api/m/pinyin?cn=${encodeURIComponent(cn)}`);
+}
+
 export function captureWord(id) {
   return request(`/api/m/words/${id}/capture`, { method: 'POST' });
 }

@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
 import { COLORS, SHADOW_CARD } from '../theme';
-import { searchWords, captureWord, createWord } from '../api';
+import { searchWords, captureWord, createWord, getPinyin } from '../api';
 
 const CARD_W = 240;
 const CARD_GAP = 14;
@@ -42,6 +42,23 @@ export default function AddWordScreen() {
   const [editor, setEditor] = useState(null); // { chinese, pinyin, englishList, description }
   const [saving, setSaving] = useState(false);
   const [editorError, setEditorError] = useState('');
+  const pinyinTouched = useRef(false); // l'utilisateur a-t-il édité le pinyin à la main ?
+  const pinyinTimer = useRef(null);
+
+  // Auto-génère le pinyin quand le chinois change (sauf si édité manuellement).
+  useEffect(() => {
+    const cn = (editor?.chinese || '').trim();
+    clearTimeout(pinyinTimer.current);
+    if (!editor || pinyinTouched.current || !isChinese(cn)) return;
+    pinyinTimer.current = setTimeout(async () => {
+      try {
+        const d = await getPinyin(cn);
+        if (d.pinyin) setEditor((e) => (e && !pinyinTouched.current ? { ...e, pinyin: d.pinyin } : e));
+      } catch { /* silencieux */ }
+    }, 350);
+    return () => clearTimeout(pinyinTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor?.chinese]);
 
   // Carrousel ancré
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -87,12 +104,11 @@ export default function AddWordScreen() {
     }
   }
 
-  const hasExact = results.some((w) => isExact(w, term));
-
   // ── Popup New word ─────────────────────────────────────────────────────────
   // Depuis la carte "Create" : préremplit selon que le terme est chinois ou non.
   function openCreate() {
     setEditorError('');
+    pinyinTouched.current = false; // pinyin auto-généré depuis le chinois
     setEditor(
       isChinese(term)
         ? { chinese: term, pinyin: '', englishList: [''], description: '' }
@@ -102,6 +118,7 @@ export default function AddWordScreen() {
   // Depuis une carte trouvée : "éditer avant de capturer".
   function openEdit(w) {
     setEditorError('');
+    pinyinTouched.current = !!(w.pinyin || '').trim(); // garde le pinyin existant
     setEditor({
       chinese: w.chinese || '',
       pinyin: w.pinyin || '',
@@ -181,9 +198,9 @@ export default function AddWordScreen() {
             returnKeyType="search"
             onSubmitEditing={run}
             style={{
-              backgroundColor: '#fff', borderRadius: 50, paddingVertical: 16, paddingHorizontal: 20,
-              fontSize: 17, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
-              width: '100%', maxWidth: 450,
+              backgroundColor: '#fff', borderRadius: 50, paddingVertical: 20, paddingHorizontal: 24,
+              fontSize: 19, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
+              width: '100%', maxWidth: 520,
               shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
             }}
           />
@@ -194,7 +211,7 @@ export default function AddWordScreen() {
               disabled={loading}
               style={{
                 backgroundColor: '#fff', borderRadius: 20, paddingVertical: 16, paddingHorizontal: 40,
-                marginTop: 24, width: '100%', maxWidth: 450, alignItems: 'center',
+                marginTop: 24, width: '100%', maxWidth: 520, alignItems: 'center',
                 shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
               }}
             >
@@ -260,20 +277,19 @@ export default function AddWordScreen() {
               );
             })}
 
-            {!hasExact && (
-              <Pressable
-                onPress={openCreate}
-                style={{
-                  width: CARD_W, borderRadius: 20, minHeight: 210, alignItems: 'center', justifyContent: 'center',
-                  borderWidth: 2, borderStyle: 'dashed', borderColor: '#c9b8ec', backgroundColor: '#faf8ff',
-                }}
-              >
-                <Ionicons name="add-circle" size={40} color="#6f42c1" />
-                <Text style={{ color: '#6f42c1', fontWeight: '700', marginTop: 8 }} numberOfLines={1}>
-                  Create "{term}"
-                </Text>
-              </Pressable>
-            )}
+            {/* Toujours proposer la création d'un nouveau mot, même en cas de match exact. */}
+            <Pressable
+              onPress={openCreate}
+              style={{
+                width: CARD_W, borderRadius: 20, minHeight: 210, alignItems: 'center', justifyContent: 'center',
+                borderWidth: 2, borderStyle: 'dashed', borderColor: '#c9b8ec', backgroundColor: '#faf8ff',
+              }}
+            >
+              <Ionicons name="add-circle" size={40} color="#6f42c1" />
+              <Text style={{ color: '#6f42c1', fontWeight: '700', marginTop: 8 }} numberOfLines={1}>
+                Create a new word
+              </Text>
+            </Pressable>
 
             {results.length === 0 && (
               <View style={{ width: CARD_W, minHeight: 160, alignItems: 'center', justifyContent: 'center' }}>
@@ -316,17 +332,16 @@ export default function AddWordScreen() {
               </Pressable>
             </View>
 
-            {!!editor.chinese && (
-              <Text style={{ fontSize: 40, fontWeight: '800', color: COLORS.jiayou, textAlign: 'center', marginBottom: 14 }}>
-                {editor.chinese}
-              </Text>
-            )}
-
             <FieldLabel>Chinese characters</FieldLabel>
             <ModalInput value={editor.chinese} onChangeText={(v) => setField('chinese', v)} placeholder="汉字…" />
 
             <FieldLabel>Pinyin</FieldLabel>
-            <ModalInput value={editor.pinyin} onChangeText={(v) => setField('pinyin', v)} placeholder="Pinyin…" autoCapitalize="none" />
+            <ModalInput
+              value={editor.pinyin}
+              onChangeText={(v) => { pinyinTouched.current = true; setField('pinyin', v); }}
+              placeholder="Auto-generated…"
+              autoCapitalize="none"
+            />
 
             <FieldLabel>English</FieldLabel>
             {editor.englishList.map((val, i) => (
