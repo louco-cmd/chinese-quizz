@@ -28,7 +28,7 @@ const infoLabel = (hsk, difficulty) => {
 };
 
 export default function QuizPlayScreen({ config, onExit }) {
-  const { type, count, hsk, difficulty, ids, lessonId } = config;
+  const { type, count, hsk, difficulty, ids, packId, lessonId } = config;
   const [direction, setDirection] = useState('en→zh');
   const [words, setWords] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +51,7 @@ export default function QuizPlayScreen({ config, onExit }) {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [me, d] = await Promise.all([getMe().catch(() => ({})), getQuizPlayWords({ type, count, hsk, difficulty, ids })]);
+      const [me, d] = await Promise.all([getMe().catch(() => ({})), getQuizPlayWords({ type, count, hsk, difficulty, ids, packId })]);
       if (me.quiz_direction) setDirection(me.quiz_direction);
       const ws = d.words || [];
       if (!ws.length) { setError('Not enough words in your collection for these settings.'); setWords(null); return; }

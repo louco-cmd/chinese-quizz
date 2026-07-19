@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, Platform, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import DuelSectionCard from '../components/duels/DuelSectionCard';
 import CtaCard from '../components/duels/CtaCard';
 import QuizStats from '../components/quiz/QuizStats';
@@ -7,25 +8,50 @@ import QuizSettingsPopup from '../components/quiz/QuizSettingsPopup';
 import TaskQuizzes from '../components/quiz/TaskQuizzes';
 import DifficultWords from '../components/quiz/DifficultWords';
 import QuizPlayScreen from './QuizPlayScreen';
-import { getQuizStats } from '../api';
+import { getQuizStats, getQuizPacks } from '../api';
 import { useT } from '../i18n';
+import { COLORS } from '../theme';
 
-// Page Quiz : même structure que la page Duels (stats sticky à gauche en desktop,
-// CTA unifiés, sections empilées à droite).
+const HSK_GLYPH = { hsk1: '一', hsk2: '二', hsk3: '三', hsk4: '四', hsk5: '五', hsk6: '六' };
+const glyphOf = (k) => HSK_GLYPH[k] || '汉';
+
+function PackRow({ pack, onPress }) {
+  return (
+    <Pressable onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 }}>
+      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#e8f0ff', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 22, fontWeight: '700', color: '#5b8def' }}>{glyphOf(pack.cover_key)}</Text>
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: '#1a1a2e' }} numberOfLines={1}>{pack.title}</Text>
+        <Text style={{ fontSize: 12.5, color: COLORS.muted, marginTop: 1 }}>{pack.word_count} words</Text>
+      </View>
+      <View style={{ width: 34, height: 34, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name="play" size={16} color="#fff" />
+      </View>
+    </Pressable>
+  );
+}
+
+// Page Quiz : stats sticky à gauche (desktop) + CTA "Start a quiz" (mode fusionné
+// pinyin/characters) + "Train on a pack" + task quizzes + difficultés.
 export default function QuizScreen() {
   const { t } = useT();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
   const hPad = isDesktop ? 24 : 16;
 
-  const [pendingType, setPendingType] = useState(null); // type en attente de réglages
-  const [playing, setPlaying] = useState(null); // { type, count, hsk, difficulty }
+  const [pending, setPending] = useState(null); // { scope:'collection' } | { scope:'pack', packId, title }
+  const [playing, setPlaying] = useState(null);
   const [stats, setStats] = useState(null);
+  const [packs, setPacks] = useState([]);
 
   const loadStats = useCallback(async () => {
     try { setStats(await getQuizStats()); } catch { /* silencieux */ }
   }, []);
-  useEffect(() => { loadStats(); }, [loadStats]);
+  const loadPacks = useCallback(async () => {
+    try { const d = await getQuizPacks(); setPacks(d.packs || []); } catch { /* silencieux */ }
+  }, []);
+  useEffect(() => { loadStats(); loadPacks(); }, [loadStats, loadPacks]);
 
   if (playing) {
     return (
@@ -36,7 +62,8 @@ export default function QuizScreen() {
     );
   }
 
-  // ── Blocs réutilisés dans les deux dispositions ──
+  const learningEnglish = stats?.direction === 'zh→en';
+
   const statsCard = (
     <DuelSectionCard icon="stats-chart" title={t('quiz_mystats')}>
       <QuizStats
@@ -48,43 +75,32 @@ export default function QuizScreen() {
     </DuelSectionCard>
   );
 
-  // En zh→en (apprendre l'anglais), pas de distinction pinyin/caractères :
-  // une seule entrée "Quiz" (on voit le chinois, on tape l'anglais).
-  const learningEnglish = stats?.direction === 'zh→en';
-
   const rightColumn = (
     <>
-      {/* CTA (même forme/hauteur que la page Duels) */}
-      {learningEnglish ? (
+      {/* CTA unique : ouvre les réglages (mode + scope collection). */}
+      <View style={{ flexDirection: 'row', marginBottom: 14 }}>
+        <CtaCard
+          colors={['#0d6efd', '#0a4fcf']}
+          icon="rocket"
+          title={learningEnglish ? t('quiz_single') : 'Start a quiz'}
+          text={learningEnglish ? t('quiz_single_sub') : 'Pinyin or characters, your whole collection'}
+          onPress={() => setPending({ scope: 'collection' })}
+        />
+      </View>
+
+      {/* Train on a pack */}
+      {packs.length ? (
         <View style={{ marginBottom: 14 }}>
-          <View style={{ flexDirection: 'row' }}>
-            <CtaCard
-              colors={['#0d6efd', '#0a4fcf']}
-              icon="create"
-              title={t('quiz_single')}
-              text={t('quiz_single_sub')}
-              onPress={() => setPendingType('pinyin')}
-            />
-          </View>
+          <DuelSectionCard icon="albums" title="Train on a pack">
+            {packs.map((p, i) => (
+              <View key={p.id}>
+                {i > 0 ? <View style={{ height: 1, backgroundColor: '#f2f2f4' }} /> : null}
+                <PackRow pack={p} onPress={() => setPending({ scope: 'pack', packId: p.id, title: p.title })} />
+              </View>
+            ))}
+          </DuelSectionCard>
         </View>
-      ) : (
-        <View style={{ flexDirection: 'row', gap: 14, marginBottom: 14 }}>
-          <CtaCard
-            colors={['#0d6efd', '#0a4fcf']}
-            icon="text"
-            title={t('quiz_pinyin')}
-            text={t('quiz_pinyin_sub')}
-            onPress={() => setPendingType('pinyin')}
-          />
-          <CtaCard
-            colors={['#7828a7', '#4e1e7e']}
-            icon="language"
-            title={t('quiz_chars')}
-            text={t('quiz_chars_sub')}
-            onPress={() => setPendingType('character')}
-          />
-        </View>
-      )}
+      ) : null}
 
       {/* Task quizzes du professeur */}
       <TaskQuizzes onStart={(cfg) => setPlaying(cfg)} />
@@ -115,13 +131,15 @@ export default function QuizScreen() {
       </ScrollView>
 
       <QuizSettingsPopup
-        visible={!!pendingType}
-        type={pendingType}
-        onClose={() => setPendingType(null)}
+        visible={!!pending}
+        scope={pending?.scope || 'collection'}
+        packLabel={pending?.title}
+        showMode={!learningEnglish}
+        onClose={() => setPending(null)}
         onStart={(opts) => {
-          const type = pendingType;
-          setPendingType(null);
-          setPlaying({ type, ...opts });
+          const p = pending;
+          setPending(null);
+          setPlaying(p?.scope === 'pack' ? { ...opts, packId: p.packId } : opts);
         }}
       />
     </View>

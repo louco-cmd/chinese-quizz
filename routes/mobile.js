@@ -2110,6 +2110,29 @@ router.post('/api/m/duels/:id/submit', requireToken, async (req, res) => {
   }
 });
 
+// ── GET /api/m/quiz/packs : packs entraînables (créés ∪ achetés) ─────────────
+// word_count = mots du pack réellement possédés (donc quizzables).
+router.get('/api/m/quiz/packs', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const { rows } = await pool.query(
+      `SELECT wp.id, wp.title, wp.cover_key, wp.is_official,
+              COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
+              (SELECT COUNT(*) FROM word_pack_items i
+                 JOIN user_mots um ON um.mot_id = i.mot_id AND um.user_id = $1
+               WHERE i.pack_id = wp.id)::int AS word_count
+       FROM word_packs wp
+       LEFT JOIN users u ON u.id = wp.creator_id
+       WHERE wp.creator_id = $1
+          OR wp.id IN (SELECT pack_id FROM pack_purchases WHERE buyer_id = $1)
+       ORDER BY wp.created_at DESC`, [uid]);
+    res.json({ packs: rows.filter((p) => p.word_count > 0) });
+  } catch (e) {
+    console.error('m/quiz packs error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ── GET /api/m/quiz/words : mots pour un quiz scoré (type/count/hsk/difficulty) ─
 // Reprend la logique de /quiz-mots : filtre HSK + plage de score selon la
 // difficulté, avec élargissement progressif si pas assez de mots.
@@ -2119,8 +2142,24 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
   const hskParam = req.query.hsk || 'all';
   const difficulty = req.query.difficulty || 'balanced';
   const idsParam = req.query.ids; // liste explicite (quick quiz sur "Your difficulties")
+  const packId = parseInt(req.query.packId, 10) || null; // entraînement sur un pack
 
   try {
+    // Mode pack : mots du pack que l'utilisateur possède, mots faibles d'abord.
+    if (packId) {
+      const { rows } = await pool.query(
+        `SELECT m.id, m.chinese, m.pinyin, m.english, m.hsk, COALESCE(um.score, 0) AS score
+         FROM word_pack_items i
+         JOIN user_mots um ON um.mot_id = i.mot_id AND um.user_id = $1
+         JOIN mots m ON m.id = i.mot_id
+         WHERE i.pack_id = $2
+         ORDER BY um.score ASC, RANDOM()
+         LIMIT $3`, [userId, packId, requestedCount]);
+      if (!rows.length) return res.status(400).json({ error: 'not_enough_words' });
+      await pool.query('UPDATE user_mots SET last_seen = NOW() WHERE user_id = $1 AND mot_id = ANY($2)', [userId, rows.map((r) => r.id)]);
+      return res.json({ words: rows, count: rows.length });
+    }
+
     // Mode liste explicite : on renvoie exactement ces mots de la collection.
     if (idsParam) {
       const ids = String(idsParam).split(',').map((s) => parseInt(s, 10)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
