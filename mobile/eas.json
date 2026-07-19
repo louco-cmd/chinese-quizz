@@ -7,6 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "channel": "development",
       "env": {
         "EXPO_PUBLIC_API_BASE": "https://app.jiayou.fr",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com"
@@ -14,6 +15,7 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "env": {
         "EXPO_PUBLIC_API_BASE": "https://app.jiayou.fr",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com"
@@ -21,6 +23,7 @@
     },
     "production": {
       "autoIncrement": true,
+      "channel": "production",
       "env": {
         "EXPO_PUBLIC_API_BASE": "https://app.jiayou.fr",
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com"
