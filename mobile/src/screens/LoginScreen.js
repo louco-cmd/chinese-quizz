@@ -79,8 +79,8 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
   const onEmailKey = () => { if (step === 'email') continueEmail(); };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20 }} keyboardShouldPersistTaps="handled">
           <View
             className="bg-white rounded-3xl p-6"

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, ActivityIndicator,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
@@ -107,7 +108,8 @@ export default function CreatePackScreen({ onBack, onCreated }) {
         <Text style={{ color: COLORS.muted, fontSize: 13, marginTop: 2 }}>Sell a set of words to the community.</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, width: '100%', maxWidth: 560, alignSelf: 'center' }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
         <Field label="Title">
           <TextInput value={title} onChangeText={setTitle} maxLength={80}
             placeholder="e.g. Café & Restaurant" placeholderTextColor={COLORS.mutedLight} style={inputStyle} />
@@ -145,6 +147,7 @@ export default function CreatePackScreen({ onBack, onCreated }) {
           )}
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* ── Checkout : acquérir les mots manquants ── */}
       <Popup visible={!!checkout} onClose={() => { if (!buying) setCheckout(null); }} maxWidth={440}>
