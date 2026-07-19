@@ -130,7 +130,7 @@ if (process.env.SERVE_WEB_APP === 'true') {
   }));
 
   const PASSTHROUGH = ['/api', '/auth', '/webhook', '/vendor'];
-  const PUBLIC_EJS = new Set(['/legal', '/support']);
+  const PUBLIC_EJS = new Set(['/legal', '/support', '/delete-account']);
   // Express 5 : pas de wildcard string ('*') → middleware sans path.
   app.use((req, res, next) => {
     if (req.method !== 'GET') return next();
@@ -981,6 +981,50 @@ app.get('/support', (req, res) => {
     title: 'Support - Jiayou 加油！',
     currentPage: 'support'
   });
+});
+
+// Page publique de suppression de compte (exigée par Google Play - Data safety).
+app.get('/delete-account', (req, res) => {
+  const supportEmail = process.env.SUPPORT_EMAIL || process.env.RESEND_FROM_EMAIL || 'contact@jiayou.fr';
+  res.type('html').send(`<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Delete your Jiayou account</title>
+<style>
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:32px 20px;color:#1a1a2e;line-height:1.6}
+  h1{color:#0d6efd;font-size:26px}h2{font-size:18px;margin-top:28px}
+  .box{background:#f8f9fa;border:1px solid #e6e8ec;border-radius:12px;padding:16px 18px;margin:16px 0}
+  code{background:#eef2f7;padding:2px 6px;border-radius:5px}a{color:#0d6efd}
+  ol{padding-left:20px}li{margin:6px 0}
+</style></head><body>
+<h1>加油！ Delete your Jiayou account</h1>
+<p>This page explains how to delete your <strong>Jiayou</strong> account and the data associated with it.</p>
+
+<h2>Delete from the app (immediate)</h2>
+<div class="box">
+  <ol>
+    <li>Open the Jiayou app (or <a href="https://app.jiayou.fr">app.jiayou.fr</a>) and sign in.</li>
+    <li>Go to <strong>Settings → Danger zone → Delete account</strong>.</li>
+    <li>Confirm. Your account is deleted <strong>immediately and permanently</strong>.</li>
+  </ol>
+</div>
+
+<h2>Or request deletion by email</h2>
+<p>If you can't sign in, email <a href="mailto:${supportEmail}">${supportEmail}</a> from the address linked to your account,
+with the subject <code>Delete my account</code>. We process these requests within 30 days.</p>
+
+<h2>What is deleted</h2>
+<p>Deleting your account permanently removes: your profile (name, email, country), your word collection and learning
+progress, your quiz and duel history, your coin balance and transactions, and any packs you created. This data is
+<strong>not recoverable</strong> after deletion.</p>
+
+<h2>What may be retained</h2>
+<p>We may retain limited records required by law (e.g. payment/invoice records held by our payment processor) for the
+legally mandated period. These are not used to identify you within the app.</p>
+
+<p style="margin-top:32px;color:#6c757d;font-size:13px">Jiayou · <a href="/legal">Legal &amp; Privacy</a></p>
+</body></html>`);
 });
 
 // Page de pricing
