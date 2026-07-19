@@ -49,7 +49,7 @@ export function PendingDuelRow({ duel, last, onPlay }) {
   // Déjà joué → ligne non cliquable (impossible de rejouer)
   if (played) return <View style={rowBase(last)}>{inner}</View>;
   return (
-    <Pressable onPress={() => onPlay(duel)} style={({ pressed }) => [rowBase(last), pressed && { backgroundColor: '#f8f9fb' }]}>
+    <Pressable onPress={() => onPlay(duel)} style={({ pressed }) => ({ ...rowBase(last), ...(pressed ? { backgroundColor: '#f8f9fb' } : null) })}>
       {inner}
     </Pressable>
   );
@@ -77,7 +77,7 @@ export function RecentDuelRow({ duel, last, onPress }) {
   );
   if (!onPress) return <View style={rowBase(last)}>{inner}</View>;
   return (
-    <Pressable onPress={() => onPress(duel)} style={({ pressed }) => [rowBase(last), pressed && { backgroundColor: '#f8f9fb' }]}>
+    <Pressable onPress={() => onPress(duel)} style={({ pressed }) => ({ ...rowBase(last), ...(pressed ? { backgroundColor: '#f8f9fb' } : null) })}>
       {inner}
     </Pressable>
   );
@@ -87,7 +87,7 @@ export function RecentDuelRow({ duel, last, onPress }) {
 export function PlayerRow({ player, last, onChallenge }) {
   const positive = (player.balance || 0) >= 0;
   return (
-    <Pressable onPress={() => onChallenge(player)} style={({ pressed }) => [rowBase(last), pressed && { backgroundColor: '#f8f9fb' }]}>
+    <Pressable onPress={() => onChallenge(player)} style={({ pressed }) => ({ ...rowBase(last), ...(pressed ? { backgroundColor: '#f8f9fb' } : null) })}>
       <Avatar name={player.name} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontWeight: '600', color: '#1a1a2e', fontSize: 14 }}>{player.name}</Text>
