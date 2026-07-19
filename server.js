@@ -130,7 +130,7 @@ if (process.env.SERVE_WEB_APP === 'true') {
   }));
 
   const PASSTHROUGH = ['/api', '/auth', '/webhook', '/vendor'];
-  const PUBLIC_EJS = new Set(['/legal', '/support', '/delete-account']);
+  const PUBLIC_EJS = new Set(['/legal', '/support', '/delete-account', '/privacy']);
   // Express 5 : pas de wildcard string ('*') → middleware sans path.
   app.use((req, res, next) => {
     if (req.method !== 'GET') return next();
@@ -1024,6 +1024,89 @@ progress, your quiz and duel history, your coin balance and transactions, and an
 legally mandated period. These are not used to identify you within the app.</p>
 
 <p style="margin-top:32px;color:#6c757d;font-size:13px">Jiayou · <a href="/legal">Legal &amp; Privacy</a></p>
+</body></html>`);
+});
+
+// Politique de confidentialité publique (exigée par Google Play & les stores).
+app.get('/privacy', (req, res) => {
+  const supportEmail = process.env.SUPPORT_EMAIL || process.env.RESEND_FROM_EMAIL || 'contact@jiayou.fr';
+  const updated = 'July 2026';
+  res.type('html').send(`<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy Policy - Jiayou 加油！</title>
+<style>
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:720px;margin:0 auto;padding:32px 20px;color:#1a1a2e;line-height:1.65}
+  h1{color:#0d6efd;font-size:26px}h2{font-size:19px;margin-top:30px}
+  a{color:#0d6efd}code{background:#eef2f7;padding:2px 6px;border-radius:5px}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14.5px}
+  td,th{border:1px solid #e6e8ec;padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#f8f9fa}
+  .muted{color:#6c757d;font-size:13px}
+</style></head><body>
+<h1>加油！ Privacy Policy</h1>
+<p class="muted">Last updated: ${updated}</p>
+<p>This Privacy Policy explains how <strong>Jiayou</strong> ("we", "the app") collects, uses and protects your
+personal data when you use our Chinese-learning application and website (<a href="https://app.jiayou.fr">app.jiayou.fr</a>).
+We act as the data controller. You can contact us at <a href="mailto:${supportEmail}">${supportEmail}</a>.</p>
+
+<h2>1. Data we collect</h2>
+<table>
+  <tr><th>Data</th><th>Purpose</th></tr>
+  <tr><td>Email address, name, country, optional tagline</td><td>Account creation, authentication, profile &amp; leaderboard</td></tr>
+  <tr><td>Password (stored hashed, never in clear text)</td><td>Authentication</td></tr>
+  <tr><td>Learning activity: word collection, quiz and duel history, scores, coin balance and transactions</td><td>Core app functionality and progress tracking</td></tr>
+  <tr><td>User ID and, if you sign in with Google, your Google account identifier</td><td>Account linking &amp; sign-in</td></tr>
+  <tr><td>Technical logs (IP address, timestamps)</td><td>Security, abuse prevention, reliability</td></tr>
+</table>
+<p>We do <strong>not</strong> collect precise location, contacts, photos, or health data.</p>
+
+<h2>2. Legal basis (GDPR)</h2>
+<p>We process your data to <strong>perform our contract</strong> with you (providing the service), on the basis of your
+<strong>consent</strong> where applicable (e.g. optional communications), and for our <strong>legitimate interests</strong>
+(security and improving the app).</p>
+
+<h2>3. Payments</h2>
+<p>Premium subscriptions are processed by <strong>Stripe</strong> on our website. We never receive or store your full
+card details — they are handled directly by Stripe.</p>
+
+<h2>4. Sharing &amp; processors</h2>
+<p>We do not sell your personal data. We rely on trusted service providers (data processors) who process data on our
+behalf, solely to run the service:</p>
+<ul>
+  <li><strong>Neon</strong> — database hosting</li>
+  <li><strong>Stripe</strong> — payment processing</li>
+  <li><strong>Resend</strong> — transactional emails (verification, password reset, notifications)</li>
+  <li><strong>Google</strong> — optional "Sign in with Google"</li>
+</ul>
+
+<h2>5. Data retention</h2>
+<p>We keep your personal data for as long as your account exists. When you delete your account, your data is removed
+(see section 7). Limited records required by law (e.g. payment/invoice records) may be retained by our processors for
+the legally mandated period.</p>
+
+<h2>6. Security</h2>
+<p>All data is encrypted in transit (HTTPS/TLS). Passwords are hashed. Despite our measures, no system is completely
+secure; in the event of a breach affecting your rights, we will notify you and the relevant authority (CNIL) as
+required by GDPR Art. 33.</p>
+
+<h2>7. Your rights &amp; account deletion</h2>
+<p>You have the right to access, rectify, delete, and export your data, and to object to or restrict processing. You can
+<strong>delete your account and all associated data</strong> at any time from <strong>Settings → Delete account</strong>,
+or via our <a href="/delete-account">account deletion page</a>. To exercise other rights, email
+<a href="mailto:${supportEmail}">${supportEmail}</a>. You may also lodge a complaint with the French data protection
+authority (CNIL).</p>
+
+<h2>8. Children</h2>
+<p>Jiayou is not intended for children under 13 (or the minimum age required in your country). We do not knowingly
+collect data from children.</p>
+
+<h2>9. Changes</h2>
+<p>We may update this policy; the "Last updated" date reflects the latest version. Material changes will be communicated
+in the app or by email.</p>
+
+<p class="muted" style="margin-top:32px">Jiayou · <a href="/legal">Legal notice</a> · <a href="/delete-account">Delete my account</a></p>
 </body></html>`);
 });
 
