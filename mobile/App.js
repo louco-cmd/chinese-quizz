@@ -157,7 +157,7 @@ export default function App() {
       case 'teachers': return <TeachersScreen />;
       case 'collection': return <CollectionScreen />;
       case 'add': return <AddWordScreen />;
-      case 'quiz': return <QuizScreen />;
+      case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} />;
       case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} />;
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} />;

@@ -2120,7 +2120,10 @@ router.get('/api/m/quiz/packs', requireToken, async (req, res) => {
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i
                  JOIN user_mots um ON um.mot_id = i.mot_id AND um.user_id = $1
-               WHERE i.pack_id = wp.id)::int AS word_count
+               WHERE i.pack_id = wp.id)::int AS word_count,
+              (SELECT COALESCE(ROUND(AVG(um.score)), 0) FROM word_pack_items i
+                 JOIN user_mots um ON um.mot_id = i.mot_id AND um.user_id = $1
+               WHERE i.pack_id = wp.id)::int AS mastery
        FROM word_packs wp
        LEFT JOIN users u ON u.id = wp.creator_id
        WHERE wp.creator_id = $1
