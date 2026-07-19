@@ -6,7 +6,7 @@ export const TRANSLATIONS = {
   en: {
     // Navigation
     nav_teachers: 'Teachers',
-    nav_store: 'Store',
+    nav_store: 'JiaStore',
     nav_collection: 'Collection',
     nav_add: 'Add Word',
     nav_quiz: 'Quiz',
@@ -26,7 +26,7 @@ export const TRANSLATIONS = {
   },
   zh: {
     nav_teachers: '老师',
-    nav_store: '商店',
+    nav_store: 'JiaStore',
     nav_collection: '我的词库',
     nav_add: '添加词汇',
     nav_quiz: '测验',

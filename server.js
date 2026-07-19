@@ -1934,56 +1934,6 @@ async function syncStripeSubscriptions() {
 // Exécuter toutes les heures
 setInterval(syncStripeSubscriptions, 60 * 60 * 1000);
 
-// ── Word review push notifications (toutes les 2h) ──────────────────────────
-cron.schedule('0 */2 * * *', async () => {
-  try {
-    const { rows: users } = await pool.query(`
-      SELECT DISTINCT u.id, u.quiz_direction
-      FROM users u
-      JOIN push_subscriptions ps ON ps.user_id = u.id
-      WHERE u.word_review_enabled = true AND ps.enabled = true
-    `);
-
-    for (const user of users) {
-      const { rows: words } = await pool.query(`
-        SELECT m.id, m.chinese, m.pinyin, m.english
-        FROM user_mots um
-        JOIN mots m ON um.mot_id = m.id
-        WHERE um.user_id = $1
-          AND um.nb_quiz > 0
-          AND (
-            (um.nb_quiz >= 2 AND (um.nb_correct::float / um.nb_quiz) < 0.6)
-            OR um.score < 50
-          )
-        ORDER BY
-          CASE WHEN um.nb_quiz >= 2
-            THEN (1.0 - um.nb_correct::float / NULLIF(um.nb_quiz, 0))
-            ELSE 0.5 END DESC,
-          um.score ASC
-        LIMIT 10
-      `, [user.id]);
-
-      if (!words.length) continue;
-
-      const word = words[Math.floor(Math.random() * Math.min(words.length, 5))];
-      const isZhEn = user.quiz_direction === 'zh→en';
-      const title  = isZhEn ? `${word.english}` : `${word.chinese}  ${word.pinyin}`;
-      const body   = isZhEn ? `${word.chinese}  ${word.pinyin}` : 'Tap to see the translation →';
-
-      await sendPushToUser(user.id, {
-        title,
-        body,
-        url: `/collection?word=${word.id}`,
-        tag: 'jiayou-word-review',
-      });
-    }
-  } catch (err) {
-    console.error('[WordReview cron] Erreur:', err.message);
-  }
-});
-
-
-
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
