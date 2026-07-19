@@ -9,21 +9,21 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_BASE": "https://app.jiayou.fr",
-        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "REPLACE_WITH_YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_BASE": "https://app.jiayou.fr",
-        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "REPLACE_WITH_YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_BASE": "https://app.jiayou.fr",
-        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "REPLACE_WITH_YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com"
       }
     }
   },
