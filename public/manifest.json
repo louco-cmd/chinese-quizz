@@ -2,7 +2,7 @@
   "name": "Jiayou 加油！",
   "short_name": "Jiayou",
   "description": "Learn Chinese vocabulary the fun way. Build your word collection, quiz yourself with pinyin or characters, challenge friends to real-time duels, and track your HSK progress.",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",

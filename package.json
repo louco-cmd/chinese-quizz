@@ -30,6 +30,6 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build:web": "cd mobile && npm ci && npx expo export --platform web"
+    "build:web": "cd mobile && npm ci && npx expo export --platform web && node scripts/patch-web-index.js"
   }
 }
