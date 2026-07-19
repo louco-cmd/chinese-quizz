@@ -36,7 +36,7 @@ export default function GoogleSignIn({ onSuccess, onError }) {
       if (e?.code === statusCodes.SIGN_IN_CANCELLED) { /* annulé, silencieux */ }
       else if (e?.code === statusCodes.IN_PROGRESS) { /* déjà en cours */ }
       else if (e?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) onError?.('Google Play Services unavailable.');
-      else onError?.('Google sign-in failed.');
+      else onError?.(`Google sign-in failed${e?.code ? ` (${e.code})` : ''}${e?.message ? `: ${e.message}` : ''}`);
     } finally {
       setBusy(false);
     }
