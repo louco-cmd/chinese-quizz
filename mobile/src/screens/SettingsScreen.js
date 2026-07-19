@@ -9,6 +9,7 @@ import SegmentedPicker from '../components/settings/SegmentedPicker';
 import Toggle from '../components/Toggle';
 import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
+import UpdateFooter from '../components/settings/UpdateFooter';
 import { getSettings, updateSettings, deleteAccount } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
@@ -157,6 +158,8 @@ export default function SettingsScreen({ onLogout, onOpen }) {
             <SettingsRow icon="log-out" danger label="Log out" onPress={() => setConfirmLogout(true)} />
             <SettingsRow icon="trash" danger label="Delete account" onPress={() => setConfirmDelete(true)} />
           </SettingsGroup>
+
+          <UpdateFooter />
 
         </View>
       </ScrollView>
