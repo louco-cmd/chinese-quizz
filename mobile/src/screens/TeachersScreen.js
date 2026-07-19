@@ -20,7 +20,7 @@ function priceMatches(price, active) {
   return true;
 }
 
-export default function TeachersScreen() {
+export default function TeachersScreen({ onBack }) {
   const [mentors, setMentors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,6 +84,12 @@ export default function TeachersScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={COLORS.jiayou} />}
       >
         <View style={{ width: '100%', maxWidth: 700, alignSelf: 'center', paddingHorizontal: 16 }}>
+          {onBack ? (
+            <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 }}>
+              <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
+              <Text style={{ color: COLORS.jiayou, fontWeight: '600' }}>Back</Text>
+            </Pressable>
+          ) : null}
           {/* CTA : rejoindre une classe + inviter son prof */}
           <View style={{ flexDirection: 'row', gap: 14, marginBottom: 16 }}>
             <CtaCard colors={['#0d6efd', '#0a58ca']} icon="enter" title="Join a class" text="Enter a code" onPress={() => setShowJoin(true)} />

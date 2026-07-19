@@ -6,7 +6,7 @@ import { useT } from '../i18n';
 
 // Ordre identique à l'EJS ; libellés via i18n (tkey).
 const TABS = [
-  { key: 'teachers',   tkey: 'nav_teachers',   lib: Ionicons,               icon: 'school' },
+  { key: 'store',      tkey: 'nav_store',      lib: Ionicons,               icon: 'storefront' },
   { key: 'collection', tkey: 'nav_collection', lib: MaterialCommunityIcons, icon: 'notebook' },
   { key: 'add',        tkey: 'nav_add',        lib: Ionicons,               icon: 'search' },
   { key: 'quiz',       tkey: 'nav_quiz',       lib: MaterialCommunityIcons, icon: 'pencil-box' },

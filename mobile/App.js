@@ -154,7 +154,7 @@ export default function App() {
 
   function renderScreen() {
     switch (tab) {
-      case 'teachers': return <TeachersScreen />;
+      case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
       case 'collection': return <CollectionScreen />;
       case 'add': return <AddWordScreen />;
       case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} />;
@@ -163,7 +163,7 @@ export default function App() {
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} />;
-      case 'store': return <StoreScreen onBack={() => setTab(bankReturn)} onCreate={() => setTab('create-pack')} />;
+      case 'store': return <StoreScreen onCreate={() => setTab('create-pack')} />;
       case 'create-pack': return <CreatePackScreen onBack={() => setTab('store')} onCreated={() => setTab('store')} />;
       case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} onDone={() => setTab('add')} />;
       case 'support': return <SupportScreen onBack={() => setTab(bankReturn)} />;
