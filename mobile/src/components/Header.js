@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getMe } from '../api';
+import { getMe, getNotifications, markNotificationsRead } from '../api';
+import NotificationsPopup from './NotificationsPopup';
 import { COLORS } from '../theme';
 
 // Header bleu constant, identique à l'EJS (partials/header.ejs) :
@@ -10,6 +11,24 @@ import { COLORS } from '../theme';
 export default function Header({ onAccount, onLogo, onBalance, onPlan, plan: planProp, profile, bg, hideLogo = false, accountIcon = 'person-circle', refreshKey = 0 }) {
   const [balance, setBalance] = useState(profile?.balance ?? null);
   const [plan, setPlan] = useState(planProp || profile?.plan || 'free');
+
+  // Notifications (centre 🔔)
+  const [notifs, setNotifs] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const loadNotifs = useCallback(() => {
+    getNotifications().then((d) => { setNotifs(d.notifications || []); setUnread(d.unread || 0); }).catch(() => {});
+  }, []);
+  useEffect(() => { loadNotifs(); }, [loadNotifs, refreshKey]);
+
+  function openNotifs() {
+    setNotifOpen(true);
+    if (unread > 0) {
+      setUnread(0); // efface le badge ; les points "non lu" restent visibles à l'ouverture
+      markNotificationsRead().catch(() => {});
+    }
+  }
 
   useEffect(() => {
     // Si le parent fournit déjà le profil (App le charge au démarrage), on l'utilise
@@ -61,11 +80,22 @@ export default function Header({ onAccount, onLogo, onBalance, onPlan, plan: pla
               {balance == null ? '…' : `${balance}₵`}
             </Text>
           </Pressable>
+          {/* Cloche notifications + badge */}
+          <Pressable onPress={openNotifs} hitSlop={8}>
+            <Ionicons name="notifications" size={24} color="#fff" />
+            {unread > 0 ? (
+              <View style={{ position: 'absolute', top: -4, right: -5, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3, backgroundColor: '#e0322e', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: bg || COLORS.jiayou }}>
+                <Text style={{ color: '#fff', fontSize: 9.5, fontWeight: '800' }}>{unread > 9 ? '9+' : unread}</Text>
+              </View>
+            ) : null}
+          </Pressable>
           <Pressable onPress={onAccount} hitSlop={8}>
             <Ionicons name={accountIcon} size={accountIcon === 'person-circle' ? 30 : 26} color="#fff" />
           </Pressable>
         </View>
       </View>
+
+      <NotificationsPopup visible={notifOpen} notifications={notifs} onClose={() => setNotifOpen(false)} />
     </SafeAreaView>
   );
 }

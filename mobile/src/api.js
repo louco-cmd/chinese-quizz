@@ -147,6 +147,14 @@ export function markEnvelopesSeen() {
   return request('/api/m/red-envelopes/seen', { method: 'POST' });
 }
 
+// ── Notifications (centre 🔔) ──
+export function getNotifications() {
+  return request('/api/m/notifications');
+}
+export function markNotificationsRead() {
+  return request('/api/m/notifications/read', { method: 'POST' });
+}
+
 // ── Import en masse ──
 export function importPreview(text, direction) {
   return request('/api/m/import/preview', { method: 'POST', body: { text, direction } });

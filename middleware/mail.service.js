@@ -71,8 +71,33 @@ async function sendVerificationEmail(email, token) {
   });
 }
 
+// Relance des utilisateurs inactifs ("long time no see").
+async function sendReengagementEmail(email, name) {
+  const appUrl = process.env.APP_URL || 'https://app.jiayou.fr';
+  const hi = name ? name.split(' ')[0] : 'there';
+  return sendEmail({
+    to: email,
+    subject: 'JiaWorld needs you 加油！',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; text-align: center;">
+        <div style="font-size: 44px; font-weight: 800; color: #0d6efd;">加油！</div>
+        <h2 style="color: #1a1a2e;">Long time no see, ${hi}!</h2>
+        <p style="color: #555; font-size: 15px; line-height: 1.5;">
+          Your words miss you. Jump back in for a quick quiz, challenge a friend to a duel,
+          and keep your streak alive.
+        </p>
+        <div style="margin: 28px 0;">
+          <a href="${appUrl}" style="background-color:#0d6efd;color:white;padding:14px 30px;text-decoration:none;border-radius:10px;font-weight:700;">Come back to Jiayou</a>
+        </div>
+        <p style="color: #999; font-size: 12px;">See you soon on JiaWorld.</p>
+      </div>
+    `
+  });
+}
+
 module.exports = {
   sendPasswordResetEmail,
   sendVerificationEmail,
+  sendReengagementEmail,
   resend // si nécessaire ailleurs
 };

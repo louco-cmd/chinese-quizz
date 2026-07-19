@@ -351,6 +351,24 @@ const pool = new Pool({
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_red_env_recipient_unseen ON red_envelopes(recipient_id) WHERE seen = FALSE`);
     console.log("✅ Table 'red_envelopes' vérifiée.");
 
+    // ── Notifications in-app (centre 🔔) ──────────────────────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT,
+        data JSONB,
+        read BOOLEAN NOT NULL DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC)`);
+    // Relance email "long time no see" : dernière relance envoyée (anti-spam).
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reengage_emailed_at TIMESTAMP`);
+    console.log("✅ Table 'notifications' + reengage_emailed_at vérifiées.");
+
     // Réconciliation des packs officiels HSK (idempotente, à chaque démarrage).
     // 1) Retire les anciens packs de démo seedés (is_official=false ET créateur
     //    NULL) — préserve les packs créés par de vrais users (creator_id non NULL).

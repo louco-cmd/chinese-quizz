@@ -26,7 +26,7 @@ const {
   updateWordScore,
   addTransaction
 } = require('./middleware/index');
-const { sendPasswordResetEmail, sendVerificationEmail } = require('./middleware/mail.service');
+const { sendPasswordResetEmail, sendVerificationEmail, sendReengagementEmail } = require('./middleware/mail.service');
 const { withSubscription } = require('./middleware/subscription');
 const { initVapid, sendPushToUser } = require('./middleware/push.service');
 initVapid();
@@ -1933,6 +1933,30 @@ async function syncStripeSubscriptions() {
 
 // Exécuter toutes les heures
 setInterval(syncStripeSubscriptions, 60 * 60 * 1000);
+
+// ── Relance "long time no see" : email aux inactifs (14 j), 1x par absence ───
+cron.schedule('0 10 * * *', async () => {
+  try {
+    const { rows: users } = await pool.query(`
+      SELECT id, email, name FROM users
+      WHERE email IS NOT NULL
+        AND last_login IS NOT NULL
+        AND last_login <= NOW() - INTERVAL '14 days'
+        AND (reengage_emailed_at IS NULL OR reengage_emailed_at < last_login)
+      ORDER BY last_login ASC
+      LIMIT 200
+    `);
+    for (const u of users) {
+      try {
+        await sendReengagementEmail(u.email, u.name);
+        await pool.query('UPDATE users SET reengage_emailed_at = NOW() WHERE id = $1', [u.id]);
+      } catch (e) { console.error('[Reengage] email failed for', u.id, e.message); }
+    }
+    if (users.length) console.log(`📧 Reengagement: ${users.length} email(s) envoyés.`);
+  } catch (err) {
+    console.error('[Reengage cron] Erreur:', err.message);
+  }
+});
 
 app.use(errorHandler);
 

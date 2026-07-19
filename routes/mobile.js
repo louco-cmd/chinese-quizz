@@ -997,6 +997,12 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
     await client.query('UPDATE word_packs SET sales_count = sales_count + 1 WHERE id = $1', [id]);
 
     await client.query('COMMIT');
+    // Notif "vente de pack" pour le créateur (packs communautaires).
+    if (pack.creator_id && pack.creator_id !== uid) {
+      pool.query('SELECT name FROM users WHERE id = $1', [uid])
+        .then((r) => notify(pack.creator_id, 'pack_sold', 'Pack sold! 🎉', `${r.rows[0]?.name || 'Someone'} bought "${pack.title}" — +${pack.price} ₵.`, { packId: id }))
+        .catch(() => {});
+    }
     res.json({ success: true, wordsAdded: added, newBalance: bal[0].balance - pack.price });
   } catch (e) {
     await client.query('ROLLBACK');
@@ -1265,6 +1271,7 @@ router.post('/api/m/bank/red-envelope', requireToken, async (req, res) => {
       `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'red_envelope_received', $3)`,
       [recipientId, amount, `Red envelope from ${sender[0]?.name || 'a friend'}`]);
     await client.query('COMMIT');
+    notify(recipientId, 'red_envelope', 'Red envelope received 🧧', `${sender[0]?.name || 'A friend'} sent you ${amount} ₵.`, {});
     res.json({ success: true, newBalance: (me[0].balance - amount) });
   } catch (e) {
     await client.query('ROLLBACK');
@@ -1296,6 +1303,45 @@ router.post('/api/m/red-envelopes/seen', requireToken, async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     console.error('m/red-envelopes seen error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ══ Notifications in-app (centre 🔔) ══════════════════════════════════════════
+
+// Insère une notification (best-effort, ne bloque jamais l'action déclenchante).
+async function notify(userId, type, title, body = null, data = null) {
+  try {
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1, $2, $3, $4, $5)`,
+      [userId, type, title, body, data ? JSON.stringify(data) : null]);
+  } catch (e) { console.error('notify error:', e.message); }
+}
+
+// ── GET /api/m/notifications : liste récente + nombre de non-lues ─────────────
+router.get('/api/m/notifications', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const [list, unread] = await Promise.all([
+      pool.query(
+        `SELECT id, type, title, body, data, read, created_at
+         FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 40`, [uid]),
+      pool.query('SELECT COUNT(*)::int AS n FROM notifications WHERE user_id = $1 AND read = FALSE', [uid]),
+    ]);
+    res.json({ notifications: list.rows, unread: unread.rows[0].n });
+  } catch (e) {
+    console.error('m/notifications error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/m/notifications/read : marque tout comme lu ─────────────────────
+router.post('/api/m/notifications/read', requireToken, async (req, res) => {
+  try {
+    await pool.query('UPDATE notifications SET read = TRUE WHERE user_id = $1 AND read = FALSE', [req.tokenUser.id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('m/notifications read error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -2000,7 +2046,14 @@ router.post('/api/m/duels/create', requireToken, async (req, res) => {
       [challengerId, opponent_id, duel_type, word_count, quiz_type, JSON.stringify(quizData), bet]
     );
     await client.query('COMMIT');
-    res.json({ success: true, duelId: ins.rows[0].id });
+    const newDuelId = ins.rows[0].id;
+    // Notif "nouveau duel" pour l'adversaire (best-effort).
+    if (opponent_id && opponent_id !== challengerId) {
+      pool.query('SELECT name FROM users WHERE id = $1', [challengerId])
+        .then((r) => notify(opponent_id, 'duel_new', 'New duel ⚔️', `${r.rows[0]?.name || 'Someone'} challenged you to a duel.`, { duelId: newDuelId }))
+        .catch(() => {});
+    }
+    res.json({ success: true, duelId: newDuelId });
   } catch (e) {
     await client.query('ROLLBACK');
     console.error('m/duels create error:', e);
@@ -2100,6 +2153,21 @@ router.post('/api/m/duels/:id/submit', requireToken, async (req, res) => {
       );
     }
     await client.query('COMMIT');
+    // Notifs de résultat pour les deux joueurs (best-effort).
+    if (bothPlayed) {
+      (async () => {
+        const { rows: u } = await pool.query('SELECT id, name FROM users WHERE id = ANY($1::int[])', [[cur.challenger_id, cur.opponent_id]]);
+        const nameOf = (pid) => u.find((x) => x.id === pid)?.name || 'your opponent';
+        for (const pid of [cur.challenger_id, cur.opponent_id]) {
+          const opp = pid === cur.challenger_id ? cur.opponent_id : cur.challenger_id;
+          let title, body;
+          if (winnerId === null) { title = 'Duel draw 🤝'; body = `Your duel with ${nameOf(opp)} ended in a draw.`; }
+          else if (winnerId === pid) { title = 'You won your duel! 🏆'; body = `You beat ${nameOf(opp)}${cur.bet_amount > 0 ? ` — +${cur.bet_amount * 2} ₵` : ''}.`; }
+          else { title = 'Duel lost 😔'; body = `${nameOf(opp)} beat you this time.`; }
+          await notify(pid, 'duel_result', title, body, { duelId: id });
+        }
+      })().catch(() => {});
+    }
     res.json({ success: true, duel_completed: bothPlayed, winner_id: winnerId, you_won: winnerId === uid });
   } catch (e) {
     await client.query('ROLLBACK');
