@@ -21,7 +21,8 @@ export const API_BASE =
     ? ENV_BASE
     : Platform.OS === 'web'
       ? (isLocalhostWeb ? 'http://localhost:3000' : '') // same-origin en prod
-      : 'http://192.168.1.3:3000';
+      : 'https://app.jiayou.fr'; // natif : défaut = prod (OTA-safe). Pour du dev
+        // local, définis EXPO_PUBLIC_API_BASE (ex: http://192.168.1.3:3000).
 
 const TOKEN_KEY = 'jiayou_token';
 const isWeb = Platform.OS === 'web';
@@ -96,7 +97,10 @@ export function loginWithGoogle(idToken) {
 
 // Client ID Google (le MÊME web client ID que le backend GOOGLE_CLIENT_ID,
 // sinon l'audience du token ne matche pas). Exposé à l'app via EXPO_PUBLIC_*.
-export const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
+// Client web Google (public, identique web + natif). Défaut en dur → Google
+// marche même si l'env manque dans une update OTA. Override via EXPO_PUBLIC_*.
+export const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID
+  || '722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com';
 
 export function getMe() {
   return request('/api/m/me');
