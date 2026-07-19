@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { Modal, View, Pressable, Animated } from 'react-native';
+import { Modal, View, Pressable, Animated, StyleSheet } from 'react-native';
 
-// Popup réutilisable, calquée sur .confirm-popup de l'EJS :
-// fond noirci, contenu blanc centré, animation d'entrée fadeInScale.
+// Popup réutilisable : fond noirci, contenu blanc centré, fadeInScale.
+// Le backdrop est un Pressable DERRIÈRE le contenu (absolute), pas un wrapper —
+// sinon, sur natif, il capture les gestes et bloque le scroll interne (carrousels).
 export default function Popup({ visible, onClose, children, maxWidth = 440, contentStyle }) {
   const anim = useRef(new Animated.Value(0)).current;
 
@@ -17,15 +18,13 @@ export default function Popup({ visible, onClose, children, maxWidth = 440, cont
 
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
-      {/* Fond noirci — tap dehors = fermer */}
-      <Pressable
-        onPress={onClose}
-        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-      >
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        {/* Fond noirci — tap dehors = fermer. En dessous du contenu (sibling absolu). */}
+        <Pressable onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)' }]} />
+
+        {/* Contenu au-dessus : tap dedans ne ferme pas, et le scroll interne marche. */}
         <Animated.View style={{ width: '100%', maxWidth, opacity: anim, transform: [{ scale }] }}>
-          {/* Contenu — tap dedans n'ferme pas */}
-          <Pressable
-            onPress={() => {}}
+          <View
             style={[
               {
                 backgroundColor: '#fff', borderRadius: 20, padding: 24,
@@ -35,9 +34,9 @@ export default function Popup({ visible, onClose, children, maxWidth = 440, cont
             ]}
           >
             {children}
-          </Pressable>
+          </View>
         </Animated.View>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
