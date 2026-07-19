@@ -46,6 +46,7 @@ export default function QuizPlayScreen({ config, onExit }) {
   const [coins, setCoins] = useState(0);
   const results = useRef([]);
   const firstRef = useRef(null);
+  const inputRefs = useRef([]); // un ref par champ syllabe (auto-avance)
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -237,14 +238,21 @@ export default function QuizPlayScreen({ config, onExit }) {
                 inputs.map((val, i) => (
                   <TextInput
                     key={i}
-                    ref={i === 0 ? firstRef : undefined}
+                    ref={(el) => { inputRefs.current[i] = el; if (i === 0) firstRef.current = el; }}
                     value={val}
-                    onChangeText={(t) => setInputs((arr) => arr.map((x, j) => (j === i ? t : x)))}
+                    onChangeText={(t) => {
+                      setInputs((arr) => arr.map((x, j) => (j === i ? t : x)));
+                      // Auto-avance vers la syllabe suivante quand celle-ci est complète.
+                      const target = normalizePinyin(w.pinyin.split(' ')[i] || '').length;
+                      if (target && t.length >= target && i < inputs.length - 1) {
+                        inputRefs.current[i + 1]?.focus?.();
+                      }
+                    }}
                     onSubmitEditing={submit}
                     editable={!locked}
                     autoCapitalize="none"
                     autoCorrect={false}
-                    placeholder={`${(w.pinyin.split(' ')[i] || '').length}`}
+                    placeholder={`${normalizePinyin(w.pinyin.split(' ')[i] || '').length}`}
                     placeholderTextColor="#c4c4c4"
                     style={syllableStyle(second)}
                   />
