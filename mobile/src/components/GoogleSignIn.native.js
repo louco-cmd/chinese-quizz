@@ -1,38 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Pressable, View, Text, ActivityIndicator } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { GOOGLE_CLIENT_ID } from '../api';
 
-WebBrowser.maybeCompleteAuthSession();
+// Google Sign-In natif (Android/iOS) via @react-native-google-signin.
+// On configure avec le CLIENT WEB (GOOGLE_CLIENT_ID) : l'idToken renvoyé a pour
+// audience ce client web → le backend le vérifie déjà (/api/auth/google-token).
+// Côté Android, Google fait le lien via le package + l'empreinte SHA-1 déclarés
+// dans un client OAuth "Android" sur Google Cloud (pas d'ID Android à passer ici).
+if (GOOGLE_CLIENT_ID) {
+  GoogleSignin.configure({ webClientId: GOOGLE_CLIENT_ID });
+}
 
-// Google Sign-In natif (iOS/Android) : expo-auth-session récupère un id_token,
-// qu'on remonte via onSuccess pour l'échanger contre un JWT côté backend.
 // `onSuccess(idToken)` / `onError(message)`.
 export default function GoogleSignIn({ onSuccess, onError }) {
   const [busy, setBusy] = useState(false);
 
-  // Un repli 'unset' évite que le hook plante quand la clé n'est pas encore
-  // définie ; le bouton reste garde-fou dans onPress.
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId: GOOGLE_CLIENT_ID || 'unset',
-    iosClientId: GOOGLE_CLIENT_ID || 'unset',
-    androidClientId: GOOGLE_CLIENT_ID || 'unset',
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const idToken = response.params?.id_token;
-      setBusy(false);
-      if (idToken) onSuccess?.(idToken);
-      else onError?.('Google sign-in failed');
-    } else if (response?.type === 'error') {
-      setBusy(false);
-      onError?.('Google sign-in failed');
-    } else if (response?.type === 'dismiss' || response?.type === 'cancel') {
-      setBusy(false);
-    }
-  }, [response]);
+  useEffect(() => () => setBusy(false), []);
 
   async function onPress() {
     if (!GOOGLE_CLIENT_ID) {
@@ -41,8 +25,19 @@ export default function GoogleSignIn({ onSuccess, onError }) {
     }
     setBusy(true);
     try {
-      await promptAsync();
-    } catch {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const res = await GoogleSignin.signIn();
+      // v13+ : { type: 'success', data: { idToken, ... } } | { type: 'cancelled' }
+      const idToken = res?.data?.idToken ?? res?.idToken ?? null;
+      if (res?.type === 'cancelled') { setBusy(false); return; }
+      if (idToken) onSuccess?.(idToken);
+      else onError?.('Google sign-in failed (no token).');
+    } catch (e) {
+      if (e?.code === statusCodes.SIGN_IN_CANCELLED) { /* annulé, silencieux */ }
+      else if (e?.code === statusCodes.IN_PROGRESS) { /* déjà en cours */ }
+      else if (e?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) onError?.('Google Play Services unavailable.');
+      else onError?.('Google sign-in failed.');
+    } finally {
       setBusy(false);
     }
   }
@@ -50,7 +45,7 @@ export default function GoogleSignIn({ onSuccess, onError }) {
   return (
     <Pressable
       onPress={onPress}
-      disabled={busy || !request}
+      disabled={busy}
       className="flex-row items-center justify-center border border-gray-300 rounded-full py-3 active:opacity-70"
     >
       {busy ? (
