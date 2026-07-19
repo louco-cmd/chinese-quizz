@@ -7,7 +7,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import GoogleSignIn from '../components/GoogleSignIn';
 import { login, register, checkEmail, loginWithGoogle, setToken } from '../api';
 
-const inputCls = 'border border-gray-200 rounded-xl px-4 py-3 mb-3 text-base';
+// Style explicite (et pas seulement className) : sur natif, NativeWind n'applique
+// pas de façon fiable la couleur du texte d'un TextInput → texte invisible. On fixe
+// donc color/fontSize/bordure en dur, identique web + natif.
+const inputStyle = {
+  borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12,
+  paddingHorizontal: 16, paddingVertical: 12, marginBottom: 12,
+  fontSize: 16, color: '#1a1a2e', backgroundColor: '#fff',
+};
+const inputLocked = { backgroundColor: '#f9fafb', color: '#6b7280' };
 
 // Login email-first (miroir de l'EJS) :
 //  1) email → check-email → 'login' | 'signup' | 'google_only'
@@ -103,7 +111,7 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
 
             {/* Email (verrouillé après l'étape 1) */}
             <TextInput
-              className={`${inputCls} ${step !== 'email' ? 'bg-gray-50 text-gray-500' : ''}`}
+              style={[inputStyle, step !== 'email' ? inputLocked : null]}
               autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
               value={email} onChangeText={setEmail}
               editable={step === 'email'}
@@ -130,7 +138,7 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
             {(step === 'login' || step === 'signup') && (
               <>
                 <TextInput
-                  className={inputCls}
+                  style={inputStyle}
                   secureTextEntry value={password} onChangeText={setPassword}
                   autoFocus onSubmitEditing={step === 'login' ? doLogin : doSignup} returnKeyType="go"
                   placeholder={step === 'signup' ? 'Choose a password' : 'Password'} placeholderTextColor="#9aa4b2"
