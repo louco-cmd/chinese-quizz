@@ -193,6 +193,10 @@ export default function PackMarket({
               <View style={{ marginTop: 16, backgroundColor: '#e9ecef', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}>
                 <Text style={{ color: COLORS.muted, fontWeight: '700' }}>✓ In your collection</Text>
               </View>
+            ) : selPack.isMine ? (
+              <View style={{ marginTop: 16, backgroundColor: '#e9ecef', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}>
+                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Your pack</Text>
+              </View>
             ) : (selPack.word_count || 0) === 0 ? (
               <View style={{ marginTop: 16, backgroundColor: '#e9ecef', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}>
                 <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Coming soon</Text>
