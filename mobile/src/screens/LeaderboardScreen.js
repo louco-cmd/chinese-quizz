@@ -19,11 +19,11 @@ function Row({ player, rank, last, onPress }) {
   return (
     <Pressable
       onPress={() => onPress(player)}
-      style={({ pressed }) => ({
+      style={{
         flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12,
         borderBottomWidth: last ? 0 : 1, borderColor: '#f5f5f5',
-        backgroundColor: pressed ? '#eef4ff' : (player.isMe ? '#f2f7ff' : 'transparent'),
-      })}
+        backgroundColor: player.isMe ? '#f2f7ff' : 'transparent',
+      }}
     >
       <View style={{
         width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center',

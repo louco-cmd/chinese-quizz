@@ -18,11 +18,10 @@ export default function YourMentorsCard({ mentors, tasks, onLeave, onOpenTask })
         <Pressable
           key={m.id}
           onPress={() => onLeave?.(m)}
-          style={({ pressed }) => ({
+          style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             paddingVertical: 10, borderBottomWidth: i === mentors.length - 1 ? 0 : 1, borderColor: '#f5f5f5',
-            backgroundColor: pressed ? '#f8f9fb' : 'transparent',
-          })}
+          }}
         >
           <Text style={{ fontWeight: '600', color: '#1a1a2e', fontSize: 14 }}>{m.name}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -44,11 +43,11 @@ export default function YourMentorsCard({ mentors, tasks, onLeave, onOpenTask })
             <Pressable
               key={t.id}
               onPress={() => onOpenTask?.(t)}
-              style={({ pressed }) => ({
+              style={{
                 flexDirection: 'row', alignItems: 'center', gap: 10,
-                backgroundColor: pressed ? '#eef1f5' : '#f7f8fa', borderRadius: 12,
+                backgroundColor: '#f7f8fa', borderRadius: 12,
                 paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8,
-              })}
+              }}
             >
               <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
                 <Text style={{ fontWeight: '600', color: '#1a1a2e', fontSize: 14 }} numberOfLines={1}>{t.title}</Text>

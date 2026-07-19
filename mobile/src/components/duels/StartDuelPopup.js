@@ -134,12 +134,12 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
                   <Pressable
                     key={p.id}
                     onPress={() => { setOpponent(p); setResults([]); setQuery(''); }}
-                    style={({ pressed }) => ({
+                    style={{
                       flexDirection: 'row', alignItems: 'center', gap: 7,
-                      backgroundColor: pressed ? '#dbe7ff' : '#f0f5ff',
+                      backgroundColor: '#f0f5ff',
                       borderWidth: 1, borderColor: '#dbe4f7', borderRadius: 999,
                       paddingVertical: 7, paddingHorizontal: 12,
-                    })}
+                    }}
                   >
                     <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ color: '#fff', fontWeight: '700', fontSize: 11 }}>{(p.name || '?').charAt(0).toUpperCase()}</Text>

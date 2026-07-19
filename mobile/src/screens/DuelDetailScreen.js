@@ -175,7 +175,7 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
   const rematchBtn = completed ? (
     <Pressable
       onPress={() => onRematch({ id: duel.opponent_id, name: duel.opponent_name })}
-      style={({ pressed }) => ({ backgroundColor: COLORS.jiayou, borderRadius: 14, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: pressed ? 0.85 : 1 })}
+      style={{ backgroundColor: COLORS.jiayou, borderRadius: 14, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
     >
       <Ionicons name="repeat" size={17} color="#fff" />
       <Text style={{ color: '#fff', fontSize: 14.5, fontWeight: '700' }} numberOfLines={1}>Rematch with {duel.opponent_name}</Text>

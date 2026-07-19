@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 // calquée sur .quiz-card de l'EJS (bleu = pinyin, violet = caractères).
 export default function QuizTypeCard({ colors, icon, title, description, onPress }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+    <Pressable onPress={onPress}>
       <LinearGradient
         colors={colors}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}

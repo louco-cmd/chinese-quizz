@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 // cartes voisines plus hautes dans une même rangée de grille).
 export default function CtaCard({ colors, icon, title, text, onPress, fill = false }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ flex: 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}>
+    <Pressable onPress={onPress} style={{ flex: 1 }}>
       <LinearGradient
         colors={colors}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
