@@ -7,11 +7,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COUNTRIES } from '../data/countries';
 import { flagEmoji } from '../components/account/EditProfilePopup';
 import SegmentedPicker from '../components/settings/SegmentedPicker';
+import Toggle from '../components/Toggle';
 import CtaCard from '../components/duels/CtaCard';
 import PackMarket from '../components/PackMarket';
 import ImportWordsScreen from './ImportWordsScreen';
-import { completeOnboarding } from '../api';
+import { completeOnboarding, teacherGetProfile, teacherSaveProfile } from '../api';
 import { COLORS } from '../theme';
+
+// Langues proposées en sélection pour les profs (le champ reste stocké en CSV).
+const LANGUAGE_OPTIONS = ['English', 'Chinese', 'French', 'Spanish', 'German', 'Japanese', 'Korean', 'Cantonese', 'Russian', 'Arabic', 'Portuguese', 'Italian', 'Vietnamese', 'Thai'];
 
 // Ombre diffuse cohérente avec la carte de login.
 const cardShadow = {
@@ -128,6 +132,17 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   const [dir, setDir] = useState('en→zh');
   const [lang, setLang] = useState('en');
 
+  // Champs du profil prof (étape 'teacher').
+  const [bio, setBio] = useState('');
+  const [years, setYears] = useState('');
+  const [spoken, setSpoken] = useState([]);      // langues parlées (multi-select)
+  const [links, setLinks] = useState([]);        // {label,url}
+  const [listed, setListed] = useState(true);    // "list me" préselectionné
+  const [teach, setTeach] = useState([]);        // langues enseignées (préservé)
+  const [price, setPrice] = useState('');        // prix/session (préservé)
+  const [currency, setCurrency] = useState('EUR'); // devise (préservée)
+  const [teacherLoaded, setTeacherLoaded] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
@@ -158,8 +173,49 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     }
   }
 
-  // Prof → sauvegarde puis espace prof.
-  async function submitTeacher() { if (await saveProfile('teacher')) onDone?.('teacher'); }
+  // Entrée dans l'étape prof : précharge le profil existant (redo depuis les
+  // réglages). Pour un nouveau compte, requireTeacher renvoie 403 → on garde les
+  // valeurs par défaut, silencieusement.
+  async function enterTeacher() {
+    setStep('teacher'); setError('');
+    if (teacherLoaded) return;
+    setTeacherLoaded(true);
+    try {
+      const { profile } = await teacherGetProfile();
+      if (profile) {
+        if (profile.mentor_bio) setBio(profile.mentor_bio);
+        if (profile.years_experience != null) setYears(String(profile.years_experience));
+        const sp = (profile.languages_spoken || '').split(',').map((s) => s.trim()).filter(Boolean);
+        if (sp.length) setSpoken(sp);
+        if (Array.isArray(profile.mentor_links) && profile.mentor_links.length) setLinks(profile.mentor_links);
+        setTeach((profile.teaching_languages || '').split(',').map((s) => s.trim()).filter(Boolean));
+        if (profile.session_price != null) setPrice(String(profile.session_price));
+        if (profile.session_currency) setCurrency(profile.session_currency);
+        if (typeof profile.mentor_listed === 'boolean') setListed(profile.mentor_listed);
+      }
+    } catch { /* nouveau prof : valeurs par défaut */ }
+  }
+
+  function toggleSpoken(l) { setSpoken((s) => (s.includes(l) ? s.filter((x) => x !== l) : [...s, l])); }
+  function setLink(i, patch) { setLinks((ls) => ls.map((l, j) => (j === i ? { ...l, ...patch } : l))); }
+
+  // Prof → enregistre le rôle/nom (onboarding), puis le profil mentor, puis
+  // ouvre l'espace prof. Les champs non demandés ici (langues enseignées, prix)
+  // sont préservés tels quels.
+  async function submitTeacher() {
+    if (!(await saveProfile('teacher'))) return;
+    setSaving(true);
+    try {
+      await teacherSaveProfile({
+        name: name.trim(), bio: bio.trim(), languages: spoken.join(', '),
+        years_experience: years, teaching_languages: teach,
+        session_price: price, session_currency: currency,
+        links: links.filter((l) => (l.url || '').trim()), mentor_listed: listed,
+      });
+    } catch (e) { /* profil complémentaire non bloquant */ }
+    finally { setSaving(false); }
+    onDone?.('teacher');
+  }
   // Élève → on NE sauvegarde PAS ici : on valide juste le nom et on passe au
   // dernier chapitre. Tout est enregistré d'un coup à la fin (finishLearner).
   function submitLearner() {
@@ -297,7 +353,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                 <StepLabel icon="people">How will you use Jiayou?</StepLabel>
                 <View className="flex-row gap-3">
                   <OptionCard emoji="🎓" title="I'm a learner" sub="Build vocabulary & practice with quizzes" onPress={() => setStep('learner')} />
-                  <OptionCard emoji="🧑‍🏫" title="I'm a teacher" sub="Create classes & follow students" onPress={() => setStep('teacher')} />
+                  <OptionCard emoji="🧑‍🏫" title="I'm a teacher" sub="Create classes & follow students" onPress={enterTeacher} />
                 </View>
               </>
             )}
@@ -305,12 +361,61 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
             {step === 'teacher' && (
               <>
                 <StepLabel icon="person">Your teacher profile</StepLabel>
+
                 <FieldLabel>Your name *</FieldLabel>
                 <TextInput
                   value={name} onChangeText={setName} maxLength={50}
                   placeholder="How should your students see you?" placeholderTextColor={COLORS.mutedLight}
-                  className={inputClass}
+                  className={`${inputClass} mb-4`}
                 />
+
+                <FieldLabel hint="(optional)">Intro</FieldLabel>
+                <TextInput
+                  value={bio} onChangeText={setBio} maxLength={500} multiline
+                  placeholder="Tell students about your teaching style…" placeholderTextColor={COLORS.mutedLight}
+                  className="bg-white border-[1.5px] border-line rounded-xl px-3.5 py-3 text-[15px] text-ink mb-4"
+                  style={{ minHeight: 88, textAlignVertical: 'top' }}
+                />
+
+                <FieldLabel hint="(optional)">Years of experience</FieldLabel>
+                <TextInput
+                  value={years} onChangeText={(t) => setYears(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad"
+                  placeholder="e.g. 5" placeholderTextColor={COLORS.mutedLight}
+                  className={`${inputClass} mb-4`}
+                />
+
+                <FieldLabel>Languages you speak</FieldLabel>
+                <View className="flex-row flex-wrap gap-2 mb-4">
+                  {[...new Set([...LANGUAGE_OPTIONS, ...spoken])].map((l) => {
+                    const on = spoken.includes(l);
+                    return (
+                      <Pressable key={l} onPress={() => toggleSpoken(l)} className={`rounded-full px-4 py-2 border ${on ? 'bg-jiayou-soft border-jiayou' : 'bg-white border-line'}`}>
+                        <Text className={`${on ? 'text-jiayou font-bold' : 'text-muted'} text-[13.5px]`}>{l}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <FieldLabel hint="(optional)">Where to find me</FieldLabel>
+                {links.map((l, i) => (
+                  <View key={i} className="flex-row gap-2 mb-2">
+                    <TextInput value={l.label} onChangeText={(t) => setLink(i, { label: t })} maxLength={30} placeholder="Label" placeholderTextColor={COLORS.mutedLight} className="bg-white border-[1.5px] border-line rounded-lg px-2.5 h-11 text-[14px] text-ink" style={{ width: 92 }} />
+                    <TextInput value={l.url} onChangeText={(t) => setLink(i, { url: t })} autoCapitalize="none" placeholder="https://…" placeholderTextColor={COLORS.mutedLight} className="flex-1 bg-white border-[1.5px] border-line rounded-lg px-2.5 h-11 text-[14px] text-ink" />
+                    <Pressable onPress={() => setLinks((ls) => ls.filter((_, j) => j !== i))} hitSlop={6} className="w-11 h-11 items-center justify-center"><Ionicons name="close" size={18} color={COLORS.danger} /></Pressable>
+                  </View>
+                ))}
+                <Pressable onPress={() => setLinks((ls) => [...ls, { label: '', url: '' }])} className="flex-row items-center gap-1.5 self-start border border-line rounded-lg px-3 py-2 mt-1 mb-5">
+                  <Ionicons name="add" size={15} color={COLORS.muted} /><Text className="text-muted text-[13px] font-semibold">Add a link</Text>
+                </Pressable>
+
+                <View className="flex-row items-center justify-between bg-surface-page rounded-xl px-3.5 py-3">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-jiayou font-semibold text-[14px]">List me in the mentor directory</Text>
+                    <Text className="text-muted text-[12px] mt-0.5">Students can discover you and your stats</Text>
+                  </View>
+                  <Toggle value={listed} onValueChange={setListed} />
+                </View>
+
                 {error ? <Text className="text-danger text-[13px] font-semibold mt-2">{error}</Text> : null}
                 <PrimaryButton label="Open my teacher space 🧑‍🏫" onPress={submitTeacher} saving={saving} />
               </>

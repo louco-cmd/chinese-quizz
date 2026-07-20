@@ -52,7 +52,7 @@ export default function TeacherSettingsScreen({ onBack, onLogout, onOpenProfile,
 
           <SettingsGroup title="Learn">
             <SettingsRow icon="play-circle" iconColor={COLORS.jiayou} iconBg="#e8f0ff" label="Replay tutorial" sub="See the teacher walkthrough again" onPress={() => onReplayFlow?.('teacher-tutorial')} />
-            <SettingsRow icon="sparkles" iconColor="#7c3aed" iconBg="#f3e8ff" label="Redo onboarding" sub="Update your teacher profile" onPress={() => onReplayFlow?.('teacher-onboarding')} />
+            <SettingsRow icon="sparkles" iconColor="#7c3aed" iconBg="#f3e8ff" label="Redo onboarding" sub="Update your teacher profile" onPress={() => onReplayFlow?.('onboarding')} />
           </SettingsGroup>
 
           <SettingsGroup title="Legal & Support">
