@@ -35,6 +35,10 @@ export default function App() {
   const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState('add'); // page d'accueil = Add words
   const [bankReturn, setBankReturn] = useState('add');
+  const [quizPack, setQuizPack] = useState(null); // pack à quizzer (depuis store/account)
+
+  // Lance un quiz sur un pack possédé → onglet Quiz, popup de réglages pré-rempli.
+  const startPackQuiz = (pack) => { setQuizPack(pack); setTab('quiz'); };
 
   // Profil + aiguillage onboarding/tutoriel.
   const [profile, setProfile] = useState(null);
@@ -157,13 +161,13 @@ export default function App() {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
       case 'collection': return <CollectionScreen />;
       case 'add': return <AddWordScreen />;
-      case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} />;
+      case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} />;
       case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} />;
-      case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} />;
+      case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} />;
-      case 'store': return <StoreScreen onCreate={() => setTab('create-pack')} />;
+      case 'store': return <StoreScreen onCreate={() => setTab('create-pack')} onStartQuiz={startPackQuiz} />;
       case 'create-pack': return <CreatePackScreen onBack={() => setTab('store')} onCreated={() => setTab('store')} />;
       case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} onDone={() => setTab('add')} />;
       case 'support': return <SupportScreen onBack={() => setTab(bankReturn)} />;

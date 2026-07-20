@@ -4,7 +4,7 @@ import PackMarket from '../components/PackMarket';
 import { COLORS } from '../theme';
 
 // JiaStore : hero + marketplace de packs (grille + achat via PackMarket).
-export default function StoreScreen({ onBack, onCreate }) {
+export default function StoreScreen({ onBack, onCreate, onStartQuiz }) {
   const Hero = (
     <View style={{ paddingTop: 14, paddingBottom: 8, paddingHorizontal: 16 }}>
       {onBack ? (
@@ -34,7 +34,7 @@ export default function StoreScreen({ onBack, onCreate }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       {Hero}
-      <PackMarket />
+      <PackMarket onStartQuiz={onStartQuiz} />
     </View>
   );
 }

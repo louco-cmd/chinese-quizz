@@ -17,7 +17,7 @@ import { ErrorRetry } from '../components/ErrorRetry';
 import { getAccount, getStudentClasses, leaveMentor } from '../api';
 import { COLORS } from '../theme';
 
-export default function AccountScreen({ onLogout, onNavigate }) {
+export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -158,7 +158,7 @@ export default function AccountScreen({ onLogout, onNavigate }) {
               </AccountCard>
 
               <MyPacksCard onNavigate={onNavigate} />
-              <PurchasedPacksCard />
+              <PurchasedPacksCard onStartQuiz={onStartQuiz} />
             </View>
           </View>
 

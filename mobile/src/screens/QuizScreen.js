@@ -45,7 +45,7 @@ function PackRow({ pack, onPress, last }) {
 
 // Page Quiz : stats sticky à gauche (desktop) + CTA "Start a quiz" (mode fusionné
 // pinyin/characters) + "Train on a pack" + task quizzes + difficultés.
-export default function QuizScreen({ onOpenStore }) {
+export default function QuizScreen({ onOpenStore, initialPack, onInitialConsumed }) {
   const { t } = useT();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
@@ -64,6 +64,13 @@ export default function QuizScreen({ onOpenStore }) {
     try { const d = await getQuizPacks(); setPacks(d.packs || []); } catch { /* silencieux */ }
   }, []);
   useEffect(() => { loadStats(); loadPacks(); }, [loadStats, loadPacks]);
+
+  // Quiz lancé depuis le store / la page account → ouvre les réglages du pack.
+  useEffect(() => {
+    if (!initialPack) return;
+    setPending({ scope: 'pack', packId: initialPack.id, title: initialPack.title });
+    onInitialConsumed?.();
+  }, [initialPack, onInitialConsumed]);
 
   if (playing) {
     return (
