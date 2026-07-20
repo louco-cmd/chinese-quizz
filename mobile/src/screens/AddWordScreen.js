@@ -209,19 +209,15 @@ export default function AddWordScreen() {
             <Pressable
               onPress={run}
               disabled={loading}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: 8,
-                backgroundColor: '#fff', borderRadius: 999, paddingVertical: 11, paddingHorizontal: 20,
-                marginTop: 20, alignSelf: 'center',
-                shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 14, elevation: 3,
-              }}
+              hitSlop={10}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 20, alignSelf: 'center', paddingVertical: 6 }}
             >
               {loading ? (
-                <ActivityIndicator color={COLORS.jiayou} />
+                <ActivityIndicator color="#fff" />
               ) : (
                 <>
-                  <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>Add the word</Text>
-                  <Ionicons name="add" size={18} color={COLORS.jiayou} />
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15, textDecorationLine: 'underline' }}>Add the word</Text>
+                  <Ionicons name="add" size={17} color="#fff" />
                 </>
               )}
             </Pressable>
