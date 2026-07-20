@@ -10,7 +10,7 @@ import { getSettings, updateSettings, deleteAccount } from '../../api';
 import { COLORS } from '../../theme';
 
 // Réglages professeur — miroir de teach-settings.ejs.
-export default function TeacherSettingsScreen({ onBack, onLogout, onOpenProfile, onOpenSupport, onOpenLegal }) {
+export default function TeacherSettingsScreen({ onBack, onLogout, onOpenProfile, onOpenSupport, onOpenLegal, onReplayFlow }) {
   const insets = useSafeAreaInsets();
   const [s, setS] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
