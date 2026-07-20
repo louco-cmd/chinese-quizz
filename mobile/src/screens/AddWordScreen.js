@@ -247,8 +247,7 @@ export default function AddWordScreen() {
             showsHorizontalScrollIndicator={false}
             snapToInterval={ITEM_W}
             snapToAlignment="center"
-            disableIntervalMomentum
-            decelerationRate="fast"
+            decelerationRate="normal"
             scrollEventThrottle={16}
             onScroll={Animated.event(
               [{ nativeEvent: { contentOffset: { x: scrollX } } }],
