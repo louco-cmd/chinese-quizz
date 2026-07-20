@@ -281,7 +281,15 @@ export default function CollectionScreen() {
             )}
           </View>
 
-          {/* Réponse (masquable). en→zh : pinyin + anglais. zh→en : chinois + pinyin. */}
+          {/* Pinyin : toujours visible, sous les caractères (texte secondaire).
+              Uniquement en mode apprentissage du chinois (chinois affiché en haut). */}
+          {!learningEnglish && w.pinyin ? (
+            <Text style={{ fontSize: 18, fontWeight: '600', color: COLORS.muted, textAlign: 'center', marginTop: 8 }}>
+              {w.pinyin}
+            </Text>
+          ) : null}
+
+          {/* Réponse (masquable). en→zh : anglais. zh→en : chinois + pinyin. */}
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
             {hideTranslation ? (
               <Text style={{ color: COLORS.mutedLight, fontStyle: 'italic' }}>translation hidden</Text>
@@ -295,8 +303,7 @@ export default function CollectionScreen() {
               </>
             ) : (
               <>
-                <Text style={{ fontSize: 22, fontWeight: '700', color: COLORS.muted }}>{w.pinyin}</Text>
-                <Text style={{ fontSize: 20, fontWeight: '600', color: COLORS.jiayou, marginTop: 6, textAlign: 'center' }}>
+                <Text style={{ fontSize: 20, fontWeight: '600', color: COLORS.jiayou, textAlign: 'center' }}>
                   {w.english || 'No translation'}
                 </Text>
                 {descriptionText ? (
