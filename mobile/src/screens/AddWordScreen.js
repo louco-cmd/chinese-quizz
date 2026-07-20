@@ -174,7 +174,7 @@ export default function AddWordScreen() {
 
   return (
     <LinearGradient colors={['#0d6efd', '#0dcaf0']} style={{ flex: 1 }}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 }}>
           <Animated.Text
             style={{

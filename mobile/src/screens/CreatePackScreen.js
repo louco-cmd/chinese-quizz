@@ -108,7 +108,7 @@ export default function CreatePackScreen({ onBack, onCreated }) {
         <Text style={{ color: COLORS.muted, fontSize: 13, marginTop: 2 }}>Sell a set of words to the community.</Text>
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
         <Field label="Title">
           <TextInput value={title} onChangeText={setTitle} maxLength={80}
