@@ -369,6 +369,20 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reengage_emailed_at TIMESTAMP`);
     console.log("✅ Table 'notifications' + reengage_emailed_at vérifiées.");
 
+    // Index de perf sur les tables chaudes filtrées par user (page account, profil,
+    // stats, contributions). Sans eux ces requêtes font des scans séquentiels qui
+    // ralentissent à mesure que les données de tous les users grossissent.
+    // try/catch : ces tables legacy peuvent être absentes sur une base de dev neuve.
+    try {
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_mots_user ON user_mots(user_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_quiz_history_user_date ON quiz_history(user_id, date_completed DESC)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_duels_challenger ON duels(challenger_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_duels_opponent ON duels(opponent_id)`);
+      console.log('✅ Index de perf (user_mots/quiz_history/duels) vérifiés.');
+    } catch (e) {
+      console.warn('⚠️ Index de perf non créés (table absente ?) :', e.message);
+    }
+
     // Réconciliation des packs officiels HSK (idempotente, à chaque démarrage).
     // 1) Retire les anciens packs de démo seedés (is_official=false ET créateur
     //    NULL) — préserve les packs créés par de vrais users (creator_id non NULL).
