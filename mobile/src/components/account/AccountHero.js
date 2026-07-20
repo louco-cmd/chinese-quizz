@@ -1,10 +1,12 @@
-import { View, Text } from 'react-native';
+import { View, Text, useWindowDimensions } from 'react-native';
 import ContributionsHeatmap from './ContributionsHeatmap';
 
 // Hero bleu de la page account (façon wallet EJS) : salutation à gauche,
 // heatmap de quiz pleine largeur, puis courbe arrondie vers le corps clair.
 export default function AccountHero({ name, year, activeDays, contributions, hPad = 16 }) {
   const first = (name || 'User').split(' ')[0];
+  const { width } = useWindowDimensions();
+  const greetingSize = width >= 992 ? 20 : 16; // desktop plus grand, mobile tient sur 1 ligne
   return (
     <View style={{ backgroundColor: '#0d6efd', paddingTop: 20, paddingBottom: 40 }}>
       {/* Contenu centré et borné à 1200px comme .account-layout de l'EJS */}
@@ -12,7 +14,7 @@ export default function AccountHero({ name, year, activeDays, contributions, hPa
         <Text
           numberOfLines={1}
           adjustsFontSizeToFit
-          style={{ color: '#fff', fontWeight: '700', fontSize: 16, marginBottom: 14 }}
+          style={{ color: '#fff', fontWeight: '700', fontSize: greetingSize, marginBottom: 14 }}
         >
           Hello {first}, {activeDays} days of practice in {year}
         </Text>
