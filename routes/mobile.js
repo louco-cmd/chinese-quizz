@@ -10,6 +10,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { pool } = require('../config/database');
 const { generateDuelQuiz, addTransaction, updateWordScore } = require('../middleware/index');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const router = express.Router();
 
@@ -2859,6 +2860,29 @@ router.post('/api/m/teacher/profile', requireToken, requireTeacher, async (req, 
     );
     res.json({ success: true });
   } catch (e) { console.error('m/teacher save profile:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── POST /api/m/billing-portal : portail de facturation Stripe (annulation) ──
+// Équivalent mobile de /create-portal-session (web). Renvoie l'URL du portail
+// client Stripe pour gérer/annuler l'abonnement.
+router.post('/api/m/billing-portal', requireToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT stripe_customer_id FROM user_subscriptions WHERE user_id = $1 LIMIT 1',
+      [req.tokenUser.id]);
+    const customerId = rows[0]?.stripe_customer_id;
+    if (!customerId) return res.status(400).json({ error: 'No subscription found' });
+
+    const returnUrl = `${process.env.BASE_URL || 'https://app.jiayou.fr'}/account`;
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: returnUrl,
+    });
+    res.json({ url: portalSession.url });
+  } catch (e) {
+    console.error('m/billing-portal error:', e);
+    res.status(500).json({ error: 'Could not open the billing portal' });
+  }
 });
 
 module.exports = { router, requireToken };

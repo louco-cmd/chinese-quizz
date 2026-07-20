@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Linking } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SHADOW_CARD } from '../theme';
+import { getBillingPortal } from '../api';
 
 const PREMIUM_URL = 'https://jiayou.fr/#pricing';
 
@@ -59,6 +60,21 @@ function FaqItem({ q, a }) {
 
 // Page Pricing : hero + carte Premium (featured) + carte Free + trust + FAQ.
 export default function PricingScreen({ onBack, isPremium = false }) {
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [portalError, setPortalError] = useState('');
+
+  // Premium → portail Stripe (gérer/annuler). Sinon → paiement sur le site.
+  async function onPremiumPress() {
+    if (!isPremium) { Linking.openURL(PREMIUM_URL); return; }
+    setPortalError(''); setPortalBusy(true);
+    try {
+      const { url } = await getBillingPortal();
+      await Linking.openURL(url);
+    } catch (e) {
+      setPortalError(e.message || 'Could not open the billing portal');
+    } finally { setPortalBusy(false); }
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
@@ -94,12 +110,20 @@ export default function PricingScreen({ onBack, isPremium = false }) {
             <View style={{ padding: 18 }}>
               {PREMIUM_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === PREMIUM_FEATURES.length - 1} />)}
               <Pressable
-                onPress={() => Linking.openURL(PREMIUM_URL)}
-                style={{ marginTop: 18, borderRadius: 12, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: COLORS.jiayou }}
+                onPress={onPremiumPress}
+                disabled={portalBusy}
+                style={{ marginTop: 18, borderRadius: 12, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: COLORS.jiayou, opacity: portalBusy ? 0.7 : 1 }}
               >
-                <Ionicons name="rocket" size={16} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{isPremium ? 'Manage subscription' : 'Start Premium — €5/mo'}</Text>
+                {portalBusy ? <ActivityIndicator color="#fff" size="small" /> : (
+                  <>
+                    <Ionicons name={isPremium ? 'settings' : 'rocket'} size={16} color="#fff" />
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{isPremium ? 'Manage subscription' : 'Start Premium — €5/mo'}</Text>
+                  </>
+                )}
               </Pressable>
+              {portalError ? (
+                <Text style={{ textAlign: 'center', color: COLORS.danger, fontSize: 12.5, marginTop: 8, fontWeight: '600' }}>{portalError}</Text>
+              ) : null}
               <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 11.5, marginTop: 10 }}>
                 <Ionicons name="globe-outline" size={11} color={COLORS.muted} />  Managed on jiayou.fr · Cancel anytime
               </Text>

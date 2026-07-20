@@ -333,6 +333,11 @@ export function getUserProfile(id) {
   return request(`/api/m/users/${id}`);
 }
 
+// Portail de facturation Stripe (gérer / annuler l'abonnement premium).
+export function getBillingPortal() {
+  return request('/api/m/billing-portal', { method: 'POST' });
+}
+
 export function getQuizWords(count = 10) {
   return request(`/api/m/quiz?count=${count}`);
 }
