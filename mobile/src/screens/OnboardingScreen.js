@@ -191,7 +191,8 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
         setTeach((profile.teaching_languages || '').split(',').map((s) => s.trim()).filter(Boolean));
         if (profile.session_price != null) setPrice(String(profile.session_price));
         if (profile.session_currency) setCurrency(profile.session_currency);
-        if (typeof profile.mentor_listed === 'boolean') setListed(profile.mentor_listed);
+        // "List me" reste préselectionné (ON) ; on ne le rétrograde jamais.
+        if (profile.mentor_listed) setListed(true);
       }
     } catch { /* nouveau prof : valeurs par défaut */ }
   }
