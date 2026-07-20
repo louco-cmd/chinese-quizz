@@ -26,6 +26,7 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import TutorialScreen from './src/screens/TutorialScreen';
 import TeacherHome from './src/screens/teacher/TeacherHome';
 import TeacherTutorialScreen from './src/screens/teacher/TeacherTutorialScreen';
+import TeacherOnboardingScreen from './src/screens/teacher/TeacherOnboardingScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import WelcomePremiumScreen from './src/screens/WelcomePremiumScreen';
@@ -136,8 +137,8 @@ export default function App() {
   async function onOnboardingDone(role) {
     if (flowFromSettings) { backToSettings(); return; }
     const me = await loadProfile({ route: false });
-    // Les profs vont directement à leur espace ; le tutoriel est côté élève.
-    if (role === 'teacher') { setFlow(null); return; }
+    // Prof : onboarding dédié (profil mentor). Élève : tutoriel.
+    if (role === 'teacher') { setFlow('teacher-onboarding'); return; }
     setFlow(me && !me.has_seen_tutorial ? 'tutorial' : null);
   }
 
@@ -148,7 +149,7 @@ export default function App() {
   }
 
   function handleSettingsOpen(name) {
-    if (name === 'tutorial' || name === 'onboarding' || name === 'teacher-tutorial') {
+    if (name === 'tutorial' || name === 'onboarding' || name === 'teacher-tutorial' || name === 'teacher-onboarding') {
       setFlowFromSettings(true);
       setFlow(name);
       return;
@@ -222,6 +223,14 @@ export default function App() {
       return (
         <TeacherTutorialScreen
           onDone={flowFromSettings ? backToSettings : () => setFlow(null)}
+          onClose={flowFromSettings ? backToSettings : undefined}
+        />
+      );
+    }
+    if (flow === 'teacher-onboarding') {
+      return (
+        <TeacherOnboardingScreen
+          onDone={async () => { await loadProfile({ route: false }); if (flowFromSettings) backToSettings(); else setFlow(null); }}
           onClose={flowFromSettings ? backToSettings : undefined}
         />
       );
