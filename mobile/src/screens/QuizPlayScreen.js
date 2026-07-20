@@ -67,6 +67,18 @@ export default function QuizPlayScreen({ config, onExit }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Relance un quiz complet : réinitialise score/progression avant de recharger
+  // (sinon `ended` reste vrai et l'écran de résultats ne bouge pas).
+  function restart() {
+    setEnded(false);
+    setIdx(0);
+    setCorrectCount(0);
+    setWrongCount(0);
+    setCoins(0);
+    correctCountRef.current = 0;
+    load();
+  }
+
   const isPinyin = type === 'pinyin' && direction !== 'zh→en';
 
   function resetQuestion(w) {
@@ -99,7 +111,7 @@ export default function QuizPlayScreen({ config, onExit }) {
       setCoins(d.coins_earned || 0);
     } catch { /* garde le score affiché même si la sauvegarde échoue */ }
     // Si c'est une task d'un prof, on remonte aussi le résultat (compteur côté prof)
-    if (lessonId) { try { await saveTaskResult(lessonId, correctRef.current, ws.length); } catch { /* noop */ } }
+    if (lessonId) { try { await saveTaskResult(lessonId, correctCountRef.current, ws.length); } catch { /* noop */ } }
   }
 
   // On garde une ref du score courant pour finish() (évite les closures périmées)
@@ -188,7 +200,7 @@ export default function QuizPlayScreen({ config, onExit }) {
               <Pressable onPress={onExit} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
                 <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Back</Text>
               </Pressable>
-              <Pressable onPress={load} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+              <Pressable onPress={restart} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
                 <Text style={{ color: '#fff', fontWeight: '700' }}>New quiz</Text>
               </Pressable>
             </View>
