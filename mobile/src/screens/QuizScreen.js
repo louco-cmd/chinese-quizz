@@ -182,7 +182,7 @@ export default function QuizScreen({ onOpenStore }) {
         onStart={(opts) => {
           const p = pending;
           setPending(null);
-          setPlaying(p?.scope === 'pack' ? { ...opts, packId: p.packId } : opts);
+          setPlaying(p?.scope === 'pack' ? { ...opts, packId: p.packId, title: p.title } : opts);
         }}
       />
     </View>

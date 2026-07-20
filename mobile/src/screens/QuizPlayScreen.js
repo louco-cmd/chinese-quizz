@@ -20,7 +20,7 @@ function parseAnswers(str) {
 
 const infoLabel = (hsk, difficulty) => {
   let h;
-  if (hsk === 'all') h = 'all HSK';
+  if (!hsk || hsk === 'all') h = 'all HSK';
   else if (hsk.includes('-')) { const [a, b] = hsk.split('-'); h = b === '7' ? `HSK ${a}–6 + Street` : `HSK ${a}–${b}`; }
   else h = `HSK ${hsk}`;
   const d = { revision: 'Review', discovery: 'Discovery', balanced: 'Balanced' }[difficulty] || 'Balanced';
@@ -28,7 +28,7 @@ const infoLabel = (hsk, difficulty) => {
 };
 
 export default function QuizPlayScreen({ config, onExit }) {
-  const { type, count, hsk, difficulty, ids, packId, lessonId } = config;
+  const { type, count, hsk, difficulty, ids, packId, lessonId, title } = config;
   const [direction, setDirection] = useState('en→zh');
   const [words, setWords] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -287,7 +287,7 @@ export default function QuizPlayScreen({ config, onExit }) {
           <View style={{ alignItems: 'center', marginTop: 18 }}>
             <Text style={{ fontWeight: '700', fontSize: 16, color: '#1a1a2e' }}>✅ {correctCount}  |  ❌ {wrongCount}</Text>
             <Text style={{ color: COLORS.muted, marginTop: 4 }}>Question {idx + 1}/{words.length}</Text>
-            <Text style={{ color: '#adb5bd', fontSize: 12, marginTop: 4 }}>{ids ? 'Your difficulties' : infoLabel(hsk, difficulty)}</Text>
+            <Text style={{ color: '#adb5bd', fontSize: 12, marginTop: 4 }}>{packId ? (title || 'Pack') : lessonId ? (title || 'Lesson') : ids ? 'Your difficulties' : infoLabel(hsk, difficulty)}</Text>
           </View>
         </View>
       </ScrollView>
