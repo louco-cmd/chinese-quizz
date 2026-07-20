@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { Loading, ErrorRetry } from '../components/ErrorRetry';
 import Popup from '../components/Popup';
-import { COLORS, SHADOW_CARD } from '../theme';
+import { COLORS, SHADOW_CARD_FLAT } from '../theme';
 import { getCollection, updateWord, deleteWord, getCharacter, getMe } from '../api';
 
 const speak = (t, lang = 'zh-CN') => { if (t) Speech.speak(t, { language: lang }); };
@@ -23,7 +23,9 @@ function scorePicto(s) {
 const circleBtn = {
   width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff',
   borderWidth: 1, borderColor: COLORS.line, alignItems: 'center', justifyContent: 'center',
-  ...SHADOW_CARD,
+  // ombre iOS uniquement (pas d'elevation) : ces boutons vivent dans la carte
+  // animée en opacity → l'elevation Android donnerait un halo gris pendant le fondu.
+  shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 12,
 };
 
 export default function CollectionScreen() {
@@ -258,7 +260,7 @@ export default function CollectionScreen() {
   return (
     <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, alignItems: 'center', justifyContent: 'center', opacity: screenFade }}>
       <Animated.View {...cardPan.panHandlers} style={{ width: cardW, height: cardH, opacity: fade }}>
-        <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 24, padding: 18, ...SHADOW_CARD }}>
+        <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 24, padding: 18, ...SHADOW_CARD_FLAT }}>
           {/* haut : picto score + HSK */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Text style={{ fontSize: 22 }}>{scorePicto(w.score || 0)}</Text>

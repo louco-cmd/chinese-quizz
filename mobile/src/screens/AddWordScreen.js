@@ -6,7 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
-import { COLORS, SHADOW_CARD } from '../theme';
+import { COLORS } from '../theme';
 import { searchWords, captureWord, createWord, getPinyin } from '../api';
 
 const CARD_W = 240;
@@ -430,7 +430,9 @@ function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit }) {
         width: CARD_W, borderRadius: 20, padding: 18, paddingTop: 22, alignItems: 'center',
         backgroundColor: '#f4f7ff',
         borderWidth: exact ? 1.5 : 1, borderColor: exact ? COLORS.jiayou : '#e3e8f7',
-        ...SHADOW_CARD,
+        // ombre iOS seule (pas d'elevation) : carte animée en opacity dans le
+        // carrousel → l'elevation Android donnerait un rectangle gris au scroll.
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 12,
       }}
     >
       {exact && (

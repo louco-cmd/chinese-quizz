@@ -35,3 +35,16 @@ export const SHADOW_CARD = {
   shadowRadius: 12,
   elevation: 2, // Android
 };
+
+// Ombre pour les cartes ANIMÉES en opacity (fondu, carrousel) : pas d'elevation,
+// car sur Android une vue avec elevation rendue à opacity < 1 affiche son ombre
+// comme un rectangle gris plein. On garde l'ombre iOS + un liseré pour la
+// définition sur Android.
+export const SHADOW_CARD_FLAT = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.07,
+  shadowRadius: 12,
+  borderWidth: 1,
+  borderColor: '#eef0f4',
+};
