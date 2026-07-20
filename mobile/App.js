@@ -25,6 +25,7 @@ import LegalScreen from './src/screens/LegalScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TutorialScreen from './src/screens/TutorialScreen';
 import TeacherHome from './src/screens/teacher/TeacherHome';
+import TeacherTutorialScreen from './src/screens/teacher/TeacherTutorialScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import WelcomePremiumScreen from './src/screens/WelcomePremiumScreen';
@@ -147,7 +148,7 @@ export default function App() {
   }
 
   function handleSettingsOpen(name) {
-    if (name === 'tutorial' || name === 'onboarding') {
+    if (name === 'tutorial' || name === 'onboarding' || name === 'teacher-tutorial') {
       setFlowFromSettings(true);
       setFlow(name);
       return;
@@ -217,11 +218,19 @@ export default function App() {
         />
       );
     }
+    if (flow === 'teacher-tutorial') {
+      return (
+        <TeacherTutorialScreen
+          onDone={flowFromSettings ? backToSettings : () => setFlow(null)}
+          onClose={flowFromSettings ? backToSettings : undefined}
+        />
+      );
+    }
     if (profileLoading && !profile) return spinner;
 
     // Professeur : plateforme dédiée (onglets Classes/Students/Profile).
     if (profile?.role === 'teacher') {
-      return <TeacherHome profile={profile} onLogout={logout} />;
+      return <TeacherHome profile={profile} onLogout={logout} onReplayFlow={handleSettingsOpen} />;
     }
 
     return (

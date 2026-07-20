@@ -60,7 +60,7 @@ function TeacherTabBar({ active, onChange, insetBottom, maxWidth }) {
 
 // Conteneur de la plateforme prof : onglets (Classes/Students/Profile) +
 // sous-vues (classe → task, réglages, support).
-export default function TeacherHome({ profile, onLogout }) {
+export default function TeacherHome({ profile, onLogout, onReplayFlow }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const tabMaxWidth = width >= 992 ? 460 : undefined;
@@ -77,6 +77,7 @@ export default function TeacherHome({ profile, onLogout }) {
         onOpenProfile={() => { setTab('profile'); setView(null); }}
         onOpenSupport={() => setView({ type: 'support' })}
         onOpenLegal={() => setView({ type: 'legal' })}
+        onReplayFlow={onReplayFlow}
       />
     );
   }

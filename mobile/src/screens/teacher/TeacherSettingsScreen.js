@@ -50,6 +50,11 @@ export default function TeacherSettingsScreen({ onBack, onLogout, onOpenProfile,
               right={<Toggle value={!!s?.notifications_enabled} onValueChange={(v) => patch({ notifications_enabled: v })} />} />
           </SettingsGroup>
 
+          <SettingsGroup title="Learn">
+            <SettingsRow icon="play-circle" iconColor={COLORS.jiayou} iconBg="#e8f0ff" label="Replay tutorial" sub="See the teacher walkthrough again" onPress={() => onReplayFlow?.('teacher-tutorial')} />
+            <SettingsRow icon="sparkles" iconColor="#7c3aed" iconBg="#f3e8ff" label="Redo onboarding" sub="Update your profile & preferences" onPress={() => onReplayFlow?.('onboarding')} />
+          </SettingsGroup>
+
           <SettingsGroup title="Legal & Support">
             <SettingsRow icon="document-text" iconColor="#555" iconBg="#f0f0f0" label="Legal" onPress={onOpenLegal} />
             <SettingsRow icon="help-buoy" iconColor="#555" iconBg="#f0f0f0" label="Help & Support" onPress={onOpenSupport} />
