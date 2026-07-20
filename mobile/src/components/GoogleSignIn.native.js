@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, View, Text, ActivityIndicator } from 'react-native';
+import { Pressable, Text, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { GOOGLE_CLIENT_ID } from '../api';
 
@@ -52,9 +53,7 @@ export default function GoogleSignIn({ onSuccess, onError }) {
         <ActivityIndicator color="#0d6efd" />
       ) : (
         <>
-          <View className="w-5 h-5 rounded-full bg-white items-center justify-center mr-2 border border-gray-200">
-            <Text style={{ color: '#4285F4', fontWeight: '900', fontSize: 13 }}>G</Text>
-          </View>
+          <Ionicons name="logo-google" size={18} color="#4285F4" style={{ marginRight: 8 }} />
           <Text className="text-gray-700 font-semibold">Continue with Google</Text>
         </>
       )}
