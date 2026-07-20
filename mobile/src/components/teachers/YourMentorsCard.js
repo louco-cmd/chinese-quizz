@@ -49,9 +49,9 @@ export default function YourMentorsCard({ mentors, tasks, onLeave, onOpenTask })
                 paddingVertical: 10, paddingHorizontal: 12, marginBottom: 8,
               }}
             >
-              <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={{ fontWeight: '600', color: '#1a1a2e', fontSize: 14 }} numberOfLines={1}>{t.title}</Text>
-                <Text style={{ fontSize: 12, color: '#aaa' }}>· {t.word_count} word{t.word_count === 1 ? '' : 's'}</Text>
+                <Text style={{ fontSize: 12, color: '#aaa', marginTop: 1 }}>{t.word_count} word{t.word_count === 1 ? '' : 's'}</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <View style={{ width: 70, height: 6, borderRadius: 999, backgroundColor: '#e4e8ef', overflow: 'hidden' }}>
