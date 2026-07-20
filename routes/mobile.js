@@ -933,12 +933,15 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
        WHERE wp.id = $2 AND wp.published = TRUE`, [uid, id]);
     if (!rows.length) return res.status(404).json({ error: 'Pack not found' });
     const pack = rows[0];
-    const { rows: preview } = await pool.query(
-      `SELECT m.id, m.chinese, m.pinyin, m.english FROM word_pack_items i
-       JOIN mots m ON m.id = i.mot_id WHERE i.pack_id = $1 ORDER BY m.id LIMIT 3`, [id]);
     pack.isMine = pack.creator_id === uid;
     delete pack.creator_id;
-    res.json({ pack, preview });
+    // Propriétaire (acheteur ou créateur) → liste complète des mots ; sinon aperçu de 3.
+    const full = pack.owned || pack.isMine;
+    const { rows: words } = await pool.query(
+      `SELECT m.id, m.chinese, m.pinyin, m.english FROM word_pack_items i
+       JOIN mots m ON m.id = i.mot_id WHERE i.pack_id = $1 ORDER BY m.id${full ? '' : ' LIMIT 3'}`, [id]);
+    if (full) res.json({ pack, words });
+    else res.json({ pack, preview: words });
   } catch (e) {
     console.error('m/market pack detail error:', e);
     res.status(500).json({ error: 'Server error' });
@@ -1155,6 +1158,25 @@ router.get('/api/m/market/my-packs', requireToken, async (req, res) => {
     res.json({ packs: rows });
   } catch (e) {
     console.error('m/market my-packs error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── GET /api/m/market/purchased-packs : packs achetés par l'utilisateur ──────
+router.get('/api/m/market/purchased-packs', requireToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT wp.id, wp.title, wp.price, wp.cover_key,
+              COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
+              (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count
+       FROM pack_purchases pp
+       JOIN word_packs wp ON wp.id = pp.pack_id
+       LEFT JOIN users u ON u.id = wp.creator_id
+       WHERE pp.buyer_id = $1
+       ORDER BY pp.created_at DESC`, [req.tokenUser.id]);
+    res.json({ packs: rows });
+  } catch (e) {
+    console.error('m/market purchased-packs error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });

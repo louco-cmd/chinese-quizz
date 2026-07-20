@@ -201,6 +201,10 @@ export function getMyPacks() {
   return request('/api/m/market/my-packs');
 }
 
+export function getPurchasedPacks() {
+  return request('/api/m/market/purchased-packs');
+}
+
 export function updatePack(id, { title, description, price }) {
   return request(`/api/m/market/packs/${id}`, { method: 'PUT', body: { title, description, price } });
 }

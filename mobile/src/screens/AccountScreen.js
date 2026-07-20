@@ -10,6 +10,7 @@ import RecentQuizzes from '../components/account/RecentQuizzes';
 import EditProfilePopup, { flagEmoji } from '../components/account/EditProfilePopup';
 import YourMentorsCard from '../components/teachers/YourMentorsCard';
 import MyPacksCard from '../components/account/MyPacksCard';
+import PurchasedPacksCard from '../components/account/PurchasedPacksCard';
 import Popup from '../components/Popup';
 import CoursePage from './CoursePage';
 import { ErrorRetry } from '../components/ErrorRetry';
@@ -157,6 +158,7 @@ export default function AccountScreen({ onLogout, onNavigate }) {
               </AccountCard>
 
               <MyPacksCard onNavigate={onNavigate} />
+              <PurchasedPacksCard />
             </View>
           </View>
 

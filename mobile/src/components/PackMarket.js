@@ -1,9 +1,22 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, Pressable, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, FlatList, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from './Popup';
 import { getMe, getMarketPacks, getMarketPack, buyMarketPack } from '../api';
 import { COLORS, SHADOW_CARD } from '../theme';
+
+// Ligne d'un mot (chinois · anglais · pinyin) — partagée aperçu / liste complète.
+export function WordRow({ w, last }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5, borderBottomWidth: last ? 0 : 1, borderColor: '#eceef1' }}>
+      <Text style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e', minWidth: 42 }}>{w.chinese}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 13, color: '#1a1a2e' }} numberOfLines={1}>{w.english}</Text>
+        <Text style={{ fontSize: 11.5, color: COLORS.muted }}>{w.pinyin}</Text>
+      </View>
+    </View>
+  );
+}
 
 // Illustration fictive : fond bleu pâle uniforme + idéogramme du niveau HSK.
 const HSK_GLYPH = { hsk1: '一', hsk2: '二', hsk3: '三', hsk4: '四', hsk5: '五', hsk6: '六' };
@@ -98,9 +111,13 @@ export default function PackMarket({
       setMe((m) => ({ ...m, balance: d.newBalance }));
       onBalance?.(d.newBalance);
       setPacks((list) => list.map((p) => (p.id === id ? { ...p, owned: true, sales_count: (p.sales_count || 0) + 1 } : p)));
+      // Recharge le détail pour révéler la liste complète des mots.
+      let words;
+      try { words = (await getMarketPack(id)).words; } catch { /* noop */ }
       setSelected((s) => ({
         ...s, buying: false,
         pack: { ...s.pack, owned: true },
+        words,
         msg: `Added to your collection — ${d.wordsAdded} new word${d.wordsAdded === 1 ? '' : 's'}!`,
       }));
     } catch (e) {
@@ -161,18 +178,18 @@ export default function PackMarket({
               <Text style={{ fontSize: 13.5, color: '#444', marginTop: 10, lineHeight: 19 }}>{selPack.description}</Text>
             ) : null}
 
-            {sel.preview?.length ? (
+            {sel.words?.length ? (
+              // Pack possédé → liste complète (scrollable).
+              <View style={{ marginTop: 14, backgroundColor: '#f8f9fa', borderRadius: 12, padding: 10 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Words · {sel.words.length}</Text>
+                <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
+                  {sel.words.map((w, i) => <WordRow key={w.id} w={w} last={i === sel.words.length - 1} />)}
+                </ScrollView>
+              </View>
+            ) : sel.preview?.length ? (
               <View style={{ marginTop: 14, backgroundColor: '#f8f9fa', borderRadius: 12, padding: 10 }}>
                 <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Preview</Text>
-                {sel.preview.map((w, i) => (
-                  <View key={w.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5, borderBottomWidth: i === sel.preview.length - 1 ? 0 : 1, borderColor: '#eceef1' }}>
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e', minWidth: 42 }}>{w.chinese}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 13, color: '#1a1a2e' }} numberOfLines={1}>{w.english}</Text>
-                      <Text style={{ fontSize: 11.5, color: COLORS.muted }}>{w.pinyin}</Text>
-                    </View>
-                  </View>
-                ))}
+                {sel.preview.map((w, i) => <WordRow key={w.id} w={w} last={i === sel.preview.length - 1} />)}
                 {selPack.word_count > sel.preview.length ? (
                   <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 6 }}>+ {selPack.word_count - sel.preview.length} more…</Text>
                 ) : null}
