@@ -1,17 +1,45 @@
 import { useState } from 'react';
-import { View, Text, Pressable, Image, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { completeTutorial, API_BASE } from '../api';
+import { completeTutorial } from '../api';
 import { COLORS } from '../theme';
 
-// Contenu repris de views/tutorial.ejs (mêmes captures servies par le serveur).
+// Tutoriel élève — même design carrousel que le tuto prof. Pas d'images pour
+// l'instant : une icône occupe la zone visuelle (à remplacer par des captures
+// plus tard). Chaque slide a `icon`, `title`, `body`.
 const SLIDES = [
-  { img: 'screenshot-01.png', title: 'Welcome to Jiayou!', body: 'A collaborative Chinese app with 3 core features.' },
-  { img: 'screenshot-02.png', title: 'Add a word', body: 'Build your vocabulary list based on shared data with all users. A Chinese keyboard is required to play.' },
-  { img: 'screenshot-03.png', title: 'Quiz', body: 'Test yourself with personalized quizzes, earn coins to unlock new words or challenge your friends.' },
-  { img: 'screenshot-04.png', title: 'Duels', body: 'Challenge a friend in various duel modes and show them who is really the best. Careful with coin gambling!' },
+  {
+    icon: 'earth',
+    title: 'Join the Jiayou world',
+    body: 'Learn Chinese better and faster with a community-powered app.',
+  },
+  {
+    icon: 'bookmarks',
+    title: 'Collect your words',
+    body: 'Save every word you meet and build your own growing collection.',
+  },
+  {
+    icon: 'school',
+    title: 'Train yourself',
+    body: 'Practise with personalised quizzes and flash cards to make each word stick.',
+  },
+  {
+    icon: 'trophy',
+    title: 'Challenge your friends',
+    body: 'Take on your friends in duels and show them who is the best — mind the coin bets!',
+  },
+  {
+    icon: 'pricetags',
+    title: 'Thematic word packs',
+    body: 'Build, share and get ready-made vocabulary packs on the JiaStore.',
+  },
+  {
+    icon: 'person-add',
+    title: 'Invite your teacher',
+    body: 'Add your teacher so they can follow your learning and send you homework.',
+  },
 ];
 
 // `onDone` appelé après avoir marqué le tutoriel vu ; `onClose` (optionnel)
@@ -47,17 +75,14 @@ export default function TutorialScreen({ onDone, onClose }) {
           width: '100%', maxWidth: 560, backgroundColor: '#fff', borderRadius: 28, padding: 24,
           shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.08, shadowRadius: 32, elevation: 4,
         }}>
+          {/* Zone visuelle (icône pour l'instant, image plus tard) */}
           <LinearGradient
             colors={['#1772F5', '#1EBCEE']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={{ height: 300, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
           >
-            <Image
-              source={{ uri: `${API_BASE}/screenshots/${slide.img}` }}
-              resizeMode="cover"
-              style={{ width: '100%', height: '100%' }}
-            />
+            <Ionicons name={slide.icon} size={96} color="rgba(255,255,255,0.95)" />
           </LinearGradient>
-          <Text style={{ fontSize: 28, fontWeight: '700', color: COLORS.jiayou, marginTop: 18, letterSpacing: -0.4 }}>{slide.title}</Text>
+          <Text style={{ fontSize: 26, fontWeight: '700', color: COLORS.jiayou, marginTop: 18, letterSpacing: -0.4 }}>{slide.title}</Text>
           <Text style={{ fontSize: 15, color: '#4b5565', lineHeight: 24, marginTop: 10 }}>{slide.body}</Text>
         </View>
       </View>
