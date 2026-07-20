@@ -200,7 +200,7 @@ export default function AddWordScreen() {
             style={{
               backgroundColor: '#fff', borderRadius: 50, paddingVertical: 20, paddingHorizontal: 24,
               fontSize: 19, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
-              width: '100%', maxWidth: 520,
+              width: '88%', maxWidth: 460,
               shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
             }}
           />
