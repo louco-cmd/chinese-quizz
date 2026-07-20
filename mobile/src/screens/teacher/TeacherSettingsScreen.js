@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import SettingsGroup from '../../components/settings/SettingsGroup';
 import SettingsRow from '../../components/settings/SettingsRow';
@@ -10,6 +11,7 @@ import { COLORS } from '../../theme';
 
 // Réglages professeur — miroir de teach-settings.ejs.
 export default function TeacherSettingsScreen({ onBack, onLogout, onOpenProfile, onOpenSupport, onOpenLegal }) {
+  const insets = useSafeAreaInsets();
   const [s, setS] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -33,7 +35,7 @@ export default function TeacherSettingsScreen({ onBack, onLogout, onOpenProfile,
 
   return (
     <View className="flex-1 bg-surface-page">
-      <ScrollView contentContainerStyle={{ paddingVertical: 20 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 20 }}>
         <View style={{ width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 16 }}>
           <Pressable onPress={onBack} hitSlop={10} className="flex-row items-center gap-1 mb-3">
             <Ionicons name="chevron-back" size={20} color={COLORS.muted} /><Text className="text-muted text-[14px]">Back</Text>
