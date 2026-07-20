@@ -16,13 +16,16 @@ function FlipCard({ front, sub, back, width }) {
   const frontRotate = anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
   const backRotate = anim.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] });
 
+  // Pas d'ombre (elevation) sur les faces qui tournent : sur Android l'ombre est
+  // projetée depuis les bords de la vue et se déforme pendant le rotateY. L'ombre
+  // est portée par le conteneur statique ci-dessous.
   const face = {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     alignItems: 'center', justifyContent: 'center', backfaceVisibility: 'hidden',
-    backgroundColor: '#fff', borderRadius: 14, padding: 8, ...SHADOW_CARD,
+    backgroundColor: '#fff', borderRadius: 14, padding: 8,
   };
   return (
-    <Pressable onPress={flip} style={{ width, height: 110 }}>
+    <Pressable onPress={flip} style={{ width, height: 110, borderRadius: 14, backgroundColor: '#fff', ...SHADOW_CARD }}>
       {/* Recto : fond blanc, texte bleu */}
       <Animated.View style={[face, { transform: [{ perspective: 800 }, { rotateY: frontRotate }] }]}>
         <Text style={{ fontSize: 24, fontWeight: '700', color: COLORS.jiayou, textAlign: 'center' }}>{front}</Text>
