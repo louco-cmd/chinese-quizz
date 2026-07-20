@@ -9,7 +9,11 @@ export default function AccountHero({ name, year, activeDays, contributions, hPa
     <View style={{ backgroundColor: '#0d6efd', paddingTop: 20, paddingBottom: 40 }}>
       {/* Contenu centré et borné à 1200px comme .account-layout de l'EJS */}
       <View style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: hPad }}>
-        <Text style={{ color: '#fff', fontWeight: '700', fontSize: 20, marginBottom: 14 }}>
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          style={{ color: '#fff', fontWeight: '700', fontSize: 16, marginBottom: 14 }}
+        >
           Hello {first}, {activeDays} days of practice in {year}
         </Text>
         <ContributionsHeatmap contributions={contributions} year={year} />
