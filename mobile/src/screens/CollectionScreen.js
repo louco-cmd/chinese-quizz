@@ -10,7 +10,45 @@ import Popup from '../components/Popup';
 import { COLORS, SHADOW_CARD_FLAT } from '../theme';
 import { getCollection, updateWord, deleteWord, getCharacter, getMe } from '../api';
 
-const speak = (t, lang = 'zh-CN') => { if (t) Speech.speak(t, { language: lang }); };
+// Sélection de la meilleure voix par langue (qualité "Enhanced" en priorité).
+// Gratuit : utilise les voix du moteur TTS du système (Google TTS sur Android,
+// AVSpeechSynthesizer sur iOS). Mis en cache après le 1er chargement.
+let _voiceCache = null;
+async function bestVoiceFor(lang) {
+  if (!_voiceCache) {
+    _voiceCache = {};
+    try {
+      const voices = await Speech.getAvailableVoicesAsync();
+      const byPrefix = {};
+      for (const v of voices) {
+        const prefix = (v.language || '').toLowerCase().split(/[-_]/)[0];
+        (byPrefix[prefix] = byPrefix[prefix] || []).push(v);
+      }
+      for (const prefix of Object.keys(byPrefix)) {
+        const list = byPrefix[prefix];
+        const enhanced = list.find((v) => v.quality === Speech.VoiceQuality.Enhanced);
+        _voiceCache[prefix] = (enhanced || list[0]).identifier;
+      }
+    } catch { /* pas de liste de voix : on garde la voix par défaut */ }
+  }
+  return _voiceCache[(lang || '').toLowerCase().split(/[-_]/)[0]];
+}
+
+// Lit un texte. `cbs.onStart/onDone` pour piloter un loader. Coupe toute lecture
+// en cours pour éviter les chevauchements.
+async function speak(t, lang = 'zh-CN', cbs = {}) {
+  if (!t) { cbs.onDone?.(); return; }
+  try { Speech.stop(); } catch { /* noop */ }
+  const voice = await bestVoiceFor(lang);
+  Speech.speak(t, {
+    language: lang,
+    voice, // undefined → voix par défaut
+    onStart: cbs.onStart,
+    onDone: cbs.onDone,
+    onStopped: cbs.onDone,
+    onError: cbs.onDone,
+  });
+}
 
 function scorePicto(s) {
   if (s >= 90) return '🏆';
@@ -47,6 +85,19 @@ export default function CollectionScreen() {
   const [charInfo, setCharInfo] = useState(null); // { char, loading, data }
   const [busy, setBusy] = useState(false);
   const [direction, setDirection] = useState('en→zh'); // sens d'apprentissage
+  const [speakingKey, setSpeakingKey] = useState(null); // bouton audio en cours ('card'|'char')
+
+  // Lance la lecture vocale avec loader : `key` identifie le bouton qui montre le
+  // spinner jusqu'à la fin (la 1re lecture est lente le temps d'init du moteur TTS).
+  function play(text, lang, key) {
+    if (!text) return;
+    setSpeakingKey(key);
+    const clear = () => setSpeakingKey((k) => (k === key ? null : k));
+    speak(text, lang, { onDone: clear }).catch(clear);
+  }
+
+  // Coupe la lecture si on quitte l'écran.
+  useEffect(() => () => { try { Speech.stop(); } catch { /* noop */ } }, []);
 
   const fade = useRef(new Animated.Value(1)).current;        // change de carte
   const screenFade = useRef(new Animated.Value(1)).current;  // change de vue
@@ -317,11 +368,13 @@ export default function CollectionScreen() {
           <View style={{ position: 'absolute', bottom: 14, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
             <Pressable
               onPress={() => (learningEnglish
-                ? speak(w.english, 'en-US')
-                : speak(w.chinese, 'zh-CN'))}
+                ? play(w.english, 'en-US', 'card')
+                : play(w.chinese, 'zh-CN', 'card'))}
               style={circleBtn}
             >
-              <Ionicons name="volume-medium" size={22} color={COLORS.jiayou} />
+              {speakingKey === 'card'
+                ? <ActivityIndicator size="small" color={COLORS.jiayou} />
+                : <Ionicons name="volume-medium" size={22} color={COLORS.jiayou} />}
             </Pressable>
             <Pressable onPress={() => setMenuOpen(true)} style={circleBtn}>
               <Ionicons name="settings-outline" size={20} color={COLORS.muted} />
@@ -371,8 +424,10 @@ export default function CollectionScreen() {
           ) : (
             <Text style={{ color: COLORS.mutedLight, marginTop: 12 }}>Character not registered</Text>
           )}
-          <Pressable onPress={() => speak(charInfo?.char)} style={[circleBtn, { marginTop: 16 }]}>
-            <Ionicons name="volume-medium" size={20} color={COLORS.jiayou} />
+          <Pressable onPress={() => play(charInfo?.char, 'zh-CN', 'char')} style={[circleBtn, { marginTop: 16 }]}>
+            {speakingKey === 'char'
+              ? <ActivityIndicator size="small" color={COLORS.jiayou} />
+              : <Ionicons name="volume-medium" size={20} color={COLORS.jiayou} />}
           </Pressable>
         </View>
       </Popup>
