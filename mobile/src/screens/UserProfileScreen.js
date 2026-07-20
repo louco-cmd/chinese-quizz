@@ -32,10 +32,10 @@ function MasteryGauge({ label, dist, total }) {
   );
 }
 
-function Stat({ value, label }) {
+function Stat({ value, label, color = '#1a1a2e' }) {
   return (
     <View style={{ flex: 1, alignItems: 'center' }}>
-      <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e' }}>{value}</Text>
+      <Text style={{ fontSize: 20, fontWeight: '700', color }}>{value}</Text>
       <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>{label}</Text>
     </View>
   );
@@ -120,6 +120,13 @@ export default function UserProfileScreen({ userId, onBack }) {
                   <Stat value={data.words} label="Words" />
                   <Stat value={data.quizzes} label="Quizzes" />
                   <Stat value={data.duels} label="Duels" />
+                </View>
+
+                {/* Duels : victoires / défaites / ratio */}
+                <View style={{ flexDirection: 'row', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderColor: '#f0f0f0' }}>
+                  <Stat value={data.wins ?? 0} label="Wins" color={COLORS.success} />
+                  <Stat value={data.losses ?? 0} label="Losses" color={COLORS.danger} />
+                  <Stat value={`${data.ratio ?? 0}%`} label="Win rate" color={COLORS.jiayou} />
                 </View>
 
                 {/* Jauges de maîtrise */}

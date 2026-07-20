@@ -47,10 +47,8 @@ function Row({ player, rank, last, onPress }) {
         ) : null}
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 6 }}>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
         <Stat value={player.total_words || 0} label="Words" />
-        <Stat value={player.wins || 0} label="Wins" color={COLORS.success} />
-        <Stat value={player.losses || 0} label="Losses" color={COLORS.danger} />
         <Stat value={`${player.ratio || 0}%`} label="Ratio" color={COLORS.jiayou} />
       </View>
       <Ionicons name="chevron-forward" size={15} color="#c4c9d0" />

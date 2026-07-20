@@ -1689,7 +1689,10 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
          WHERE um.user_id = $1`, [targetId]),
       pool.query('SELECT COUNT(*)::int AS n FROM quiz_history WHERE user_id = $1', [targetId]),
       pool.query(
-        `SELECT COUNT(*)::int AS n FROM duels
+        `SELECT COUNT(*)::int AS n,
+                COUNT(*) FILTER (WHERE winner_id = $1)::int AS wins,
+                COUNT(*) FILTER (WHERE winner_id IS NOT NULL AND winner_id <> $1)::int AS losses
+         FROM duels
          WHERE (challenger_id = $1 OR opponent_id = $1) AND status = 'completed'`, [targetId]),
     ]);
     if (!me.rows.length) return res.status(404).json({ error: 'User not found' });
@@ -1727,6 +1730,10 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
       words: words.length,
       quizzes: quizzes.rows[0].n,
       duels: duels.rows[0].n,
+      wins: duels.rows[0].wins,
+      losses: duels.rows[0].losses,
+      ratio: (duels.rows[0].wins + duels.rows[0].losses) > 0
+        ? Math.round((duels.rows[0].wins / (duels.rows[0].wins + duels.rows[0].losses)) * 100) : 0,
       mastery: { pinyin: pinyinDist, character: charDist, total: words.length },
       hsk,
     });
