@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen } from './src/api';
+import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial } from './src/api';
 import { LangContext, makeT } from './src/i18n';
 import Header from './src/components/Header';
 import TabBar from './src/components/TabBar';
@@ -64,7 +64,7 @@ export default function App() {
       setProfile(me);
       if (route) {
         if (!me.onboarding_done) setFlow('onboarding');
-        else if (!me.has_seen_tutorial) setFlow('tutorial');
+        else if (!me.has_seen_tutorial) setFlow(me.role === 'teacher' ? 'teacher-tutorial' : 'tutorial');
         else setFlow(null);
         // Red envelopes reçues à révéler (utilisateur déjà onboardé).
         if (me.onboarding_done) {
@@ -147,6 +147,15 @@ export default function App() {
     else setFlow(null);
   }
 
+  // Le tuto prof n'appelle pas completeTutorial lui-même : on marque "vu" ici pour
+  // qu'il ne se relance pas à chaque ouverture (sauf rejoué depuis les réglages).
+  async function onTeacherTutorialDone() {
+    if (!flowFromSettings) { try { await completeTutorial(); } catch { /* non bloquant */ } }
+    await loadProfile({ route: false });
+    if (flowFromSettings) backToSettings();
+    else setFlow(null);
+  }
+
   function handleSettingsOpen(name) {
     if (name === 'tutorial' || name === 'onboarding' || name === 'teacher-tutorial') {
       setFlowFromSettings(true);
@@ -221,7 +230,7 @@ export default function App() {
     if (flow === 'teacher-tutorial') {
       return (
         <TeacherTutorialScreen
-          onDone={flowFromSettings ? backToSettings : () => setFlow(null)}
+          onDone={onTeacherTutorialDone}
           onClose={flowFromSettings ? backToSettings : undefined}
         />
       );
