@@ -37,6 +37,13 @@ export default function AddWordScreen() {
   const [loading, setLoading] = useState(false);
   const [captured, setCaptured] = useState({}); // id -> true | 'loading'
   const [error, setError] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  // Bouton loupe qui "se détache" du corps de la barre au focus (ressort organique).
+  const detach = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.spring(detach, { toValue: searchFocused ? 1 : 0, friction: 6, tension: 90, useNativeDriver: true }).start();
+  }, [searchFocused, detach]);
 
   // Popup "New word" (création / édition avant capture)
   const [editor, setEditor] = useState(null); // { chinese, pinyin, englishList, description }
@@ -188,46 +195,51 @@ export default function AddWordScreen() {
 
           <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 16 }}>Add a word</Text>
 
-          <TextInput
-            value={q}
-            onChangeText={setQ}
-            placeholder="Chinese, pinyin or English…"
-            placeholderTextColor="#adb5bd"
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            onSubmitEditing={run}
-            style={{
-              backgroundColor: '#fff', borderRadius: 50, paddingVertical: 20, paddingHorizontal: 24,
-              fontSize: 19, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
-              width: '88%', maxWidth: 460,
-              shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
-            }}
-          />
-
-          {term ? (
-            <Pressable
-              onPress={run}
-              disabled={loading}
+          {/* Barre de recherche + bouton loupe qui se détache du corps au focus. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', width: '86%', maxWidth: 440 }}>
+            <TextInput
+              value={q}
+              onChangeText={setQ}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
+              placeholder="Chinese, pinyin or English…"
+              placeholderTextColor="#adb5bd"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              onSubmitEditing={run}
               style={{
-                flexDirection: 'row', alignItems: 'center', gap: 10,
-                backgroundColor: '#fff', borderRadius: 14, paddingVertical: 13, paddingHorizontal: 20,
-                marginTop: 20, alignSelf: 'center',
-                shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.12, shadowRadius: 18, elevation: 4,
+                flex: 1,
+                backgroundColor: '#fff', borderRadius: 50, paddingVertical: 20, paddingHorizontal: 24,
+                fontSize: 19, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
+                shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
+              }}
+            />
+            {/* Le bouton part "à l'intérieur" de la barre (translateX négatif, discret)
+                puis se détache vers sa place à droite au focus (ressort). */}
+            <Animated.View
+              style={{
+                marginLeft: 10,
+                opacity: detach.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
+                transform: [
+                  { translateX: detach.interpolate({ inputRange: [0, 1], outputRange: [-46, 0] }) },
+                  { scale: detach.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+                ],
               }}
             >
-              {loading ? (
-                <ActivityIndicator color={COLORS.jiayou} />
-              ) : (
-                <>
-                  <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 16 }}>Add the word</Text>
-                  <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="add" size={18} color="#fff" />
-                  </View>
-                </>
-              )}
-            </Pressable>
-          ) : null}
+              <Pressable
+                onPress={run}
+                disabled={loading}
+                style={{
+                  width: 54, height: 54, borderRadius: 27, backgroundColor: COLORS.jiayou,
+                  alignItems: 'center', justifyContent: 'center',
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 6,
+                }}
+              >
+                {loading ? <ActivityIndicator color="#fff" /> : <Ionicons name="search" size={24} color="#fff" />}
+              </Pressable>
+            </Animated.View>
+          </View>
 
           {error ? <Text style={{ color: '#fff', marginTop: 14, fontWeight: '600' }}>{error}</Text> : null}
         </View>
