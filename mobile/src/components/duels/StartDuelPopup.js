@@ -24,6 +24,7 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
   const [searching, setSearching] = useState(false);
   const [duelType, setDuelType] = useState('classic');
   const [wordCount, setWordCount] = useState('20');
+  const [quizType, setQuizType] = useState('pinyin'); // pinyin | character
   const [bet, setBet] = useState('0');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
@@ -36,6 +37,7 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
       setResults([]);
       setDuelType('classic');
       setWordCount('20');
+      setQuizType('pinyin');
       setBet('0');
       setError('');
       // Charge les adversaires précédents (suggestions).
@@ -66,7 +68,7 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
         opponent_id: opponent.id,
         duel_type: duelType,
         word_count: parseInt(wordCount, 10),
-        quiz_type: 'pinyin',
+        quiz_type: quizType,
         bet_amount: Math.max(0, parseInt(bet, 10) || 0),
       });
       onCreated?.();
@@ -170,6 +172,16 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
           value={wordCount}
           onChange={setWordCount}
           options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '30', label: '30' }]}
+        />
+      </View>
+
+      {/* Mode (pinyin / caractères) */}
+      <Label>Mode</Label>
+      <View style={{ marginBottom: 16 }}>
+        <SegmentedPicker
+          value={quizType}
+          onChange={setQuizType}
+          options={[{ value: 'pinyin', label: 'Pinyin' }, { value: 'character', label: 'Characters' }]}
         />
       </View>
 
