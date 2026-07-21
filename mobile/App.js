@@ -26,6 +26,7 @@ import LegalScreen from './src/screens/LegalScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TutorialScreen from './src/screens/TutorialScreen';
 import TeacherHome from './src/screens/teacher/TeacherHome';
+import WritingPracticeScreen from './src/screens/WritingPracticeScreen';
 import TeacherTutorialScreen from './src/screens/teacher/TeacherTutorialScreen';
 import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
@@ -185,6 +186,7 @@ export default function App() {
       case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} onStartQuiz={startPackQuiz} onEditPack={startEditPack} />;
       case 'create-pack': return <CreatePackScreen editPack={editPack} onBack={() => { setEditPack(null); setTab('store'); }} onCreated={() => { setEditPack(null); setTab('store'); }} />;
       case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} onDone={() => setTab('add')} />;
+      case 'writing': return <WritingPracticeScreen onBack={() => setTab('settings')} />;
       case 'support': return <SupportScreen onBack={() => setTab(bankReturn)} />;
       case 'legal': return <LegalScreen onBack={() => setTab(bankReturn)} />;
       default: return <CollectionScreen />;

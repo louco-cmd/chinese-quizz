@@ -101,6 +101,7 @@ export default function SettingsScreen({ onLogout, onOpen }) {
               />
             </SettingsRow>
             <SettingsRow icon="cloud-upload" iconColor="#0d6efd" iconBg="#e8f0ff" label="Import words" sub="Paste a list from Notes, Pleco, CSV…" onPress={() => onOpen?.('import')} />
+            <SettingsRow icon="brush" iconColor="#7c3aed" iconBg="#f3e8ff" label="Writing practice" sub="Draw characters, stroke by stroke" onPress={() => onOpen?.('writing')} />
           </SettingsGroup>
 
           {/* ── Notifications ── */}
