@@ -328,38 +328,38 @@ export default function CollectionScreen() {
                 {w.english || 'No translation'}
               </Text>
             ) : (
-              renderGlyphs(zhSize, true)
+              // Chinois + pinyin ensemble dans l'encart du haut.
+              <View style={{ alignItems: 'center' }}>
+                {renderGlyphs(zhSize, true)}
+                {w.pinyin ? (
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.muted, textAlign: 'center', marginTop: 6 }}>
+                    {w.pinyin}
+                  </Text>
+                ) : null}
+              </View>
             )}
           </View>
 
-          {/* Pinyin : toujours visible, sous les caractères (texte secondaire).
-              Uniquement en mode apprentissage du chinois (chinois affiché en haut). */}
-          {!learningEnglish && w.pinyin ? (
-            <Text style={{ fontSize: 18, fontWeight: '600', color: COLORS.muted, textAlign: 'center', marginTop: 8 }}>
-              {w.pinyin}
-            </Text>
-          ) : null}
-
-          {/* Réponse (masquable). en→zh : anglais. zh→en : chinois + pinyin. */}
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
+          {/* Réponse (masquable), rapprochée de l'encart. en→zh : anglais. zh→en : chinois + pinyin. */}
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 6, paddingTop: 16 }}>
             {hideTranslation ? (
               <Text style={{ color: COLORS.mutedLight, fontStyle: 'italic' }}>translation hidden</Text>
             ) : learningEnglish ? (
               <>
                 {renderGlyphs(Math.min(zhSize, 40), true)}
                 <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.muted, marginTop: 6 }}>{w.pinyin}</Text>
-                {descriptionText ? (
-                  <Text style={{ fontSize: 12.5, color: COLORS.mutedLight, fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>{descriptionText}</Text>
-                ) : null}
+                <Text style={{ fontSize: 12.5, color: descriptionText ? COLORS.mutedLight : '#d3d7de', fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>
+                  {descriptionText || 'No description'}
+                </Text>
               </>
             ) : (
               <>
                 <Text style={{ fontSize: 20, fontWeight: '600', color: COLORS.jiayou, textAlign: 'center' }}>
                   {w.english || 'No translation'}
                 </Text>
-                {descriptionText ? (
-                  <Text style={{ fontSize: 12.5, color: COLORS.mutedLight, fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>{descriptionText}</Text>
-                ) : null}
+                <Text style={{ fontSize: 12.5, color: descriptionText ? COLORS.mutedLight : '#d3d7de', fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>
+                  {descriptionText || 'No description'}
+                </Text>
               </>
             )}
           </View>
