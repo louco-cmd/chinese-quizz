@@ -50,6 +50,9 @@ async function speak(t, lang = 'zh-CN', cbs = {}) {
   });
 }
 
+// Majuscule sur la 1re lettre de l'anglais (cosmétique).
+const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
 function scorePicto(s) {
   if (s >= 90) return '🏆';
   if (s >= 75) return '😎';
@@ -101,6 +104,8 @@ export default function CollectionScreen() {
 
   const fade = useRef(new Animated.Value(1)).current;        // change de carte
   const screenFade = useRef(new Animated.Value(1)).current;  // change de vue
+  // Rétrécissement (fuite en arrière) synchronisé avec le fondu de vue.
+  const screenScale = screenFade.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] });
   const viewRef = useRef('card');
   viewRef.current = view;
   const switchingRef = useRef(false);
@@ -233,7 +238,7 @@ export default function CollectionScreen() {
           || (x.english || '').toLowerCase().includes(q))
       : words;
     return (
-      <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, opacity: screenFade }}>
+      <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, opacity: screenFade, transform: [{ scale: screenScale }] }}>
         <View style={{ flex: 1, width: '100%', maxWidth: 600, alignSelf: 'center' }}>
         <View {...listPan.panHandlers} style={{ paddingTop: 8 }}>
           <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.line, marginBottom: 8 }} />
@@ -262,7 +267,7 @@ export default function CollectionScreen() {
             >
               <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e', width: 80 }}>{item.chinese}</Text>
               <Text style={{ color: COLORS.muted, flex: 1 }} numberOfLines={1}>{item.pinyin}</Text>
-              <Text style={{ color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{item.english}</Text>
+              <Text style={{ color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{cap(item.english)}</Text>
             </Pressable>
           )}
           ListEmptyComponent={<Text style={{ textAlign: 'center', color: COLORS.mutedLight, padding: 20 }}>No match.</Text>}
@@ -309,7 +314,7 @@ export default function CollectionScreen() {
   const descriptionText = learningEnglish ? (w.description_zh || w.description) : w.description;
 
   return (
-    <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, alignItems: 'center', justifyContent: 'center', opacity: screenFade }}>
+    <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, alignItems: 'center', justifyContent: 'center', opacity: screenFade, transform: [{ scale: screenScale }] }}>
       <Animated.View {...cardPan.panHandlers} style={{ width: cardW, height: cardH, opacity: fade }}>
         <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 24, padding: 18, ...SHADOW_CARD_FLAT }}>
           {/* haut : picto score + HSK */}
@@ -325,7 +330,7 @@ export default function CollectionScreen() {
           <View style={{ height: glyphBoxH, borderWidth: 1, borderColor: COLORS.lineSoft, borderRadius: 16, paddingHorizontal: 10, marginTop: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {learningEnglish ? (
               <Text style={{ fontSize: enSize, fontWeight: '800', color: COLORS.jiayou, textAlign: 'center' }}>
-                {w.english || 'No translation'}
+                {w.english ? cap(w.english) : 'No translation'}
               </Text>
             ) : (
               // Chinois + pinyin ensemble dans l'encart du haut.
@@ -355,7 +360,7 @@ export default function CollectionScreen() {
             ) : (
               <>
                 <Text style={{ fontSize: 20, fontWeight: '600', color: COLORS.jiayou, textAlign: 'center' }}>
-                  {w.english || 'No translation'}
+                  {w.english ? cap(w.english) : 'No translation'}
                 </Text>
                 <Text style={{ fontSize: 12.5, color: descriptionText ? COLORS.mutedLight : '#d3d7de', fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>
                   {descriptionText || 'No description'}
