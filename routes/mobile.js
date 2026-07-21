@@ -360,7 +360,12 @@ router.get('/api/m/collection', requireToken, async (req, res) => {
     const { rows } = await pool.query(
       `SELECT mots.id, mots.chinese, mots.pinyin, mots.english, mots.hsk,
               mots.description, mots.description_zh,
-              user_mots.score
+              user_mots.score,
+              EXISTS(
+                SELECT 1 FROM word_pack_items wpi
+                JOIN pack_purchases pp ON pp.pack_id = wpi.pack_id
+                WHERE wpi.mot_id = mots.id AND pp.buyer_id = $1
+              ) AS from_pack
        FROM mots
        JOIN user_mots ON mots.id = user_mots.mot_id
        WHERE user_mots.user_id = $1

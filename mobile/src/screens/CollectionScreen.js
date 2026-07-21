@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { Loading, ErrorRetry } from '../components/ErrorRetry';
 import Popup from '../components/Popup';
+import Toggle from '../components/Toggle';
 import { COLORS, SHADOW_CARD_FLAT } from '../theme';
 import { getCollection, updateWord, deleteWord, getCharacter, getMe } from '../api';
 
@@ -61,6 +62,18 @@ function scorePicto(s) {
   return '🌱';
 }
 
+// Paliers de connaissance (mêmes seuils/icônes que scorePicto) pour le filtre.
+const KNOWLEDGE = [
+  { key: 'trophy', emoji: '🏆', label: 'Mastered', min: 90 },
+  { key: 'cool', emoji: '😎', label: 'Strong', min: 75 },
+  { key: 'ok', emoji: '🙂', label: 'Okay', min: 50 },
+  { key: 'meh', emoji: '😐', label: 'Weak', min: 25 },
+  { key: 'seed', emoji: '🌱', label: 'New', min: 0 },
+];
+const bucketOf = (s) => (s >= 90 ? 'trophy' : s >= 75 ? 'cool' : s >= 50 ? 'ok' : s >= 25 ? 'meh' : 'seed');
+const hskKey = (w) => (w.hsk ? String(w.hsk) : 'street');
+const hskLabel = (k) => (k === 'street' ? 'Street' : `HSK ${k}`);
+
 const circleBtn = {
   width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff',
   borderWidth: 1, borderColor: COLORS.line, alignItems: 'center', justifyContent: 'center',
@@ -81,6 +94,10 @@ export default function CollectionScreen() {
   const [hideTranslation, setHideTranslation] = useState(false);
   const [view, setView] = useState('card');
   const [query, setQuery] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [fHsk, setFHsk] = useState([]);    // niveaux HSK sélectionnés ('1'..'6','street')
+  const [fKnow, setFKnow] = useState([]);  // paliers de connaissance sélectionnés
+  const [fPack, setFPack] = useState(false); // seulement les mots issus d'un pack acheté
   const [editing, setEditing] = useState(null);
   const [ef, setEf] = useState({ chinese: '', pinyin: '', english: '', description: '' });
   const [confirmDel, setConfirmDel] = useState(null);
@@ -231,12 +248,22 @@ export default function CollectionScreen() {
   // ── Vue LISTE ──
   if (view === 'list') {
     const q = query.trim().toLowerCase();
-    const filtered = q
-      ? words.filter((x) =>
-          (x.chinese || '').toLowerCase().includes(q)
-          || (x.pinyin || '').toLowerCase().includes(q)
-          || (x.english || '').toLowerCase().includes(q))
-      : words;
+    const searchMatch = (x) => !q
+      || (x.chinese || '').toLowerCase().includes(q)
+      || (x.pinyin || '').toLowerCase().includes(q)
+      || (x.english || '').toLowerCase().includes(q);
+    const passesFilters = (x) => {
+      if (fHsk.length && !fHsk.includes(hskKey(x))) return false;
+      if (fKnow.length && !fKnow.includes(bucketOf(x.score || 0))) return false;
+      if (fPack && !x.from_pack) return false;
+      return true;
+    };
+    const filtered = words.filter((x) => searchMatch(x) && passesFilters(x));
+    const hskOptions = [...new Set(words.map(hskKey))]
+      .sort((a, b) => (a === 'street' ? 99 : +a) - (b === 'street' ? 99 : +b));
+    const activeCount = fHsk.length + fKnow.length + (fPack ? 1 : 0);
+    const toggleIn = (setter) => (val) => setter((arr) => (arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]));
+    const resetFilters = () => { setFHsk([]); setFKnow([]); setFPack(false); };
     return (
       <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, opacity: screenFade, transform: [{ scale: screenScale }] }}>
         <View style={{ flex: 1, width: '100%', maxWidth: 600, alignSelf: 'center' }}>
@@ -251,11 +278,69 @@ export default function CollectionScreen() {
               autoCapitalize="none"
               style={{ flex: 1, backgroundColor: '#fff', borderRadius: 999, borderWidth: 1, borderColor: COLORS.line, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15 }}
             />
-            <Pressable onPress={() => switchView('card')} hitSlop={10} style={{ marginLeft: 12 }}>
+            <Pressable onPress={() => setFilterOpen(true)} hitSlop={10} style={{ marginLeft: 12 }}>
+              <Ionicons name={activeCount ? 'funnel' : 'funnel-outline'} size={22} color={COLORS.jiayou} />
+              {activeCount ? (
+                <View style={{ position: 'absolute', top: -6, right: -8, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{activeCount}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <Pressable onPress={() => switchView('card')} hitSlop={10} style={{ marginLeft: 14 }}>
               <Ionicons name="grid" size={24} color={COLORS.jiayou} />
             </Pressable>
           </View>
         </View>
+
+        {/* ── Popup filtres ── */}
+        <Popup visible={filterOpen} onClose={() => setFilterOpen(false)} maxWidth={420}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>Filters</Text>
+            <Pressable onPress={() => setFilterOpen(false)} hitSlop={10}><Ionicons name="close" size={22} color={COLORS.muted} /></Pressable>
+          </View>
+
+          <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>HSK level</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+            {hskOptions.map((k) => {
+              const on = fHsk.includes(k);
+              return (
+                <Pressable key={k} onPress={() => toggleIn(setFHsk)(k)} style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, backgroundColor: on ? '#e8f0ff' : '#fff', borderColor: on ? COLORS.jiayou : COLORS.line }}>
+                  <Text style={{ color: on ? COLORS.jiayou : COLORS.muted, fontWeight: on ? '700' : '500', fontSize: 13.5 }}>{hskLabel(k)}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Knowledge</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+            {KNOWLEDGE.map((b) => {
+              const on = fKnow.includes(b.key);
+              return (
+                <Pressable key={b.key} onPress={() => toggleIn(setFKnow)(b.key)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, backgroundColor: on ? '#e8f0ff' : '#fff', borderColor: on ? COLORS.jiayou : COLORS.line }}>
+                  <Text style={{ fontSize: 15 }}>{b.emoji}</Text>
+                  <Text style={{ color: on ? COLORS.jiayou : COLORS.muted, fontWeight: on ? '700' : '500', fontSize: 13.5 }}>{b.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.page, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 18 }}>
+            <View style={{ flex: 1, paddingRight: 10 }}>
+              <Text style={{ color: '#1a1a2e', fontWeight: '600', fontSize: 14 }}>From a pack you bought</Text>
+              <Text style={{ color: COLORS.muted, fontSize: 12, marginTop: 1 }}>Only words added via a purchased pack</Text>
+            </View>
+            <Toggle value={fPack} onValueChange={setFPack} />
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <Pressable onPress={resetFilters} disabled={!activeCount} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center', opacity: activeCount ? 1 : 0.5 }}>
+              <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Reset</Text>
+            </Pressable>
+            <Pressable onPress={() => setFilterOpen(false)} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Show {filtered.length}</Text>
+            </Pressable>
+          </View>
+        </Popup>
         <FlatList
           data={filtered}
           keyExtractor={(x) => String(x.id)}
