@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SHADOW_CARD } from '../theme';
 import { getBillingPortal, refreshSubscription } from '../api';
+import { buyPremium, purchasesAvailable, restorePurchases } from '../purchases';
+
+// Android : gérer/annuler l'abonnement se fait dans le Play Store.
+const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions';
 
 const fmtDate = (iso) => {
   if (!iso) return '';
@@ -65,32 +69,58 @@ function FaqItem({ q, a }) {
 }
 
 // Page Pricing : hero + carte Premium (featured) + carte Free + trust + FAQ.
-export default function PricingScreen({ onBack, isPremium = false }) {
+export default function PricingScreen({ onBack, isPremium = false, onPurchased }) {
   const [portalBusy, setPortalBusy] = useState(false);
   const [portalError, setPortalError] = useState('');
   const [sub, setSub] = useState({ cancelAtPeriodEnd: false, currentPeriodEnd: null });
 
-  // Resync live depuis Stripe à l'ouverture (fiabilité si le webhook a raté),
-  // pour refléter une annulation programmée même hors de l'app.
+  // Natif avec RevenueCat configuré → achats in-app (Play Billing). Sinon web/Stripe.
+  const native = Platform.OS !== 'web' && purchasesAvailable();
+
+  // Resync live depuis Stripe à l'ouverture (web uniquement — le natif passe par RC).
   useEffect(() => {
-    if (!isPremium) return;
+    if (!isPremium || native) return;
     let alive = true;
     refreshSubscription()
       .then((s) => { if (alive) setSub({ cancelAtPeriodEnd: !!s.cancelAtPeriodEnd, currentPeriodEnd: s.currentPeriodEnd }); })
       .catch(() => {});
     return () => { alive = false; };
-  }, [isPremium]);
+  }, [isPremium, native]);
 
-  // Premium → portail Stripe (gérer/annuler). Sinon → paiement sur le site.
+  // Bouton Premium : natif → Play Billing (RevenueCat) ; web → Stripe.
   async function onPremiumPress() {
-    if (!isPremium) { Linking.openURL(PREMIUM_URL); return; }
+    if (isPremium) {
+      // Gérer / annuler : Play Store (natif) ou portail Stripe (web).
+      if (native) { Linking.openURL(PLAY_SUBSCRIPTIONS_URL); return; }
+      setPortalError(''); setPortalBusy(true);
+      try { const { url } = await getBillingPortal(); await Linking.openURL(url); }
+      catch (e) { setPortalError(e.message || 'Could not open the billing portal'); }
+      finally { setPortalBusy(false); }
+      return;
+    }
+    // Souscrire.
+    if (native) {
+      setPortalError(''); setPortalBusy(true);
+      try {
+        const ok = await buyPremium();
+        if (ok) onPurchased?.(); // le webhook RevenueCat crédite le compte côté backend
+      } catch (e) {
+        if (e?.userCancelled !== true) setPortalError(e?.message || 'Purchase failed.');
+      } finally { setPortalBusy(false); }
+      return;
+    }
+    Linking.openURL(PREMIUM_URL); // web → Stripe
+  }
+
+  // Restaurer un achat précédent (obligatoire sur les stores).
+  async function onRestore() {
     setPortalError(''); setPortalBusy(true);
     try {
-      const { url } = await getBillingPortal();
-      await Linking.openURL(url);
-    } catch (e) {
-      setPortalError(e.message || 'Could not open the billing portal');
-    } finally { setPortalBusy(false); }
+      const ok = await restorePurchases();
+      if (ok) onPurchased?.();
+      else setPortalError('No previous purchase found.');
+    } catch (e) { setPortalError(e?.message || 'Restore failed.'); }
+    finally { setPortalBusy(false); }
   }
 
   return (
@@ -150,8 +180,13 @@ export default function PricingScreen({ onBack, isPremium = false }) {
               {portalError ? (
                 <Text style={{ textAlign: 'center', color: COLORS.danger, fontSize: 12.5, marginTop: 8, fontWeight: '600' }}>{portalError}</Text>
               ) : null}
+              {native && !isPremium ? (
+                <Pressable onPress={onRestore} disabled={portalBusy} style={{ marginTop: 10, alignItems: 'center' }}>
+                  <Text style={{ color: COLORS.jiayou, fontSize: 12.5, fontWeight: '600' }}>Restore purchases</Text>
+                </Pressable>
+              ) : null}
               <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 11.5, marginTop: 10 }}>
-                <Ionicons name="globe-outline" size={11} color={COLORS.muted} />  Managed on jiayou.fr · Cancel anytime
+                <Ionicons name={native ? 'logo-google-playstore' : 'globe-outline'} size={11} color={COLORS.muted} />  {native ? 'Billed through Google Play · Cancel anytime' : 'Managed on jiayou.fr · Cancel anytime'}
               </Text>
             </View>
           </View>

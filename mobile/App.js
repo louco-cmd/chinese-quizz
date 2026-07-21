@@ -4,6 +4,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial } from './src/api';
+import { configurePurchases } from './src/purchases';
 import { LangContext, makeT } from './src/i18n';
 import Header from './src/components/Header';
 import TabBar from './src/components/TabBar';
@@ -65,6 +66,7 @@ export default function App() {
     try {
       const me = await getMe();
       setProfile(me);
+      configurePurchases(me.id); // lie les achats in-app (RevenueCat) au compte
       if (route) {
         if (!me.onboarding_done) setFlow('onboarding');
         else if (!me.has_seen_tutorial) setFlow(me.role === 'teacher' ? 'teacher-tutorial' : 'tutorial');
@@ -179,7 +181,7 @@ export default function App() {
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
-      case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} />;
+      case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} onPurchased={() => loadProfile({ route: false })} />;
       case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} onStartQuiz={startPackQuiz} onEditPack={startEditPack} />;
       case 'create-pack': return <CreatePackScreen editPack={editPack} onBack={() => { setEditPack(null); setTab('store'); }} onCreated={() => { setEditPack(null); setTab('store'); }} />;
       case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} onDone={() => setTab('add')} />;
