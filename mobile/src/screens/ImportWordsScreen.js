@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ActivityIndicator, FlatList, ScrollView,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { importPreview, importCommit } from '../api';
@@ -84,7 +85,8 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
     return (
       <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
         {Hero}
-        <ScrollView contentContainerStyle={{ padding: 16, width: '100%', maxWidth: 640, alignSelf: 'center' }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, width: '100%', maxWidth: 640, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
           <View style={{ backgroundColor: '#eef4ff', borderRadius: 12, padding: 12, marginBottom: 14, flexDirection: 'row', gap: 8 }}>
             <Ionicons name="information-circle" size={18} color={COLORS.jiayou} />
             <Text style={{ flex: 1, fontSize: 12.5, color: '#33415c', lineHeight: 18 }}>
@@ -119,6 +121,7 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
             )}
           </Pressable>
         </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     );
   }
