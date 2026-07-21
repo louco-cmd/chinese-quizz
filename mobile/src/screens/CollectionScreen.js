@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View, Text, TextInput, Pressable, Animated, PanResponder, FlatList,
-  useWindowDimensions, Platform, ActivityIndicator,
+  useWindowDimensions, Platform, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { Loading, ErrorRetry } from '../components/ErrorRetry';
 import Popup from '../components/Popup';
-import Toggle from '../components/Toggle';
 import { COLORS, SHADOW_CARD_FLAT } from '../theme';
-import { getCollection, updateWord, deleteWord, getCharacter, getMe } from '../api';
+import { getCollection, updateWord, deleteWord, getCharacter, getMe, getPurchasedPacks } from '../api';
 
 // Sélection de la meilleure voix par langue (qualité "Enhanced" en priorité).
 // Gratuit : utilise les voix du moteur TTS du système (Google TTS sur Android,
@@ -97,7 +96,9 @@ export default function CollectionScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [fHsk, setFHsk] = useState([]);    // niveaux HSK sélectionnés ('1'..'6','street')
   const [fKnow, setFKnow] = useState([]);  // paliers de connaissance sélectionnés
-  const [fPack, setFPack] = useState(false); // seulement les mots issus d'un pack acheté
+  const [fPackId, setFPackId] = useState(null); // filtrer sur un pack acheté précis
+  const [packMenuOpen, setPackMenuOpen] = useState(false); // menu déroulant packs
+  const [purchasedPacks, setPurchasedPacks] = useState([]); // packs achetés (pour le menu)
   const [editing, setEditing] = useState(null);
   const [ef, setEf] = useState({ chinese: '', pinyin: '', english: '', description: '' });
   const [confirmDel, setConfirmDel] = useState(null);
@@ -133,17 +134,18 @@ export default function CollectionScreen() {
   const passesFilters = (x) => {
     if (fHsk.length && !fHsk.includes(hskKey(x))) return false;
     if (fKnow.length && !fKnow.includes(bucketOf(x.score || 0))) return false;
-    if (fPack && !x.from_pack) return false;
+    if (fPackId && !(x.pack_ids || []).includes(fPackId)) return false;
     return true;
   };
   const deck = words.filter(passesFilters);
   lenRef.current = deck.length;
 
-  const activeCount = fHsk.length + fKnow.length + (fPack ? 1 : 0);
+  const activeCount = fHsk.length + fKnow.length + (fPackId ? 1 : 0);
   const hskOptions = [...new Set(words.map(hskKey))]
     .sort((a, b) => (a === 'street' ? 99 : +a) - (b === 'street' ? 99 : +b));
   const toggleIn = (setter) => (val) => setter((arr) => (arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]));
-  const resetFilters = () => { setFHsk([]); setFKnow([]); setFPack(false); };
+  const resetFilters = () => { setFHsk([]); setFKnow([]); setFPackId(null); setPackMenuOpen(false); };
+  const selectedPack = purchasedPacks.find((p) => p.id === fPackId);
 
   // Popup de filtres — partagée entre les deux vues.
   const filterPopup = (
@@ -178,13 +180,47 @@ export default function CollectionScreen() {
         })}
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.page, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 18 }}>
-        <View style={{ flex: 1, paddingRight: 10 }}>
-          <Text style={{ color: '#1a1a2e', fontWeight: '600', fontSize: 14 }}>From a pack you bought</Text>
-          <Text style={{ color: COLORS.muted, fontSize: 12, marginTop: 1 }}>Only words added via a purchased pack</Text>
+      {purchasedPacks.length ? (
+        <View style={{ marginBottom: 18 }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Pack</Text>
+          {/* Menu déroulant : sélectionne un pack acheté pour n'afficher que ses mots. */}
+          <Pressable
+            onPress={() => setPackMenuOpen((o) => !o)}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderWidth: 1, borderColor: packMenuOpen ? COLORS.jiayou : COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 }}
+          >
+            <Text style={{ color: selectedPack ? '#1a1a2e' : COLORS.muted, fontWeight: selectedPack ? '700' : '500', fontSize: 14 }} numberOfLines={1}>
+              {selectedPack ? selectedPack.title : 'All words'}
+            </Text>
+            <Ionicons name={packMenuOpen ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.muted} />
+          </Pressable>
+          {packMenuOpen ? (
+            <View style={{ borderWidth: 1, borderColor: COLORS.line, borderRadius: 12, marginTop: 6, overflow: 'hidden' }}>
+              <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                <Pressable
+                  onPress={() => { setFPackId(null); setPackMenuOpen(false); }}
+                  style={{ paddingHorizontal: 14, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: !fPackId ? '#e8f0ff' : '#fff' }}
+                >
+                  <Text style={{ color: !fPackId ? COLORS.jiayou : '#1a1a2e', fontWeight: !fPackId ? '700' : '500', fontSize: 14 }}>All words</Text>
+                  {!fPackId ? <Ionicons name="checkmark" size={16} color={COLORS.jiayou} /> : null}
+                </Pressable>
+                {purchasedPacks.map((p) => {
+                  const on = p.id === fPackId;
+                  return (
+                    <Pressable
+                      key={p.id}
+                      onPress={() => { setFPackId(p.id); setPackMenuOpen(false); }}
+                      style={{ paddingHorizontal: 14, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: COLORS.lineSoft, backgroundColor: on ? '#e8f0ff' : '#fff' }}
+                    >
+                      <Text style={{ flex: 1, color: on ? COLORS.jiayou : '#1a1a2e', fontWeight: on ? '700' : '500', fontSize: 14 }} numberOfLines={1}>{p.title}</Text>
+                      {on ? <Ionicons name="checkmark" size={16} color={COLORS.jiayou} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
         </View>
-        <Toggle value={fPack} onValueChange={setFPack} />
-      </View>
+      ) : null}
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Pressable onPress={resetFilters} disabled={!activeCount} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center', opacity: activeCount ? 1 : 0.5 }}>
@@ -209,6 +245,11 @@ export default function CollectionScreen() {
     }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  // Packs achetés → alimentent le menu déroulant du filtre.
+  useEffect(() => {
+    getPurchasedPacks().then((d) => setPurchasedPacks(d.packs || [])).catch(() => {});
+  }, []);
 
   // Sens d'apprentissage : zh→en → on inverse l'affichage de la carte.
   useEffect(() => {
