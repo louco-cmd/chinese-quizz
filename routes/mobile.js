@@ -215,6 +215,7 @@ router.get('/api/m/me', requireToken, async (req, res) => {
       `SELECT u.id, u.email, u.name, u.balance, u.role,
               u.quiz_direction, u.interface_lang, u.special_guest,
               u.onboarding_done, u.has_seen_tutorial,
+              u.rc_expires_at, u.rc_will_renew,
               us.plan_name, us.status AS sub_status, us.stripe_status,
               us.cancel_at_period_end, us.current_period_end
        FROM users u
@@ -231,7 +232,9 @@ router.get('/api/m/me', requireToken, async (req, res) => {
     const allActive = row.plan_name === 'premium'
       && row.sub_status === 'active'
       && row.stripe_status === 'active';
-    const isPremium = isSpecialGuest || allActive;
+    // Premium via RevenueCat (Play Billing / StoreKit) : actif tant que non expiré.
+    const rcActive = row.rc_expires_at && new Date(row.rc_expires_at) > new Date();
+    const isPremium = isSpecialGuest || allActive || rcActive;
     const plan = isSpecialGuest ? 'guest' : (isPremium ? 'premium' : 'free');
 
     res.json({
@@ -247,11 +250,11 @@ router.get('/api/m/me', requireToken, async (req, res) => {
       isPremium,
       isSpecialGuest,
       plan, // 'premium' | 'guest' | 'free'
-      // Annulation programmée : l'accès premium reste jusqu'à current_period_end.
-      cancelAtPeriodEnd: row.cancel_at_period_end === true,
-      currentPeriodEnd: row.current_period_end instanceof Date
-        ? row.current_period_end.toISOString()
-        : (row.current_period_end || null),
+      // Annulation programmée : l'accès premium reste jusqu'à la fin de période.
+      cancelAtPeriodEnd: rcActive ? (row.rc_will_renew === false) : (row.cancel_at_period_end === true),
+      currentPeriodEnd: rcActive
+        ? (row.rc_expires_at instanceof Date ? row.rc_expires_at.toISOString() : row.rc_expires_at)
+        : (row.current_period_end instanceof Date ? row.current_period_end.toISOString() : (row.current_period_end || null)),
     });
   } catch (e) {
     console.error('me error:', e);
@@ -635,11 +638,13 @@ function parseImportText(text) {
 
 async function isUserPremium(userId) {
   const { rows } = await pool.query(
-    `SELECT u.special_guest, us.plan_name, us.status AS sub_status, us.stripe_status
+    `SELECT u.special_guest, u.rc_expires_at, us.plan_name, us.status AS sub_status, us.stripe_status
      FROM users u LEFT JOIN user_subscriptions us ON us.user_id = u.id WHERE u.id = $1`, [userId]);
   if (!rows.length) return false;
   const r = rows[0];
+  const rcActive = r.rc_expires_at && new Date(r.rc_expires_at) > new Date();
   return r.special_guest === true
+    || rcActive
     || (r.plan_name === 'premium' && r.sub_status === 'active' && r.stripe_status === 'active');
 }
 

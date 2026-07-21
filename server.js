@@ -1623,6 +1623,41 @@ app.post('/webhook',
   }
 );
 
+// -------------------- Webhook RevenueCat (Play Billing / StoreKit) --------------------
+// RevenueCat POST un JSON avec un header Authorization = valeur configurée dans le
+// dashboard. app_user_id = l'id de notre utilisateur (fixé via Purchases.configure).
+// On pilote users.rc_expires_at / rc_will_renew selon le type d'événement.
+app.post('/revenuecat-webhook', async (req, res) => {
+  try {
+    const expected = process.env.REVENUECAT_WEBHOOK_AUTH || '';
+    if (!expected || (req.headers.authorization || '') !== expected) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+    const ev = req.body?.event || {};
+    const type = ev.type;
+    const userId = parseInt(ev.app_user_id, 10);
+    if (!Number.isInteger(userId)) return res.json({ ok: true }); // id anonyme / test
+
+    const expiresAt = ev.expiration_at_ms ? new Date(ev.expiration_at_ms) : null;
+    const GRANT = ['INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION', 'PRODUCT_CHANGE', 'NON_RENEWING_PURCHASE', 'SUBSCRIPTION_EXTENDED'];
+
+    if (GRANT.includes(type)) {
+      await pool.query('UPDATE users SET rc_expires_at = $1, rc_will_renew = TRUE WHERE id = $2', [expiresAt, userId]);
+    } else if (type === 'CANCELLATION') {
+      // Annulation programmée : reste premium jusqu'à l'expiration.
+      await pool.query('UPDATE users SET rc_will_renew = FALSE WHERE id = $1', [userId]);
+    } else if (type === 'EXPIRATION') {
+      await pool.query('UPDATE users SET rc_expires_at = NULL, rc_will_renew = FALSE WHERE id = $1', [userId]);
+    }
+    // BILLING_ISSUE / autres : on ne coupe pas (l'EXPIRATION gère la fin réelle).
+    console.log(`🟢 RevenueCat ${type} user ${userId} → expires ${expiresAt?.toISOString() || 'n/a'}`);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('revenuecat webhook error:', e);
+    res.status(500).json({ error: 'error' });
+  }
+});
+
 
 async function handleCheckoutSessionCompleted(session) {
   try {

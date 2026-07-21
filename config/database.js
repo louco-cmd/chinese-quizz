@@ -367,6 +367,9 @@ const pool = new Pool({
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC)`);
     // Relance email "long time no see" : dernière relance envoyée (anti-spam).
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reengage_emailed_at TIMESTAMP`);
+    // Abonnement premium via RevenueCat (Play Billing / StoreKit) — piloté par webhook.
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS rc_expires_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS rc_will_renew BOOLEAN`);
     console.log("✅ Table 'notifications' + reengage_emailed_at vérifiées.");
 
     // Index de perf sur les tables chaudes filtrées par user (page account, profil,
