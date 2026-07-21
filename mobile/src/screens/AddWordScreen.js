@@ -9,6 +9,8 @@ import Popup from '../components/Popup';
 import { COLORS } from '../theme';
 import { searchWords, captureWord, createWord, getPinyin } from '../api';
 
+const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+
 const CARD_W = 240;
 const CARD_GAP = 14;
 const ITEM_W = CARD_W + CARD_GAP;
@@ -42,7 +44,8 @@ export default function AddWordScreen() {
   // Bouton loupe qui "se détache" du corps de la barre au focus (ressort organique).
   const detach = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.spring(detach, { toValue: searchFocused ? 1 : 0, friction: 6, tension: 90, useNativeDriver: true }).start();
+    // useNativeDriver:false : on anime aussi la largeur de la barre (layout).
+    Animated.spring(detach, { toValue: searchFocused ? 1 : 0, friction: 7, tension: 80, useNativeDriver: false }).start();
   }, [searchFocused, detach]);
 
   // Popup "New word" (création / édition avant capture)
@@ -195,10 +198,10 @@ export default function AddWordScreen() {
 
           <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 16 }}>Add a word</Text>
 
-          {/* Barre centrée + bouton loupe (absolu → n'affecte pas le centrage) qui,
-              invisible au repos, se détache sur la droite au focus (ressort). */}
-          <View style={{ width: '86%', maxWidth: 440 }}>
-            <TextInput
+          {/* Au focus, la barre rétrécit (marginRight) pour libérer la place à droite,
+              et le bouton loupe s'y "détache" (invisible au repos). */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', width: '86%', maxWidth: 440 }}>
+            <AnimatedTextInput
               value={q}
               onChangeText={setQ}
               onFocus={() => setSearchFocused(true)}
@@ -210,7 +213,8 @@ export default function AddWordScreen() {
               returnKeyType="search"
               onSubmitEditing={run}
               style={{
-                width: '100%',
+                flex: 1,
+                marginRight: detach.interpolate({ inputRange: [0, 1], outputRange: [0, 62] }),
                 backgroundColor: '#fff', borderRadius: 50, paddingVertical: 20, paddingHorizontal: 24,
                 fontSize: 19, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
                 shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
@@ -219,24 +223,22 @@ export default function AddWordScreen() {
             <Animated.View
               pointerEvents={searchFocused ? 'auto' : 'none'}
               style={{
-                position: 'absolute', right: -44, top: 0, bottom: 0, justifyContent: 'center',
+                position: 'absolute', right: 0, top: 0, bottom: 0, justifyContent: 'center',
                 opacity: detach, // 0 au repos → totalement invisible
-                transform: [{ translateX: detach.interpolate({ inputRange: [0, 1], outputRange: [-44, 0] }) }],
+                transform: [{ scale: detach.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
               }}
             >
-              <Animated.View style={{ transform: [{ scale: detach.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }}>
-                <Pressable
-                  onPress={run}
-                  disabled={loading}
-                  style={{
-                    width: 52, height: 52, borderRadius: 26, backgroundColor: COLORS.jiayou,
-                    alignItems: 'center', justifyContent: 'center',
-                    shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 6,
-                  }}
-                >
-                  {loading ? <ActivityIndicator color="#fff" /> : <Ionicons name="search" size={23} color="#fff" />}
-                </Pressable>
-              </Animated.View>
+              <Pressable
+                onPress={run}
+                disabled={loading}
+                style={{
+                  width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff',
+                  alignItems: 'center', justifyContent: 'center',
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 6,
+                }}
+              >
+                {loading ? <ActivityIndicator color={COLORS.jiayou} /> : <Ionicons name="search" size={23} color={COLORS.jiayou} />}
+              </Pressable>
             </Animated.View>
           </View>
 
