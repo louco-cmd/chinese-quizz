@@ -195,8 +195,9 @@ export default function AddWordScreen() {
 
           <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 16 }}>Add a word</Text>
 
-          {/* Barre de recherche + bouton loupe qui se détache du corps au focus. */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', width: '86%', maxWidth: 440 }}>
+          {/* Barre centrée + bouton loupe (absolu → n'affecte pas le centrage) qui,
+              invisible au repos, se détache sur la droite au focus (ressort). */}
+          <View style={{ width: '86%', maxWidth: 440 }}>
             <TextInput
               value={q}
               onChangeText={setQ}
@@ -209,35 +210,33 @@ export default function AddWordScreen() {
               returnKeyType="search"
               onSubmitEditing={run}
               style={{
-                flex: 1,
+                width: '100%',
                 backgroundColor: '#fff', borderRadius: 50, paddingVertical: 20, paddingHorizontal: 24,
                 fontSize: 19, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
                 shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
               }}
             />
-            {/* Le bouton part "à l'intérieur" de la barre (translateX négatif, discret)
-                puis se détache vers sa place à droite au focus (ressort). */}
             <Animated.View
+              pointerEvents={searchFocused ? 'auto' : 'none'}
               style={{
-                marginLeft: 10,
-                opacity: detach.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
-                transform: [
-                  { translateX: detach.interpolate({ inputRange: [0, 1], outputRange: [-46, 0] }) },
-                  { scale: detach.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
-                ],
+                position: 'absolute', right: -44, top: 0, bottom: 0, justifyContent: 'center',
+                opacity: detach, // 0 au repos → totalement invisible
+                transform: [{ translateX: detach.interpolate({ inputRange: [0, 1], outputRange: [-44, 0] }) }],
               }}
             >
-              <Pressable
-                onPress={run}
-                disabled={loading}
-                style={{
-                  width: 54, height: 54, borderRadius: 27, backgroundColor: COLORS.jiayou,
-                  alignItems: 'center', justifyContent: 'center',
-                  shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 6,
-                }}
-              >
-                {loading ? <ActivityIndicator color="#fff" /> : <Ionicons name="search" size={24} color="#fff" />}
-              </Pressable>
+              <Animated.View style={{ transform: [{ scale: detach.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }}>
+                <Pressable
+                  onPress={run}
+                  disabled={loading}
+                  style={{
+                    width: 52, height: 52, borderRadius: 26, backgroundColor: COLORS.jiayou,
+                    alignItems: 'center', justifyContent: 'center',
+                    shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 6,
+                  }}
+                >
+                  {loading ? <ActivityIndicator color="#fff" /> : <Ionicons name="search" size={23} color="#fff" />}
+                </Pressable>
+              </Animated.View>
             </Animated.View>
           </View>
 
