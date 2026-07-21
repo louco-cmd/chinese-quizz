@@ -37,9 +37,12 @@ export default function App() {
   const [tab, setTab] = useState('add'); // page d'accueil = Add words
   const [bankReturn, setBankReturn] = useState('add');
   const [quizPack, setQuizPack] = useState(null); // pack à quizzer (depuis store/account)
+  const [editPack, setEditPack] = useState(null); // pack à éditer (create-pack pré-rempli)
 
   // Lance un quiz sur un pack possédé → onglet Quiz, popup de réglages pré-rempli.
   const startPackQuiz = (pack) => { setQuizPack(pack); setTab('quiz'); };
+  // Édite un pack créé → page create-pack pré-remplie.
+  const startEditPack = (detail) => { setEditPack(detail); setTab('create-pack'); };
 
   // Profil + aiguillage onboarding/tutoriel.
   const [profile, setProfile] = useState(null);
@@ -177,8 +180,8 @@ export default function App() {
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} />;
-      case 'store': return <StoreScreen onCreate={() => setTab('create-pack')} onStartQuiz={startPackQuiz} />;
-      case 'create-pack': return <CreatePackScreen onBack={() => setTab('store')} onCreated={() => setTab('store')} />;
+      case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} onStartQuiz={startPackQuiz} onEditPack={startEditPack} />;
+      case 'create-pack': return <CreatePackScreen editPack={editPack} onBack={() => { setEditPack(null); setTab('store'); }} onCreated={() => { setEditPack(null); setTab('store'); }} />;
       case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} onDone={() => setTab('add')} />;
       case 'support': return <SupportScreen onBack={() => setTab(bankReturn)} />;
       case 'legal': return <LegalScreen onBack={() => setTab(bankReturn)} />;

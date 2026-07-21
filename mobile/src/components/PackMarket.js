@@ -52,6 +52,7 @@ export default function PackMarket({
   contentContainerStyle,
   onBalance,
   onStartQuiz,
+  onEditPack,
 }) {
   const [me, setMe] = useState(null);
   const [packs, setPacks] = useState([]);
@@ -117,6 +118,7 @@ export default function PackMarket({
         onClose={() => setSelected(null)}
         onBought={onBought}
         onStartQuiz={onStartQuiz ? (p) => { setSelected(null); onStartQuiz(p); } : undefined}
+        onEditPack={onEditPack ? (d) => { setSelected(null); onEditPack(d); } : undefined}
       />
     </View>
   );

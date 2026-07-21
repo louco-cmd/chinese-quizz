@@ -190,10 +190,10 @@ export function planPack(text) {
   return request('/api/m/market/packs/plan', { method: 'POST', body: { text } });
 }
 
-export function createPack({ title, description, price, text, translations, acquire }) {
+export function createPack({ title, description, price, text, translations, acquire, packId }) {
   return request('/api/m/market/packs', {
     method: 'POST',
-    body: { title, description, price, text, translations, acquire },
+    body: { title, description, price, text, translations, acquire, packId },
   });
 }
 

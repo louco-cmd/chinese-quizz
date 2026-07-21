@@ -23,11 +23,13 @@ const inputStyle = {
   paddingHorizontal: 14, paddingVertical: 11, fontSize: 15,
 };
 
-export default function CreatePackScreen({ onBack, onCreated }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [text, setText] = useState('');
+export default function CreatePackScreen({ onBack, onCreated, editPack }) {
+  const isEdit = !!editPack;
+  const [title, setTitle] = useState(editPack?.title || '');
+  const [description, setDescription] = useState(editPack?.description || '');
+  const [price, setPrice] = useState(editPack?.price != null ? String(editPack.price) : '');
+  const [text, setText] = useState(
+    editPack?.words?.length ? editPack.words.map((w) => w.chinese).join('\n') : '');
 
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');
@@ -42,7 +44,7 @@ export default function CreatePackScreen({ onBack, onCreated }) {
   // Envoie la création (avec ou sans acquisition).
   async function doCreate(acquire, translations) {
     try {
-      await createPack({ title: title.trim(), description: description.trim(), price: priceNum, text, translations, acquire });
+      await createPack({ title: title.trim(), description: description.trim(), price: priceNum, text, translations, acquire, packId: editPack?.id });
       onCreated?.();
     } catch (e) {
       throw e;
@@ -104,8 +106,8 @@ export default function CreatePackScreen({ onBack, onCreated }) {
             <Text style={{ color: COLORS.jiayou, fontWeight: '600' }}>Back</Text>
           </Pressable>
         ) : null}
-        <Text style={{ color: '#1a1a2e', fontSize: 22, fontWeight: '800' }}>Create a pack</Text>
-        <Text style={{ color: COLORS.muted, fontSize: 13, marginTop: 2 }}>Sell a set of words to the community.</Text>
+        <Text style={{ color: '#1a1a2e', fontSize: 22, fontWeight: '800' }}>{isEdit ? 'Edit pack' : 'Create a pack'}</Text>
+        <Text style={{ color: COLORS.muted, fontSize: 13, marginTop: 2 }}>{isEdit ? 'Add or remove words, update the details.' : 'Sell a set of words to the community.'}</Text>
       </View>
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
@@ -141,8 +143,8 @@ export default function CreatePackScreen({ onBack, onCreated }) {
           style={{ borderRadius: 14, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: canPublish ? COLORS.jiayou : '#e9ecef' }}>
           {publishing ? <ActivityIndicator color="#fff" /> : (
             <>
-              <Ionicons name="pricetag" size={16} color={canPublish ? '#fff' : COLORS.muted} />
-              <Text style={{ color: canPublish ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>Publish pack</Text>
+              <Ionicons name={isEdit ? 'save' : 'pricetag'} size={16} color={canPublish ? '#fff' : COLORS.muted} />
+              <Text style={{ color: canPublish ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>{isEdit ? 'Update pack' : 'Publish pack'}</Text>
             </>
           )}
         </Pressable>
@@ -195,7 +197,7 @@ export default function CreatePackScreen({ onBack, onCreated }) {
                 style={{ flex: 1.4, paddingVertical: 13, borderRadius: 12, alignItems: 'center', backgroundColor: (needsFilled && enoughCoins && !buying) ? COLORS.jiayou : '#e9ecef' }}>
                 {buying ? <ActivityIndicator color="#fff" size="small" /> : (
                   <Text style={{ color: (needsFilled && enoughCoins) ? '#fff' : COLORS.muted, fontWeight: '700' }}>
-                    Buy {checkout.cost} ₵ & publish
+                    Buy {checkout.cost} ₵ & {isEdit ? 'update' : 'publish'}
                   </Text>
                 )}
               </Pressable>

@@ -1086,6 +1086,8 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
   const words = extractWordList(req.body);
   const translations = (req.body?.translations && typeof req.body.translations === 'object') ? req.body.translations : {};
   const acquire = req.body?.acquire === true;
+  // Mode édition : packId d'un pack existant appartenant à l'utilisateur.
+  const editId = Number.isInteger(parseInt(req.body?.packId, 10)) ? parseInt(req.body.packId, 10) : null;
 
   if (!title || title.length > 80) return res.status(400).json({ error: 'Title is required (max 80 characters).' });
   if (description.length > 300) return res.status(400).json({ error: 'Description is too long (max 300 characters).' });
@@ -1096,6 +1098,12 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    // Édition : le pack doit exister et appartenir à l'utilisateur.
+    if (editId) {
+      const { rows: own } = await client.query('SELECT creator_id FROM word_packs WHERE id = $1 FOR UPDATE', [editId]);
+      if (!own.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pack not found.' }); }
+      if (own[0].creator_id !== uid) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Not your pack.' }); }
+    }
     const { rows: owned } = await client.query(
       `SELECT DISTINCT ON (m.chinese) m.id, m.chinese
        FROM mots m JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
@@ -1140,17 +1148,27 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
         [uid, -cost, `Acquired ${notOwned.length} word(s) for a pack`]);
     }
 
-    const { rows: pk } = await client.query(
-      `INSERT INTO word_packs (creator_id, title, description, price, cover_key, is_official, published)
-       VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE) RETURNING id`,
-      [uid, title, description || null, price]);
-    const packId = pk[0].id;
+    let packId;
+    if (editId) {
+      // Édition : met à jour les métadonnées et remplace la liste de mots.
+      await client.query(
+        'UPDATE word_packs SET title = $1, description = $2, price = $3 WHERE id = $4',
+        [title, description || null, price, editId]);
+      await client.query('DELETE FROM word_pack_items WHERE pack_id = $1', [editId]);
+      packId = editId;
+    } else {
+      const { rows: pk } = await client.query(
+        `INSERT INTO word_packs (creator_id, title, description, price, cover_key, is_official, published)
+         VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE) RETURNING id`,
+        [uid, title, description || null, price]);
+      packId = pk[0].id;
+    }
     const motIds = words.map((w) => ownedMap.get(w));
     await client.query(
       `INSERT INTO word_pack_items (pack_id, mot_id) SELECT $1, UNNEST($2::int[]) ON CONFLICT DO NOTHING`,
       [packId, motIds]);
     await client.query('COMMIT');
-    res.json({ success: true, id: packId, wordCount: motIds.length, acquired: notOwned.length });
+    res.json({ success: true, id: packId, wordCount: motIds.length, acquired: notOwned.length, edited: !!editId });
   } catch (e) {
     await client.query('ROLLBACK');
     console.error('m/market create error:', e);

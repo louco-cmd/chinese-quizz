@@ -31,7 +31,7 @@ export function WordRow({ w, last }) {
 //   balance     : solde de l'utilisateur (pour le bouton d'achat)
 //   onStartQuiz : (pack) => void — affiche "Start a quiz" si possédé
 //   onBought    : (packId, { newBalance, wordsAdded }) => void — après achat
-export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, onBought }) {
+export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, onBought, onEditPack }) {
   const [detail, setDetail] = useState(null); // { pack, words?, preview? }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -117,6 +117,15 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
                 >
                   <Ionicons name="play" size={16} color="#fff" />
                   <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Start a quiz</Text>
+                </Pressable>
+              ) : null}
+              {p.isMine && onEditPack ? (
+                <Pressable
+                  onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [] })}
+                  style={{ borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+                >
+                  <Ionicons name="create-outline" size={16} color={COLORS.jiayou} />
+                  <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>Edit pack</Text>
                 </Pressable>
               ) : null}
               <Text style={{ textAlign: 'center', color: COLORS.muted, fontWeight: '700', fontSize: 13 }}>
