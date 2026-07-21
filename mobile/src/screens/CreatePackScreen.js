@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, ActivityIndicator,
   KeyboardAvoidingView, Platform,
@@ -36,6 +36,10 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
   // Checkout d'acquisition des mots manquants.
   const [checkout, setCheckout] = useState(null); // { toBuy, needs:[{chinese,english}], cost, balance }
   const [buying, setBuying] = useState(false);
+
+  const scrollRef = useRef(null);
+  // Fait défiler jusqu'au bas quand un champ bas prend le focus (clavier ouvert).
+  const revealBottom = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 180);
 
   const priceNum = parseInt(price, 10);
   const priceValid = price !== '' && Number.isInteger(priceNum) && priceNum >= 0 && priceNum <= 100000;
@@ -111,7 +115,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
       </View>
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16, paddingBottom: 90, width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
         <Field label="Title">
           <TextInput value={title} onChangeText={setTitle} maxLength={80}
             placeholder="e.g. Café & Restaurant" placeholderTextColor={COLORS.mutedLight} style={inputStyle} />
@@ -132,7 +136,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
         </Field>
 
         <Field label="Words" hint="one per line">
-          <TextInput value={text} onChangeText={setText} multiline autoCapitalize="none"
+          <TextInput value={text} onChangeText={setText} multiline autoCapitalize="none" onFocus={revealBottom}
             placeholder={'你好\n谢谢\n再见'} placeholderTextColor={COLORS.mutedLight}
             style={{ ...inputStyle, minHeight: 150, textAlignVertical: 'top', lineHeight: 22 }} />
         </Field>
