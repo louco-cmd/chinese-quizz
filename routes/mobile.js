@@ -558,6 +558,17 @@ function looksLikePinyin(s) {
 
 // Une ligne composée UNIQUEMENT de caractères chinois (headword sur sa ligne).
 const PURE_HAN_RE = /^[㐀-鿿·・]+$/;
+// Groupe contigu de Hanzi (pour isoler le mot chinois même collé au reste).
+const HAN_RUN_RE = /[㐀-鿿]+/g;
+
+// Classe des tokens latins/pinyin en (pinyin, anglais) : un token avec ton ou
+// numéro est du pinyin, le reste est de l'anglais. On garde l'anglais multi-mots.
+function splitPinyinEnglish(rest) {
+  const tokens = String(rest || '').split(/[\t;,]|\s+/).map((t) => t.trim()).filter(Boolean);
+  const pinyin = tokens.filter(looksLikePinyin).join(' ');
+  const latin = cleanDefinition(tokens.filter((t) => !looksLikePinyin(t)).join(' '));
+  return { pinyin, latin };
+}
 
 function splitDelim(line) {
   if (line.includes('\t')) return line.split('\t');
@@ -582,22 +593,17 @@ function cleanDefinition(s) {
 // Extrait {pinyin, latin} d'une ligne "détail" (pinyin ⇥/, définition) sans y
 // chercher de headword chinois (les Hanzi d'une déf. sont dans les CL:…).
 function parseDetail(line) {
-  const parts = splitDelim(line).map((p) => p.trim()).filter(Boolean);
-  const pIdx = parts.findIndex(looksLikePinyin);
-  const pinyin = pIdx >= 0 ? parts[pIdx] : '';
-  const latin = cleanDefinition(parts.filter((_, i) => i !== pIdx).join(', '));
-  return { pinyin, latin };
+  return splitPinyinEnglish(line);
 }
 
 // Extrait les fragments d'une ligne "tout-en-un" (ex. 工作⇥gōng zuò⇥job…).
 function fragmentsFrom(line) {
-  const parts = splitDelim(line).map((p) => p.trim()).filter(Boolean);
-  // headword = fragment PUREMENT chinois en priorité (évite les Hanzi de définition).
-  const chinese = parts.find((p) => PURE_HAN_RE.test(p)) || parts.find((p) => HAN_RE.test(p)) || '';
-  const rest = parts.filter((p) => p !== chinese);
-  const pIdx = rest.findIndex(looksLikePinyin);
-  const pinyin = pIdx >= 0 ? rest[pIdx] : '';
-  const latin = cleanDefinition(rest.filter((_, i) => i !== pIdx).join(', '));
+  // Headword chinois = 1er groupe contigu de Hanzi, isolé par regex (robuste même
+  // si tout est sur la même ligne / collé / séparé par des espaces).
+  const runs = line.match(HAN_RUN_RE) || [];
+  const chinese = runs[0] || '';
+  // Le reste (ligne sans les Hanzi) est classé en pinyin / anglais.
+  const { pinyin, latin } = splitPinyinEnglish(line.replace(HAN_RUN_RE, ' '));
   return { chinese, pinyin, latin };
 }
 
