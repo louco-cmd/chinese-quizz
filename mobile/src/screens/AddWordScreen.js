@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ActivityIndicator, ScrollView,
-  KeyboardAvoidingView, Platform, Animated, Easing, useWindowDimensions,
+  KeyboardAvoidingView, Platform, Animated, Easing, useWindowDimensions, Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { COLORS } from '../theme';
 import { searchWords, captureWord, createWord, getPinyin } from '../api';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
+const BAR_H = 62; // hauteur de la barre = diamètre du bouton rond
 
 const CARD_W = 240;
 const CARD_GAP = 14;
@@ -185,7 +186,8 @@ export default function AddWordScreen() {
   return (
     <LinearGradient colors={['#0d6efd', '#0dcaf0']} style={{ flex: 1 }}>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 }}>
+        {/* Tap hors de la barre → on désélectionne (blur) et l'UI revient au repos. */}
+        <Pressable onPress={() => Keyboard.dismiss()} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 }}>
           <Animated.Text
             style={{
               fontSize: 72, fontWeight: '800', color: '#fff', marginBottom: 28,
@@ -206,17 +208,17 @@ export default function AddWordScreen() {
               onChangeText={setQ}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
-              placeholder="Chinese, pinyin or English…"
+              placeholder={screenW < 420 ? 'Search a word…' : 'Chinese, pinyin or English…'}
               placeholderTextColor="#adb5bd"
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
               onSubmitEditing={run}
               style={{
-                flex: 1,
-                marginRight: detach.interpolate({ inputRange: [0, 1], outputRange: [0, 62] }),
-                backgroundColor: '#fff', borderRadius: 50, paddingVertical: 20, paddingHorizontal: 24,
-                fontSize: 19, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
+                flex: 1, height: BAR_H,
+                marginRight: detach.interpolate({ inputRange: [0, 1], outputRange: [0, BAR_H + 8] }),
+                backgroundColor: '#fff', borderRadius: BAR_H / 2, paddingHorizontal: 24,
+                fontSize: 18, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
                 shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
               }}
             />
@@ -232,7 +234,7 @@ export default function AddWordScreen() {
                 onPress={run}
                 disabled={loading}
                 style={{
-                  width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff',
+                  width: BAR_H, height: BAR_H, borderRadius: BAR_H / 2, backgroundColor: '#fff',
                   alignItems: 'center', justifyContent: 'center',
                   shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 6,
                 }}
@@ -243,7 +245,7 @@ export default function AddWordScreen() {
           </View>
 
           {error ? <Text style={{ color: '#fff', marginTop: 14, fontWeight: '600' }}>{error}</Text> : null}
-        </View>
+        </Pressable>
       </KeyboardAvoidingView>
 
       {/* ── Popup résultats : carrousel ancré (snap + fondu au blanc) ── */}
