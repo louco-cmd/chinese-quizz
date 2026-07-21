@@ -126,11 +126,11 @@ export default function DuelsScreen({ onDefeat }) {
         />
       </View>
 
-      <DuelSectionCard icon="time-outline" title="Pending duels" noBodyPad>
-        {data.pending.length === 0
-          ? <Empty text="No pending duels." />
-          : data.pending.map((d, i) => <PendingDuelRow key={d.id} duel={d} last={i === data.pending.length - 1} onPlay={(du) => setPlayingDuel(du.id)} />)}
-      </DuelSectionCard>
+      {data.pending.length > 0 ? (
+        <DuelSectionCard icon="time-outline" title="Pending duels" noBodyPad>
+          {data.pending.map((d, i) => <PendingDuelRow key={d.id} duel={d} last={i === data.pending.length - 1} onPlay={(du) => setPlayingDuel(du.id)} />)}
+        </DuelSectionCard>
+      ) : null}
 
       <DuelSectionCard icon="hourglass-outline" title="Recent duels" noBodyPad>
         {(!data.recent || data.recent.length === 0)
