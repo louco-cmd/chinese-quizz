@@ -338,6 +338,11 @@ export function getBillingPortal() {
   return request('/api/m/billing-portal', { method: 'POST' });
 }
 
+// Resync live de l'abonnement depuis Stripe → { isPremium, cancelAtPeriodEnd, currentPeriodEnd }.
+export function refreshSubscription() {
+  return request('/api/m/subscription/refresh', { method: 'POST' });
+}
+
 export function getQuizWords(count = 10) {
   return request(`/api/m/quiz?count=${count}`);
 }

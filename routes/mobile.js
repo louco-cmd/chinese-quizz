@@ -215,7 +215,8 @@ router.get('/api/m/me', requireToken, async (req, res) => {
       `SELECT u.id, u.email, u.name, u.balance, u.role,
               u.quiz_direction, u.interface_lang, u.special_guest,
               u.onboarding_done, u.has_seen_tutorial,
-              us.plan_name, us.status AS sub_status, us.stripe_status
+              us.plan_name, us.status AS sub_status, us.stripe_status,
+              us.cancel_at_period_end, us.current_period_end
        FROM users u
        LEFT JOIN user_subscriptions us ON us.user_id = u.id
        WHERE u.id = $1`,
@@ -246,6 +247,11 @@ router.get('/api/m/me', requireToken, async (req, res) => {
       isPremium,
       isSpecialGuest,
       plan, // 'premium' | 'guest' | 'free'
+      // Annulation programmée : l'accès premium reste jusqu'à current_period_end.
+      cancelAtPeriodEnd: row.cancel_at_period_end === true,
+      currentPeriodEnd: row.current_period_end instanceof Date
+        ? row.current_period_end.toISOString()
+        : (row.current_period_end || null),
     });
   } catch (e) {
     console.error('me error:', e);
@@ -2860,6 +2866,55 @@ router.post('/api/m/teacher/profile', requireToken, requireTeacher, async (req, 
     );
     res.json({ success: true });
   } catch (e) { console.error('m/teacher save profile:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// Resync live d'un abonnement depuis Stripe → user_subscriptions. Fiabilité si
+// le webhook n'est pas arrivé (annulation via le portail non répercutée). Lit la
+// période au niveau item (API récente) avec fallback top-level. Renvoie l'état,
+// ou null si l'utilisateur n'a pas d'abonnement Stripe.
+async function syncSubscriptionFromStripe(userId) {
+  const { rows } = await pool.query(
+    'SELECT stripe_subscription_id FROM user_subscriptions WHERE user_id = $1 LIMIT 1', [userId]);
+  const subId = rows[0]?.stripe_subscription_id;
+  if (!subId) return null;
+
+  const sub = await stripe.subscriptions.retrieve(subId);
+  const item = sub.items?.data?.[0];
+  const periodEnd = item?.current_period_end ?? sub.current_period_end;
+  const periodStart = item?.current_period_start ?? sub.current_period_start;
+  const cancelAtPeriodEnd = sub.cancel_at_period_end === true
+    || (typeof sub.cancel_at === 'number' && sub.cancel_at > Math.floor(Date.now() / 1000));
+  const canceledAt = sub.canceled_at || sub.ended_at;
+  const active = sub.status === 'active';
+  const toDate = (s) => (typeof s === 'number' ? new Date(s * 1000) : null);
+
+  await pool.query(
+    `UPDATE user_subscriptions SET
+       plan_name = $1, status = $2, stripe_status = $2,
+       current_period_start = $3, current_period_end = $4,
+       cancel_at_period_end = $5, canceled_at = $6, updated_at = NOW()
+     WHERE user_id = $7`,
+    [active ? 'premium' : 'free', sub.status,
+     toDate(periodStart), toDate(periodEnd),
+     cancelAtPeriodEnd, toDate(canceledAt), userId]);
+
+  return {
+    isPremium: active,
+    cancelAtPeriodEnd,
+    currentPeriodEnd: toDate(periodEnd)?.toISOString() || null,
+  };
+}
+
+// ── POST /api/m/subscription/refresh : resync Stripe → renvoie l'état à jour ──
+router.post('/api/m/subscription/refresh', requireToken, async (req, res) => {
+  try {
+    const state = await syncSubscriptionFromStripe(req.tokenUser.id);
+    if (!state) return res.json({ isPremium: false, cancelAtPeriodEnd: false, currentPeriodEnd: null });
+    res.json(state);
+  } catch (e) {
+    console.error('m/subscription refresh error:', e);
+    res.status(500).json({ error: 'Could not refresh subscription' });
+  }
 });
 
 // ── POST /api/m/billing-portal : portail de facturation Stripe (annulation) ──

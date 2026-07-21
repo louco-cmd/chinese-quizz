@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SHADOW_CARD } from '../theme';
-import { getBillingPortal } from '../api';
+import { getBillingPortal, refreshSubscription } from '../api';
+
+const fmtDate = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+};
 
 const PREMIUM_URL = 'https://jiayou.fr/#pricing';
 
@@ -62,6 +68,18 @@ function FaqItem({ q, a }) {
 export default function PricingScreen({ onBack, isPremium = false }) {
   const [portalBusy, setPortalBusy] = useState(false);
   const [portalError, setPortalError] = useState('');
+  const [sub, setSub] = useState({ cancelAtPeriodEnd: false, currentPeriodEnd: null });
+
+  // Resync live depuis Stripe à l'ouverture (fiabilité si le webhook a raté),
+  // pour refléter une annulation programmée même hors de l'app.
+  useEffect(() => {
+    if (!isPremium) return;
+    let alive = true;
+    refreshSubscription()
+      .then((s) => { if (alive) setSub({ cancelAtPeriodEnd: !!s.cancelAtPeriodEnd, currentPeriodEnd: s.currentPeriodEnd }); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [isPremium]);
 
   // Premium → portail Stripe (gérer/annuler). Sinon → paiement sur le site.
   async function onPremiumPress() {
@@ -108,6 +126,14 @@ export default function PricingScreen({ onBack, isPremium = false }) {
               <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>per month</Text>
             </LinearGradient>
             <View style={{ padding: 18 }}>
+              {sub.cancelAtPeriodEnd ? (
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#fff8e1', borderRadius: 12, padding: 12, marginBottom: 14 }}>
+                  <Ionicons name="time-outline" size={18} color="#b8860b" />
+                  <Text style={{ flex: 1, fontSize: 13, color: '#7a5c00', lineHeight: 18, fontWeight: '600' }}>
+                    Your Premium is set to cancel. You keep access until {fmtDate(sub.currentPeriodEnd)} — resume anytime below.
+                  </Text>
+                </View>
+              ) : null}
               {PREMIUM_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === PREMIUM_FEATURES.length - 1} />)}
               <Pressable
                 onPress={onPremiumPress}
