@@ -39,6 +39,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
   const [showLeave, setShowLeave] = useState(false);
   const submitted = useRef(false);
   const firstRef = useRef(null);
+  const inputRefs = useRef([]); // un ref par syllabe (auto-avance)
   const correctRef = useRef(0);
   useEffect(() => { correctRef.current = correctCount; }, [correctCount]);
 
@@ -106,9 +107,10 @@ export default function DuelPlayScreen({ duelId, onExit }) {
       setLocked(true);
       setTimeout(() => advance(idx + 1), 900);
     } else if (!second) {
+      // 1re erreur : on marque faux, on MONTRE la réponse, puis 2e chance (recopie).
       setWrongCount((c) => c + 1);
       setSecond(true);
-      setFeedback({ kind: 'retry', text: 'Not quite — try again' });
+      setFeedback({ kind: 'reveal', text: `Answer: ${answer}` });
       setInputs((arr) => arr.map(() => ''));
       setTimeout(() => firstRef.current?.focus?.(), 60);
     } else {
@@ -226,10 +228,19 @@ export default function DuelPlayScreen({ duelId, onExit }) {
               {isPinyin ? (
                 inputs.map((val, i) => (
                   <TextInput
-                    key={i} ref={i === 0 ? firstRef : undefined} value={val}
-                    onChangeText={(t) => setInputs((arr) => arr.map((x, j) => (j === i ? t : x)))}
+                    key={i}
+                    ref={(el) => { inputRefs.current[i] = el; if (i === 0) firstRef.current = el; }}
+                    value={val}
+                    onChangeText={(t) => {
+                      setInputs((arr) => arr.map((x, j) => (j === i ? t : x)));
+                      // Auto-avance vers la syllabe suivante quand celle-ci est complète.
+                      const target = normalizePinyin(w.pinyin.split(' ')[i] || '').length;
+                      if (target && t.length >= target && i < inputs.length - 1) {
+                        inputRefs.current[i + 1]?.focus?.();
+                      }
+                    }}
                     onSubmitEditing={submit} editable={!locked} autoCapitalize="none" autoCorrect={false}
-                    placeholder={`${(w.pinyin.split(' ')[i] || '').length}`} placeholderTextColor="#c4c4c4"
+                    placeholder={`${normalizePinyin(w.pinyin.split(' ')[i] || '').length}`} placeholderTextColor="#c4c4c4"
                     style={syllableStyle(second)}
                   />
                 ))
