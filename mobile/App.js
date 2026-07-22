@@ -3,8 +3,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial } from './src/api';
+import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken } from './src/api';
 import { configurePurchases } from './src/purchases';
+import { registerForPush, configureNotificationHandler } from './src/push';
 import { LangContext, makeT } from './src/i18n';
 import Header from './src/components/Header';
 import TabBar from './src/components/TabBar';
@@ -68,6 +69,8 @@ export default function App() {
       const me = await getMe();
       setProfile(me);
       configurePurchases(me.id); // lie les achats in-app (RevenueCat) au compte
+      // Enregistre le token de push natif (no-op sur web / build sans le module).
+      registerForPush().then((tok) => { if (tok) savePushToken(tok).catch(() => {}); }).catch(() => {});
       if (route) {
         if (!me.onboarding_done) setFlow('onboarding');
         else if (!me.has_seen_tutorial) setFlow(me.role === 'teacher' ? 'teacher-tutorial' : 'tutorial');
@@ -106,6 +109,8 @@ export default function App() {
       window.history.replaceState({}, '', '/');
     }
   }
+
+  useEffect(() => { configureNotificationHandler(); }, []);
 
   useEffect(() => {
     getToken().then((t) => {

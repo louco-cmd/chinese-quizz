@@ -343,6 +343,11 @@ export function refreshSubscription() {
   return request('/api/m/subscription/refresh', { method: 'POST' });
 }
 
+// Enregistre le token Expo Push de l'appareil pour les notifications natives.
+export function savePushToken(token) {
+  return request('/api/m/push-token', { method: 'POST', body: { token } });
+}
+
 export function getQuizWords(count = 10) {
   return request(`/api/m/quiz?count=${count}`);
 }

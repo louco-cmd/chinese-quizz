@@ -10,6 +10,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { pool } = require('../config/database');
 const { generateDuelQuiz, addTransaction, updateWordScore } = require('../middleware/index');
+const { sendExpoPush } = require('../middleware/push.service');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const router = express.Router();
@@ -1381,7 +1382,22 @@ async function notify(userId, type, title, body = null, data = null) {
       `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1, $2, $3, $4, $5)`,
       [userId, type, title, body, data ? JSON.stringify(data) : null]);
   } catch (e) { console.error('notify error:', e.message); }
+  // Push natif (Expo) — fire-and-forget, gated par le token + le réglage user.
+  sendExpoPush(userId, { title, body: body || '', data: { type, ...(data || {}) } }).catch(() => {});
 }
+
+// ── POST /api/m/push-token : enregistre le token Expo Push de l'appareil ─────
+router.post('/api/m/push-token', requireToken, async (req, res) => {
+  try {
+    const token = String(req.body?.token || '').trim();
+    if (!token) return res.status(400).json({ error: 'Missing token' });
+    await pool.query('UPDATE users SET expo_push_token = $1 WHERE id = $2', [token, req.tokenUser.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('m/push-token error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // ── GET /api/m/notifications : liste récente + nombre de non-lues ─────────────
 router.get('/api/m/notifications', requireToken, async (req, res) => {

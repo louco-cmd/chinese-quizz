@@ -370,6 +370,8 @@ const pool = new Pool({
     // Abonnement premium via RevenueCat (Play Billing / StoreKit) — piloté par webhook.
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS rc_expires_at TIMESTAMP`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS rc_will_renew BOOLEAN`);
+    // Token Expo Push (notifications natives Android/iOS).
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS expo_push_token TEXT`);
     console.log("✅ Table 'notifications' + reengage_emailed_at vérifiées.");
 
     // Index de perf sur les tables chaudes filtrées par user (page account, profil,

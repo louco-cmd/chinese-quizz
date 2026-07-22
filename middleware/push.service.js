@@ -75,4 +75,43 @@ async function sendPushToUser(userId, payload) {
   }
 }
 
-module.exports = { initVapid, sendPushToUser };
+/**
+ * Envoie une notification push NATIVE (app Expo) via l'API Expo Push.
+ * Lit le token Expo + le réglage notifications de l'utilisateur.
+ * @param {number} userId
+ * @param {object} payload - { title, body, data }
+ */
+async function sendExpoPush(userId, payload) {
+  let u;
+  try {
+    const { rows } = await pool.query(
+      'SELECT expo_push_token, notifications_enabled FROM users WHERE id = $1', [userId]);
+    u = rows[0];
+  } catch (e) {
+    console.error('[ExpoPush] lecture user :', e.message);
+    return;
+  }
+  if (!u || !u.expo_push_token) return;                 // pas d'appareil natif enregistré
+  if (u.notifications_enabled === false) return;        // désactivé par l'utilisateur
+  if (typeof fetch !== 'function') return;              // Node < 18 : pas de fetch global
+
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        to: u.expo_push_token,
+        title: payload.title || 'Jiayou',
+        body: payload.body || '',
+        data: payload.data || {},
+        sound: 'default',
+        channelId: 'default',
+        priority: 'high',
+      }),
+    });
+  } catch (e) {
+    console.error('[ExpoPush] envoi :', e.message);
+  }
+}
+
+module.exports = { initVapid, sendPushToUser, sendExpoPush };
