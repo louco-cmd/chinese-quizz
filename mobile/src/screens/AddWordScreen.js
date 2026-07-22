@@ -183,11 +183,16 @@ export default function AddWordScreen() {
   const popupW = Math.min(560, screenW - 40);
   const sidePad = Math.max(16, (popupW - CARD_W) / 2);
 
+  // Tap hors de la barre → blur. Uniquement en natif : sur web, le navigateur
+  // gère déjà le blur au clic extérieur, et un Pressable capterait le focus
+  // (clic = focus puis dismiss immédiat → champ impossible à sélectionner).
+  const DismissArea = Platform.OS === 'web' ? View : Pressable;
+  const dismissProps = Platform.OS === 'web' ? {} : { onPress: () => Keyboard.dismiss() };
+
   return (
     <LinearGradient colors={['#0d6efd', '#0dcaf0']} style={{ flex: 1 }}>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        {/* Tap hors de la barre → on désélectionne (blur) et l'UI revient au repos. */}
-        <Pressable onPress={() => Keyboard.dismiss()} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 }}>
+        <DismissArea {...dismissProps} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 }}>
           <Animated.Text
             style={{
               fontSize: 72, fontWeight: '800', color: '#fff', marginBottom: 28,
@@ -245,7 +250,7 @@ export default function AddWordScreen() {
           </View>
 
           {error ? <Text style={{ color: '#fff', marginTop: 14, fontWeight: '600' }}>{error}</Text> : null}
-        </Pressable>
+        </DismissArea>
       </KeyboardAvoidingView>
 
       {/* ── Popup résultats : carrousel ancré (snap + fondu au blanc) ── */}
