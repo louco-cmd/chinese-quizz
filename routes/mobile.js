@@ -2283,7 +2283,8 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
   const userId = req.tokenUser.id;
   const requestedCount = parseInt(req.query.count, 10) || 10;
   const hskParam = req.query.hsk || 'all';
-  const difficulty = req.query.difficulty || 'balanced';
+  // Niveaux de maîtrise sélectionnés (mêmes buckets que le filtre collection).
+  const levelsParam = req.query.levels || '';
   const idsParam = req.query.ids; // liste explicite (quick quiz sur "Your difficulties")
   const packId = parseInt(req.query.packId, 10) || null; // entraînement sur un pack
 
@@ -2331,36 +2332,29 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
         if (lvl >= 1 && lvl <= 6) hskMin = hskMax = lvl;
       }
     }
-    const buildHsk = (startIdx) => {
-      const conds = [], params = []; let idx = startIdx;
-      if (hskMin !== null && hskMax !== null) { conds.push(`m.hsk BETWEEN $${idx} AND $${idx + 1}`); params.push(hskMin, hskMax); idx += 2; }
-      if (includeStreet) conds.push('m.hsk IS NULL');
-      return { conds, params };
-    };
+    // 2. Plages de score des niveaux de maîtrise sélectionnés (union). Aucun
+    //    sélectionné → tous. Mêmes seuils que scorePicto / le filtre collection.
+    const LEVEL_RANGES = { trophy: [90, 100], cool: [75, 89], ok: [50, 74], meh: [25, 49], seed: [0, 24] };
+    const selectedLevels = String(levelsParam).split(',').map((s) => s.trim()).filter((k) => LEVEL_RANGES[k]);
+    const ranges = selectedLevels.length ? selectedLevels.map((k) => LEVEL_RANGES[k]) : [[0, 100]];
 
-    // 2. Plages de score par difficulté (essai du plus strict au plus large)
-    const ranges = {
-      discovery: [[0, 29], [0, 49], [0, 69], [0, 100]],
-      balanced: [[30, 80], [15, 90], [5, 95], [0, 100]],
-      revision: [[80, 100], [60, 100], [40, 100], [0, 100]],
-    }[difficulty] || [[0, 100]];
-
-    // 3. Élargissement progressif : on garde le plus grand pool trouvé
-    let words = [];
-    for (const [sMin, sMax] of ranges) {
-      const { conds, params } = buildHsk(4);
-      let q = `
-        SELECT m.id, m.chinese, m.pinyin, m.english, m.hsk, COALESCE(um.score, 0) AS score
-        FROM user_mots um INNER JOIN mots m ON um.mot_id = m.id
-        WHERE um.user_id = $1 AND COALESCE(um.score, 0) BETWEEN $2 AND $3`;
-      const qp = [userId, sMin, sMax];
-      if (conds.length) { q += ` AND (${conds.join(' OR ')})`; qp.push(...params); }
-      q += ` ORDER BY RANDOM() LIMIT $${qp.length + 1}`;
-      qp.push(requestedCount);
-      const { rows } = await pool.query(q, qp);
-      if (rows.length > words.length) words = rows;
-      if (words.length >= requestedCount) break;
-    }
+    // 3. Une seule requête : mots dans l'union des plages de score + filtre HSK.
+    const params = [userId];
+    const scoreParts = ranges.map(([a, b]) => {
+      params.push(a, b);
+      return `COALESCE(um.score, 0) BETWEEN $${params.length - 1} AND $${params.length}`;
+    });
+    let q = `
+      SELECT m.id, m.chinese, m.pinyin, m.english, m.hsk, COALESCE(um.score, 0) AS score
+      FROM user_mots um INNER JOIN mots m ON um.mot_id = m.id
+      WHERE um.user_id = $1 AND (${scoreParts.join(' OR ')})`;
+    const hskConds = [];
+    if (hskMin !== null && hskMax !== null) { params.push(hskMin, hskMax); hskConds.push(`m.hsk BETWEEN $${params.length - 1} AND $${params.length}`); }
+    if (includeStreet) hskConds.push('m.hsk IS NULL');
+    if (hskConds.length) q += ` AND (${hskConds.join(' OR ')})`;
+    params.push(requestedCount);
+    q += ` ORDER BY RANDOM() LIMIT $${params.length}`;
+    const { rows: words } = await pool.query(q, params);
 
     if (!words.length) {
       return res.status(400).json({ error: 'not_enough_words', message: 'Not enough words in your collection for these settings.' });

@@ -13,10 +13,13 @@ const WORD_COUNTS = [
   { value: 30, sub: 'serious' },
   { value: 100, sub: 'crazy' },
 ];
-const DIFFICULTIES = [
-  { value: 'revision', title: 'Revision', sub: 'Known (blue)' },
-  { value: 'balanced', title: 'Balanced', sub: 'Learning (yellow)' },
-  { value: 'discovery', title: 'Discovery', sub: 'Unknown (grey)' },
+// Niveaux de maîtrise (mêmes buckets/icônes que le filtre de la collection).
+const KNOWLEDGE = [
+  { key: 'trophy', emoji: '🏆', label: 'Mastered' },
+  { key: 'cool', emoji: '😎', label: 'Strong' },
+  { key: 'ok', emoji: '🙂', label: 'Okay' },
+  { key: 'meh', emoji: '😐', label: 'Weak' },
+  { key: 'seed', emoji: '🌱', label: 'New' },
 ];
 
 function SectionLabel({ children }) {
@@ -30,17 +33,19 @@ function SectionLabel({ children }) {
 // Popup de réglages du quiz.
 //  scope  : 'collection' (HSK + difficulté) | 'pack' (mots d'un pack)
 //  showMode : afficher le toggle Pinyin/Characters (faux en zh→en)
-//  onStart({ type, count[, hsk, difficulty] })
+//  onStart({ type, count[, hsk, levels] })
 export default function QuizSettingsPopup({ visible, scope = 'collection', packLabel, showMode = true, onClose, onStart }) {
   const [type, setType] = useState('pinyin');
   const [hskMin, setHskMin] = useState(1);
   const [hskMax, setHskMax] = useState(7);
   const [count, setCount] = useState(20);
-  const [difficulty, setDifficulty] = useState('balanced');
+  const [levels, setLevels] = useState([]); // niveaux de maîtrise (multi-select ; vide = tous)
 
   useEffect(() => {
-    if (visible) { setType('pinyin'); setHskMin(1); setHskMax(7); setCount(20); setDifficulty('balanced'); }
+    if (visible) { setType('pinyin'); setHskMin(1); setHskMax(7); setCount(20); setLevels([]); }
   }, [visible]);
+
+  const toggleLevel = (k) => setLevels((a) => (a.includes(k) ? a.filter((x) => x !== k) : [...a, k]));
 
   function tapLevel(v) {
     if (v < hskMin) setHskMin(v);
@@ -58,7 +63,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
   function start() {
     if (scope === 'pack') { onStart({ type, count }); return; }
     const hsk = isAll ? 'all' : `${hskMin}-${hskMax}`;
-    onStart({ type, count, hsk, difficulty });
+    onStart({ type, count, hsk, levels });
   }
 
   return (
@@ -132,18 +137,21 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
         })}
       </View>
 
-      {/* Difficulty — collection uniquement */}
+      {/* Niveaux de maîtrise — collection uniquement (multi-select ; vide = tous) */}
       {scope === 'collection' ? (
         <>
-          <SectionLabel>DIFFICULTY</SectionLabel>
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 22 }}>
-            {DIFFICULTIES.map((d) => {
-              const active = d.value === difficulty;
+          <SectionLabel>KNOWLEDGE</SectionLabel>
+          <Text style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
+            {levels.length ? `${levels.length} level${levels.length > 1 ? 's' : ''} selected` : 'All levels'}
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 22 }}>
+            {KNOWLEDGE.map((b) => {
+              const on = levels.includes(b.key);
               return (
-                <Pressable key={d.value} onPress={() => setDifficulty(d.value)}
-                  style={{ flex: 1, borderRadius: 999, borderWidth: 2, paddingVertical: 10, paddingHorizontal: 4, alignItems: 'center', borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
-                  <Text style={{ fontWeight: '700', fontSize: 14, color: active ? COLORS.jiayou : '#1a1a2e' }}>{d.title}</Text>
-                  <Text style={{ fontSize: 10, color: '#888', marginTop: 2, textAlign: 'center' }}>{d.sub}</Text>
+                <Pressable key={b.key} onPress={() => toggleLevel(b.key)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1.5, borderColor: on ? COLORS.jiayou : '#e0e0e0', backgroundColor: on ? '#e8f0ff' : '#fff' }}>
+                  <Text style={{ fontSize: 15 }}>{b.emoji}</Text>
+                  <Text style={{ color: on ? COLORS.jiayou : '#1a1a2e', fontWeight: on ? '700' : '500', fontSize: 13.5 }}>{b.label}</Text>
                 </Pressable>
               );
             })}

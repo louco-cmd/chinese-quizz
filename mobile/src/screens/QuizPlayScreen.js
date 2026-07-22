@@ -18,17 +18,17 @@ function parseAnswers(str) {
     .filter((s, i, arr) => s.length > 0 && arr.indexOf(s) === i);
 }
 
-const infoLabel = (hsk, difficulty) => {
+const infoLabel = (hsk, levels) => {
   let h;
   if (!hsk || hsk === 'all') h = 'all HSK';
   else if (hsk.includes('-')) { const [a, b] = hsk.split('-'); h = b === '7' ? `HSK ${a}–6 + Street` : `HSK ${a}–${b}`; }
   else h = `HSK ${hsk}`;
-  const d = { revision: 'Review', discovery: 'Discovery', balanced: 'Balanced' }[difficulty] || 'Balanced';
-  return `${h} • ${d}`;
+  const n = (levels || []).length;
+  return n ? `${h} • ${n} level${n > 1 ? 's' : ''}` : `${h} • all levels`;
 };
 
 export default function QuizPlayScreen({ config, onExit }) {
-  const { type, count, hsk, difficulty, ids, packId, lessonId, title } = config;
+  const { type, count, hsk, levels, ids, packId, lessonId, title } = config;
   const [direction, setDirection] = useState('en→zh');
   const [words, setWords] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,7 +51,7 @@ export default function QuizPlayScreen({ config, onExit }) {
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const [me, d] = await Promise.all([getMe().catch(() => ({})), getQuizPlayWords({ type, count, hsk, difficulty, ids, packId })]);
+      const [me, d] = await Promise.all([getMe().catch(() => ({})), getQuizPlayWords({ type, count, hsk, levels, ids, packId })]);
       if (me.quiz_direction) setDirection(me.quiz_direction);
       const ws = d.words || [];
       if (!ws.length) { setError('Not enough words in your collection for these settings.'); setWords(null); return; }
@@ -63,7 +63,7 @@ export default function QuizPlayScreen({ config, onExit }) {
     } finally {
       setLoading(false);
     }
-  }, [type, count, hsk, difficulty]);
+  }, [type, count, hsk, levels]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -299,7 +299,7 @@ export default function QuizPlayScreen({ config, onExit }) {
           <View style={{ alignItems: 'center', marginTop: 18 }}>
             <Text style={{ fontWeight: '700', fontSize: 16, color: '#1a1a2e' }}>✅ {correctCount}  |  ❌ {wrongCount}</Text>
             <Text style={{ color: COLORS.muted, marginTop: 4 }}>Question {idx + 1}/{words.length}</Text>
-            <Text style={{ color: '#adb5bd', fontSize: 12, marginTop: 4 }}>{packId ? (title || 'Pack') : lessonId ? (title || 'Lesson') : ids ? 'Your difficulties' : infoLabel(hsk, difficulty)}</Text>
+            <Text style={{ color: '#adb5bd', fontSize: 12, marginTop: 4 }}>{packId ? (title || 'Pack') : lessonId ? (title || 'Lesson') : ids ? 'Your difficulties' : infoLabel(hsk, levels)}</Text>
           </View>
         </View>
       </ScrollView>

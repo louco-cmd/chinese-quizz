@@ -349,14 +349,15 @@ export function getQuizWords(count = 10) {
 
 // Mots d'un quiz scoré : filtrés par type/nombre/HSK/difficulté, ou liste `ids`
 // explicite (quick quiz sur les mots difficiles).
-export function getQuizPlayWords({ type = 'pinyin', count = 20, hsk = 'all', difficulty = 'balanced', ids, packId }) {
+export function getQuizPlayWords({ type = 'pinyin', count = 20, hsk = 'all', levels = [], ids, packId }) {
   if (ids && ids.length) {
     return request(`/api/m/quiz/words?type=${encodeURIComponent(type)}&ids=${encodeURIComponent(ids.join(','))}`);
   }
   if (packId) {
     return request(`/api/m/quiz/words?type=${encodeURIComponent(type)}&count=${count}&packId=${packId}`);
   }
-  const qs = `type=${encodeURIComponent(type)}&count=${count}&hsk=${encodeURIComponent(hsk)}&difficulty=${encodeURIComponent(difficulty)}`;
+  const lv = (levels || []).length ? `&levels=${encodeURIComponent(levels.join(','))}` : '';
+  const qs = `type=${encodeURIComponent(type)}&count=${count}&hsk=${encodeURIComponent(hsk)}${lv}`;
   return request(`/api/m/quiz/words?${qs}`);
 }
 
