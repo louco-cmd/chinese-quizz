@@ -87,7 +87,7 @@ export default function SupportScreen({ onBack }) {
             <Text style={{ fontSize: 13, color: COLORS.muted, textAlign: 'center', marginTop: 6, marginBottom: 16 }}>
               Can't find what you're looking for? Send us a message and we'll get back to you.
             </Text>
-            <Pressable onPress={() => Linking.openURL('mailto:info@jiayou.fr')} style={{ backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Pressable onPress={() => Linking.openURL('mailto:info@jiayou.fr')} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Ionicons name="mail" size={16} color="#fff" />
               <Text style={{ color: '#fff', fontWeight: '700' }}>Contact support</Text>
             </Pressable>

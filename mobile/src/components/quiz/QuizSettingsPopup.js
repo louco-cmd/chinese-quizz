@@ -86,7 +86,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
               const active = type === m.value;
               return (
                 <Pressable key={m.value} onPress={() => setType(m.value)}
-                  style={{ flex: 1, borderRadius: 12, borderWidth: 2, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
+                  style={{ flex: 1, borderRadius: 999, borderWidth: 2, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
                   <Ionicons name={m.icon} size={16} color={active ? COLORS.jiayou : '#888'} />
                   <Text style={{ fontWeight: '700', fontSize: 15, color: active ? COLORS.jiayou : '#1a1a2e' }}>{m.title}</Text>
                 </Pressable>
@@ -124,7 +124,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
           const active = w.value === count;
           return (
             <Pressable key={w.value} onPress={() => setCount(w.value)}
-              style={{ flex: 1, borderRadius: 12, borderWidth: 2, paddingVertical: 10, alignItems: 'center', borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
+              style={{ flex: 1, borderRadius: 999, borderWidth: 2, paddingVertical: 10, alignItems: 'center', borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
               <Text style={{ fontWeight: '700', fontSize: 20, color: active ? COLORS.jiayou : '#1a1a2e' }}>{w.value}</Text>
               <Text style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{w.sub}</Text>
             </Pressable>
@@ -141,7 +141,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
               const active = d.value === difficulty;
               return (
                 <Pressable key={d.value} onPress={() => setDifficulty(d.value)}
-                  style={{ flex: 1, borderRadius: 12, borderWidth: 2, paddingVertical: 10, paddingHorizontal: 4, alignItems: 'center', borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
+                  style={{ flex: 1, borderRadius: 999, borderWidth: 2, paddingVertical: 10, paddingHorizontal: 4, alignItems: 'center', borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
                   <Text style={{ fontWeight: '700', fontSize: 14, color: active ? COLORS.jiayou : '#1a1a2e' }}>{d.title}</Text>
                   <Text style={{ fontSize: 10, color: '#888', marginTop: 2, textAlign: 'center' }}>{d.sub}</Text>
                 </Pressable>
@@ -152,10 +152,10 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
       ) : <View style={{ height: 2 }} />}
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}>
+        <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
           <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
         </Pressable>
-        <Pressable onPress={start} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 14, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+        <Pressable onPress={start} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
           <Ionicons name="rocket" size={16} color="#fff" />
           <Text style={{ color: '#fff', fontWeight: '700' }}>Start quiz</Text>
         </Pressable>

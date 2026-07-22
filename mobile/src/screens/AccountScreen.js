@@ -190,10 +190,10 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
           You'll be removed from this teacher's classes and tasks. You can rejoin later with the class code.
         </Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setLeaving(null)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+          <Pressable onPress={() => setLeaving(null)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
             <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
           </Pressable>
-          <Pressable onPress={confirmLeave} disabled={leaveBusy} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+          <Pressable onPress={confirmLeave} disabled={leaveBusy} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
             {leaveBusy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Leave</Text>}
           </Pressable>
         </View>

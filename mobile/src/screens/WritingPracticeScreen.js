@@ -120,11 +120,11 @@ export default function WritingPracticeScreen({ onBack }) {
           </View>
         ) : (
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-            <Pressable onPress={() => setHintNonce((n) => n + 1)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 18 }}>
+            <Pressable onPress={() => setHintNonce((n) => n + 1)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 18 }}>
               <Ionicons name="eye-outline" size={17} color={COLORS.jiayou} />
               <Text style={{ color: COLORS.jiayou, fontWeight: '700' }}>Show me</Text>
             </Pressable>
-            <Pressable onPress={next} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 18, backgroundColor: '#eef0f4' }}>
+            <Pressable onPress={next} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 18, backgroundColor: '#eef0f4' }}>
               <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Skip</Text>
               <Ionicons name="arrow-forward" size={16} color={COLORS.muted} />
             </Pressable>

@@ -173,7 +173,7 @@ export default function QuizScreen({ onOpenStore, initialPack, onInitialConsumed
         {/* Lien vers le store */}
         <Pressable
           onPress={() => { setPacksOpen(false); onOpenStore?.(); }}
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16, paddingVertical: 13, borderRadius: 12, borderWidth: 1.5, borderColor: '#e0d3f2', backgroundColor: '#faf7ff' }}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16, paddingVertical: 13, borderRadius: 999, borderWidth: 1.5, borderColor: '#e0d3f2', backgroundColor: '#faf7ff' }}
         >
           <Ionicons name="storefront" size={16} color="#7828a7" />
           <Text style={{ color: '#7828a7', fontWeight: '700' }}>Get new packs</Text>

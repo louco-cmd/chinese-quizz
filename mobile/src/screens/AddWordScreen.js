@@ -404,14 +404,14 @@ export default function AddWordScreen() {
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
               <Pressable
                 onPress={() => setEditor(null)}
-                style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+                style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}
               >
                 <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={saveNewWord}
                 disabled={saving}
-                style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+                style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}
               >
                 {saving
                   ? <ActivityIndicator color="#fff" size="small" />
@@ -482,11 +482,11 @@ function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit }) {
 
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 16, width: '100%' }}>
         {owned ? (
-          <View style={{ flex: 1, backgroundColor: '#d4edda', borderRadius: 11, paddingVertical: 9, alignItems: 'center' }}>
+          <View style={{ flex: 1, backgroundColor: '#d4edda', borderRadius: 999, paddingVertical: 9, alignItems: 'center' }}>
             <Text style={{ color: '#198754', fontWeight: '700', fontSize: 13 }}>✓ Captured</Text>
           </View>
         ) : (
-          <Pressable onPress={onCapture} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 11, paddingVertical: 9, alignItems: 'center' }}>
+          <Pressable onPress={onCapture} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 9, alignItems: 'center' }}>
             {capturing
               ? <ActivityIndicator color="#fff" size="small" />
               : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Capture</Text>}

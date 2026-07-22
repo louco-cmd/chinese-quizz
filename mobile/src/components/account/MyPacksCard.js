@@ -77,10 +77,10 @@ export default function MyPacksCard({ onNavigate }) {
             </Text>
             {error ? <Text style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12, fontWeight: '600' }}>{error}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Pressable onPress={() => setConfirmDel(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+              <Pressable onPress={() => setConfirmDel(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
                 <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
               </Pressable>
-              <Pressable onPress={remove} disabled={busy} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+              <Pressable onPress={remove} disabled={busy} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
                 {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Delete</Text>}
               </Pressable>
             </View>
@@ -97,11 +97,11 @@ export default function MyPacksCard({ onNavigate }) {
             <Text style={{ fontSize: 12, color: COLORS.mutedLight, marginBottom: 16 }}>Words aren't editable — delete and recreate to change them.</Text>
             {error ? <Text style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12, fontWeight: '600' }}>{error}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <Pressable onPress={() => setConfirmDel(true)} style={{ paddingVertical: 13, paddingHorizontal: 14, borderRadius: 12, borderWidth: 2, borderColor: '#f3d0d0', alignItems: 'center', flexDirection: 'row', gap: 6 }}>
+              <Pressable onPress={() => setConfirmDel(true)} style={{ paddingVertical: 13, paddingHorizontal: 14, borderRadius: 999, borderWidth: 2, borderColor: '#f3d0d0', alignItems: 'center', flexDirection: 'row', gap: 6 }}>
                 <Ionicons name="trash" size={16} color={COLORS.danger} />
                 <Text style={{ color: COLORS.danger, fontWeight: '700' }}>Delete</Text>
               </Pressable>
-              <Pressable onPress={save} disabled={busy || !form.title.trim()} style={{ flex: 1, backgroundColor: form.title.trim() ? COLORS.jiayou : '#e9ecef', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+              <Pressable onPress={save} disabled={busy || !form.title.trim()} style={{ flex: 1, backgroundColor: form.title.trim() ? COLORS.jiayou : '#e9ecef', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
                 {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: form.title.trim() ? '#fff' : COLORS.muted, fontWeight: '700' }}>Save</Text>}
               </Pressable>
             </View>

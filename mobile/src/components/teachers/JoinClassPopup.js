@@ -43,7 +43,7 @@ export default function JoinClassPopup({ visible, onClose, onJoined }) {
           <Text style={{ textAlign: 'center', color: COLORS.success, fontWeight: '600', marginVertical: 16 }}>
             ✓ You joined {done}!
           </Text>
-          <Pressable onPress={onClose} style={{ backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+          <Pressable onPress={onClose} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
             <Text style={{ color: '#fff', fontWeight: '700' }}>Done</Text>
           </Pressable>
         </>
@@ -63,10 +63,10 @@ export default function JoinClassPopup({ visible, onClose, onJoined }) {
           />
           {error ? <Text style={{ color: COLORS.danger, fontSize: 13, marginBottom: 10, fontWeight: '600', textAlign: 'center' }}>{error}</Text> : null}
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+            <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
               <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
             </Pressable>
-            <Pressable onPress={submit} disabled={loading} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+            <Pressable onPress={submit} disabled={loading} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
               {loading ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Join</Text>}
             </Pressable>
           </View>

@@ -111,7 +111,7 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
           <Pressable
             onPress={runPreview}
             disabled={busy || !text.trim()}
-            style={{ marginTop: 16, borderRadius: 14, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: text.trim() ? COLORS.jiayou : '#e9ecef' }}
+            style={{ marginTop: 16, borderRadius: 999, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: text.trim() ? COLORS.jiayou : '#e9ecef' }}
           >
             {busy ? <ActivityIndicator color="#fff" /> : (
               <>
@@ -234,7 +234,7 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
         <Pressable
           onPress={runCommit}
           disabled={busy || !importable.length}
-          style={{ borderRadius: 10, paddingVertical: 11, paddingHorizontal: 28, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 7, backgroundColor: importable.length ? COLORS.jiayou : '#e9ecef' }}
+          style={{ borderRadius: 999, paddingVertical: 11, paddingHorizontal: 28, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 7, backgroundColor: importable.length ? COLORS.jiayou : '#e9ecef' }}
         >
           {busy ? <ActivityIndicator color="#fff" size="small" /> : (
             <>

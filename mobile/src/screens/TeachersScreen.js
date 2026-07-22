@@ -136,10 +136,10 @@ export default function TeachersScreen({ onBack }) {
           </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setShowInvite(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+          <Pressable onPress={() => setShowInvite(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
             <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Close</Text>
           </Pressable>
-          <Pressable onPress={copyInvite} disabled={!inviteLink} style={{ flex: 1, backgroundColor: copied ? COLORS.success : COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: inviteLink ? 1 : 0.6 }}>
+          <Pressable onPress={copyInvite} disabled={!inviteLink} style={{ flex: 1, backgroundColor: copied ? COLORS.success : COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: inviteLink ? 1 : 0.6 }}>
             <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color="#fff" />
             <Text style={{ color: '#fff', fontWeight: '700' }}>{copied ? 'Copied!' : 'Copy my link'}</Text>
           </Pressable>

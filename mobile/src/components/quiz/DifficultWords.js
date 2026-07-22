@@ -97,7 +97,7 @@ export default function DifficultWords({ onQuickQuiz }) {
 
           <Pressable
             onPress={() => onQuickQuiz(words.map((w) => w.id).filter(Boolean))}
-            style={{ alignSelf: 'center', marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#6c757d', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 18 }}
+            style={{ alignSelf: 'center', marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#6c757d', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 18 }}
           >
             <Ionicons name="flash" size={15} color="#fff" />
             <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Start a quick quiz on these words</Text>

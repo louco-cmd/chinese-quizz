@@ -254,7 +254,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
               )}
             </View>
             <Pressable onPress={submit} disabled={locked}
-              style={{ backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: locked ? 0.6 : 1 }}>
+              style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: locked ? 0.6 : 1 }}>
               <Ionicons name="send" size={16} color="#fff" />
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Submit</Text>
             </Pressable>
@@ -274,10 +274,10 @@ export default function DuelPlayScreen({ duelId, onExit }) {
           To keep things fair, your current score {correctCount}/{words.length} will be submitted as your final score. You can't retry.
         </Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setShowLeave(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+          <Pressable onPress={() => setShowLeave(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
             <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Keep playing</Text>
           </Pressable>
-          <Pressable onPress={confirmLeave} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+          <Pressable onPress={confirmLeave} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
             <Text style={{ color: '#fff', fontWeight: '700' }}>Leave & submit</Text>
           </Pressable>
         </View>

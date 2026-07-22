@@ -197,10 +197,10 @@ export default function QuizPlayScreen({ config, onExit }) {
               </View>
             )}
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 24, width: '100%' }}>
-              <Pressable onPress={onExit} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+              <Pressable onPress={onExit} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
                 <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Back</Text>
               </Pressable>
-              <Pressable onPress={restart} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+              <Pressable onPress={restart} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
                 <Text style={{ color: '#fff', fontWeight: '700' }}>New quiz</Text>
               </Pressable>
             </View>
@@ -288,7 +288,7 @@ export default function QuizPlayScreen({ config, onExit }) {
             <Pressable
               onPress={submit}
               disabled={locked}
-              style={{ backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: locked ? 0.6 : 1 }}
+              style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: locked ? 0.6 : 1 }}
             >
               <Ionicons name="send" size={16} color="#fff" />
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Submit</Text>

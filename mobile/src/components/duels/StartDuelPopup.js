@@ -199,10 +199,10 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
       {error ? <Text style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12, fontWeight: '600' }}>{error}</Text> : null}
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+        <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
           <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
         </Pressable>
-        <Pressable onPress={create} disabled={creating} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+        <Pressable onPress={create} disabled={creating} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
           {creating ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Create duel</Text>}
         </Pressable>
       </View>

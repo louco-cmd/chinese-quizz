@@ -101,7 +101,7 @@ export default function CoursePage({ lessonId, onBack }) {
             <Pressable
               onPress={practice}
               disabled={starting}
-              style={{ backgroundColor: COLORS.jiayou, borderRadius: 14, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+              style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
             >
               {starting ? <ActivityIndicator color="#fff" /> : (
                 <>

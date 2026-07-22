@@ -168,7 +168,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
               <Pressable
                 onPress={onPremiumPress}
                 disabled={portalBusy}
-                style={{ marginTop: 18, borderRadius: 12, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: COLORS.jiayou, opacity: portalBusy ? 0.7 : 1 }}
+                style={{ marginTop: 18, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: COLORS.jiayou, opacity: portalBusy ? 0.7 : 1 }}
               >
                 {portalBusy ? <ActivityIndicator color="#fff" size="small" /> : (
                   <>
@@ -210,7 +210,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
             </View>
             <View style={{ padding: 18 }}>
               {FREE_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === FREE_FEATURES.length - 1} />)}
-              <View style={{ marginTop: 18, borderRadius: 12, paddingVertical: 13, alignItems: 'center', backgroundColor: '#f1f3f5' }}>
+              <View style={{ marginTop: 18, borderRadius: 999, paddingVertical: 13, alignItems: 'center', backgroundColor: '#f1f3f5' }}>
                 <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{isPremium ? 'Free plan' : 'Your current plan'}</Text>
               </View>
             </View>

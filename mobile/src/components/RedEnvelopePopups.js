@@ -114,7 +114,7 @@ export function SendRedEnvelopePopup({ visible, onClose, balance, onSent }) {
           {error ? <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '600', marginBottom: 10 }}>{error}</Text> : null}
 
           <Pressable onPress={send} disabled={!canSend}
-            style={{ borderRadius: 14, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: canSend ? RED : '#e9ecef' }}>
+            style={{ borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: canSend ? RED : '#e9ecef' }}>
             {sending ? <ActivityIndicator color="#fff" /> : (
               <>
                 <Ionicons name="gift" size={16} color={canSend ? '#fff' : COLORS.muted} />
@@ -159,7 +159,7 @@ export function RedEnvelopeReceivedPopup({ visible, envelopes = [], onClose }) {
           <Text style={{ color: '#ffe08a', fontSize: 22, fontWeight: '700', marginLeft: 4, marginBottom: 3 }}>₵</Text>
         </View>
       </LinearGradient>
-      <Pressable onPress={onClose} style={{ marginTop: 16, backgroundColor: RED, borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}>
+      <Pressable onPress={onClose} style={{ marginTop: 16, backgroundColor: RED, borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Awesome! 🎉</Text>
       </Pressable>
     </Popup>

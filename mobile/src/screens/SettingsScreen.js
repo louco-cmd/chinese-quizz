@@ -173,10 +173,10 @@ export default function SettingsScreen({ onLogout, onOpen }) {
         </Text>
         {error ? <Text style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12, fontWeight: '600' }}>{error}</Text> : null}
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setConfirmDelete(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+          <Pressable onPress={() => setConfirmDelete(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
             <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
           </Pressable>
-          <Pressable onPress={doDelete} disabled={deleting} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+          <Pressable onPress={doDelete} disabled={deleting} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
             {deleting ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Delete</Text>}
           </Pressable>
         </View>
@@ -189,10 +189,10 @@ export default function SettingsScreen({ onLogout, onOpen }) {
           Are you sure you want to log out?
         </Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setConfirmLogout(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+          <Pressable onPress={() => setConfirmLogout(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
             <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
           </Pressable>
-          <Pressable onPress={onLogout} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+          <Pressable onPress={onLogout} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
             <Text style={{ color: '#fff', fontWeight: '700' }}>Log out</Text>
           </Pressable>
         </View>

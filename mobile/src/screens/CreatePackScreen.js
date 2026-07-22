@@ -144,7 +144,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
         {error && !checkout ? <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '600', marginBottom: 12 }}>{error}</Text> : null}
 
         <Pressable onPress={onPublish} disabled={!canPublish}
-          style={{ borderRadius: 14, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: canPublish ? COLORS.jiayou : '#e9ecef' }}>
+          style={{ borderRadius: 999, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: canPublish ? COLORS.jiayou : '#e9ecef' }}>
           {publishing ? <ActivityIndicator color="#fff" /> : (
             <>
               <Ionicons name={isEdit ? 'save' : 'pricetag'} size={16} color={canPublish ? '#fff' : COLORS.muted} />
@@ -194,11 +194,11 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
             {error ? <Text style={{ color: COLORS.danger, fontSize: 12.5, fontWeight: '600', marginBottom: 8 }}>{error}</Text> : null}
 
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-              <Pressable onPress={() => { if (!buying) setCheckout(null); }} style={{ flex: 1, paddingVertical: 13, borderRadius: 12, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
+              <Pressable onPress={() => { if (!buying) setCheckout(null); }} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
                 <Text style={{ color: '#444', fontWeight: '700' }}>Cancel</Text>
               </Pressable>
               <Pressable onPress={confirmBuy} disabled={buying || !needsFilled || !enoughCoins}
-                style={{ flex: 1.4, paddingVertical: 13, borderRadius: 12, alignItems: 'center', backgroundColor: (needsFilled && enoughCoins && !buying) ? COLORS.jiayou : '#e9ecef' }}>
+                style={{ flex: 1.4, paddingVertical: 13, borderRadius: 999, alignItems: 'center', backgroundColor: (needsFilled && enoughCoins && !buying) ? COLORS.jiayou : '#e9ecef' }}>
                 {buying ? <ActivityIndicator color="#fff" size="small" /> : (
                   <Text style={{ color: (needsFilled && enoughCoins) ? '#fff' : COLORS.muted, fontWeight: '700' }}>
                     Buy {checkout.cost} ₵ & {isEdit ? 'update' : 'publish'}

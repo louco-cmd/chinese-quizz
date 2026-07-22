@@ -113,7 +113,7 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
               {onStartQuiz ? (
                 <Pressable
                   onPress={() => onStartQuiz(p)}
-                  style={{ backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+                  style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
                 >
                   <Ionicons name="play" size={16} color="#fff" />
                   <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Start a quiz</Text>
@@ -122,7 +122,7 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
               {p.isMine && onEditPack ? (
                 <Pressable
                   onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [] })}
-                  style={{ borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+                  style={{ borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
                 >
                   <Ionicons name="create-outline" size={16} color={COLORS.jiayou} />
                   <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>Edit pack</Text>
@@ -133,14 +133,14 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
               </Text>
             </View>
           ) : (p.word_count || 0) === 0 ? (
-            <View style={{ marginTop: 16, backgroundColor: '#e9ecef', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}>
+            <View style={{ marginTop: 16, backgroundColor: '#e9ecef', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
               <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Coming soon</Text>
             </View>
           ) : (
             <Pressable
               onPress={buy}
               disabled={buying || !canBuy}
-              style={{ marginTop: 16, borderRadius: 12, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: canBuy ? COLORS.jiayou : '#e9ecef' }}
+              style={{ marginTop: 16, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: canBuy ? COLORS.jiayou : '#e9ecef' }}
             >
               {buying ? <ActivityIndicator color="#fff" size="small" /> : (
                 <>

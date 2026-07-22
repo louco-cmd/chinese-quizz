@@ -55,7 +55,7 @@ export default function TaskQuizzes({ onStart }) {
             <Pressable
               onPress={() => practice(t)}
               disabled={busy === t.id}
-              style={{ backgroundColor: COLORS.jiayou, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, minWidth: 78, alignItems: 'center' }}
+              style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14, minWidth: 78, alignItems: 'center' }}
             >
               {busy === t.id ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Practice</Text>}
             </Pressable>

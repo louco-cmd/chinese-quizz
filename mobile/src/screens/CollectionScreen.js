@@ -223,10 +223,10 @@ export default function CollectionScreen() {
       ) : null}
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Pressable onPress={resetFilters} disabled={!activeCount} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 12, paddingVertical: 13, alignItems: 'center', opacity: activeCount ? 1 : 0.5 }}>
+        <Pressable onPress={resetFilters} disabled={!activeCount} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center', opacity: activeCount ? 1 : 0.5 }}>
           <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Reset</Text>
         </Pressable>
-        <Pressable onPress={() => setFilterOpen(false)} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}>
+        <Pressable onPress={() => setFilterOpen(false)} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
           <Text style={{ color: '#fff', fontWeight: '700' }}>Show {deck.length}</Text>
         </Pressable>
       </View>
@@ -650,10 +650,10 @@ export default function CollectionScreen() {
           </View>
         ))}
         <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-          <Pressable onPress={() => setEditing(null)} style={{ flex: 1, paddingVertical: 13, borderRadius: 14, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
+          <Pressable onPress={() => setEditing(null)} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
             <Text style={{ color: '#444', fontWeight: '600' }}>Cancel</Text>
           </Pressable>
-          <Pressable onPress={saveEdit} disabled={busy} style={{ flex: 1, paddingVertical: 13, borderRadius: 14, backgroundColor: COLORS.jiayou, alignItems: 'center' }}>
+          <Pressable onPress={saveEdit} disabled={busy} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center' }}>
             {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text>}
           </Pressable>
         </View>
@@ -666,10 +666,10 @@ export default function CollectionScreen() {
           Remove “{confirmDel?.chinese}” from your collection?
         </Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setConfirmDel(null)} style={{ flex: 1, paddingVertical: 13, borderRadius: 14, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
+          <Pressable onPress={() => setConfirmDel(null)} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
             <Text style={{ color: '#444', fontWeight: '600' }}>Cancel</Text>
           </Pressable>
-          <Pressable onPress={doDelete} disabled={busy} style={{ flex: 1, paddingVertical: 13, borderRadius: 14, backgroundColor: COLORS.danger, alignItems: 'center' }}>
+          <Pressable onPress={doDelete} disabled={busy} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, backgroundColor: COLORS.danger, alignItems: 'center' }}>
             {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Delete</Text>}
           </Pressable>
         </View>
