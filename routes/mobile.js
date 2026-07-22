@@ -366,8 +366,10 @@ router.get('/api/m/collection', requireToken, async (req, res) => {
               user_mots.score,
               ARRAY(
                 SELECT wpi.pack_id FROM word_pack_items wpi
-                JOIN pack_purchases pp ON pp.pack_id = wpi.pack_id
-                WHERE wpi.mot_id = mots.id AND pp.buyer_id = $1
+                JOIN word_packs wp ON wp.id = wpi.pack_id
+                WHERE wpi.mot_id = mots.id
+                  AND (wp.creator_id = $1
+                       OR EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wpi.pack_id AND pp.buyer_id = $1))
               ) AS pack_ids
        FROM mots
        JOIN user_mots ON mots.id = user_mots.mot_id

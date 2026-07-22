@@ -8,7 +8,7 @@ import * as Speech from 'expo-speech';
 import { Loading, ErrorRetry } from '../components/ErrorRetry';
 import Popup from '../components/Popup';
 import { COLORS, SHADOW_CARD_FLAT } from '../theme';
-import { getCollection, updateWord, deleteWord, getCharacter, getMe, getPurchasedPacks } from '../api';
+import { getCollection, updateWord, deleteWord, getCharacter, getMe, getPurchasedPacks, getMyPacks } from '../api';
 
 // Sélection de la meilleure voix par langue (qualité "Enhanced" en priorité).
 // Gratuit : utilise les voix du moteur TTS du système (Google TTS sur Android,
@@ -246,9 +246,16 @@ export default function CollectionScreen() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  // Packs achetés → alimentent le menu déroulant du filtre.
+  // Packs achetés ET créés → alimentent le menu déroulant du filtre (dédupliqués).
   useEffect(() => {
-    getPurchasedPacks().then((d) => setPurchasedPacks(d.packs || [])).catch(() => {});
+    Promise.all([
+      getMyPacks().catch(() => ({ packs: [] })),
+      getPurchasedPacks().catch(() => ({ packs: [] })),
+    ]).then(([mine, bought]) => {
+      const map = new Map();
+      for (const p of [...(mine.packs || []), ...(bought.packs || [])]) if (!map.has(p.id)) map.set(p.id, p);
+      setPurchasedPacks([...map.values()]);
+    });
   }, []);
 
   // Sens d'apprentissage : zh→en → on inverse l'affichage de la carte.
