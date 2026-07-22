@@ -18,20 +18,32 @@ function PackCard({ pack, onPress }) {
           ) : null}
         </View>
         <View style={{ padding: 11 }}>
-          <Text numberOfLines={2} style={{ fontSize: 14, fontWeight: '700', color: '#1a1a2e', minHeight: 36 }}>{pack.title}</Text>
-          <Text numberOfLines={1} style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>by {pack.creator}</Text>
+          {/* Titre */}
+          <Text numberOfLines={1} style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e' }}>{pack.title}</Text>
+          {/* Stats du pack, juste sous le titre */}
+          <Text numberOfLines={1} style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 2 }}>
+            {pack.word_count} words · {pack.sales_count || 0} bought
+          </Text>
+
           {soon ? (
             <View style={{ alignSelf: 'flex-start', backgroundColor: '#f1f3f5', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginTop: 10 }}>
               <Text style={{ fontSize: 11.5, color: COLORS.muted, fontWeight: '600' }}>Soon available</Text>
             </View>
           ) : (
             <>
-              <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 8 }}>
-                {pack.word_count} words · {pack.sales_count || 0} bought
+              {/* Début de description (2 lignes) */}
+              <Text numberOfLines={2} style={{ fontSize: 12, color: COLORS.muted, lineHeight: 16, marginTop: 7, minHeight: 32 }}>
+                {pack.description || 'No description'}
               </Text>
-              <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.jiayou, marginTop: 3 }}>
-                {pack.price === 0 ? 'Free' : `${pack.price} ₵`}
-              </Text>
+              {/* Prix ↔ créateur */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 9 }}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.jiayou }}>
+                  {pack.price === 0 ? 'Free' : `${pack.price} ₵`}
+                </Text>
+                <Text numberOfLines={1} style={{ flexShrink: 1, marginLeft: 8, fontSize: 11.5, color: COLORS.muted, textAlign: 'right' }}>
+                  by {pack.creator}
+                </Text>
+              </View>
             </>
           )}
         </View>

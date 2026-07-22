@@ -924,7 +924,7 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
       where += ` AND (wp.title ILIKE $${params.length} OR wp.description ILIKE $${params.length} OR COALESCE(u.name, wp.creator_name, '') ILIKE $${params.length})`;
     }
     const { rows } = await pool.query(
-      `SELECT wp.id, wp.title, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
+      `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
               EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1) AS owned
