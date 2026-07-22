@@ -63,9 +63,11 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
   const isAll = hskMin === 1 && hskMax === 7;
   const status = isAll
     ? 'All levels (HSK 1–6 + Street)'
-    : hskMax === 7
-      ? `HSK ${hskMin}–6 + Street`
-      : hskMin === hskMax ? `HSK ${label(hskMin)}` : `HSK ${label(hskMin)}–${label(hskMax)}`;
+    : hskMin === 7
+      ? 'Street'
+      : hskMax === 7
+        ? (hskMin === 6 ? 'HSK 6 + Street' : `HSK ${hskMin}–6 + Street`)
+        : hskMin === hskMax ? `HSK ${label(hskMin)}` : `HSK ${label(hskMin)}–${label(hskMax)}`;
 
   function start() {
     if (scope === 'pack') { onStart({ type, count }); return; }
