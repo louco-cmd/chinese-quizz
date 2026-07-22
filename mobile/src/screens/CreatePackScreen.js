@@ -102,20 +102,20 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      {/* Header façon Settings */}
-      <View style={{ paddingTop: 14, paddingHorizontal: 16, paddingBottom: 6 }}>
-        {onBack ? (
-          <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
-            <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
-            <Text style={{ color: COLORS.jiayou, fontWeight: '600' }}>Back</Text>
-          </Pressable>
-        ) : null}
-        <Text style={{ color: '#1a1a2e', fontSize: 22, fontWeight: '800' }}>{isEdit ? 'Edit pack' : 'Create a pack'}</Text>
-        <Text style={{ color: COLORS.muted, fontSize: 13, marginTop: 2 }}>{isEdit ? 'Add or remove words, update the details.' : 'Sell a set of words to the community.'}</Text>
-      </View>
-
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
       <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16, paddingBottom: 90, width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+        {/* Header : scrolle avec le reste (plus fixe en haut). */}
+        <View style={{ marginBottom: 14 }}>
+          {onBack ? (
+            <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+              <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
+              <Text style={{ color: COLORS.jiayou, fontWeight: '600' }}>Back</Text>
+            </Pressable>
+          ) : null}
+          <Text style={{ color: '#1a1a2e', fontSize: 22, fontWeight: '800' }}>{isEdit ? 'Edit pack' : 'Create a pack'}</Text>
+          <Text style={{ color: COLORS.muted, fontSize: 13, marginTop: 2 }}>{isEdit ? 'Add or remove words, update the details.' : 'Sell a set of words to the community.'}</Text>
+        </View>
+
         <Field label="Title">
           <TextInput value={title} onChangeText={setTitle} maxLength={80}
             placeholder="e.g. Café & Restaurant" placeholderTextColor={COLORS.mutedLight} style={inputStyle} />

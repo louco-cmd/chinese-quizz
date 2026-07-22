@@ -6,7 +6,7 @@ import { COLORS } from '../theme';
 // JiaStore : hero + marketplace de packs (grille + achat via PackMarket).
 export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack }) {
   const Hero = (
-    <View style={{ paddingTop: 14, paddingBottom: 8, paddingHorizontal: 16 }}>
+    <View style={{ paddingTop: 14, paddingBottom: 8 }}>
       {onBack ? (
         <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
           <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
@@ -33,8 +33,8 @@ export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack 
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      {Hero}
-      <PackMarket onStartQuiz={onStartQuiz} onEditPack={onEditPack} />
+      {/* Hero = en-tête scrollable de la grille (ne reste plus fixe en haut). */}
+      <PackMarket ListHeaderComponent={Hero} onStartQuiz={onStartQuiz} onEditPack={onEditPack} />
     </View>
   );
 }
