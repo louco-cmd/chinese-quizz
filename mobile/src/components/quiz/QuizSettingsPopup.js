@@ -129,8 +129,8 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
           </View>
           <Text style={{ fontSize: 11, color: '#888', textAlign: 'right', marginBottom: 20 }}>S = Unclassified (Street)</Text>
 
-          {/* Niveaux de maîtrise — même UI (plage de tuiles) que le HSK, juste dessous. */}
-          <SectionLabel>KNOWLEDGE</SectionLabel>
+          {/* Difficulté — même UI (plage de tuiles) que le HSK, juste dessous. */}
+          <SectionLabel>DIFFICULTY</SectionLabel>
           <Text style={{ fontSize: 14, fontWeight: '500', color: COLORS.jiayou, marginBottom: 12 }}>
             {kAll ? 'All levels' : kMin === kMax ? KNOWLEDGE[kMin].label : `${KNOWLEDGE[kMin].label} → ${KNOWLEDGE[kMax].label}`}
           </Text>
@@ -140,8 +140,8 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
               const edge = i === kMin || i === kMax;
               return (
                 <Pressable key={b.key} onPress={() => tapKnow(i)}
-                  style={{ flex: 1, aspectRatio: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? (edge ? COLORS.jiayou : '#cfe2ff') : '#f1f3f5' }}>
-                  <Text style={{ fontSize: 22, opacity: active ? 1 : 0.45 }}>{b.emoji}</Text>
+                  style={{ flex: 1, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? (edge ? COLORS.jiayou : '#cfe2ff') : '#f1f3f5' }}>
+                  <Text style={{ fontSize: 20, opacity: active ? 1 : 0.45 }}>{b.emoji}</Text>
                 </Pressable>
               );
             })}
