@@ -13,14 +13,15 @@ const WORD_COUNTS = [
   { value: 30, sub: 'serious' },
   { value: 100, sub: 'crazy' },
 ];
-// Niveaux de maîtrise (mêmes buckets/icônes que le filtre de la collection).
+// Niveaux de maîtrise, ordonnés du plus faible au plus fort (comme une plage HSK).
 const KNOWLEDGE = [
-  { key: 'trophy', emoji: '🏆', label: 'Mastered' },
-  { key: 'cool', emoji: '😎', label: 'Strong' },
-  { key: 'ok', emoji: '🙂', label: 'Okay' },
-  { key: 'meh', emoji: '😐', label: 'Weak' },
   { key: 'seed', emoji: '🌱', label: 'New' },
+  { key: 'meh', emoji: '😐', label: 'Weak' },
+  { key: 'ok', emoji: '🙂', label: 'Okay' },
+  { key: 'cool', emoji: '😎', label: 'Strong' },
+  { key: 'trophy', emoji: '🏆', label: 'Mastered' },
 ];
+const K_MAX = KNOWLEDGE.length - 1;
 
 function SectionLabel({ children }) {
   return (
@@ -39,13 +40,19 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
   const [hskMin, setHskMin] = useState(1);
   const [hskMax, setHskMax] = useState(7);
   const [count, setCount] = useState(20);
-  const [levels, setLevels] = useState([]); // niveaux de maîtrise (multi-select ; vide = tous)
+  const [kMin, setKMin] = useState(0);       // plage de niveaux de maîtrise (comme HSK)
+  const [kMax, setKMax] = useState(K_MAX);
 
   useEffect(() => {
-    if (visible) { setType('pinyin'); setHskMin(1); setHskMax(7); setCount(20); setLevels([]); }
+    if (visible) { setType('pinyin'); setHskMin(1); setHskMax(7); setCount(20); setKMin(0); setKMax(K_MAX); }
   }, [visible]);
 
-  const toggleLevel = (k) => setLevels((a) => (a.includes(k) ? a.filter((x) => x !== k) : [...a, k]));
+  function tapKnow(i) {
+    if (i < kMin) setKMin(i);
+    else if (i > kMax) setKMax(i);
+    else { setKMin(i); setKMax(i); }
+  }
+  const kAll = kMin === 0 && kMax === K_MAX;
 
   function tapLevel(v) {
     if (v < hskMin) setHskMin(v);
@@ -63,6 +70,8 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
   function start() {
     if (scope === 'pack') { onStart({ type, count }); return; }
     const hsk = isAll ? 'all' : `${hskMin}-${hskMax}`;
+    // Plage complète = tous les niveaux (vide) ; sinon les clés de la plage.
+    const levels = kAll ? [] : KNOWLEDGE.slice(kMin, kMax + 1).map((b) => b.key);
     onStart({ type, count, hsk, levels });
   }
 
@@ -119,6 +128,24 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
             })}
           </View>
           <Text style={{ fontSize: 11, color: '#888', textAlign: 'right', marginBottom: 20 }}>S = Unclassified (Street)</Text>
+
+          {/* Niveaux de maîtrise — même UI (plage de tuiles) que le HSK, juste dessous. */}
+          <SectionLabel>KNOWLEDGE</SectionLabel>
+          <Text style={{ fontSize: 14, fontWeight: '500', color: COLORS.jiayou, marginBottom: 12 }}>
+            {kAll ? 'All levels' : kMin === kMax ? KNOWLEDGE[kMin].label : `${KNOWLEDGE[kMin].label} → ${KNOWLEDGE[kMax].label}`}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 20 }}>
+            {KNOWLEDGE.map((b, i) => {
+              const active = i >= kMin && i <= kMax;
+              const edge = i === kMin || i === kMax;
+              return (
+                <Pressable key={b.key} onPress={() => tapKnow(i)}
+                  style={{ flex: 1, aspectRatio: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? (edge ? COLORS.jiayou : '#cfe2ff') : '#f1f3f5' }}>
+                  <Text style={{ fontSize: 22, opacity: active ? 1 : 0.45 }}>{b.emoji}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </>
       ) : null}
 
@@ -136,28 +163,6 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
           );
         })}
       </View>
-
-      {/* Niveaux de maîtrise — collection uniquement (multi-select ; vide = tous) */}
-      {scope === 'collection' ? (
-        <>
-          <SectionLabel>KNOWLEDGE</SectionLabel>
-          <Text style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>
-            {levels.length ? `${levels.length} level${levels.length > 1 ? 's' : ''} selected` : 'All levels'}
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 22 }}>
-            {KNOWLEDGE.map((b) => {
-              const on = levels.includes(b.key);
-              return (
-                <Pressable key={b.key} onPress={() => toggleLevel(b.key)}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1.5, borderColor: on ? COLORS.jiayou : '#e0e0e0', backgroundColor: on ? '#e8f0ff' : '#fff' }}>
-                  <Text style={{ fontSize: 15 }}>{b.emoji}</Text>
-                  <Text style={{ color: on ? COLORS.jiayou : '#1a1a2e', fontWeight: on ? '700' : '500', fontSize: 13.5 }}>{b.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </>
-      ) : <View style={{ height: 2 }} />}
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
