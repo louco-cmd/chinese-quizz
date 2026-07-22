@@ -129,7 +129,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
               );
             })}
           </View>
-          <Text style={{ fontSize: 11, color: '#888', textAlign: 'right', marginBottom: 20 }}>S = Unclassified (Street)</Text>
+          <View style={{ height: 20 }} />
 
           {/* Difficulté — même UI (plage de tuiles) que le HSK, juste dessous. */}
           <SectionLabel>DIFFICULTY</SectionLabel>
