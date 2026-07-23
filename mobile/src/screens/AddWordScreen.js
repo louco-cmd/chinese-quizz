@@ -206,12 +206,15 @@ export default function AddWordScreen() {
           <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 16 }}>Add a word</Text>
 
           {Platform.OS === 'web' ? (
-            // Web : barre + bouton STATIQUES (l'animation détach/absolute se
-            // comporte mal sur react-native-web → chevauchement).
-            <View style={{ flexDirection: 'row', alignItems: 'center', width: '86%', maxWidth: 440, gap: 10 }}>
+            // Web : la barre prend toute la largeur au repos (bouton caché) ; le
+            // bouton apparaît dès le focus OU dès qu'il y a du texte (le texte le
+            // garde monté pour que le clic aboutisse malgré le blur du navigateur).
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: '86%', maxWidth: 440 }}>
               <TextInput
                 value={q}
                 onChangeText={setQ}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
                 placeholder={screenW < 420 ? 'Search a word…' : 'Chinese, pinyin or English…'}
                 placeholderTextColor="#adb5bd"
                 autoCapitalize="none" autoCorrect={false} returnKeyType="search" onSubmitEditing={run}
@@ -221,11 +224,13 @@ export default function AddWordScreen() {
                   shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
                 }}
               />
-              <Pressable onPress={run} disabled={loading}
-                style={{ width: BAR_H, height: BAR_H, borderRadius: BAR_H / 2, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
-                  shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 6 }}>
-                {loading ? <ActivityIndicator color={COLORS.jiayou} /> : <Ionicons name="search" size={23} color={COLORS.jiayou} />}
-              </Pressable>
+              {searchFocused || term ? (
+                <Pressable onPress={run} disabled={loading}
+                  style={{ marginLeft: 10, width: BAR_H, height: BAR_H, borderRadius: BAR_H / 2, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
+                    shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 6 }}>
+                  {loading ? <ActivityIndicator color={COLORS.jiayou} /> : <Ionicons name="search" size={23} color={COLORS.jiayou} />}
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             // Natif : la barre rétrécit et le bouton loupe s'y "détache" au focus.
