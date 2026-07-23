@@ -8,7 +8,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
-const { pool } = require('../config/database');
+const { pool, reconcileHskPacks } = require('../config/database');
 const { generateDuelQuiz, addTransaction, updateWordScore } = require('../middleware/index');
 const { sendExpoPush } = require('../middleware/push.service');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -1385,6 +1385,23 @@ async function notify(userId, type, title, body = null, data = null) {
   // Push natif (Expo) — fire-and-forget, gated par le token + le réglage user.
   sendExpoPush(userId, { title, body: body || '', data: { type, ...(data || {}) } }).catch(() => {});
 }
+
+// ── POST /api/m/admin/reconcile-packs : re-synchronise les packs HSK (admin) ──
+// À appeler après avoir mis à jour la base HSK (mots) pour rafraîchir les packs
+// sans redéployer. Réservé à l'admin (ADMIN_EMAIL).
+router.post('/api/m/admin/reconcile-packs', requireToken, async (req, res) => {
+  const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'locochet.08@gmail.com').toLowerCase();
+  if ((req.tokenUser.email || '').toLowerCase() !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const r = await reconcileHskPacks();
+    res.json({ ok: true, counts: r.counts });
+  } catch (e) {
+    console.error('m/admin reconcile-packs error:', e);
+    res.status(500).json({ error: 'Reconcile failed' });
+  }
+});
 
 // ── POST /api/m/push-token : enregistre le token Expo Push de l'appareil ─────
 router.post('/api/m/push-token', requireToken, async (req, res) => {

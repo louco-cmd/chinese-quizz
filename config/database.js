@@ -388,35 +388,10 @@ const pool = new Pool({
       console.warn('⚠️ Index de perf non créés (table absente ?) :', e.message);
     }
 
-    // Réconciliation des packs officiels HSK (idempotente, à chaque démarrage).
-    // 1) Retire les anciens packs de démo seedés (is_official=false ET créateur
-    //    NULL) — préserve les packs créés par de vrais users (creator_id non NULL).
-    // 2) Garantit les 6 packs HSK 1→6 ; les niveaux sans mots en base restent
-    //    "Soon available" (word_count 0) et se remplissent automatiquement dès
-    //    que des mots de ce niveau existent (au prochain boot).
+    // Réconciliation des packs officiels HSK (idempotente).
     try {
-      await pool.query(`DELETE FROM word_packs WHERE is_official = FALSE AND creator_id IS NULL`);
-      const HSK_PRICE = { 1: 180, 2: 380, 3: 600, 4: 800, 5: 1000, 6: 1200 };
-      for (let lvl = 1; lvl <= 6; lvl++) {
-        const cover = `hsk${lvl}`;
-        const ex = await pool.query(`SELECT id FROM word_packs WHERE cover_key = $1 AND is_official = TRUE LIMIT 1`, [cover]);
-        let packId;
-        if (ex.rows.length) {
-          packId = ex.rows[0].id;
-        } else {
-          const ins = await pool.query(
-            `INSERT INTO word_packs (creator_name, title, description, price, cover_key, is_official)
-             VALUES ('JiaStore', $1, $2, $3, $4, TRUE) RETURNING id`,
-            [`HSK ${lvl} Pack`, `Essential vocabulary from HSK level ${lvl}.`, HSK_PRICE[lvl], cover]);
-          packId = ins.rows[0].id;
-        }
-        // HSK_PRICE fait autorité : synchronise le prix des packs existants.
-        await pool.query(`UPDATE word_packs SET price = $1 WHERE id = $2`, [HSK_PRICE[lvl], packId]);
-        await pool.query(
-          `INSERT INTO word_pack_items (pack_id, mot_id)
-           SELECT $1, id FROM mots WHERE hsk = $2 ON CONFLICT DO NOTHING`, [packId, String(lvl)]);
-      }
-      console.log("✅ JiaStore réconcilié (packs HSK 1→6, démos retirées).");
+      const r = await reconcileHskPacks();
+      console.log(`✅ JiaStore réconcilié (packs HSK 1→6) :`, r.counts.join(', '));
     } catch (e) { console.error('JiaStore reconcile failed:', e.message); }
 
   } catch (err) {
@@ -424,4 +399,45 @@ const pool = new Pool({
   }
 })();
 
-module.exports = { pool };
+// Réconciliation des packs officiels HSK (idempotente, appelable à la demande).
+//  - retire les anciens packs de démo seedés (préserve les packs de vrais users) ;
+//  - garantit/renomme les 6 packs HSK 1→6 et synchronise leur prix ;
+//  - RE-SYNCHRONISE leurs mots : ajoute les nouveaux mots du niveau ET retire
+//    ceux qui n'en font plus partie (résilient aux changements de la table mots).
+//    `hsk::text` pour être agnostique au type (int ou text). Renvoie { counts }.
+async function reconcileHskPacks() {
+  await pool.query(`DELETE FROM word_packs WHERE is_official = FALSE AND creator_id IS NULL`);
+  const HSK_PRICE = { 1: 180, 2: 380, 3: 600, 4: 800, 5: 1000, 6: 1200 };
+  const counts = [];
+  for (let lvl = 1; lvl <= 6; lvl++) {
+    const cover = `hsk${lvl}`;
+    const ex = await pool.query(`SELECT id FROM word_packs WHERE cover_key = $1 AND is_official = TRUE LIMIT 1`, [cover]);
+    let packId;
+    if (ex.rows.length) packId = ex.rows[0].id;
+    else {
+      const ins = await pool.query(
+        `INSERT INTO word_packs (creator_name, title, description, price, cover_key, is_official)
+         VALUES ('JiaStore', $1, $2, $3, $4, TRUE) RETURNING id`,
+        [`HSK ${lvl} Pack`, `Essential vocabulary from HSK level ${lvl}.`, HSK_PRICE[lvl], cover]);
+      packId = ins.rows[0].id;
+    }
+    await pool.query(`UPDATE word_packs SET price = $1 WHERE id = $2`, [HSK_PRICE[lvl], packId]);
+    // Ajoute les mots du niveau absents du pack…
+    await pool.query(
+      `INSERT INTO word_pack_items (pack_id, mot_id)
+       SELECT $1, id FROM mots WHERE hsk::text = $2 ON CONFLICT DO NOTHING`, [packId, String(lvl)]);
+    // …et retire les items qui ne correspondent plus au niveau (reclassés / hors niveau).
+    await pool.query(
+      `DELETE FROM word_pack_items wpi USING mots m
+       WHERE wpi.pack_id = $1 AND wpi.mot_id = m.id AND m.hsk::text IS DISTINCT FROM $2`, [packId, String(lvl)]);
+    // …et nettoie les items dont le mot a disparu.
+    await pool.query(
+      `DELETE FROM word_pack_items wpi WHERE wpi.pack_id = $1
+         AND NOT EXISTS (SELECT 1 FROM mots m WHERE m.id = wpi.mot_id)`, [packId]);
+    const c = await pool.query(`SELECT COUNT(*)::int AS n FROM word_pack_items WHERE pack_id = $1`, [packId]);
+    counts.push(`HSK${lvl}=${c.rows[0].n}`);
+  }
+  return { counts };
+}
+
+module.exports = { pool, reconcileHskPacks };
