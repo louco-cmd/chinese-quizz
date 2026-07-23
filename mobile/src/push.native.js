@@ -1,8 +1,23 @@
 import { Platform } from 'react-native';
 
-// Import PARESSEUX + protégé : un build livré AVANT le rebuild n'a pas les modules
-// natifs (expo-notifications/expo-device) → l'import top-level crasherait via l'OTA.
+// Le module natif expo-notifications est-il présent dans CE build ? On teste avec
+// requireOptionalNativeModule (qui ne throw pas) AVANT de faire un require() de la
+// lib — sinon, sur un build livré avant le rebuild, charger la lib peut crasher.
+function pushNativeAvailable() {
+  try {
+    const core = require('expo-modules-core');
+    const req = core.requireOptionalNativeModule || core.NativeModulesProxy;
+    if (typeof core.requireOptionalNativeModule === 'function') {
+      return !!core.requireOptionalNativeModule('ExpoPushTokenManager');
+    }
+    // Fallback : présence dans le proxy natif.
+    return !!(core.NativeModulesProxy && core.NativeModulesProxy.ExpoPushTokenManager);
+  } catch { return false; }
+}
+
+// Charge les modules SEULEMENT si le natif est présent (jamais sur l'ancien build).
 function mods() {
+  if (!pushNativeAvailable()) return null;
   try {
     return {
       Notifications: require('expo-notifications'),
