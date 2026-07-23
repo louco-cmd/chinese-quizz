@@ -17,6 +17,18 @@ if (html.includes('rel="manifest"')) {
   process.exit(0);
 }
 
+// Clavier mobile : `interactive-widget=resizes-content` fait redimensionner la
+// zone visible quand le clavier s'ouvre (Chrome Android) → le contenu centré
+// remonte au lieu d'être couvert par le clavier.
+if (/<meta name="viewport"[^>]*>/.test(html)) {
+  html = html.replace(/<meta name="viewport"([^>]*?)content="([^"]*)"([^>]*)>/, (m, pre, content, post) => {
+    const c = /interactive-widget/.test(content) ? content : `${content.trim()}, interactive-widget=resizes-content`;
+    return `<meta name="viewport"${pre}content="${c}"${post}>`;
+  });
+} else {
+  html = html.replace('</head>', '    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />\n  </head>');
+}
+
 const tags = [
   '<link rel="manifest" href="/manifest.json" />',
   '<meta name="theme-color" content="#0d6efd" />',

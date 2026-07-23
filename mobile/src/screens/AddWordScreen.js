@@ -205,49 +205,72 @@ export default function AddWordScreen() {
 
           <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 16 }}>Add a word</Text>
 
-          {/* Au focus, la barre rétrécit (marginRight) pour libérer la place à droite,
-              et le bouton loupe s'y "détache" (invisible au repos). */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', width: '86%', maxWidth: 440 }}>
-            <AnimatedTextInput
-              value={q}
-              onChangeText={setQ}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              placeholder={screenW < 420 ? 'Search a word…' : 'Chinese, pinyin or English…'}
-              placeholderTextColor="#adb5bd"
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-              onSubmitEditing={run}
-              style={{
-                flex: 1, height: BAR_H,
-                marginRight: detach.interpolate({ inputRange: [0, 1], outputRange: [0, BAR_H + 8] }),
-                backgroundColor: '#fff', borderRadius: BAR_H / 2, paddingHorizontal: 24,
-                fontSize: 18, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
-                shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
-              }}
-            />
-            <Animated.View
-              pointerEvents={searchFocused ? 'auto' : 'none'}
-              style={{
-                position: 'absolute', right: 0, top: 0, bottom: 0, justifyContent: 'center',
-                opacity: detach, // 0 au repos → totalement invisible
-                transform: [{ scale: detach.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
-              }}
-            >
-              <Pressable
-                onPress={run}
-                disabled={loading}
+          {Platform.OS === 'web' ? (
+            // Web : barre + bouton STATIQUES (l'animation détach/absolute se
+            // comporte mal sur react-native-web → chevauchement).
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: '86%', maxWidth: 440, gap: 10 }}>
+              <TextInput
+                value={q}
+                onChangeText={setQ}
+                placeholder={screenW < 420 ? 'Search a word…' : 'Chinese, pinyin or English…'}
+                placeholderTextColor="#adb5bd"
+                autoCapitalize="none" autoCorrect={false} returnKeyType="search" onSubmitEditing={run}
                 style={{
-                  width: BAR_H, height: BAR_H, borderRadius: BAR_H / 2, backgroundColor: '#fff',
-                  alignItems: 'center', justifyContent: 'center',
-                  shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 6,
+                  flex: 1, height: BAR_H, backgroundColor: '#fff', borderRadius: BAR_H / 2, paddingHorizontal: 24,
+                  fontSize: 18, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
                 }}
-              >
+              />
+              <Pressable onPress={run} disabled={loading}
+                style={{ width: BAR_H, height: BAR_H, borderRadius: BAR_H / 2, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center',
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 6 }}>
                 {loading ? <ActivityIndicator color={COLORS.jiayou} /> : <Ionicons name="search" size={23} color={COLORS.jiayou} />}
               </Pressable>
-            </Animated.View>
-          </View>
+            </View>
+          ) : (
+            // Natif : la barre rétrécit et le bouton loupe s'y "détache" au focus.
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: '86%', maxWidth: 440 }}>
+              <AnimatedTextInput
+                value={q}
+                onChangeText={setQ}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                placeholder={screenW < 420 ? 'Search a word…' : 'Chinese, pinyin or English…'}
+                placeholderTextColor="#adb5bd"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+                onSubmitEditing={run}
+                style={{
+                  flex: 1, height: BAR_H,
+                  marginRight: detach.interpolate({ inputRange: [0, 1], outputRange: [0, BAR_H + 8] }),
+                  backgroundColor: '#fff', borderRadius: BAR_H / 2, paddingHorizontal: 24,
+                  fontSize: 18, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
+                }}
+              />
+              <Animated.View
+                pointerEvents={searchFocused ? 'auto' : 'none'}
+                style={{
+                  position: 'absolute', right: 0, top: 0, bottom: 0, justifyContent: 'center',
+                  opacity: detach,
+                  transform: [{ scale: detach.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
+                }}
+              >
+                <Pressable
+                  onPress={run}
+                  disabled={loading}
+                  style={{
+                    width: BAR_H, height: BAR_H, borderRadius: BAR_H / 2, backgroundColor: '#fff',
+                    alignItems: 'center', justifyContent: 'center',
+                    shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 6,
+                  }}
+                >
+                  {loading ? <ActivityIndicator color={COLORS.jiayou} /> : <Ionicons name="search" size={23} color={COLORS.jiayou} />}
+                </Pressable>
+              </Animated.View>
+            </View>
+          )}
 
           {error ? <Text style={{ color: '#fff', marginTop: 14, fontWeight: '600' }}>{error}</Text> : null}
         </DismissArea>
