@@ -1,15 +1,13 @@
-// sw.js - VERSION CORRIGÉE & SIMPLIFIÉE
-const CACHE_NAME = 'jiayou-v8';
+// sw.js — app Expo (React Native Web). NE PRÉCACHE PLUS le shell ('/') ni les
+// anciens fichiers EJS : le bundle Expo est versionné par hash et doit toujours
+// venir du réseau, sinon la PWA sert une version périmée. Bump du CACHE_NAME
+// pour forcer la ré-installation et le nettoyage des anciens caches.
+const CACHE_NAME = 'jiayou-v9';
 const OFFLINE_URL = '/offline.html';
 
-// Ne PAS mettre global.js en cache : il doit toujours être rechargé depuis le réseau
-// pour que les mises à jour soient instantanées.
+// Uniquement des ressources stables (jamais le shell / le JS applicatif).
 const urlsToCache = [
-  '/',
   '/offline.html',
-  '/css/accountandduels.css',
-  '/js/saveQuiz.js',
-  '/js/card-function.js',
   '/manifest.json',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
