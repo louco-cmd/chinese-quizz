@@ -219,7 +219,7 @@ export default function AddWordScreen() {
                 placeholderTextColor="#adb5bd"
                 autoCapitalize="none" autoCorrect={false} returnKeyType="search" onSubmitEditing={run}
                 style={{
-                  flex: 1, height: BAR_H, backgroundColor: '#fff', borderRadius: BAR_H / 2, paddingHorizontal: 24,
+                  flex: 1, minWidth: 0, height: BAR_H, backgroundColor: '#fff', borderRadius: BAR_H / 2, paddingHorizontal: 24,
                   fontSize: 18, textAlign: 'center', color: COLORS.jiayou, fontWeight: '500',
                   shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 30, elevation: 6,
                 }}
