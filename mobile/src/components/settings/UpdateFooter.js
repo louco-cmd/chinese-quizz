@@ -1,8 +1,20 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, Platform, NativeModules, TurboModuleRegistry } from 'react-native';
 import * as Updates from 'expo-updates';
 import Constants from 'expo-constants';
 import { COLORS } from '../../theme';
+
+// Diagnostic : quels modules NATIFS sont réellement dans le build installé ?
+// Un OTA livre le même JS à tous les builds ; savoir lequel tourne évite de
+// chercher un bug de code là où il ne manque qu'un rebuild.
+function nativeModules() {
+  const has = (fn) => { try { return !!fn(); } catch { return false; } };
+  return [
+    ['IAP', has(() => NativeModules.RNPurchases)],
+    ['Writing', has(() => TurboModuleRegistry.get('RNCWebViewModule'))],
+    ['Push', has(() => require('expo-modules-core').requireOptionalNativeModule('ExpoPushTokenManager'))],
+  ];
+}
 
 // Pied de page des Réglages : version de l'app + état de l'OTA en cours, et un
 // bouton qui télécharge/applique immédiatement une mise à jour (évite le rituel
@@ -38,6 +50,11 @@ export default function UpdateFooter() {
       <Text style={{ fontSize: 12, color: '#b0b4bb' }}>
         Jiayou v{version} · {running}
       </Text>
+      {Platform.OS !== 'web' ? (
+        <Text style={{ fontSize: 11, color: '#c4c8ce' }}>
+          {nativeModules().map(([n, ok]) => `${n} ${ok ? '✓' : '✗'}`).join(' · ')}
+        </Text>
+      ) : null}
       {canUpdate ? (
         <Pressable
           onPress={check}
