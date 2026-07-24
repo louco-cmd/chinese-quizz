@@ -3003,4 +3003,34 @@ router.post('/api/m/billing-portal', requireToken, async (req, res) => {
   }
 });
 
+// -------------------- Données de tracés (hanzi-writer) --------------------
+// L'app ne peut pas taper jsDelivr : le CDN est bloqué / très instable en Chine,
+// où se trouve l'essentiel des utilisateurs. Le serveur (hors Chine) va donc
+// chercher le JSON de tracés et le relaie. Cache mémoire : ces données sont
+// immuables et un même caractère revient sans cesse.
+const hanziCache = new Map();
+const HANZI_CACHE_MAX = 3000;
+
+router.get('/api/m/hanzi/:char', async (req, res) => {
+  const ch = Array.from(req.params.char || '')[0] || '';
+  if (!/[㐀-鿿]/.test(ch)) return res.status(400).json({ error: 'not a Han character' });
+
+  if (hanziCache.has(ch)) {
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.json(hanziCache.get(ch));
+  }
+  try {
+    const r = await fetch(`https://cdn.jsdelivr.net/npm/hanzi-writer-data@2.0/${encodeURIComponent(ch)}.json`);
+    if (!r.ok) return res.status(404).json({ error: 'character not found' });
+    const data = await r.json();
+    if (hanziCache.size >= HANZI_CACHE_MAX) hanziCache.clear(); // purge simple
+    hanziCache.set(ch, data);
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.json(data);
+  } catch (e) {
+    console.error('hanzi data:', e.message);
+    res.status(502).json({ error: 'could not fetch character data' });
+  }
+});
+
 module.exports = { router, requireToken };

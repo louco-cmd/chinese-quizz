@@ -1,7 +1,9 @@
-import { useRef, useEffect } from 'react';
-import { View, Text } from 'react-native';
+import { useRef, useEffect, useState } from 'react';
+import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
+import { API_BASE } from '../api';
+import HANZI_LIB from './hanziWriterLib';
 
 // Import PARESSEUX + protégé de la WebView : un build livré AVANT le rebuild n'a
 // pas le module natif → l'import top-level crasherait au démarrage via l'OTA.
@@ -13,9 +15,11 @@ function getWebView() {
 }
 
 // Page HTML : HanziWriter en mode "quiz" (tracé guidé, validé trait par trait).
-// Charge la lib + les données de traits depuis le CDN jsDelivr (une WebView peut,
-// contrairement à un Artifact). Communique avec RN via postMessage.
-const html = (size) => `<!doctype html><html><head>
+// La lib est INJECTÉE depuis le bundle et les données de tracés viennent de NOTRE
+// API — aucun appel à un CDN. jsDelivr est bloqué/instable en Chine, ce qui
+// figeait totalement l'écran : le <script src> distant bloquait l'analyse du
+// document, donc le script inline (et le message 'ready') ne s'exécutaient jamais.
+const html = (size, apiBase) => `<!doctype html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>
   html,body{margin:0;padding:0;background:transparent;overflow:hidden;-webkit-user-select:none;user-select:none;}
@@ -23,19 +27,31 @@ const html = (size) => `<!doctype html><html><head>
   #target{background:#f8f9fa;border-radius:20px;}
 </style></head><body>
 <div id="wrap"><div id="target"></div></div>
-<script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.7.0/dist/hanzi-writer.min.js"></script>
+<script>${HANZI_LIB}</script>
 <script>
-  var SIZE=${size}, CURRENT='', writer=null;
+  var SIZE=${size}, API=${JSON.stringify(apiBase)}, CURRENT='', writer=null;
   function post(m){ if(window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(m)); }
+
+  // Les tracés passent par notre backend (joignable partout), pas par un CDN.
+  function loadChar(char, onLoad, onErr){
+    fetch(API + '/api/m/hanzi/' + encodeURIComponent(char))
+      .then(function(r){ if(!r.ok) throw new Error('http ' + r.status); return r.json(); })
+      .then(onLoad)
+      .catch(function(){ onErr && onErr(); });
+  }
+
   function start(ch){
     CURRENT=ch;
     document.getElementById('target').innerHTML='';
-    if(!window.HanziWriter){ post({type:'error'}); return; }
+    if(!window.HanziWriter){ post({type:'error', reason:'lib'}); return; }
     writer=HanziWriter.create('target', ch, {
       width:SIZE, height:SIZE, padding:10,
+      charDataLoader:loadChar,
       showCharacter:false, showOutline:true, showHintAfterMisses:3,
       strokeColor:'#1a1a2e', outlineColor:'#e2e6ee', drawingColor:'${COLORS.jiayou}',
-      drawingWidth:26, highlightColor:'#a5c8ff', highlightOnComplete:true
+      drawingWidth:26, highlightColor:'#a5c8ff', highlightOnComplete:true,
+      onLoadCharDataError:function(){ post({type:'error', reason:'data'}); },
+      onLoadCharDataSuccess:function(){ post({type:'loaded'}); }
     });
     writer.quiz({
       leniency:1.1,
@@ -58,15 +74,18 @@ const html = (size) => `<!doctype html><html><head>
 export default function HanziQuiz({ char, size = 260, onComplete, onProgress, hintNonce = 0 }) {
   const ref = useRef(null);
   const ready = useRef(false);
+  const [failed, setFailed] = useState(null); // 'lib' | 'data' | null
 
   const send = (obj) => ref.current?.injectJavaScript(`onMsg({data:${JSON.stringify(JSON.stringify(obj))}});true;`);
 
-  useEffect(() => { if (ready.current && char) send({ cmd: 'start', char }); }, [char]);
+  useEffect(() => { setFailed(null); if (ready.current && char) send({ cmd: 'start', char }); }, [char]);
   useEffect(() => { if (ready.current && hintNonce) send({ cmd: 'hint' }); }, [hintNonce]);
 
   function onMessage(e) {
     let d; try { d = JSON.parse(e.nativeEvent.data); } catch { return; }
     if (d.type === 'ready') { ready.current = true; if (char) send({ cmd: 'start', char }); }
+    else if (d.type === 'loaded') setFailed(null);
+    else if (d.type === 'error') setFailed(d.reason || 'data');
     else if (d.type === 'complete') onComplete?.(d.mistakes || 0);
     else if (d.type === 'stroke' || d.type === 'mistake') onProgress?.(d);
   }
@@ -89,7 +108,7 @@ export default function HanziQuiz({ char, size = 260, onComplete, onProgress, hi
       <WebView
         ref={ref}
         originWhitelist={['*']}
-        source={{ html: html(size) }}
+        source={{ html: html(size, API_BASE), baseUrl: API_BASE }}
         onMessage={onMessage}
         scrollEnabled={false}
         javaScriptEnabled
@@ -97,6 +116,18 @@ export default function HanziQuiz({ char, size = 260, onComplete, onProgress, hi
         androidLayerType="hardware"
         style={{ width: size, height: size, backgroundColor: 'transparent' }}
       />
+      {/* Échec de chargement : on le DIT, au lieu de laisser un cadre vide et figé. */}
+      {failed ? (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa', borderRadius: 20, padding: 18 }}>
+          <Ionicons name="cloud-offline-outline" size={32} color={COLORS.mutedLight} />
+          <Text style={{ color: COLORS.muted, textAlign: 'center', marginTop: 10, fontSize: 13 }}>
+            {failed === 'lib' ? "Couldn't start the writing engine." : "Couldn't load this character. Check your connection."}
+          </Text>
+          <Pressable onPress={() => { setFailed(null); if (char) send({ cmd: 'start', char }); }} style={{ marginTop: 12, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 18, backgroundColor: COLORS.jiayou }}>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Retry</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
