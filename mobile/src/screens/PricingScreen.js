@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SHADOW_CARD } from '../theme';
 import { getBillingPortal, refreshSubscription } from '../api';
-import { buyPremium, purchasesAvailable, restorePurchases } from '../purchases';
+import { buyPremium, purchasesAvailable, restorePurchases, getPremiumPlans, yearlySavingPct, isTestStore } from '../purchases';
 
 // Android : gérer/annuler l'abonnement se fait dans le Play Store.
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions';
@@ -73,9 +73,27 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
   const [portalBusy, setPortalBusy] = useState(false);
   const [portalError, setPortalError] = useState('');
   const [sub, setSub] = useState({ cancelAtPeriodEnd: false, currentPeriodEnd: null });
+  const [plans, setPlans] = useState([]);       // offres RevenueCat (natif)
+  const [planId, setPlanId] = useState(null);   // formule sélectionnée
 
   // Natif avec RevenueCat configuré → achats in-app (Play Billing). Sinon web/Stripe.
   const native = Platform.OS !== 'web' && purchasesAvailable();
+
+  // Charge les offres du store (prix localisés). Silencieux si l'offering est vide :
+  // on retombe alors sur l'affichage statique 5€/mois.
+  useEffect(() => {
+    if (!native || isPremium) return;
+    let alive = true;
+    getPremiumPlans().then((list) => {
+      if (!alive || !list.length) return;
+      setPlans(list);
+      setPlanId((list.find((p) => p.annual) || list[0]).id); // annuel par défaut
+    });
+    return () => { alive = false; };
+  }, [native, isPremium]);
+
+  const plan = plans.find((p) => p.id === planId) || null;
+  const saving = yearlySavingPct(plans);
 
   // Resync live depuis Stripe à l'ouverture (web uniquement — le natif passe par RC).
   useEffect(() => {
@@ -102,9 +120,10 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
     if (native) {
       setPortalError(''); setPortalBusy(true);
       try {
-        const ok = await buyPremium();
+        const ok = await buyPremium(plan);
         if (ok) onPurchased?.(); // le webhook RevenueCat crédite le compte côté backend
       } catch (e) {
+        // Annulation utilisateur : pas une erreur, on n'affiche rien.
         if (e?.userCancelled !== true) setPortalError(e?.message || 'Purchase failed.');
       } finally { setPortalBusy(false); }
       return;
@@ -152,10 +171,38 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
           <View style={{ backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', marginBottom: 16, ...SHADOW_CARD }}>
             <LinearGradient colors={['#0d6efd', '#0a58ca']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 18 }}>
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 17, marginBottom: 4 }}>Premium</Text>
-              <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800' }}>5€</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>per month</Text>
+              {/* Prix : celui du store si dispo (localisé + à jour), sinon le tarif web. */}
+              <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800' }}>{plan ? plan.priceString : '5€'}</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>{plan ? plan.period : 'per month'}</Text>
             </LinearGradient>
             <View style={{ padding: 18 }}>
+              {/* Choix de la formule (natif + offering configurée). */}
+              {plans.length > 1 && !isPremium ? (
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                  {plans.map((p) => {
+                    const on = p.id === planId;
+                    return (
+                      <Pressable
+                        key={p.id}
+                        onPress={() => setPlanId(p.id)}
+                        style={{
+                          flex: 1, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center',
+                          borderWidth: 2, borderColor: on ? COLORS.jiayou : '#e6e8eb',
+                          backgroundColor: on ? COLORS.jiayouContainer : '#fff',
+                        }}
+                      >
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: on ? COLORS.jiayou : '#1d1d1f' }}>{p.label}</Text>
+                        <Text style={{ fontSize: 15, fontWeight: '800', color: on ? COLORS.jiayou : '#1d1d1f', marginTop: 2 }}>{p.priceString}</Text>
+                        {p.annual && saving ? (
+                          <View style={{ marginTop: 5, backgroundColor: COLORS.success, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+                            <Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '700' }}>Save {saving}%</Text>
+                          </View>
+                        ) : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
               {sub.cancelAtPeriodEnd ? (
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#fff8e1', borderRadius: 12, padding: 12, marginBottom: 14 }}>
                   <Ionicons name="time-outline" size={18} color="#b8860b" />
@@ -173,7 +220,9 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                 {portalBusy ? <ActivityIndicator color="#fff" size="small" /> : (
                   <>
                     <Ionicons name={isPremium ? 'settings' : 'rocket'} size={16} color="#fff" />
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{isPremium ? 'Manage subscription' : 'Start Premium — €5/mo'}</Text>
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
+                      {isPremium ? 'Manage subscription' : `Start Premium — ${plan ? plan.priceString : '€5/mo'}`}
+                    </Text>
                   </>
                 )}
               </Pressable>
@@ -188,6 +237,12 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
               <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 11.5, marginTop: 10 }}>
                 <Ionicons name={native ? 'logo-google-playstore' : 'globe-outline'} size={11} color={COLORS.muted} />  {native ? 'Billed through Google Play · Cancel anytime' : 'Managed on jiayou.fr · Cancel anytime'}
               </Text>
+              {/* Clé RevenueCat de test : aucun paiement réel n'a lieu. */}
+              {native && isTestStore() ? (
+                <Text style={{ textAlign: 'center', color: '#b8860b', fontSize: 11, marginTop: 6, fontWeight: '700' }}>
+                  Sandbox mode — purchases are simulated
+                </Text>
+              ) : null}
             </View>
           </View>
 
