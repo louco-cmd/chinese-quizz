@@ -10,7 +10,18 @@ const IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || '';
 // pas le nom affiché). Surchargable par env sans retoucher au code.
 const ENTITLEMENT = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT || 'premium';
 
-const apiKey = () => (Platform.OS === 'ios' ? IOS_KEY : ANDROID_KEY);
+const rawKey = () => (Platform.OS === 'ios' ? IOS_KEY : ANDROID_KEY);
+
+// ⚠️ Une clé `test_` (Test Store) est REFUSÉE par le SDK dans un build release :
+// il affiche « Wrong API Key » et ferme l'app pour protéger les achats de test.
+// On l'ignore donc hors développement → l'app retombe proprement sur Stripe au
+// lieu de crasher. Le Test Store ne s'utilise qu'avec un build de dev.
+const apiKey = () => {
+  const k = rawKey();
+  if (k.startsWith('test_') && !__DEV__) return '';
+  return k;
+};
+
 // Clé de test → achats simulés : on le signale dans l'UI pour ne pas croire à une vraie vente.
 export const isTestStore = () => apiKey().startsWith('test_');
 
