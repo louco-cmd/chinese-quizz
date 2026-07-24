@@ -33,12 +33,20 @@ const html = (size, apiBase) => `<!doctype html><html><head>
   function post(m){ if(window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(m)); }
 
   // Les tracés passent par notre backend (joignable partout), pas par un CDN.
-  function loadChar(char, onLoad, onErr){
-    fetch(API + '/api/m/hanzi/' + encodeURIComponent(char))
+  // Cache local : un caractère déjà tracé se réaffiche instantanément, et le
+  // préchargement du suivant supprime l'attente perçue entre deux mots.
+  var CACHE = {};
+  function fetchChar(char){
+    if(CACHE[char]) return CACHE[char];
+    CACHE[char] = fetch(API + '/api/m/hanzi/' + encodeURIComponent(char))
       .then(function(r){ if(!r.ok) throw new Error('http ' + r.status); return r.json(); })
-      .then(onLoad)
-      .catch(function(){ onErr && onErr(); });
+      .catch(function(e){ delete CACHE[char]; throw e; });
+    return CACHE[char];
   }
+  function loadChar(char, onLoad, onErr){
+    fetchChar(char).then(onLoad).catch(function(){ onErr && onErr(); });
+  }
+  function prefetch(char){ if(char) fetchChar(char).catch(function(){}); }
 
   function start(ch){
     CURRENT=ch;
@@ -64,6 +72,7 @@ const html = (size, apiBase) => `<!doctype html><html><head>
   function onMsg(e){ try{ var d=JSON.parse(e.data);
     if(d.cmd==='start') start(d.char);
     else if(d.cmd==='hint') hint();
+    else if(d.cmd==='prefetch') prefetch(d.char);
   }catch(err){} }
   window.addEventListener('message', onMsg); document.addEventListener('message', onMsg);
   post({type:'ready'});
@@ -71,7 +80,8 @@ const html = (size, apiBase) => `<!doctype html><html><head>
 
 // `char` = caractère à écrire ; `onComplete(mistakes)` quand le tracé est fini.
 // `hintNonce` : incrémenter pour déclencher une démo de l'ordre des traits.
-export default function HanziQuiz({ char, size = 260, onComplete, onProgress, hintNonce = 0 }) {
+// `nextChar` (optionnel) est préchargé pendant que l'utilisateur trace le courant.
+export default function HanziQuiz({ char, nextChar, size = 260, onComplete, onProgress, hintNonce = 0 }) {
   const ref = useRef(null);
   const ready = useRef(false);
   const [failed, setFailed] = useState(null); // 'lib' | 'data' | null
@@ -79,6 +89,7 @@ export default function HanziQuiz({ char, size = 260, onComplete, onProgress, hi
   const send = (obj) => ref.current?.injectJavaScript(`onMsg({data:${JSON.stringify(JSON.stringify(obj))}});true;`);
 
   useEffect(() => { setFailed(null); if (ready.current && char) send({ cmd: 'start', char }); }, [char]);
+  useEffect(() => { if (ready.current && nextChar) send({ cmd: 'prefetch', char: nextChar }); }, [nextChar]);
   useEffect(() => { if (ready.current && hintNonce) send({ cmd: 'hint' }); }, [hintNonce]);
 
   function onMessage(e) {
