@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
 
 // Clés publiques RevenueCat (par plateforme). Fournies via EAS env, comme le
 // client Google. Sans clé → tout no-op (l'app ne casse pas).
@@ -11,17 +11,27 @@ const IOS_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY || '';
 const ENTITLEMENT = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT || 'premium';
 
 const apiKey = () => (Platform.OS === 'ios' ? IOS_KEY : ANDROID_KEY);
-export const purchasesAvailable = () => !!apiKey();
 // Clé de test → achats simulés : on le signale dans l'UI pour ne pas croire à une vraie vente.
 export const isTestStore = () => apiKey().startsWith('test_');
 
 // Charge le SDK à la demande et de façon PROTÉGÉE. Crucial pour l'OTA : un build
 // livré AVANT le rebuild n'a pas le module natif → l'import top-level crasherait
 // au démarrage. Ici on ne require qu'une fois la clé présente, dans un try/catch.
+// Le SDK lit `NativeModules.RNPurchases`, qui vaut simplement `undefined` (sans
+// lever d'erreur) quand le natif n'est pas dans le build → on le teste nous-mêmes,
+// sinon un require() « réussi » nous donnerait un SDK inutilisable.
+const nativeReady = () => { try { return !!NativeModules.RNPurchases; } catch { return false; } };
+
 function RC() {
-  if (!purchasesAvailable()) return null;
+  if (!apiKey() || !nativeReady()) return null;
   try { return require('react-native-purchases').default; } catch { return null; }
 }
+
+// Achat in-app réellement utilisable ? Il faut la clé ET le module natif présent
+// dans CE build. Un build antérieur au rebuild reçoit le même bundle OTA (même
+// runtimeVersion) mais n'a pas le natif : il doit retomber sur Stripe, pas se
+// retrouver avec un bouton d'achat mort.
+export const purchasesAvailable = () => !!RC();
 
 let configured = false;
 
