@@ -7,6 +7,7 @@ import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, compl
 import { configurePurchases } from './src/purchases';
 import { registerForPush, configureNotificationHandler } from './src/push';
 import { LangContext, makeT } from './src/i18n';
+import useKeyboardOpen from './src/useKeyboardOpen';
 import Header from './src/components/Header';
 import TabBar from './src/components/TabBar';
 import LoginScreen from './src/screens/LoginScreen';
@@ -60,6 +61,9 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [envelopes, setEnvelopes] = useState([]); // red envelopes non vues
   const [lang, setLang] = useState('en'); // langue de l'interface (en | zh)
+  // Web mobile : le clavier réduit la zone visible et la TabBar recouvrirait le
+  // bas du contenu (champ de réponse du quiz…) → on la masque le temps de la saisie.
+  const kbOpen = useKeyboardOpen();
 
   // Charge le profil et calcule l'aiguillage initial (sauf si `route:false`,
   // p.ex. quand on rejoue un flow depuis les réglages).
@@ -267,7 +271,7 @@ export default function App() {
           hideLogo={tab === 'add'}
         />
         <View className="flex-1">{renderScreen()}</View>
-        <TabBar active={tab} onChange={setTab} />
+        {kbOpen ? null : <TabBar active={tab} onChange={setTab} />}
       </View>
     );
   }

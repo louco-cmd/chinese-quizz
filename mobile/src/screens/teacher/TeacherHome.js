@@ -11,6 +11,7 @@ import TeacherSettingsScreen from './TeacherSettingsScreen';
 import SupportScreen from '../SupportScreen';
 import LegalScreen from '../LegalScreen';
 import { COLORS } from '../../theme';
+import useKeyboardOpen from '../../useKeyboardOpen';
 
 const TABS = [
   { key: 'profile', icon: 'person-circle', label: 'Profile' },
@@ -62,6 +63,7 @@ function TeacherTabBar({ active, onChange, insetBottom, maxWidth }) {
 // sous-vues (classe → task, réglages, support).
 export default function TeacherHome({ profile, onLogout, onReplayFlow }) {
   const insets = useSafeAreaInsets();
+  const kbOpen = useKeyboardOpen(); // web mobile : clavier ouvert → on masque la TabBar
   const { width } = useWindowDimensions();
   const tabMaxWidth = width >= 992 ? 460 : undefined;
   const [tab, setTab] = useState('classes');
@@ -115,7 +117,7 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow }) {
     <View className="flex-1 bg-surface-page">
       <TeacherHeader onSettings={() => setView({ type: 'settings' })} onLogo={() => changeTab('classes')} insetTop={insets.top} plan={profile?.plan} />
       <View className="flex-1">{content}</View>
-      <TeacherTabBar active={tab} onChange={changeTab} insetBottom={insets.bottom} maxWidth={tabMaxWidth} />
+      {kbOpen ? null : <TeacherTabBar active={tab} onChange={changeTab} insetBottom={insets.bottom} maxWidth={tabMaxWidth} />}
     </View>
   );
 }
