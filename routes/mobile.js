@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const { pool, reconcileHskPacks } = require('../config/database');
 const { generateDuelQuiz, addTransaction, updateWordScore } = require('../middleware/index');
 const { sendExpoPush } = require('../middleware/push.service');
+const { registerLimiter, validateSignupEmail } = require('../middleware/signup-guard');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const router = express.Router();
@@ -99,11 +100,14 @@ router.post('/api/auth/check-email', async (req, res) => {
 // ── POST /api/auth/register : créer un compte email/mot de passe → JWT ────────
 // Mêmes règles que /auth/signup-basic (mot de passe 8+/1 maj/1 chiffre) + envoi
 // de l'email de vérification. Auto-login (renvoie un JWT) pour une UX mobile fluide.
-router.post('/api/auth/register', async (req, res) => {
+router.post('/api/auth/register', registerLimiter, async (req, res) => {
   try {
-    const email = String(req.body?.email || '').toLowerCase().trim();
     const password = String(req.body?.password || '');
-    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    // Anti-spam : format + domaine (rejette les emails jetables / @example.com).
+    const chk = validateSignupEmail(req.body?.email);
+    if (!chk.ok) return res.status(400).json({ error: chk.reason });
+    const email = chk.email;
+    if (!password) return res.status(400).json({ error: 'Email and password required' });
     if (!/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)) {
       return res.status(400).json({ error: 'Password: 8+ characters, 1 uppercase, 1 digit' });
     }

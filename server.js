@@ -37,6 +37,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const PostgreSQLStore = require('connect-pg-simple')(session);
 const { router: mobileRoutes } = require('./routes/mobile');
 const { pool } = require('./config/database');
+const { registerLimiter, validateSignupEmail } = require('./middleware/signup-guard');
 const { listenerCount } = require('process');
 const app = express();
 app.set('trust proxy', 1); // Pour les déploiements derrière un proxy (Heroku, Render, etc.)
@@ -559,12 +560,16 @@ app.post('/auth/logout', (req, res) => {
   });
 });
 
-app.post('/auth/signup-basic', async (req, res) => {
+app.post('/auth/signup-basic', registerLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
 
-    // Validations (inchangées)
-    if (!email || !password) {
+    // Anti-spam : format + domaine (rejette les emails jetables / @example.com).
+    const chk = validateSignupEmail(req.body?.email);
+    if (!chk.ok) return res.status(400).json({ error: chk.reason });
+    const email = chk.email;
+
+    if (!password) {
       return res.status(400).json({ error: 'Email et mot de passe requis' });
     }
     const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
