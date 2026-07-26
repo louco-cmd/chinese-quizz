@@ -1,5 +1,6 @@
 import { View, Text, Pressable, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { useT } from '../i18n';
@@ -38,6 +39,14 @@ export default function TabBar({ active, onChange }) {
         paddingHorizontal: 14, paddingBottom: Math.max(insets.bottom, 12) + 8, paddingTop: 14,
       }}
     >
+      {/* Fondu du contenu vers le fond de page sous la barre (façon Telegram) :
+          le contenu qui défile se dissout au lieu d'être coupé net. transparent
+          → COLORS.page. `none` : purement décoratif, ne bloque aucun tap. */}
+      <LinearGradient
+        pointerEvents="none"
+        colors={['rgba(248,249,250,0)', COLORS.page]}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: -28 }}
+      />
       <View
         style={{
           flexDirection: 'row',
