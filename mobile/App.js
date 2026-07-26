@@ -271,7 +271,11 @@ export default function App() {
           hideLogo={tab === 'add'}
         />
         <View className="flex-1">{renderScreen()}</View>
-        {kbOpen ? null : <TabBar active={tab} onChange={setTab} />}
+        {/* Barre masquée au clavier et sur les pages secondaires plein écran
+            (réglages, abonnement). Fondu coupé sur Add Word (fond dégradé). */}
+        {kbOpen || tab === 'settings' || tab === 'pricing' ? null : (
+          <TabBar active={tab} onChange={setTab} fade={tab !== 'add'} />
+        )}
       </View>
     );
   }

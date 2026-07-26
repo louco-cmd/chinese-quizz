@@ -572,8 +572,8 @@ export default function CollectionScreen() {
         </View>
       </Animated.View>
 
-      {/* contrôles nav : ‹  › aux extrémités (masquer la traduction a migré dans la carte) */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cardW, maxWidth: 300, marginTop: 20 }}>
+      {/* contrôles nav : ‹  › alignés sur les bords de la carte (même largeur). */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cardW, marginTop: 20 }}>
         <Pressable onPress={() => go('prev')} style={{ width: 46, height: 46, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </Pressable>
@@ -582,8 +582,8 @@ export default function CollectionScreen() {
         </Pressable>
       </View>
 
-      {/* Calé au-dessus de la TabBar flottante (sinon caché derrière). */}
-      <Text style={{ position: 'absolute', bottom: TAB_CLEARANCE, color: COLORS.mutedLight, fontSize: 12 }}>
+      {/* Calé au-dessus de la TabBar flottante (sinon caché derrière), centré. */}
+      <Text style={{ position: 'absolute', bottom: TAB_CLEARANCE, left: 0, right: 0, textAlign: 'center', color: COLORS.mutedLight, fontSize: 12 }}>
         {(idx % len) + 1} / {len} · swipe ↑ for the list
       </Text>
 

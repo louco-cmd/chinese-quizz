@@ -20,7 +20,7 @@ const INACTIVE = COLORS.muted;    // #6c757d
 // Barre d'onglets FLOTTANTE (façon Telegram) : une pilule arrondie détachée des
 // bords. Elle ne touche jamais les coins arrondis ni l'indicateur home de l'iPhone
 // — ce qui corrige le rognage de l'ancienne barre collée au bas de l'écran.
-export default function TabBar({ active, onChange }) {
+export default function TabBar({ active, onChange, fade = true }) {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -41,12 +41,15 @@ export default function TabBar({ active, onChange }) {
     >
       {/* Fondu du contenu vers le fond de page sous la barre (façon Telegram) :
           le contenu qui défile se dissout au lieu d'être coupé net. transparent
-          → COLORS.page. `none` : purement décoratif, ne bloque aucun tap. */}
-      <LinearGradient
-        pointerEvents="none"
-        colors={['rgba(248,249,250,0)', COLORS.page]}
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: -28 }}
-      />
+          → COLORS.page. `none` : purement décoratif, ne bloque aucun tap. Désactivé
+          sur les écrans à fond coloré (ex. Add Word) où le voile clair jurerait. */}
+      {fade ? (
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(248,249,250,0)', COLORS.page]}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: -28 }}
+        />
+      ) : null}
       <View
         style={{
           flexDirection: 'row',
