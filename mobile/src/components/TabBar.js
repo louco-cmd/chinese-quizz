@@ -1,5 +1,5 @@
 import { View, Text, Pressable, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { useT } from '../i18n';
@@ -16,14 +16,42 @@ const TABS = [
 const ACTIVE = COLORS.jiayou;     // #0d6efd
 const INACTIVE = COLORS.muted;    // #6c757d
 
+// Barre d'onglets FLOTTANTE (façon Telegram) : une pilule arrondie détachée des
+// bords. Elle ne touche jamais les coins arrondis ni l'indicateur home de l'iPhone
+// — ce qui corrige le rognage de l'ancienne barre collée au bas de l'écran.
 export default function TabBar({ active, onChange }) {
   const { t } = useT();
-  // En desktop, on centre les boutons (max-width) au lieu de les étirer.
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const maxWidth = width >= 992 ? 600 : undefined;
+  const maxWidth = width >= 992 ? 560 : undefined;
+
   return (
-    <SafeAreaView edges={['bottom']} style={{ backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#dee2e6' }}>
-      <View style={{ flexDirection: 'row', height: 65, alignItems: 'center', width: '100%', maxWidth, alignSelf: 'center' }}>
+    // Wrapper transparent : le fond de page reste visible autour de la pilule.
+    // On réserve l'inset bas (home indicator) + une marge, avec un minimum sur
+    // les appareils sans inset (Android à boutons).
+    <View
+      pointerEvents="box-none"
+      style={{ paddingHorizontal: 14, paddingBottom: Math.max(insets.bottom, 10) + 2, paddingTop: 6 }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          height: 62,
+          alignItems: 'center',
+          alignSelf: 'center',
+          width: '100%',
+          maxWidth,
+          backgroundColor: '#fff',
+          borderRadius: 30,
+          paddingHorizontal: 6,
+          // Ombre portée douce pour l'effet "flottant".
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.12,
+          shadowRadius: 16,
+          elevation: 8,
+        }}
+      >
         {TABS.map((tab) => {
           const on = active === tab.key;
           const Icon = tab.lib;
@@ -32,18 +60,20 @@ export default function TabBar({ active, onChange }) {
               key={tab.key}
               onPress={() => onChange(tab.key)}
               style={{
-                flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', gap: 4,
+                flex: 1, height: 50, alignItems: 'center', justifyContent: 'center', gap: 3,
+                borderRadius: 24,
+                // Surbrillance arrondie derrière l'onglet actif (le "pill" Telegram).
                 backgroundColor: on ? COLORS.jiayouContainer : 'transparent',
               }}
             >
-              <Icon name={tab.icon} size={22} color={on ? ACTIVE : INACTIVE} />
-              <Text style={{ fontSize: 11, fontWeight: '500', color: on ? ACTIVE : INACTIVE }}>
+              <Icon name={tab.icon} size={21} color={on ? ACTIVE : INACTIVE} />
+              <Text style={{ fontSize: 10.5, fontWeight: on ? '700' : '500', color: on ? ACTIVE : INACTIVE }}>
                 {t(tab.tkey)}
               </Text>
             </Pressable>
           );
         })}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
