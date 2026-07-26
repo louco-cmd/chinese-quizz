@@ -544,7 +544,7 @@ export default function CollectionScreen() {
             )}
           </View>
 
-          {/* contrôles ronds : écoute + réglages */}
+          {/* contrôles ronds : écoute · masquer la traduction · réglages */}
           <View style={{ position: 'absolute', bottom: 14, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
             <Pressable
               onPress={() => (learningEnglish
@@ -556,6 +556,9 @@ export default function CollectionScreen() {
                 ? <ActivityIndicator size="small" color={COLORS.jiayou} />
                 : <Ionicons name="volume-medium" size={22} color={COLORS.jiayou} />}
             </Pressable>
+            <Pressable onPress={() => setHideTranslation((h) => !h)} style={circleBtn}>
+              <Ionicons name={hideTranslation ? 'eye' : 'eye-off'} size={20} color={COLORS.muted} />
+            </Pressable>
             <Pressable onPress={() => setMenuOpen(true)} style={circleBtn}>
               <Ionicons name="settings-outline" size={20} color={COLORS.muted} />
             </Pressable>
@@ -563,16 +566,10 @@ export default function CollectionScreen() {
         </View>
       </Animated.View>
 
-      {/* contrôles nav : ‹  hide translation  › */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cardW, maxWidth: 300, marginTop: 20 }}>
+      {/* contrôles nav : ‹  › (masquer la traduction a migré dans la carte) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 80, marginTop: 20 }}>
         <Pressable onPress={() => go('prev')} style={{ width: 46, height: 46, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="chevron-back" size={22} color="#fff" />
-        </Pressable>
-        <Pressable onPress={() => setHideTranslation((h) => !h)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Ionicons name={hideTranslation ? 'eye' : 'eye-off'} size={15} color={COLORS.muted} />
-          <Text style={{ color: COLORS.muted, fontSize: 13, textDecorationLine: 'underline' }}>
-            {hideTranslation ? 'Show translation' : 'Hide translation'}
-          </Text>
         </Pressable>
         <Pressable onPress={() => go('next')} style={{ width: 46, height: 46, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="chevron-forward" size={22} color="#fff" />
