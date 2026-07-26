@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { Loading, ErrorRetry } from '../components/ErrorRetry';
 import Popup from '../components/Popup';
-import { COLORS, SHADOW_CARD_FLAT } from '../theme';
+import { COLORS, SHADOW_CARD_FLAT, TAB_CLEARANCE } from '../theme';
 import { getCollection, updateWord, deleteWord, getCharacter, getMe, getPurchasedPacks, getMyPacks } from '../api';
 
 // Sélection de la meilleure voix par langue (qualité "Enhanced" en priorité).
@@ -401,7 +401,7 @@ export default function CollectionScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(x) => String(x.id)}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: TAB_CLEARANCE }}
           renderItem={({ item, index }) => (
             <Pressable
               onPress={() => { setIdx(Math.max(0, deck.indexOf(item))); switchView('card'); }}

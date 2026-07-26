@@ -11,7 +11,7 @@ import QuizPlayScreen from './QuizPlayScreen';
 import Popup from '../components/Popup';
 import { getQuizStats, getQuizPacks } from '../api';
 import { useT } from '../i18n';
-import { COLORS } from '../theme';
+import { COLORS, TAB_CLEARANCE } from '../theme';
 
 const HSK_GLYPH = { hsk1: '一', hsk2: '二', hsk3: '三', hsk4: '四', hsk5: '五', hsk6: '六' };
 const glyphOf = (k) => HSK_GLYPH[k] || '汉';
@@ -124,7 +124,7 @@ export default function QuizScreen({ onOpenStore, initialPack, onInitialConsumed
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <ScrollView contentContainerStyle={{ paddingVertical: 16 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: 16, paddingBottom: TAB_CLEARANCE }}>
         <View style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: hPad }}>
           {isDesktop ? (
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 24 }}>

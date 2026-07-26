@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator, FlatList } from 'react-native';
 import { getMe, getMarketPacks } from '../api';
-import { COLORS, SHADOW_CARD } from '../theme';
+import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 import PackDetailPopup, { glyphOf, COVER_BG, COVER_FG } from './PackDetailPopup';
 
 function PackCard({ pack, onPress }) {
@@ -105,7 +105,7 @@ export default function PackMarket({
         keyExtractor={(p) => String(p.id)}
         numColumns={2}
         columnWrapperStyle={{ gap: 18 }}
-        contentContainerStyle={contentContainerStyle || { width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30 }}
+        contentContainerStyle={contentContainerStyle || { width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: TAB_CLEARANCE }}
         ListHeaderComponent={ListHeaderComponent}
         ListFooterComponent={ListFooterComponent}
         renderItem={({ item }) =>

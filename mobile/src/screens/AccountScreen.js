@@ -15,7 +15,7 @@ import Popup from '../components/Popup';
 import CoursePage from './CoursePage';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getAccount, getStudentClasses, leaveMentor } from '../api';
-import { COLORS } from '../theme';
+import { COLORS, TAB_CLEARANCE } from '../theme';
 
 export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   const [data, setData] = useState(null);
@@ -85,7 +85,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: TAB_CLEARANCE }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={COLORS.jiayou} />
         }

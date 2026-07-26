@@ -15,7 +15,7 @@ import DuelDetailScreen from './DuelDetailScreen';
 import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getDuels, getLeaderboard, getReferral } from '../api';
-import { COLORS } from '../theme';
+import { COLORS, TAB_CLEARANCE } from '../theme';
 
 function Empty({ text }) {
   return <Text style={{ color: '#adb5bd', paddingHorizontal: 18, paddingVertical: 14 }}>{text}</Text>;
@@ -151,7 +151,7 @@ export default function DuelsScreen({ onDefeat }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <ScrollView
-        contentContainerStyle={{ paddingVertical: 16 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: TAB_CLEARANCE }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={COLORS.jiayou} />}
       >
         <View style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: hPad }}>

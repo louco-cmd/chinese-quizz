@@ -2,6 +2,10 @@
 // className (ex: color d'ActivityIndicator, tintColor, ombres via style).
 // Doit rester synchronisé avec tailwind.config.js.
 
+// Espace à réserver en bas des écrans qui défilent, pour que leur dernier
+// élément ne soit pas caché par la TabBar flottante (overlay absolu).
+export const TAB_CLEARANCE = 108;
+
 export const COLORS = {
   jiayou: '#0d6efd',
   jiayouDark: '#0a58ca',

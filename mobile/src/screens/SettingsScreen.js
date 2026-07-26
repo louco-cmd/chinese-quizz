@@ -12,7 +12,7 @@ import { ErrorRetry } from '../components/ErrorRetry';
 import UpdateFooter from '../components/settings/UpdateFooter';
 import { getSettings, updateSettings, deleteAccount } from '../api';
 import { useT } from '../i18n';
-import { COLORS } from '../theme';
+import { COLORS, TAB_CLEARANCE } from '../theme';
 
 export default function SettingsScreen({ onLogout, onOpen }) {
   const { setLang } = useT();
@@ -75,7 +75,7 @@ export default function SettingsScreen({ onLogout, onOpen }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <ScrollView contentContainerStyle={{ paddingVertical: 20 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: 20, paddingBottom: TAB_CLEARANCE }}>
         <View style={{ width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: hPad }}>
 
           {/* ── Learning ── */}

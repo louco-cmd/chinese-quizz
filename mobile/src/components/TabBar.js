@@ -26,12 +26,17 @@ export default function TabBar({ active, onChange }) {
   const maxWidth = width >= 992 ? 560 : undefined;
 
   return (
-    // Wrapper transparent : le fond de page reste visible autour de la pilule.
-    // On réserve l'inset bas (home indicator) + une marge, avec un minimum sur
-    // les appareils sans inset (Android à boutons).
+    // Overlay ABSOLU : la barre flotte PAR-DESSUS l'écran, donc le fond de
+    // l'écran (dégradé, liste qui défile…) remonte derrière la pilule — plus de
+    // bande blanche pleine largeur. `box-none` laisse passer les taps au contenu
+    // en dehors de la pilule. Les écrans avec défilement réservent TAB_CLEARANCE
+    // en bas pour que le dernier élément ne soit pas caché.
     <View
       pointerEvents="box-none"
-      style={{ paddingHorizontal: 14, paddingBottom: Math.max(insets.bottom, 10) + 2, paddingTop: 6 }}
+      style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0,
+        paddingHorizontal: 14, paddingBottom: Math.max(insets.bottom, 12) + 8, paddingTop: 14,
+      }}
     >
       <View
         style={{
