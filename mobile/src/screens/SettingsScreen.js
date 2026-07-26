@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, ActivityIndicator, Pressable,
   useWindowDimensions,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import SettingsGroup from '../components/settings/SettingsGroup';
 import SettingsRow from '../components/settings/SettingsRow';
 import SegmentedPicker from '../components/settings/SegmentedPicker';
@@ -14,7 +15,7 @@ import { getSettings, updateSettings, deleteAccount } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 
-export default function SettingsScreen({ onLogout, onOpen }) {
+export default function SettingsScreen({ onLogout, onOpen, onBack }) {
   const { setLang } = useT();
   const { width } = useWindowDimensions();
   const hPad = width >= 992 ? 24 : 16;
@@ -75,7 +76,16 @@ export default function SettingsScreen({ onLogout, onOpen }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <ScrollView contentContainerStyle={{ paddingTop: 20, paddingBottom: 32 }}>
+      {/* En-tête : retour vers la page compte (la barre est masquée ici). */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: hPad, paddingTop: 14, paddingBottom: 6 }}>
+        {onBack ? (
+          <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
+            <Text style={{ color: COLORS.jiayou, fontWeight: '600' }}>Back</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      <ScrollView contentContainerStyle={{ paddingTop: 6, paddingBottom: 32 }}>
         <View style={{ width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: hPad }}>
 
           {/* ── Learning ── */}

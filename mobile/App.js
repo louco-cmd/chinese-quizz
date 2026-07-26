@@ -189,7 +189,7 @@ export default function App() {
       case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} />;
       case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} />;
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} />;
-      case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} />;
+      case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onBack={() => setTab('account')} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} onPurchased={() => loadProfile({ route: false })} />;
       case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} onStartQuiz={startPackQuiz} onEditPack={startEditPack} />;
