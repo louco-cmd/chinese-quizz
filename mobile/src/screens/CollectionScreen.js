@@ -556,8 +556,14 @@ export default function CollectionScreen() {
                 ? <ActivityIndicator size="small" color={COLORS.jiayou} />
                 : <Ionicons name="volume-medium" size={22} color={COLORS.jiayou} />}
             </Pressable>
-            <Pressable onPress={() => setHideTranslation((h) => !h)} style={circleBtn}>
-              <Ionicons name={hideTranslation ? 'eye' : 'eye-off'} size={20} color={COLORS.muted} />
+            <Pressable
+              onPress={() => setHideTranslation((h) => !h)}
+              style={{ ...circleBtn, width: undefined, borderRadius: 22, flexDirection: 'row', gap: 6, paddingHorizontal: 14 }}
+            >
+              <Ionicons name={hideTranslation ? 'eye' : 'eye-off'} size={18} color={COLORS.muted} />
+              <Text style={{ color: COLORS.muted, fontSize: 13, fontWeight: '600' }}>
+                {hideTranslation ? 'Show' : 'Hide'}
+              </Text>
             </Pressable>
             <Pressable onPress={() => setMenuOpen(true)} style={circleBtn}>
               <Ionicons name="settings-outline" size={20} color={COLORS.muted} />
@@ -566,8 +572,8 @@ export default function CollectionScreen() {
         </View>
       </Animated.View>
 
-      {/* contrôles nav : ‹  › (masquer la traduction a migré dans la carte) */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 80, marginTop: 20 }}>
+      {/* contrôles nav : ‹  › aux extrémités (masquer la traduction a migré dans la carte) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cardW, maxWidth: 300, marginTop: 20 }}>
         <Pressable onPress={() => go('prev')} style={{ width: 46, height: 46, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </Pressable>
