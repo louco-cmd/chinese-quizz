@@ -579,7 +579,8 @@ export default function CollectionScreen() {
         </Pressable>
       </View>
 
-      <Text style={{ position: 'absolute', bottom: 16, color: COLORS.mutedLight, fontSize: 12 }}>
+      {/* Calé au-dessus de la TabBar flottante (sinon caché derrière). */}
+      <Text style={{ position: 'absolute', bottom: TAB_CLEARANCE, color: COLORS.mutedLight, fontSize: 12 }}>
         {(idx % len) + 1} / {len} · swipe ↑ for the list
       </Text>
 
