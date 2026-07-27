@@ -1,4 +1,4 @@
-import { View, Text, Pressable, useWindowDimensions, StyleSheet } from 'react-native';
+import { View, Text, Pressable, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
@@ -17,25 +17,20 @@ const ACTIVE = COLORS.jiayou;     // #0d6efd
 const INACTIVE = COLORS.muted;    // #6c757d
 const RADIUS = 28;                // bouts bien arrondis
 
-// BlurView chargé de façon PARESSEUSE et protégée : un build livré AVANT l'ajout
-// d'expo-blur n'a pas le module natif → require top-level crasherait via l'OTA.
-// Sans blur, on retombe sur un fond translucide (pas de bande blanche).
-let _Blur;
-function getBlur() {
-  if (_Blur !== undefined) return _Blur;
-  try { _Blur = require('expo-blur').BlurView; } catch { _Blur = null; }
-  return _Blur;
-}
+// NB: pas de BlurView ici. `expo-blur` est bundlé dans le JS mais son module NATIF
+// n'existe pas dans les builds ≤ 10 : require() réussit (donc un try/catch ne
+// protège de rien), et c'est le RENDU de <BlurView> qui crashe au démarrage
+// (composant natif ExpoBlurView introuvable). On garde donc un fond blanc
+// translucide, servable en OTA sans risque. Le vrai verre dépoli sera réactivé
+// dans un prochain build natif, où le module ExpoBlur sera réellement présent.
 
 // Barre d'onglets FLOTTANTE : pilule arrondie détachée des bords (ne touche ni les
-// coins arrondis ni l'indicateur home). Fond en verre dépoli (BlurView) quand le
-// module natif est présent, sinon blanc translucide.
+// coins arrondis ni l'indicateur home). Fond blanc translucide.
 export default function TabBar({ active, onChange }) {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const maxWidth = width >= 992 ? 560 : undefined;
-  const Blur = getBlur();
 
   return (
     <View
@@ -57,14 +52,11 @@ export default function TabBar({ active, onChange }) {
           style={{
             flexDirection: 'row', height: 62, alignItems: 'center', paddingHorizontal: 6,
             borderRadius: RADIUS, overflow: 'hidden',
-            // Avec blur : fond très léger (le flou fait le "verre"). Sans blur :
-            // blanc translucide plus soutenu, uniforme (plus de bande blanche).
-            backgroundColor: Blur ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.85)',
+            // Blanc translucide uniforme (plus de bande blanche).
+            backgroundColor: 'rgba(255,255,255,0.85)',
             borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)',
           }}
         >
-          {Blur ? <Blur intensity={40} tint="light" style={StyleSheet.absoluteFill} /> : null}
-
           {TABS.map((tab) => {
             const on = active === tab.key;
             const Icon = tab.lib;
