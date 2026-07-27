@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator, Platform, useWind
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getDuel } from '../api';
-import { COLORS, SHADOW_CARD } from '../theme';
+import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 const DEFEAT = '#c0392b';
 const DEFEAT_BG = '#fbeceb'; // fond de page teinté rouge clair
@@ -208,7 +208,7 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
 
   return (
     <View style={{ flex: 1, backgroundColor: pageBg }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: TAB_CLEARANCE }}>
         {/* ── Hero ── */}
         <View style={{ backgroundColor: heroBg, paddingTop: 28, paddingBottom: 52, paddingHorizontal: 24, overflow: 'hidden' }}>
           {theyWon ? <CrackOverlay /> : null}

@@ -5,7 +5,7 @@ import { flagEmoji } from '../components/account/EditProfilePopup';
 import StartDuelPopup from '../components/duels/StartDuelPopup';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getUserProfile } from '../api';
-import { COLORS, SHADOW_CARD } from '../theme';
+import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 // Barre de maîtrise segmentée (mastered / learning / medium / novice).
 const SEGMENTS = [
@@ -71,7 +71,7 @@ export default function UserProfileScreen({ userId, onBack }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <ScrollView contentContainerStyle={{ paddingVertical: 16, paddingBottom: 32 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: 16, paddingBottom: TAB_CLEARANCE }}>
         <View style={{ width: '100%', maxWidth: 640, alignSelf: 'center', paddingHorizontal: 16 }}>
 
           {/* En-tête : retour + défier */}

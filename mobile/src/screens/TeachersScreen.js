@@ -9,7 +9,7 @@ import JoinClassPopup from '../components/teachers/JoinClassPopup';
 import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getMentors, getReferral } from '../api';
-import { COLORS } from '../theme';
+import { COLORS, TAB_CLEARANCE } from '../theme';
 
 function priceMatches(price, active) {
   if (active === 'any') return true;
@@ -80,7 +80,7 @@ export default function TeachersScreen({ onBack }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <ScrollView
-        contentContainerStyle={{ paddingVertical: 16 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: TAB_CLEARANCE }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={COLORS.jiayou} />}
       >
         <View style={{ width: '100%', maxWidth: 700, alignSelf: 'center', paddingHorizontal: 16 }}>
