@@ -917,12 +917,14 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     const min = Number.isFinite(+req.query.min) ? Math.max(0, parseInt(req.query.min, 10) || 0) : 0;
     const max = Number.isFinite(+req.query.max) && req.query.max !== '' ? parseInt(req.query.max, 10) : 1000000;
     const sortMap = {
+      // Défaut : les nouveautés (< 7 j) d'abord, puis les plus achetés.
+      featured: "(wp.created_at > NOW() - INTERVAL '7 days') DESC, wp.sales_count DESC, wp.created_at DESC",
       recent: 'wp.created_at DESC',
       price_asc: 'wp.price ASC, wp.created_at DESC',
       price_desc: 'wp.price DESC, wp.created_at DESC',
       popular: 'wp.sales_count DESC, wp.created_at DESC',
     };
-    const orderBy = sortMap[req.query.sort] || sortMap.recent;
+    const orderBy = sortMap[req.query.sort] || sortMap.featured;
 
     const params = [uid, min, max];
     let where = 'wp.published = TRUE AND wp.price >= $2 AND wp.price <= $3';
@@ -934,7 +936,9 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
       `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
-              EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1) AS owned
+              (wp.created_at > NOW() - INTERVAL '7 days') AS is_new,
+              -- Possédé = acheté OU créé par l'utilisateur.
+              (wp.creator_id = $1 OR EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1)) AS owned
        FROM word_packs wp
        LEFT JOIN users u ON u.id = wp.creator_id
        WHERE ${where}

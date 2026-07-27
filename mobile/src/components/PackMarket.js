@@ -16,6 +16,12 @@ function PackCard({ pack, onPress }) {
               <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>Owned</Text>
             </View>
           ) : null}
+          {/* Nouveauté (< 7 jours) — masqué si déjà possédé (le badge Owned prime). */}
+          {pack.is_new && !pack.owned ? (
+            <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: '#ff6b35', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>NEW</Text>
+            </View>
+          ) : null}
         </View>
         <View style={{ padding: 11 }}>
           {/* Titre */}
@@ -75,7 +81,7 @@ export default function PackMarket({
   const fetchPacks = useCallback(async () => {
     setError('');
     try {
-      const d = await getMarketPacks({ sort: 'price_asc' });
+      const d = await getMarketPacks({ sort: 'featured' });
       setPacks(d.packs || []);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   }, []);
