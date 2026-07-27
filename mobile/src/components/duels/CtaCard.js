@@ -12,7 +12,10 @@ export default function CtaCard({ colors, icon, title, text, onPress, fill = fal
       <LinearGradient
         colors={colors}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ borderRadius: 16, paddingVertical: 18, paddingHorizontal: 14, minHeight: fill ? 160 : 118, justifyContent: 'center', ...(fill ? { flex: 1 } : null) }}
+        // flex:1 → le dégradé remplit toute la hauteur du Pressable, qui s'étire
+        // sur la plus grande carte de la rangée → les deux cartes restent alignées
+        // même quand l'une a un texte sur 2 lignes (ex. apprentissage de l'anglais).
+        style={{ borderRadius: 16, paddingVertical: 18, paddingHorizontal: 14, minHeight: fill ? 160 : 118, justifyContent: 'center', flex: 1 }}
       >
         <Ionicons name="arrow-forward-circle" size={20} color="rgba(255,255,255,0.7)" style={{ position: 'absolute', top: 10, right: 12 }} />
         <View style={{ alignItems: 'center' }}>

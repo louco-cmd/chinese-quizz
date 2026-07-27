@@ -88,8 +88,9 @@ export default function TabBar({ active, onChange, fade = true }) {
                 onPress={() => onChange(tab.key)}
                 style={{ flex: 1, height: 50, alignItems: 'center', justifyContent: 'center' }}
               >
-                {/* Sélectionné : bouton bleu, + blanc. Sinon : bouton blanc, + bleu. */}
-                <View style={{ width: 52, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? ACTIVE : '#fff', borderWidth: on ? 0 : 1.5, borderColor: '#e3e8f7' }}>
+                {/* Sélectionné : bleu plein, + blanc. Sinon : tuile bleu clair, +
+                    bleu (pas de blanc plein qui trancherait sur la barre translucide). */}
+                <View style={{ width: 52, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? ACTIVE : COLORS.jiayouContainer }}>
                   <Ionicons name="add" size={26} color={on ? '#fff' : ACTIVE} />
                 </View>
               </Pressable>
