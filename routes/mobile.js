@@ -2492,6 +2492,10 @@ router.post('/api/m/quiz/save', requireToken, async (req, res) => {
           const s = byMot[id] ?? 0;
           if (s < 50) raw += 0.5; else if (s < 80) raw += 0.3; else raw += 0.1;
         }
+        // Bonus : sens supplémentaires correctement donnés (mots à plusieurs
+        // traductions) → 0.1 pièce chacun. Plafonné pour éviter tout abus.
+        const bonusTotal = results.reduce((n, r) => n + (Number.isInteger(r?.bonus) && r.bonus > 0 ? Math.min(r.bonus, 5) : 0), 0);
+        raw += bonusTotal * 0.1;
         coinsEarned = Math.round(raw);
       }
     }

@@ -56,7 +56,7 @@ export default function QuizPlayScreen({ config, onExit }) {
       const ws = d.words || [];
       if (!ws.length) { setError('Not enough words in your collection for these settings.'); setWords(null); return; }
       setWords(ws);
-      results.current = ws.map((w) => ({ mot_id: w.id, correct: null, pinyin: w.pinyin }));
+      results.current = ws.map((w) => ({ mot_id: w.id, correct: null, bonus: 0, pinyin: w.pinyin }));
       resetQuestion(ws[0]);
     } catch (e) {
       setError(e.message || 'Could not start the quiz.');
@@ -118,9 +118,17 @@ export default function QuizPlayScreen({ config, onExit }) {
   const correctCountRef = useRef(0);
   useEffect(() => { correctCountRef.current = correctCount; }, [correctCount]);
 
+  // Nombre de sens DISTINCTS correctement donnés (zh→en, plusieurs traductions).
+  // Un seul suffit pour le point ; chaque sens en plus = point bonus.
+  function countMatchedSenses(w, arr) {
+    const senses = parseAnswers(w.english);
+    const given = arr.map((s) => s.trim().toLowerCase()).filter(Boolean);
+    return senses.reduce((n, s) => n + (given.includes(s) ? 1 : 0), 0);
+  }
+
   function checkAnswer(w) {
     if (direction === 'zh→en') {
-      return parseAnswers(w.english).some((a) => a === inputs[0].trim().toLowerCase());
+      return countMatchedSenses(w, inputs) >= 1;
     }
     if (type === 'pinyin') {
       return normalizePinyin(inputs.join(' ')) === normalizePinyin(w.pinyin);
@@ -133,12 +141,14 @@ export default function QuizPlayScreen({ config, onExit }) {
     const w = words[idx];
     const ok = checkAnswer(w);
     const answer = direction === 'zh→en' ? w.english : type === 'pinyin' ? w.pinyin : w.chinese;
+    // Sens en plus (au-delà du 1er) = points bonus, uniquement en zh→en.
+    const bonus = direction === 'zh→en' ? Math.max(0, countMatchedSenses(w, inputs) - 1) : 0;
 
     if (ok) {
-      // Point seulement si trouvé à la 1re tentative
-      if (results.current[idx].correct === null) results.current[idx].correct = true;
-      if (!second) setCorrectCount((c) => c + 1);
-      setFeedback({ kind: 'success', text: 'Correct!' });
+      // Point (+ bonus) seulement si trouvé à la 1re tentative.
+      if (results.current[idx].correct === null) { results.current[idx].correct = true; results.current[idx].bonus = bonus; }
+      if (!second) setCorrectCount((c) => c + 1 + bonus);
+      setFeedback({ kind: 'success', text: bonus > 0 ? `Correct! +${bonus} bonus` : 'Correct!' });
       setLocked(true);
       setTimeout(() => advance(idx + 1, words), 1000);
     } else if (!second) {
@@ -269,6 +279,48 @@ export default function QuizPlayScreen({ config, onExit }) {
                     style={syllableStyle(second)}
                   />
                 ))
+              ) : direction === 'zh→en' ? (
+                // Traductions : un champ suffit ; le "+" en ajoute pour des bonus.
+                <View style={{ width: '100%' }}>
+                  {inputs.map((val, i) => (
+                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <TextInput
+                        ref={i === 0 ? firstRef : undefined}
+                        value={val}
+                        onChangeText={(t) => setInputs((arr) => arr.map((x, j) => (j === i ? t : x)))}
+                        onSubmitEditing={submit}
+                        editable={!locked}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        placeholder={i === 0 ? 'English translation…' : 'Another meaning (bonus)…'}
+                        placeholderTextColor="#adb5bd"
+                        style={[fullInputStyle(second), { flex: 1 }]}
+                      />
+                      {inputs.length > 1 ? (
+                        <Pressable onPress={() => setInputs((arr) => arr.filter((_, j) => j !== i))} hitSlop={8} disabled={locked}>
+                          <Ionicons name="close-circle" size={24} color={COLORS.danger} />
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ))}
+                  {(() => {
+                    const senses = parseAnswers(w.english).length;
+                    if (senses <= 1) return null;
+                    return (
+                      <>
+                        {inputs.length < senses ? (
+                          <Pressable onPress={() => setInputs((arr) => [...arr, ''])} disabled={locked} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', marginTop: 2 }}>
+                            <Ionicons name="add-circle-outline" size={18} color={COLORS.jiayou} />
+                            <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }}>Add another meaning (+1 bonus)</Text>
+                          </Pressable>
+                        ) : null}
+                        <Text style={{ textAlign: 'center', color: COLORS.mutedLight, fontSize: 12, marginTop: 8 }}>
+                          {senses} translations possible — one is enough
+                        </Text>
+                      </>
+                    );
+                  })()}
+                </View>
               ) : (
                 <TextInput
                   ref={firstRef}
@@ -278,7 +330,7 @@ export default function QuizPlayScreen({ config, onExit }) {
                   editable={!locked}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  placeholder={direction === 'zh→en' ? 'English translation…' : 'Write Chinese characters…'}
+                  placeholder={'Write Chinese characters…'}
                   placeholderTextColor="#adb5bd"
                   style={fullInputStyle(second)}
                 />
