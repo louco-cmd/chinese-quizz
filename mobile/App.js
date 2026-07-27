@@ -1,6 +1,6 @@
 import './global.css';
 import { useEffect, useState, useCallback } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken } from './src/api';
@@ -94,6 +94,22 @@ export default function App() {
     }
   }, []);
 
+  // Rafraîchit UNIQUEMENT le solde/plan (léger), sans la logique de routage de
+  // loadProfile. Le solde change depuis beaucoup d'endroits (quiz, duel, capture,
+  // achat pack, enveloppe) → sinon le header reste souvent en retard.
+  const refreshBalance = useCallback(() => {
+    getMe()
+      .then((me) => setProfile((p) => (p ? { ...p, balance: me.balance, plan: me.plan, isPremium: me.isPremium } : p)))
+      .catch(() => {});
+  }, []);
+
+  // À chaque navigation (changement d'onglet) et au retour au premier plan.
+  useEffect(() => { if (authed) refreshBalance(); }, [tab, authed, refreshBalance]);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active' && authed) refreshBalance(); });
+    return () => sub.remove();
+  }, [authed, refreshBalance]);
+
   // Détecte les entrées par URL sur web (lien email de reset, retour de paiement Stripe).
   useEffect(() => {
     if (typeof window === 'undefined' || !window.location) return;
@@ -186,7 +202,7 @@ export default function App() {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
       case 'collection': return <CollectionScreen />;
       case 'add': return <AddWordScreen />;
-      case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} />;
+      case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} />;
       case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} />;
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onBack={() => setTab('account')} />;
