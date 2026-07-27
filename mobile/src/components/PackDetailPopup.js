@@ -11,15 +11,16 @@ export const glyphOf = (k) => HSK_GLYPH[k] || '汉';
 export const COVER_BG = '#e8f0ff';
 export const COVER_FG = '#5b8def';
 
-// Ligne d'un mot (chinois · anglais · pinyin).
+// Ligne d'un mot : deux colonnes justifiées — chinois + pinyin ensemble à
+// gauche, anglais aligné à droite.
 export function WordRow({ w, last }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5, borderBottomWidth: last ? 0 : 1, borderColor: '#eceef1' }}>
-      <Text style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e', minWidth: 42 }}>{w.chinese}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 6, borderBottomWidth: last ? 0 : 1, borderColor: '#eceef1' }}>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 13, color: '#1a1a2e' }} numberOfLines={1}>{w.english}</Text>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e' }}>{w.chinese}</Text>
         <Text style={{ fontSize: 11.5, color: COLORS.muted }}>{w.pinyin}</Text>
       </View>
+      <Text style={{ flex: 1, fontSize: 13, color: '#1a1a2e', textAlign: 'right' }} numberOfLines={2}>{w.english}</Text>
     </View>
   );
 }
