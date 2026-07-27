@@ -526,7 +526,16 @@ function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine, lea
 
       {/* Infos du mot — centrées, occupent l'espace jusqu'au bouton du bas. */}
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 40, fontWeight: '800', color: COLORS.jiayou, textAlign: 'center' }}>{primary}</Text>
+        {/* L'anglais est bien plus long que les caractères → plus petit, sur
+            plusieurs lignes, et rétréci pour tenir dans la carte étroite. */}
+        <Text
+          numberOfLines={learningEnglish ? 3 : 1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.5}
+          style={{ fontSize: learningEnglish ? 26 : 40, fontWeight: '800', color: COLORS.jiayou, textAlign: 'center' }}
+        >
+          {primary}
+        </Text>
         {learningEnglish ? (
           <>
             <Text style={{ color: '#1a1a2e', fontWeight: '700', fontSize: 20, marginTop: 8, textAlign: 'center' }}>{w.chinese}</Text>
