@@ -233,6 +233,29 @@ export default function CollectionScreen() {
     </Popup>
   );
 
+  // Bouton filtre flottant, partagé par les vues carte ET liste (bas-droite, au
+  // dessus du contenu, juste au-dessus de la TabBar).
+  const filterFab = (
+    <Pressable
+      onPress={() => setFilterOpen(true)}
+      hitSlop={10}
+      style={{
+        position: 'absolute', bottom: TAB_CLEARANCE, right: 16, zIndex: 20,
+        width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff',
+        alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.line,
+        // ombre iOS seule (pas d'elevation → pas de halo gris pendant le fondu de vue).
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12,
+      }}
+    >
+      <Ionicons name={activeCount ? 'funnel' : 'funnel-outline'} size={23} color={COLORS.jiayou} />
+      {activeCount ? (
+        <View style={{ position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{activeCount}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+
   const load = useCallback(async () => {
     setError('');
     try {
@@ -383,14 +406,6 @@ export default function CollectionScreen() {
               autoCapitalize="none"
               style={{ flex: 1, backgroundColor: '#fff', borderRadius: 999, borderWidth: 1, borderColor: COLORS.line, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15 }}
             />
-            <Pressable onPress={() => setFilterOpen(true)} hitSlop={10} style={{ marginLeft: 12 }}>
-              <Ionicons name={activeCount ? 'funnel' : 'funnel-outline'} size={22} color={COLORS.jiayou} />
-              {activeCount ? (
-                <View style={{ position: 'absolute', top: -6, right: -8, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
-                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{activeCount}</Text>
-                </View>
-              ) : null}
-            </Pressable>
             <Pressable onPress={() => switchView('card')} hitSlop={10} style={{ marginLeft: 14 }}>
               <Ionicons name="grid" size={24} color={COLORS.jiayou} />
             </Pressable>
@@ -415,6 +430,7 @@ export default function CollectionScreen() {
           ListEmptyComponent={<Text style={{ textAlign: 'center', color: COLORS.mutedLight, padding: 20 }}>No match.</Text>}
         />
         </View>
+        {filterFab}
       </Animated.View>
     );
   }
@@ -476,25 +492,7 @@ export default function CollectionScreen() {
 
   return (
     <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 16, opacity: screenFade, transform: [{ scale: screenScale }] }}>
-      {/* Bouton filtre : flottant, collé en bas à droite, au-dessus de tout. */}
-      <Pressable
-        onPress={() => setFilterOpen(true)}
-        hitSlop={10}
-        style={{
-          position: 'absolute', bottom: TAB_CLEARANCE, right: 16, zIndex: 20,
-          width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff',
-          alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.line,
-          // ombre iOS seule (pas d'elevation → pas de halo gris pendant le fondu de vue).
-          shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12,
-        }}
-      >
-        <Ionicons name={activeCount ? 'funnel' : 'funnel-outline'} size={23} color={COLORS.jiayou} />
-        {activeCount ? (
-          <View style={{ position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
-            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{activeCount}</Text>
-          </View>
-        ) : null}
-      </Pressable>
+      {filterFab}
 
       <Animated.View {...cardPan.panHandlers} style={{ width: cardW, height: cardH, opacity: fade }}>
         <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 24, padding: 18, ...SHADOW_CARD_FLAT }}>
