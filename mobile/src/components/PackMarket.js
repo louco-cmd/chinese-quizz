@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, Pressable, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, FlatList, useWindowDimensions } from 'react-native';
 import { getMe, getMarketPacks } from '../api';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 import PackDetailPopup, { glyphOf, COVER_BG, COVER_FG } from './PackDetailPopup';
@@ -93,19 +93,29 @@ export default function PackMarket({
     setSelected((s) => (s ? { ...s, owned: true } : s));
   }
 
-  // Construit la grille : packs + tuile injectée + spacer pour égaliser les colonnes.
+  // 3 colonnes en desktop, 2 sinon. La grille se réajuste avec la fenêtre.
+  const { width } = useWindowDimensions();
+  const numColumns = width >= 992 ? 3 : 2;
+
+  // Construit la grille : packs + tuile injectée + spacers pour compléter la
+  // dernière rangée (multiple de numColumns) et garder des cartes bien alignées.
   const items = [...packs];
   if (extraTile) items.splice(Math.min(extraTileAt ?? items.length, items.length), 0, { id: '__extra__', _extra: true });
-  const gridData = items.length % 2 === 1 ? [...items, { id: '__spacer__', _spacer: true }] : items;
+  const remainder = items.length % numColumns;
+  const gridData = remainder === 0
+    ? items
+    : [...items, ...Array.from({ length: numColumns - remainder }, (_, i) => ({ id: `__spacer_${i}__`, _spacer: true }))];
 
   return (
     <View style={{ flex: 1 }}>
       <FlatList
         data={gridData}
         keyExtractor={(p) => String(p.id)}
-        numColumns={2}
+        // `key` force le remontage quand le nombre de colonnes change (contrainte RN).
+        key={numColumns}
+        numColumns={numColumns}
         columnWrapperStyle={{ gap: 18 }}
-        contentContainerStyle={contentContainerStyle || { width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: TAB_CLEARANCE }}
+        contentContainerStyle={contentContainerStyle || { width: '100%', maxWidth: numColumns === 3 ? 980 : 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: TAB_CLEARANCE }}
         ListHeaderComponent={ListHeaderComponent}
         ListFooterComponent={ListFooterComponent}
         renderItem={({ item }) =>
