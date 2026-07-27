@@ -88,8 +88,9 @@ export default function TabBar({ active, onChange, fade = true }) {
                 onPress={() => onChange(tab.key)}
                 style={{ flex: 1, height: 50, alignItems: 'center', justifyContent: 'center' }}
               >
-                <View style={{ width: 52, height: 34, borderRadius: 11, backgroundColor: ACTIVE, alignItems: 'center', justifyContent: 'center', opacity: on ? 1 : 0.92 }}>
-                  <Ionicons name="add" size={26} color="#fff" />
+                {/* Sélectionné : bouton bleu, + blanc. Sinon : bouton blanc, + bleu. */}
+                <View style={{ width: 52, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? ACTIVE : '#fff', borderWidth: on ? 0 : 1.5, borderColor: '#e3e8f7' }}>
+                  <Ionicons name="add" size={26} color={on ? '#fff' : ACTIVE} />
                 </View>
               </Pressable>
             );
