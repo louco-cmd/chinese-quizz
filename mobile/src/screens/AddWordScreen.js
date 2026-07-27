@@ -7,13 +7,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
 import { COLORS } from '../theme';
-import { searchWords, captureWord, createWord, getPinyin } from '../api';
+import { searchWords, captureWord, createWord, getPinyin, getMe } from '../api';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 const BAR_H = 62; // hauteur de la barre = diamètre du bouton rond
 
 const CARD_W = 200;   // plus étroite → on aperçoit mieux la carte suivante
-const CARD_H = 320;    // plus haute → format portrait qui incite au scroll
+const CARD_H = 280;    // format portrait qui incite au scroll
 const CARD_GAP = 14;
 const ITEM_W = CARD_W + CARD_GAP;
 
@@ -42,6 +42,9 @@ export default function AddWordScreen() {
   const [captured, setCaptured] = useState({}); // id -> true | 'loading'
   const [error, setError] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
+  // Langue apprise : zh→en = on apprend l'anglais → l'anglais devient le mot principal.
+  const [learningEnglish, setLearningEnglish] = useState(false);
+  useEffect(() => { getMe().then((me) => setLearningEnglish(me?.quiz_direction === 'zh→en')).catch(() => {}); }, []);
 
   // Bouton loupe qui "se détache" du corps de la barre au focus (ressort organique).
   const detach = useRef(new Animated.Value(0)).current;
@@ -74,15 +77,23 @@ export default function AddWordScreen() {
 
   // Carrousel ancré
   const scrollX = useRef(new Animated.Value(0)).current;
-  // Reflet de lumière : rejoué à chaque fois qu'une carte se cale au centre.
+  // Reflet de lumière : rejoué chaque fois que la carte centrée change. On écoute
+  // scrollX (fiable web ET natif) plutôt que onMomentumScrollEnd, peu fiable sur web.
   const [activeIndex, setActiveIndex] = useState(0);
   const shine = useRef(new Animated.Value(0)).current;
-  function onMomentumEnd(e) {
-    const i = Math.round(e.nativeEvent.contentOffset.x / ITEM_W);
-    setActiveIndex(i);
-    shine.setValue(0);
-    Animated.timing(shine, { toValue: 1, duration: 650, useNativeDriver: true }).start();
-  }
+  useEffect(() => {
+    let last = -1;
+    const id = scrollX.addListener(({ value }) => {
+      const i = Math.round(value / ITEM_W);
+      if (i !== last) {
+        last = i;
+        setActiveIndex(i);
+        shine.setValue(0);
+        Animated.timing(shine, { toValue: 1, duration: 650, useNativeDriver: true }).start();
+      }
+    });
+    return () => scrollX.removeListener(id);
+  }, [scrollX, shine]);
 
   // Logo flottant (comme l'animation logoFloat de l'EJS)
   const float = useRef(new Animated.Value(0)).current;
@@ -319,7 +330,6 @@ export default function AddWordScreen() {
               [{ nativeEvent: { contentOffset: { x: scrollX } } }],
               { useNativeDriver: true }
             )}
-            onMomentumScrollEnd={onMomentumEnd}
             contentContainerStyle={{ paddingHorizontal: sidePad, paddingVertical: 18, gap: CARD_GAP }}
           >
             {results.map((w, i) => {
@@ -339,6 +349,7 @@ export default function AddWordScreen() {
                     onCapture={() => capture(w.id)}
                     onEdit={() => openEdit(w)}
                     shine={i === activeIndex ? shine : null}
+                    learningEnglish={learningEnglish}
                   />
                 </Animated.View>
               );
@@ -358,11 +369,6 @@ export default function AddWordScreen() {
               </Text>
             </Pressable>
 
-            {results.length === 0 && (
-              <View style={{ width: CARD_W, minHeight: 160, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: COLORS.muted }}>No match found.</Text>
-              </View>
-            )}
           </Animated.ScrollView>
 
           {/* Fondu au blanc sur les bords — réduit pour mieux voir le scroll. */}
@@ -490,7 +496,7 @@ function ModalInput({ noMargin, multiline, ...props }) {
   );
 }
 
-function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine }) {
+function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine, learningEnglish }) {
   // Reflet : bande de lumière diagonale qui traverse la carte quand elle se cale.
   const shineTx = shine
     ? shine.interpolate({ inputRange: [0, 1], outputRange: [-90, CARD_W + 90] })
@@ -499,47 +505,62 @@ function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine }) {
     ? shine.interpolate({ inputRange: [0, 0.15, 0.8, 1], outputRange: [0, 0.75, 0.75, 0] })
     : null;
 
+  // Mot principal = langue apprise. Anglais appris → anglais en bleu ; sinon chinois.
+  const primary = learningEnglish ? w.english : w.chinese;
+
   return (
     // Wrapper : porte l'ombre (pas d'overflow, sinon l'ombre iOS serait rognée).
     <View style={{ borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 12 }}>
       {/* Conteneur qui CLIPPE : contient le contenu + le reflet. */}
       <View
         style={{
-          width: CARD_W, minHeight: CARD_H, borderRadius: 20, padding: 18, paddingTop: 22, alignItems: 'center',
-          justifyContent: 'center', overflow: 'hidden', backgroundColor: '#f4f7ff',
+          width: CARD_W, minHeight: CARD_H, borderRadius: 20, padding: 18, paddingTop: 22, overflow: 'hidden', backgroundColor: '#f4f7ff',
           borderWidth: exact ? 1.5 : 1, borderColor: exact ? COLORS.jiayou : '#e3e8f7',
         }}
       >
       {exact && (
-        <View style={{ position: 'absolute', top: 10, left: 12, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+        <View style={{ position: 'absolute', top: 10, left: 12, zIndex: 2, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
           <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>EXACT</Text>
         </View>
       )}
 
-      {/* Éditer avant de capturer */}
-      <Pressable onPress={onEdit} hitSlop={8} style={{ position: 'absolute', top: 10, right: 12 }}>
-        <Ionicons name="create-outline" size={18} color={COLORS.muted} />
-      </Pressable>
+      {/* Infos du mot — centrées, occupent l'espace jusqu'au bouton du bas. */}
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ fontSize: 40, fontWeight: '800', color: COLORS.jiayou, textAlign: 'center' }}>{primary}</Text>
+        {learningEnglish ? (
+          <>
+            <Text style={{ color: '#1a1a2e', fontWeight: '700', fontSize: 20, marginTop: 8, textAlign: 'center' }}>{w.chinese}</Text>
+            <Text style={{ color: '#6c757d', fontSize: 15, marginTop: 4 }}>{w.pinyin}</Text>
+          </>
+        ) : (
+          <>
+            <Text style={{ color: '#6c757d', fontSize: 16, marginTop: 8 }}>{w.pinyin}</Text>
+            <Text style={{ color: '#1a1a2e', fontWeight: '600', marginTop: 4, textAlign: 'center' }}>{w.english}</Text>
+          </>
+        )}
+        <Text style={{ color: '#adb5bd', fontSize: 12, marginTop: 8 }}>
+          {(w.owner_count || 0) > 0 ? `${w.owner_count} user${w.owner_count === 1 ? '' : 's'}` : ' '}
+        </Text>
+      </View>
 
-      <Text style={{ fontSize: 34, fontWeight: '800', color: COLORS.jiayou, marginTop: 6, textAlign: 'center' }}>{w.chinese}</Text>
-      <Text style={{ color: '#6c757d', fontSize: 16, marginTop: 6 }}>{w.pinyin}</Text>
-      <Text style={{ color: '#1a1a2e', fontWeight: '600', marginTop: 4, textAlign: 'center' }}>{w.english}</Text>
-      <Text style={{ color: '#adb5bd', fontSize: 12, marginTop: 8 }}>
-        {(w.owner_count || 0) > 0 ? `${w.owner_count} user${w.owner_count === 1 ? '' : 's'}` : ' '}
-      </Text>
-
-      <View style={{ flexDirection: 'row', gap: 8, marginTop: 16, width: '100%' }}>
+      {/* Zone d'action, collée en bas : bouton principal + lien secondaire. */}
+      <View style={{ width: '100%' }}>
         {owned ? (
-          <View style={{ flex: 1, backgroundColor: '#d4edda', borderRadius: 999, paddingVertical: 9, alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#d4edda', borderRadius: 999, paddingVertical: 10, alignItems: 'center' }}>
             <Text style={{ color: '#198754', fontWeight: '700', fontSize: 13 }}>✓ Captured</Text>
           </View>
         ) : (
-          <Pressable onPress={onCapture} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 9, alignItems: 'center' }}>
+          <Pressable onPress={onCapture} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 10, alignItems: 'center' }}>
             {capturing
               ? <ActivityIndicator color="#fff" size="small" />
               : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Capture</Text>}
           </Pressable>
         )}
+        {!owned ? (
+          <Pressable onPress={onEdit} hitSlop={6} style={{ alignItems: 'center', paddingTop: 10 }}>
+            <Text style={{ color: COLORS.muted, fontSize: 12.5, textDecorationLine: 'underline' }}>Edit before capture</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {/* Reflet de lumière (au-dessus de tout, ne capte pas les taps). */}
