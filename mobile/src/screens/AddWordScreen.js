@@ -12,7 +12,8 @@ import { searchWords, captureWord, createWord, getPinyin } from '../api';
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 const BAR_H = 62; // hauteur de la barre = diamètre du bouton rond
 
-const CARD_W = 240;
+const CARD_W = 200;   // plus étroite → on aperçoit mieux la carte suivante
+const CARD_H = 320;    // plus haute → format portrait qui incite au scroll
 const CARD_GAP = 14;
 const ITEM_W = CARD_W + CARD_GAP;
 
@@ -73,6 +74,15 @@ export default function AddWordScreen() {
 
   // Carrousel ancré
   const scrollX = useRef(new Animated.Value(0)).current;
+  // Reflet de lumière : rejoué à chaque fois qu'une carte se cale au centre.
+  const [activeIndex, setActiveIndex] = useState(0);
+  const shine = useRef(new Animated.Value(0)).current;
+  function onMomentumEnd(e) {
+    const i = Math.round(e.nativeEvent.contentOffset.x / ITEM_W);
+    setActiveIndex(i);
+    shine.setValue(0);
+    Animated.timing(shine, { toValue: 1, duration: 650, useNativeDriver: true }).start();
+  }
 
   // Logo flottant (comme l'animation logoFloat de l'EJS)
   const float = useRef(new Animated.Value(0)).current;
@@ -309,6 +319,7 @@ export default function AddWordScreen() {
               [{ nativeEvent: { contentOffset: { x: scrollX } } }],
               { useNativeDriver: true }
             )}
+            onMomentumScrollEnd={onMomentumEnd}
             contentContainerStyle={{ paddingHorizontal: sidePad, paddingVertical: 18, gap: CARD_GAP }}
           >
             {results.map((w, i) => {
@@ -327,6 +338,7 @@ export default function AddWordScreen() {
                     capturing={st === 'loading'}
                     onCapture={() => capture(w.id)}
                     onEdit={() => openEdit(w)}
+                    shine={i === activeIndex ? shine : null}
                   />
                 </Animated.View>
               );
@@ -336,7 +348,7 @@ export default function AddWordScreen() {
             <Pressable
               onPress={openCreate}
               style={{
-                width: CARD_W, borderRadius: 20, minHeight: 210, alignItems: 'center', justifyContent: 'center',
+                width: CARD_W, borderRadius: 20, minHeight: CARD_H, alignItems: 'center', justifyContent: 'center',
                 borderWidth: 2, borderStyle: 'dashed', borderColor: '#c9b8ec', backgroundColor: '#faf8ff',
               }}
             >
@@ -353,18 +365,18 @@ export default function AddWordScreen() {
             )}
           </Animated.ScrollView>
 
-          {/* Fondu au blanc sur les bords gauche / droite */}
+          {/* Fondu au blanc sur les bords — réduit pour mieux voir le scroll. */}
           <LinearGradient
             colors={['#fff', 'rgba(255,255,255,0)']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
             pointerEvents="none"
-            style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 48 }}
+            style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 16 }}
           />
           <LinearGradient
             colors={['rgba(255,255,255,0)', '#fff']}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
             pointerEvents="none"
-            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 48 }}
+            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 16 }}
           />
         </View>
 
@@ -478,18 +490,26 @@ function ModalInput({ noMargin, multiline, ...props }) {
   );
 }
 
-function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit }) {
+function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine }) {
+  // Reflet : bande de lumière diagonale qui traverse la carte quand elle se cale.
+  const shineTx = shine
+    ? shine.interpolate({ inputRange: [0, 1], outputRange: [-90, CARD_W + 90] })
+    : null;
+  const shineOpacity = shine
+    ? shine.interpolate({ inputRange: [0, 0.15, 0.8, 1], outputRange: [0, 0.75, 0.75, 0] })
+    : null;
+
   return (
-    <View
-      style={{
-        width: CARD_W, borderRadius: 20, padding: 18, paddingTop: 22, alignItems: 'center',
-        backgroundColor: '#f4f7ff',
-        borderWidth: exact ? 1.5 : 1, borderColor: exact ? COLORS.jiayou : '#e3e8f7',
-        // ombre iOS seule (pas d'elevation) : carte animée en opacity dans le
-        // carrousel → l'elevation Android donnerait un rectangle gris au scroll.
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 12,
-      }}
-    >
+    // Wrapper : porte l'ombre (pas d'overflow, sinon l'ombre iOS serait rognée).
+    <View style={{ borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 12 }}>
+      {/* Conteneur qui CLIPPE : contient le contenu + le reflet. */}
+      <View
+        style={{
+          width: CARD_W, minHeight: CARD_H, borderRadius: 20, padding: 18, paddingTop: 22, alignItems: 'center',
+          justifyContent: 'center', overflow: 'hidden', backgroundColor: '#f4f7ff',
+          borderWidth: exact ? 1.5 : 1, borderColor: exact ? COLORS.jiayou : '#e3e8f7',
+        }}
+      >
       {exact && (
         <View style={{ position: 'absolute', top: 10, left: 12, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
           <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>EXACT</Text>
@@ -520,6 +540,21 @@ function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit }) {
               : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Capture</Text>}
           </Pressable>
         )}
+      </View>
+
+      {/* Reflet de lumière (au-dessus de tout, ne capte pas les taps). */}
+      {shine ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{ position: 'absolute', top: -30, bottom: -30, width: 70, opacity: shineOpacity, transform: [{ translateX: shineTx }, { rotate: '18deg' }] }}
+        >
+          <LinearGradient
+            colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.85)', 'rgba(255,255,255,0)']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+            style={{ flex: 1 }}
+          />
+        </Animated.View>
+      ) : null}
       </View>
     </View>
   );
