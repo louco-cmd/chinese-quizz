@@ -475,16 +475,22 @@ export default function CollectionScreen() {
   const descriptionText = learningEnglish ? (w.description_zh || w.description) : w.description;
 
   return (
-    <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, alignItems: 'center', justifyContent: 'center', opacity: screenFade, transform: [{ scale: screenScale }] }}>
-      {/* Bouton filtre (mêmes filtres que la liste). */}
+    <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 16, opacity: screenFade, transform: [{ scale: screenScale }] }}>
+      {/* Bouton filtre : flottant, collé en bas à droite, au-dessus de tout. */}
       <Pressable
         onPress={() => setFilterOpen(true)}
         hitSlop={10}
-        style={{ position: 'absolute', top: 10, right: 16, zIndex: 5, width: 42, height: 42, borderRadius: 21, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.line }}
+        style={{
+          position: 'absolute', bottom: TAB_CLEARANCE, right: 16, zIndex: 20,
+          width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff',
+          alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.line,
+          // ombre iOS seule (pas d'elevation → pas de halo gris pendant le fondu de vue).
+          shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12,
+        }}
       >
-        <Ionicons name={activeCount ? 'funnel' : 'funnel-outline'} size={19} color={COLORS.jiayou} />
+        <Ionicons name={activeCount ? 'funnel' : 'funnel-outline'} size={23} color={COLORS.jiayou} />
         {activeCount ? (
-          <View style={{ position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+          <View style={{ position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
             <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{activeCount}</Text>
           </View>
         ) : null}
@@ -572,20 +578,18 @@ export default function CollectionScreen() {
         </View>
       </Animated.View>
 
-      {/* contrôles nav : ‹  › alignés sur les bords de la carte (même largeur). */}
+      {/* contrôles nav : ‹  compteur  › — flèches aux bords, compteur centré entre elles. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cardW, marginTop: 20 }}>
         <Pressable onPress={() => go('prev')} style={{ width: 46, height: 46, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </Pressable>
+        <Text numberOfLines={1} style={{ flex: 1, textAlign: 'center', marginHorizontal: 8, color: COLORS.mutedLight, fontSize: 12 }}>
+          {(idx % len) + 1} / {len} · swipe ↑ for the list
+        </Text>
         <Pressable onPress={() => go('next')} style={{ width: 46, height: 46, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="chevron-forward" size={22} color="#fff" />
         </Pressable>
       </View>
-
-      {/* Calé au-dessus de la TabBar flottante (sinon caché derrière), centré. */}
-      <Text style={{ position: 'absolute', bottom: TAB_CLEARANCE, left: 0, right: 0, textAlign: 'center', color: COLORS.mutedLight, fontSize: 12 }}>
-        {(idx % len) + 1} / {len} · swipe ↑ for the list
-      </Text>
 
       {filterPopup}
 
