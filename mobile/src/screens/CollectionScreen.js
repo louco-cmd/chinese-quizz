@@ -100,7 +100,7 @@ export default function CollectionScreen() {
   const [packMenuOpen, setPackMenuOpen] = useState(false); // menu déroulant packs
   const [purchasedPacks, setPurchasedPacks] = useState([]); // packs achetés (pour le menu)
   const [editing, setEditing] = useState(null);
-  const [ef, setEf] = useState({ chinese: '', pinyin: '', english: '', description: '' });
+  const [ef, setEf] = useState({ chinese: '', pinyin: '', englishList: [''], description: '' });
   const [confirmDel, setConfirmDel] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [charInfo, setCharInfo] = useState(null); // { char, loading, data }
@@ -329,14 +329,27 @@ export default function CollectionScreen() {
   }
 
   function openEdit(word) {
-    setEf({ chinese: word.chinese || '', pinyin: word.pinyin || '', english: word.english || '', description: word.description || '' });
+    // Les sens multiples sont stockés séparés par '/' en base → liste de champs.
+    const list = (word.english || '').split('/').map((s) => s.trim()).filter(Boolean);
+    setEf({ chinese: word.chinese || '', pinyin: word.pinyin || '', englishList: list.length ? list : [''], description: word.description || '' });
     setEditing(word);
   }
+  // Handlers de la liste de traductions (comme l'écran Add Word).
+  const setEnglishAt = (i, v) => setEf((s) => { const l = [...s.englishList]; l[i] = v; return { ...s, englishList: l }; });
+  const addEnglish = () => setEf((s) => ({ ...s, englishList: [...s.englishList, ''] }));
+  const removeEnglish = (i) => setEf((s) => ({ ...s, englishList: s.englishList.filter((_, idx) => idx !== i) }));
+
   async function saveEdit() {
     if (!editing) return;
     setBusy(true);
     try {
-      const { word } = await updateWord(editing.id, ef);
+      const payload = {
+        chinese: ef.chinese,
+        pinyin: ef.pinyin,
+        english: ef.englishList.map((s) => s.trim()).filter(Boolean).join(' / '),
+        description: ef.description,
+      };
+      const { word } = await updateWord(editing.id, payload);
       setWords((ws) => ws.map((x) => (x.id === editing.id ? { ...x, ...word } : x)));
       setEditing(null);
     } catch { /* garde la popup */ } finally { setBusy(false); }
@@ -639,8 +652,6 @@ export default function CollectionScreen() {
         {[
           { key: 'chinese', label: 'Chinese' },
           { key: 'pinyin', label: 'Pinyin' },
-          { key: 'english', label: 'English' },
-          { key: 'description', label: 'Description', multiline: true },
         ].map((f) => (
           <View key={f.key} style={{ marginBottom: 12 }}>
             <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{f.label}</Text>
@@ -648,13 +659,48 @@ export default function CollectionScreen() {
               value={ef[f.key]}
               onChangeText={(t) => setEf((s) => ({ ...s, [f.key]: t }))}
               autoCapitalize="none"
-              multiline={f.multiline}
-              placeholder={f.multiline ? 'Optional note or example…' : undefined}
               placeholderTextColor={COLORS.mutedLight}
-              style={{ borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, minHeight: f.multiline ? 72 : undefined, textAlignVertical: f.multiline ? 'top' : 'center' }}
+              style={{ borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16 }}
             />
           </View>
         ))}
+
+        {/* English : sens multiples (stockés séparés par '/' en base). */}
+        <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>English</Text>
+        {ef.englishList.map((val, i) => (
+          <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <TextInput
+              value={val}
+              onChangeText={(t) => setEnglishAt(i, t)}
+              autoCapitalize="none"
+              placeholder="English translation…"
+              placeholderTextColor={COLORS.mutedLight}
+              style={{ flex: 1, borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16 }}
+            />
+            {ef.englishList.length > 1 ? (
+              <Pressable onPress={() => removeEnglish(i)} hitSlop={8}>
+                <Ionicons name="close-circle" size={22} color={COLORS.danger} />
+              </Pressable>
+            ) : null}
+          </View>
+        ))}
+        <Pressable onPress={addEnglish} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+          <Ionicons name="add-circle-outline" size={16} color={COLORS.jiayou} />
+          <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }}>Add another translation</Text>
+        </Pressable>
+
+        <View style={{ marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>Description</Text>
+          <TextInput
+            value={ef.description}
+            onChangeText={(t) => setEf((s) => ({ ...s, description: t }))}
+            autoCapitalize="none"
+            multiline
+            placeholder="Optional note or example…"
+            placeholderTextColor={COLORS.mutedLight}
+            style={{ borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, minHeight: 72, textAlignVertical: 'top' }}
+          />
+        </View>
         <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
           <Pressable onPress={() => setEditing(null)} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
             <Text style={{ color: '#444', fontWeight: '600' }}>Cancel</Text>
