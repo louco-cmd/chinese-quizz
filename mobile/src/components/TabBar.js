@@ -59,7 +59,9 @@ export default function TabBar({ active, onChange, fade = true }) {
           width: '100%',
           maxWidth,
           backgroundColor: '#fff',
-          borderRadius: 30,
+          // Rectangle très arrondi (pas une pilule pleine) pour se distinguer de
+          // la barre de saisie ronde de l'écran Add Word.
+          borderRadius: 20,
           paddingHorizontal: 6,
           // Ombre portée douce pour l'effet "flottant".
           shadowColor: '#000',
@@ -72,14 +74,31 @@ export default function TabBar({ active, onChange, fade = true }) {
         {TABS.map((tab) => {
           const on = active === tab.key;
           const Icon = tab.lib;
+
+          // Onglet "Add Word" : bouton + plein façon TikTok, sans libellé, pour
+          // le distinguer (action primaire) et libérer de la place aux autres.
+          if (tab.key === 'add') {
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => onChange(tab.key)}
+                style={{ flex: 1, height: 50, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <View style={{ width: 52, height: 34, borderRadius: 11, backgroundColor: ACTIVE, alignItems: 'center', justifyContent: 'center', opacity: on ? 1 : 0.92 }}>
+                  <Ionicons name="add" size={26} color="#fff" />
+                </View>
+              </Pressable>
+            );
+          }
+
           return (
             <Pressable
               key={tab.key}
               onPress={() => onChange(tab.key)}
               style={{
                 flex: 1, height: 50, alignItems: 'center', justifyContent: 'center', gap: 3,
-                borderRadius: 24,
-                // Surbrillance arrondie derrière l'onglet actif (le "pill" Telegram).
+                borderRadius: 16,
+                // Surbrillance derrière l'onglet actif.
                 backgroundColor: on ? COLORS.jiayouContainer : 'transparent',
               }}
             >
