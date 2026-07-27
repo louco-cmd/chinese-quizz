@@ -290,7 +290,7 @@ export default function App() {
         {/* Barre masquée au clavier et sur les pages secondaires plein écran
             (réglages, abonnement). Fondu coupé sur Add Word (fond dégradé). */}
         {kbOpen || tab === 'settings' || tab === 'pricing' ? null : (
-          <TabBar active={tab} onChange={setTab} fade={tab !== 'add'} />
+          <TabBar active={tab} onChange={setTab} />
         )}
       </View>
     );
