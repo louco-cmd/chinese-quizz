@@ -343,6 +343,12 @@ export function refreshSubscription() {
   return request('/api/m/subscription/refresh', { method: 'POST' });
 }
 
+// Synchronise le premium directement depuis l'API RevenueCat (secours quand le
+// webhook n'a pas encore écrit) → { synced, active, expires }.
+export function syncRevenueCat() {
+  return request('/api/m/subscription/rc-sync', { method: 'POST' });
+}
+
 // Enregistre le token Expo Push de l'appareil pour les notifications natives.
 export function savePushToken(token) {
   return request('/api/m/push-token', { method: 'POST', body: { token } });

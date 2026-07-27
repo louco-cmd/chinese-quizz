@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Platform
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SHADOW_CARD } from '../theme';
-import { getBillingPortal, refreshSubscription } from '../api';
+import { getBillingPortal, refreshSubscription, syncRevenueCat } from '../api';
 import { buyPremium, purchasesAvailable, restorePurchases, getPremiumPlans, yearlySavingPct, isTestStore } from '../purchases';
 
 // Android : gérer/annuler l'abonnement se fait dans le Play Store.
@@ -95,6 +95,12 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
   const plan = plans.find((p) => p.id === planId) || null;
   const saving = yearlySavingPct(plans);
 
+  // Natif : à l'ouverture, synchro RevenueCat → base (rattrape un webhook manquant).
+  useEffect(() => {
+    if (!native) return;
+    syncRevenueCat().then((s) => { if (s?.active && !isPremium) onPurchased?.(); }).catch(() => {});
+  }, [native]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Resync live depuis Stripe à l'ouverture (web uniquement — le natif passe par RC).
   useEffect(() => {
     if (!isPremium || native) return;
@@ -121,7 +127,11 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
       setPortalError(''); setPortalBusy(true);
       try {
         const ok = await buyPremium(plan);
-        if (ok) onPurchased?.(); // le webhook RevenueCat crédite le compte côté backend
+        if (ok) {
+          // Synchro directe RevenueCat → base, sans attendre le webhook, puis reload.
+          await syncRevenueCat().catch(() => {});
+          onPurchased?.();
+        }
       } catch (e) {
         // Annulation utilisateur : pas une erreur, on n'affiche rien.
         if (e?.userCancelled !== true) setPortalError(e?.message || 'Purchase failed.');
@@ -136,8 +146,16 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
     setPortalError(''); setPortalBusy(true);
     try {
       const ok = await restorePurchases();
-      if (ok) onPurchased?.();
-      else setPortalError('No previous purchase found.');
+      if (ok) {
+        await syncRevenueCat().catch(() => {}); // écrit rc_expires_at sans attendre le webhook
+        onPurchased?.();
+      } else {
+        // Même sans entitlement côté SDK, on tente la synchro serveur (au cas où
+        // RevenueCat a l'achat mais le SDK local est en cache).
+        const s = await syncRevenueCat().catch(() => null);
+        if (s?.active) onPurchased?.();
+        else setPortalError('No previous purchase found.');
+      }
     } catch (e) { setPortalError(e?.message || 'Restore failed.'); }
     finally { setPortalBusy(false); }
   }

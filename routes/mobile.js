@@ -2993,6 +2993,38 @@ router.post('/api/m/subscription/refresh', requireToken, async (req, res) => {
   }
 });
 
+// ── POST /api/m/subscription/rc-sync : premium depuis l'API RevenueCat ────────
+// Secours quand le webhook n'a pas (encore) écrit rc_expires_at : on interroge
+// directement RevenueCat par app_user_id (= id backend, fixé via Purchases.configure)
+// et on met à jour la base. Nécessite REVENUECAT_SECRET_KEY (clé secrète v1).
+router.post('/api/m/subscription/rc-sync', requireToken, async (req, res) => {
+  const uid = req.tokenUser.id;
+  const key = process.env.REVENUECAT_SECRET_KEY || '';
+  if (!key) return res.json({ synced: false, reason: 'no_key' });
+  if (typeof fetch !== 'function') return res.json({ synced: false, reason: 'no_fetch' });
+  try {
+    const r = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(uid)}`, {
+      headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+    });
+    if (!r.ok) return res.json({ synced: false, reason: `http_${r.status}` });
+    const data = await r.json();
+    const ent = data?.subscriber?.entitlements?.premium;
+    const expires = ent?.expires_date ? new Date(ent.expires_date) : null;
+    const active = !!(expires && expires > new Date());
+    if (active) {
+      await pool.query('UPDATE users SET rc_expires_at = $1, rc_will_renew = TRUE WHERE id = $2', [expires, uid]);
+    } else if (ent) {
+      // Entitlement connu mais expiré → on nettoie (sans toucher à l'état Stripe).
+      await pool.query('UPDATE users SET rc_expires_at = $1, rc_will_renew = FALSE WHERE id = $2', [expires, uid]);
+    }
+    console.log(`🔄 rc-sync user ${uid} → active=${active} expires=${expires?.toISOString() || 'n/a'}`);
+    res.json({ synced: true, active, expires: expires ? expires.toISOString() : null });
+  } catch (e) {
+    console.error('rc-sync error:', e.message);
+    res.json({ synced: false, reason: 'error' });
+  }
+});
+
 // ── POST /api/m/billing-portal : portail de facturation Stripe (annulation) ──
 // Équivalent mobile de /create-portal-session (web). Renvoie l'URL du portail
 // client Stripe pour gérer/annuler l'abonnement.
