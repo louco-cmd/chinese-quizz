@@ -58,7 +58,11 @@ export default function TabBar({ active, onChange, fade = true }) {
           alignSelf: 'center',
           width: '100%',
           maxWidth,
-          backgroundColor: '#fff',
+          // Blanc translucide "fumé" : le contenu transparaît par teinte, effet
+          // verre sans le flou (expo-blur exigerait un rebuild natif).
+          backgroundColor: 'rgba(255,255,255,0.72)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.55)',
           // Rectangle très arrondi (pas une pilule pleine) pour se distinguer de
           // la barre de saisie ronde de l'écran Add Word.
           borderRadius: 20,
