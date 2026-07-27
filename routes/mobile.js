@@ -917,8 +917,9 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     const min = Number.isFinite(+req.query.min) ? Math.max(0, parseInt(req.query.min, 10) || 0) : 0;
     const max = Number.isFinite(+req.query.max) && req.query.max !== '' ? parseInt(req.query.max, 10) : 1000000;
     const sortMap = {
-      // Défaut : les nouveautés (< 7 j) d'abord, puis les plus achetés.
-      featured: "(wp.created_at > NOW() - INTERVAL '7 days') DESC, wp.sales_count DESC, wp.created_at DESC",
+      // Défaut : score = ventes + bonus nouveauté (+3 si < 7 j). Les ventes
+      // dominent, mais un pack récent remonte un peu (équivaut à 3 achats).
+      featured: "(wp.sales_count + CASE WHEN wp.created_at > NOW() - INTERVAL '7 days' THEN 3 ELSE 0 END) DESC, wp.created_at DESC",
       recent: 'wp.created_at DESC',
       price_asc: 'wp.price ASC, wp.created_at DESC',
       price_desc: 'wp.price DESC, wp.created_at DESC',
