@@ -16,8 +16,9 @@ function PackCard({ pack, onPress }) {
               <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>Owned</Text>
             </View>
           ) : null}
-          {/* Nouveauté (< 7 jours) — masqué si déjà possédé (le badge Owned prime). */}
-          {pack.is_new && !pack.owned ? (
+          {/* Nouveauté (< 7 jours) — coin opposé au badge Owned, donc les deux
+              peuvent coexister sur un pack récent qu'on possède. */}
+          {pack.is_new ? (
             <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: '#ff6b35', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
               <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>NEW</Text>
             </View>
