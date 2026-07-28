@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
+import Avatar from '../components/Avatar';
 import { getDuel } from '../api';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
@@ -53,7 +54,11 @@ function CrackOverlay() {
 }
 
 // Avatar rond du bloc VS.
-function VsAvatar({ winner }) {
+function VsAvatar({ winner, icon, color, name }) {
+  // Avatar choisi si présent ; sinon rond translucide blanc (sur fond bleu).
+  if (icon) {
+    return <View style={{ marginBottom: 10 }}><Avatar icon={icon} color={color} name={name} size={52} /></View>;
+  }
   return (
     <View style={{
       width: 52, height: 52, borderRadius: 26, alignSelf: 'center', marginBottom: 10,
@@ -65,10 +70,10 @@ function VsAvatar({ winner }) {
   );
 }
 
-function VsPlayer({ name, score, winner, loser }) {
+function VsPlayer({ name, score, winner, loser, icon, color }) {
   return (
     <View style={{ flex: 1, alignItems: 'center' }}>
-      <VsAvatar winner={winner} />
+      <VsAvatar winner={winner} icon={icon} color={color} name={name} />
       <Text numberOfLines={1} style={{ maxWidth: 110, fontSize: 13.5, fontWeight: '600', color: '#fff', opacity: 0.9, marginBottom: 6 }}>
         {name}
       </Text>
@@ -226,9 +231,9 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
               </View>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-              <VsPlayer name={duel.my_name} score={duel.my_score} winner={iWon} loser={theyWon} />
+              <VsPlayer name={duel.my_name} icon={duel.my_avatar_icon} color={duel.my_avatar_color} score={duel.my_score} winner={iWon} loser={theyWon} />
               <Text style={{ paddingHorizontal: 16, fontSize: 12, fontWeight: '700', color: '#fff', opacity: 0.5, letterSpacing: 1 }}>VS</Text>
-              <VsPlayer name={duel.opponent_name} score={duel.opp_score} winner={theyWon} loser={iWon} />
+              <VsPlayer name={duel.opponent_name} icon={duel.opponent_avatar_icon} color={duel.opponent_avatar_color} score={duel.opp_score} winner={theyWon} loser={iWon} />
             </View>
           </View>
         </View>

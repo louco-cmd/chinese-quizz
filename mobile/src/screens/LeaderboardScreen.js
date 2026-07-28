@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, useWindowDimensions } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import { flagEmoji } from '../components/account/EditProfilePopup';
 import UserProfileScreen from './UserProfileScreen';
+import Avatar from '../components/Avatar';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 function Stat({ value, label, color = '#1a1a2e' }) {
@@ -31,6 +32,8 @@ function Row({ player, rank, last, onPress }) {
       }}>
         <Text style={{ fontWeight: '700', fontSize: 13, color: medal ? '#fff' : '#888' }}>{rank}</Text>
       </View>
+
+      <Avatar icon={player.avatar_icon} color={player.avatar_color} name={player.name} size={34} />
 
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>

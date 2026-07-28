@@ -69,7 +69,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
       // Ouvre le checkout d'acquisition.
       setCheckout({
         toBuy: plan.toBuy || [],
-        needs: (plan.needsTranslation || []).map((w) => ({ chinese: w.chinese, english: '' })),
+        needs: (plan.needsTranslation || []).map((w) => ({ chinese: w.chinese, pinyin: w.pinyin, english: '' })),
         cost: plan.cost || 0,
         balance: plan.balance ?? 0,
       });
@@ -102,8 +102,10 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-      <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16, paddingBottom: 90, width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+      {/* iOS : padding géré par KAV. Android : `adjustResize` (défaut Expo) suffit —
+          y ajouter `behavior=padding` double l'ajustement et fait remonter/rogner. */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16, paddingBottom: 140, width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {/* Header : scrolle avec le reste (plus fixe en haut). */}
         <View style={{ marginBottom: 14 }}>
           {onBack ? (
@@ -165,10 +167,14 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
             </Text>
 
             <ScrollView style={{ maxHeight: 300 }}>
-              {/* À traduire : l'user doit fournir l'anglais */}
+              {/* À traduire : l'user doit fournir l'anglais. Colonne gauche à
+                  largeur FIXE → tous les champs de droite s'alignent. */}
               {checkout.needs.map((n, i) => (
-                <View key={`need-${n.chinese}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e', minWidth: 48 }}>{n.chinese}</Text>
+                <View key={`need-${n.chinese}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                  <View style={{ width: 92 }}>
+                    <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 19, fontWeight: '700', color: '#1a1a2e' }}>{n.chinese}</Text>
+                    {n.pinyin ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 1 }}>{n.pinyin}</Text> : null}
+                  </View>
                   <TextInput
                     value={n.english}
                     onChangeText={(t) => updateNeed(i, t)}
@@ -177,11 +183,14 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
                   />
                 </View>
               ))}
-              {/* À acheter : déjà dans le dico */}
+              {/* À acheter : déjà dans le dico → on montre le pinyin sous le hanzi. */}
               {checkout.toBuy.map((w, i) => (
-                <View key={`buy-${w.chinese}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderBottomWidth: i === checkout.toBuy.length - 1 ? 0 : 1, borderColor: '#f2f2f4' }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e', minWidth: 48 }}>{w.chinese}</Text>
-                  <Text style={{ flex: 1, fontSize: 13.5, color: COLORS.muted }} numberOfLines={1}>{w.english}</Text>
+                <View key={`buy-${w.chinese}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: i === checkout.toBuy.length - 1 ? 0 : 1, borderColor: '#f2f2f4' }}>
+                  <View style={{ width: 92 }}>
+                    <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e' }}>{w.chinese}</Text>
+                    {w.pinyin ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 1 }}>{w.pinyin}</Text> : null}
+                  </View>
+                  <Text style={{ flex: 1, fontSize: 13.5, color: COLORS.muted }} numberOfLines={2}>{w.english}</Text>
                 </View>
               ))}
             </ScrollView>

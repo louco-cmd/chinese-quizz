@@ -2,11 +2,12 @@ import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ContributionsHeatmap from './ContributionsHeatmap';
 import { flagEmoji } from './EditProfilePopup';
+import Avatar from '../Avatar';
 
 // Hero bleu de la page account : identité (icône + nom + pays, puis phrase
 // d'accroche) à gauche, bouton Edit à droite, puis heatmap pleine largeur avec
 // le compteur de jours à gauche face à la légende Less/More.
-export default function AccountHero({ name, tagline, country, year, activeDays, contributions, hPad = 16, onEdit }) {
+export default function AccountHero({ name, tagline, country, avatarIcon, avatarColor, year, activeDays, contributions, hPad = 16, onEdit }) {
   const flag = flagEmoji(country);
   return (
     <View style={{ backgroundColor: '#0d6efd', paddingTop: 20, paddingBottom: 40 }}>
@@ -16,7 +17,7 @@ export default function AccountHero({ name, tagline, country, year, activeDays, 
           {/* Identité : icône à gauche, colonne nom+phrase à droite (phrase
               alignée sous le nom, en face de l'icône). */}
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Ionicons name="person-circle" size={40} color="#fff" />
+            <Avatar icon={avatarIcon} color={avatarColor} name={name} size={44} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text numberOfLines={1} style={{ color: '#fff', fontWeight: '800', fontSize: 24, flexShrink: 1 }}>
@@ -26,7 +27,7 @@ export default function AccountHero({ name, tagline, country, year, activeDays, 
               </View>
               <Text
                 numberOfLines={2}
-                style={{ color: '#fff', fontSize: 18, fontStyle: 'italic', fontWeight: '600', marginTop: 6 }}
+                style={{ color: '#fff', fontSize: 14, fontStyle: 'italic', fontWeight: '600', marginTop: 6 }}
               >
                 “{tagline || 'Learning Chinese!'}”
               </Text>

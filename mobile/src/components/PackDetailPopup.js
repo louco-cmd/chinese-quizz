@@ -11,6 +11,21 @@ export const glyphOf = (k) => HSK_GLYPH[k] || '汉';
 export const COVER_BG = '#e8f0ff';
 export const COVER_FG = '#5b8def';
 
+// Jauge « part déjà possédée », posée en bas à droite de la cover bleue :
+// barre remplie à X% + libellé. Rendue seulement si on possède déjà des mots.
+export function OwnedProgress({ owned, total }) {
+  if (!total || !owned) return null;
+  const pct = Math.min(100, Math.round((owned / total) * 100));
+  return (
+    <View style={{ position: 'absolute', right: 8, bottom: 8, alignItems: 'flex-end' }}>
+      <Text style={{ fontSize: 10, fontWeight: '800', color: COVER_FG, marginBottom: 3 }}>{pct}% owned</Text>
+      <View style={{ width: 66, height: 5, borderRadius: 999, backgroundColor: 'rgba(91,141,239,0.28)', overflow: 'hidden' }}>
+        <View style={{ width: `${pct}%`, height: '100%', backgroundColor: COVER_FG, borderRadius: 999 }} />
+      </View>
+    </View>
+  );
+}
+
 // Ligne d'un mot : deux colonnes justifiées — chinois + pinyin ensemble à
 // gauche, anglais aligné à droite.
 export function WordRow({ w, last }) {
@@ -72,8 +87,9 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
         <ActivityIndicator color={COLORS.jiayou} style={{ marginVertical: 30 }} />
       ) : (
         <View>
-          <View style={{ height: 84, borderRadius: 14, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+          <View style={{ height: 84, borderRadius: 14, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>
             <Text style={{ fontSize: 40, fontWeight: '700', color: COVER_FG }}>{glyphOf(p.cover_key)}</Text>
+            {!owned ? <OwnedProgress owned={p.owned_words} total={p.word_count} /> : null}
           </View>
           <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e' }}>{p.title}</Text>
           <Text style={{ fontSize: 13, color: COLORS.muted, marginTop: 2 }}>

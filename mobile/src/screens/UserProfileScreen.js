@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { flagEmoji } from '../components/account/EditProfilePopup';
 import StartDuelPopup from '../components/duels/StartDuelPopup';
+import Avatar from '../components/Avatar';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getUserProfile } from '../api';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
@@ -100,9 +101,7 @@ export default function UserProfileScreen({ userId, onBack }) {
               {/* Carte profil */}
               <Card style={{ padding: 18, marginBottom: 16 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                  <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#e8f0ff', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="person" size={26} color={COLORS.jiayou} />
-                  </View>
+                  <Avatar icon={data.avatar_icon} color={data.avatar_color} name={data.name} size={52} />
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <Text style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e' }} numberOfLines={1}>{data.name}</Text>

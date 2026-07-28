@@ -372,6 +372,9 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS rc_will_renew BOOLEAN`);
     // Token Expo Push (notifications natives Android/iOS).
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS expo_push_token TEXT`);
+    // Avatar : picto choisi (nom d'icône Ionicons) + couleur de fond (hex).
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_icon TEXT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_color TEXT`);
     console.log("✅ Table 'notifications' + reengage_emailed_at vérifiées.");
 
     // Index de perf sur les tables chaudes filtrées par user (page account, profil,

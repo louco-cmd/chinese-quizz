@@ -185,9 +185,12 @@ export default function App() {
     // Le code de parrainage a été transmis au backend par l'onboarding : on purge.
     clearPendingRef(); setRefCode(null);
     const me = await loadProfile({ route: false });
-    // Les profs vont directement à leur espace ; le tutoriel est côté élève.
-    if (role === 'teacher') { setFlow(null); return; }
-    setFlow(me && !me.has_seen_tutorial ? 'tutorial' : null);
+    // Compte fraîchement créé → on lance le tutoriel SAUF si on sait POSITIVEMENT
+    // qu'il a déjà été vu. Si le refetch a échoué (réseau instable), `me` est null
+    // → on le montre quand même plutôt que de le sauter par erreur. Les profs ont
+    // leur propre tutoriel (auparavant sauté à tort ici).
+    if (me?.has_seen_tutorial === true) { setFlow(null); return; }
+    setFlow(role === 'teacher' ? 'teacher-tutorial' : 'tutorial');
   }
 
   async function onTutorialDone() {

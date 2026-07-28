@@ -105,6 +105,8 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
           name={data.name}
           tagline={data.tagline}
           country={data.country}
+          avatarIcon={data.avatar_icon}
+          avatarColor={data.avatar_color}
           year={data.year}
           activeDays={activeDays}
           contributions={data.contributions}
@@ -189,7 +191,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
 
       <EditProfilePopup
         visible={editing}
-        initial={{ name: data.name, tagline: data.tagline, country: data.country }}
+        initial={{ name: data.name, tagline: data.tagline, country: data.country, avatar_icon: data.avatar_icon, avatar_color: data.avatar_color }}
         onClose={() => setEditing(false)}
         onSaved={(u) => setData((d) => ({ ...d, ...u }))}
       />

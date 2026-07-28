@@ -220,6 +220,7 @@ router.get('/api/m/me', requireToken, async (req, res) => {
       `SELECT u.id, u.email, u.name, u.balance, u.role,
               u.quiz_direction, u.interface_lang, u.special_guest,
               u.onboarding_done, u.has_seen_tutorial,
+              u.avatar_icon, u.avatar_color,
               u.rc_expires_at, u.rc_will_renew,
               us.plan_name, us.status AS sub_status, us.stripe_status,
               us.cancel_at_period_end, us.current_period_end
@@ -252,6 +253,8 @@ router.get('/api/m/me', requireToken, async (req, res) => {
       interface_lang: row.interface_lang,
       onboarding_done: row.onboarding_done,
       has_seen_tutorial: row.has_seen_tutorial,
+      avatar_icon: row.avatar_icon,
+      avatar_color: row.avatar_color,
       isPremium,
       isSpecialGuest,
       plan, // 'premium' | 'guest' | 'free'
@@ -934,9 +937,15 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
       where += ` AND (wp.title ILIKE $${params.length} OR wp.description ILIKE $${params.length} OR COALESCE(u.name, wp.creator_name, '') ILIKE $${params.length})`;
     }
     const { rows } = await pool.query(
-      `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
+      `WITH mine AS (
+         SELECT DISTINCT m.chinese FROM user_mots um JOIN mots m ON m.id = um.mot_id WHERE um.user_id = $1
+       )
+       SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
+              -- Mots du pack déjà dans la collection (match par caractère chinois).
+              (SELECT COUNT(*) FROM word_pack_items i JOIN mots pm ON pm.id = i.mot_id
+                 WHERE i.pack_id = wp.id AND pm.chinese IN (SELECT chinese FROM mine))::int AS owned_words,
               (wp.created_at > NOW() - INTERVAL '7 days') AS is_new,
               -- Possédé = acheté OU créé par l'utilisateur.
               (wp.creator_id = $1 OR EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1)) AS owned
@@ -962,6 +971,11 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
               wp.creator_id,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
+              -- Mots du pack déjà dans la collection (match par caractère chinois).
+              (SELECT COUNT(*) FROM word_pack_items i JOIN mots pm ON pm.id = i.mot_id
+                 WHERE i.pack_id = wp.id AND EXISTS(
+                   SELECT 1 FROM user_mots um JOIN mots m ON m.id = um.mot_id
+                   WHERE um.user_id = $1 AND m.chinese = pm.chinese))::int AS owned_words,
               EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1) AS owned
        FROM word_packs wp
        LEFT JOIN users u ON u.id = wp.creator_id
@@ -1088,7 +1102,13 @@ router.post('/api/m/market/packs/plan', requireToken, async (req, res) => {
       dictMap = new Map(dictRows.map((d) => [d.chinese, d]));
     }
     const toBuy = notOwned.filter((w) => dictMap.has(w)).map((w) => dictMap.get(w));
-    const needsTranslation = notOwned.filter((w) => !dictMap.has(w)).map((w) => ({ chinese: w }));
+    // Mots hors dico → on GÉNÈRE le pinyin (pinyin-pro) pour aider la saisie.
+    let toPinyin = null;
+    try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente → pinyin vide */ }
+    const needsTranslation = notOwned.filter((w) => !dictMap.has(w)).map((w) => ({
+      chinese: w,
+      pinyin: toPinyin ? toPinyin(w, { toneType: 'symbol' }) : '',
+    }));
     const cost = ACQUIRE_COST * (toBuy.length + needsTranslation.length);
     res.json({ owned, toBuy, needsTranslation, cost, balance });
   } catch (e) {
@@ -1656,7 +1676,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
     const uid = req.tokenUser.id;
     const year = new Date().getFullYear();
     const [me, wordRows, quizzes, duels, contrib, recent, duelRank] = await Promise.all([
-      pool.query('SELECT name, balance, tagline, country, quiz_direction FROM users WHERE id = $1', [uid]),
+      pool.query('SELECT name, balance, tagline, country, quiz_direction, avatar_icon, avatar_color FROM users WHERE id = $1', [uid]),
       pool.query(
         `SELECT um.score, um.score_character, m.hsk
          FROM user_mots um JOIN mots m ON m.id = um.mot_id
@@ -1723,6 +1743,8 @@ router.get('/api/m/account', requireToken, async (req, res) => {
       name: me.rows[0]?.name || '',
       tagline: me.rows[0]?.tagline || 'Learning Chinese!',
       country: me.rows[0]?.country || null,
+      avatar_icon: me.rows[0]?.avatar_icon || null,
+      avatar_color: me.rows[0]?.avatar_color || null,
       quizDirection: me.rows[0]?.quiz_direction || 'en→zh',
       balance: me.rows[0]?.balance || 0,
       words: words.length,
@@ -1752,9 +1774,13 @@ router.get('/api/m/account', requireToken, async (req, res) => {
 });
 
 // ── PUT /api/m/account : éditer nom / tagline / pays (popup "Edit info") ──────
+// Allowlists avatar : DOIVENT rester synchro avec mobile/src/components/Avatar.js.
+const AVATAR_ICONS = ['happy', 'paw', 'rocket', 'planet', 'flame', 'flash', 'star', 'heart', 'leaf', 'musical-notes', 'football', 'game-controller', 'fish', 'diamond', 'moon', 'sunny'];
+const AVATAR_COLORS = ['#0d6efd', '#6f42c1', '#e83e8c', '#dc3545', '#fd7e14', '#f7b500', '#198754', '#20c997', '#0dcaf0', '#495057'];
+
 router.put('/api/m/account', requireToken, async (req, res) => {
   try {
-    const { name, tagline, country } = req.body || {};
+    const { name, tagline, country, avatar_icon, avatar_color } = req.body || {};
     if (!name || String(name).length > 50) {
       return res.status(400).json({ error: 'Name is required (max 50 characters)' });
     }
@@ -1762,11 +1788,14 @@ router.put('/api/m/account', requireToken, async (req, res) => {
       return res.status(400).json({ error: 'Tagline must be under 100 characters' });
     }
     const code = country ? String(country).toUpperCase().slice(0, 2) : null;
+    // Avatar validé contre l'allowlist (null = pas d'avatar / repli initiale).
+    const icon = AVATAR_ICONS.includes(avatar_icon) ? avatar_icon : null;
+    const color = AVATAR_COLORS.includes(avatar_color) ? avatar_color : null;
     await pool.query(
-      `UPDATE users SET name = $1, tagline = $2, country = $3 WHERE id = $4`,
-      [String(name).trim(), tagline ? String(tagline).trim() : null, code, req.tokenUser.id]
+      `UPDATE users SET name = $1, tagline = $2, country = $3, avatar_icon = $4, avatar_color = $5 WHERE id = $6`,
+      [String(name).trim(), tagline ? String(tagline).trim() : null, code, icon, color, req.tokenUser.id]
     );
-    res.json({ success: true, name: String(name).trim(), tagline: tagline || null, country: code });
+    res.json({ success: true, name: String(name).trim(), tagline: tagline || null, country: code, avatar_icon: icon, avatar_color: color });
   } catch (e) {
     console.error('m/account update error:', e);
     res.status(500).json({ error: 'Server error' });
@@ -1782,7 +1811,7 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
     if (!targetId) return res.status(400).json({ error: 'Invalid user' });
 
     const [me, wordRows, quizzes, duels] = await Promise.all([
-      pool.query('SELECT id, name, tagline, country, created_at FROM users WHERE id = $1', [targetId]),
+      pool.query('SELECT id, name, tagline, country, avatar_icon, avatar_color, created_at FROM users WHERE id = $1', [targetId]),
       pool.query(
         `SELECT um.score, um.score_character, m.hsk
          FROM user_mots um JOIN mots m ON m.id = um.mot_id
@@ -1825,6 +1854,8 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
       name: u.name || '',
       tagline: u.tagline || null,
       country: u.country || null,
+      avatar_icon: u.avatar_icon || null,
+      avatar_color: u.avatar_color || null,
       created_at: u.created_at instanceof Date ? u.created_at.toISOString() : (u.created_at || null),
       isMe: u.id === uid,
       words: words.length,
@@ -1941,6 +1972,8 @@ router.get('/api/m/duels', requireToken, async (req, res) => {
       pool.query(
         `SELECT d.id, d.bet_amount, d.status, d.created_at,
                 u1.name AS challenger_name, u2.name AS opponent_name,
+                CASE WHEN d.challenger_id = $1 THEN u2.avatar_icon ELSE u1.avatar_icon END AS opponent_avatar_icon,
+                CASE WHEN d.challenger_id = $1 THEN u2.avatar_color ELSE u1.avatar_color END AS opponent_avatar_color,
                 CASE WHEN d.challenger_id = $1 THEN 'challenger' ELSE 'opponent' END AS user_role,
                 CASE WHEN d.challenger_id = $1 THEN d.challenger_score ELSE d.opponent_score END AS my_score
          FROM duels d
@@ -1961,6 +1994,8 @@ router.get('/api/m/duels', requireToken, async (req, res) => {
       pool.query(
         `SELECT d.id, d.bet_amount, d.created_at,
                 CASE WHEN d.challenger_id = $1 THEN u2.name ELSE u1.name END AS opponent_name,
+                CASE WHEN d.challenger_id = $1 THEN u2.avatar_icon ELSE u1.avatar_icon END AS opponent_avatar_icon,
+                CASE WHEN d.challenger_id = $1 THEN u2.avatar_color ELSE u1.avatar_color END AS opponent_avatar_color,
                 CASE WHEN d.challenger_id = $1 THEN d.challenger_score ELSE d.opponent_score END AS my_score,
                 CASE WHEN d.challenger_id = $1 THEN d.opponent_score ELSE d.challenger_score END AS opp_score,
                 CASE WHEN d.winner_id = $1 THEN 'won'
@@ -2010,7 +2045,7 @@ router.get('/api/m/leaderboard', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
     const { rows } = await pool.query(
-      `SELECT u.id, u.name, u.tagline, u.country,
+      `SELECT u.id, u.name, u.tagline, u.country, u.avatar_icon, u.avatar_color,
          COUNT(*) FILTER (WHERE d.winner_id = u.id)::int AS wins,
          COUNT(*) FILTER (WHERE d.status = 'completed' AND d.winner_id IS NOT NULL
            AND d.winner_id <> u.id)::int AS losses,
@@ -2019,7 +2054,7 @@ router.get('/api/m/leaderboard', requireToken, async (req, res) => {
        LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
        WHERE u.quiz_direction = (SELECT quiz_direction FROM users WHERE id = $1)
          AND u.ghost_mode = FALSE AND u.role <> 'teacher'
-       GROUP BY u.id, u.name, u.tagline, u.country
+       GROUP BY u.id, u.name, u.tagline, u.country, u.avatar_icon, u.avatar_color
        HAVING COUNT(*) FILTER (WHERE d.status = 'completed') > 0
        ORDER BY wins DESC, losses ASC
        LIMIT 50`, [uid]);
@@ -2202,7 +2237,9 @@ router.get('/api/m/duels/:id', requireToken, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ error: 'Invalid duel' });
     const { rows } = await pool.query(
-      `SELECT d.*, u1.name AS challenger_name, u2.name AS opponent_name
+      `SELECT d.*, u1.name AS challenger_name, u2.name AS opponent_name,
+              u1.avatar_icon AS challenger_avatar_icon, u1.avatar_color AS challenger_avatar_color,
+              u2.avatar_icon AS opponent_avatar_icon, u2.avatar_color AS opponent_avatar_color
        FROM duels d JOIN users u1 ON d.challenger_id = u1.id JOIN users u2 ON d.opponent_id = u2.id
        WHERE d.id = $1 AND (d.challenger_id = $2 OR d.opponent_id = $2)`, [id, uid]);
     if (!rows.length) return res.status(404).json({ error: 'Duel not found' });
@@ -2226,7 +2263,11 @@ router.get('/api/m/duels/:id', requireToken, async (req, res) => {
       bet_amount: d.bet_amount,
       opponent_name: isChallenger ? d.opponent_name : d.challenger_name,
       opponent_id: isChallenger ? d.opponent_id : d.challenger_id,
+      opponent_avatar_icon: isChallenger ? d.opponent_avatar_icon : d.challenger_avatar_icon,
+      opponent_avatar_color: isChallenger ? d.opponent_avatar_color : d.challenger_avatar_color,
       my_name: isChallenger ? d.challenger_name : d.opponent_name,
+      my_avatar_icon: isChallenger ? d.challenger_avatar_icon : d.opponent_avatar_icon,
+      my_avatar_color: isChallenger ? d.challenger_avatar_color : d.opponent_avatar_color,
       words: qd.words || [],
       my_score: myScore,
       opp_score: oppScore,

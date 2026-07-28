@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getMe, getNotifications, markNotificationsRead } from '../api';
 import NotificationsPopup from './NotificationsPopup';
+import Avatar from './Avatar';
 import { COLORS } from '../theme';
 
 // Header bleu constant, identique à l'EJS (partials/header.ejs) :
@@ -89,7 +90,13 @@ export default function Header({ onAccount, onLogo, onBalance, onPlan, plan: pla
             ) : null}
           </Pressable>
           <Pressable onPress={onAccount} hitSlop={8}>
-            <Ionicons name={accountIcon} size={accountIcon === 'person-circle' ? 30 : 26} color="#fff" />
+            {/* L'avatar ne remplace QUE le bouton compte (person-circle). Sur la
+                page account, `accountIcon` = roue crantée (réglages) → on la garde. */}
+            {accountIcon === 'person-circle' && profile?.avatar_icon ? (
+              <Avatar icon={profile.avatar_icon} color={profile.avatar_color} name={profile.name} size={30} />
+            ) : (
+              <Ionicons name={accountIcon} size={accountIcon === 'person-circle' ? 30 : 26} color="#fff" />
+            )}
           </Pressable>
         </View>
       </View>

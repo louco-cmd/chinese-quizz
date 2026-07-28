@@ -5,6 +5,7 @@ import Popup from '../Popup';
 import { COLORS } from '../../theme';
 import { COUNTRIES } from '../../data/countries';
 import { updateAccount } from '../../api';
+import Avatar, { AVATAR_ICONS, AVATAR_COLORS } from '../Avatar';
 
 // Drapeau emoji à partir d'un code pays ISO alpha-2.
 export function flagEmoji(code) {
@@ -35,6 +36,9 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
   const [name, setName] = useState('');
   const [tagline, setTagline] = useState('');
   const [country, setCountry] = useState(null);
+  const [avatarIcon, setAvatarIcon] = useState(null);
+  const [avatarColor, setAvatarColor] = useState(null);
+  const [openField, setOpenField] = useState(null); // 'icon' | 'color' | null
   const [picking, setPicking] = useState(false);
   const [query, setQuery] = useState('');
   const [saving, setSaving] = useState(false);
@@ -46,19 +50,30 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
       setName(initial?.name || '');
       setTagline(initial?.tagline || '');
       setCountry(initial?.country || null);
+      setAvatarIcon(initial?.avatar_icon || null);
+      setAvatarColor(initial?.avatar_color || null);
+      setOpenField(null);
       setPicking(false);
       setQuery('');
       setError('');
     }
   }, [visible, initial]);
 
+  // Choisir un picto : par défaut on lui donne la 1re couleur si aucune choisie ;
+  // re-cliquer le picto sélectionné le retire (repli sur l'initiale).
+  function pickIcon(ic) {
+    if (avatarIcon === ic) { setAvatarIcon(null); return; }
+    setAvatarIcon(ic);
+    if (!avatarColor) setAvatarColor(AVATAR_COLORS[0]);
+  }
+
   async function save() {
     if (!name.trim()) return setError('Name is required.');
     setSaving(true);
     setError('');
     try {
-      const d = await updateAccount({ name: name.trim(), tagline: tagline.trim(), country });
-      onSaved({ name: d.name, tagline: d.tagline, country: d.country });
+      const d = await updateAccount({ name: name.trim(), tagline: tagline.trim(), country, avatar_icon: avatarIcon, avatar_color: avatarColor });
+      onSaved({ name: d.name, tagline: d.tagline, country: d.country, avatar_icon: d.avatar_icon, avatar_color: d.avatar_color });
       onClose();
     } catch (e) {
       setError(e.message || 'Could not save.');
@@ -116,8 +131,71 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
           />
         </View>
       ) : (
-        // ── Formulaire ──
+        // ── Formulaire ── (pas de scroll : la popup grandit avec son contenu)
         <View>
+          {/* Avatar : aperçu + deux menus déroulants (picto / couleur) */}
+          <Label>Avatar</Label>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+            <Avatar icon={avatarIcon} color={avatarColor} name={name} size={56} />
+            <View style={{ flex: 1, gap: 8 }}>
+              {/* Menu picto */}
+              <Pressable
+                onPress={() => setOpenField((f) => (f === 'icon' ? null : 'icon'))}
+                style={{ ...inputStyle, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name={avatarIcon || 'happy-outline'} size={18} color={avatarIcon ? '#1a1a2e' : '#adb5bd'} />
+                  <Text style={{ fontSize: 14, color: avatarIcon ? '#1a1a2e' : '#adb5bd' }}>{avatarIcon ? 'Icon' : 'Pick an icon'}</Text>
+                </View>
+                <Ionicons name={openField === 'icon' ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.muted} />
+              </Pressable>
+              {/* Menu couleur */}
+              <Pressable
+                onPress={() => setOpenField((f) => (f === 'color' ? null : 'color'))}
+                style={{ ...inputStyle, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: avatarColor || '#e3e8f7' }} />
+                  <Text style={{ fontSize: 14, color: avatarColor ? '#1a1a2e' : '#adb5bd' }}>{avatarColor ? 'Background' : 'Pick a color'}</Text>
+                </View>
+                <Ionicons name={openField === 'color' ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.muted} />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Panneau déroulé : grille de pictos */}
+          {openField === 'icon' ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, backgroundColor: '#f8f9fa', borderRadius: 12, padding: 10, marginBottom: 16 }}>
+              {AVATAR_ICONS.map((ic) => {
+                const on = avatarIcon === ic;
+                return (
+                  <Pressable
+                    key={ic}
+                    onPress={() => pickIcon(ic)}
+                    style={{ width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? COLORS.jiayou : '#fff' }}
+                  >
+                    <Ionicons name={ic} size={20} color={on ? '#fff' : COLORS.muted} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+
+          {/* Panneau déroulé : palette de couleurs */}
+          {openField === 'color' ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, backgroundColor: '#f8f9fa', borderRadius: 12, padding: 12, marginBottom: 16 }}>
+              {AVATAR_COLORS.map((c) => (
+                <Pressable
+                  key={c}
+                  onPress={() => { setAvatarColor(c); if (!avatarIcon) setAvatarIcon(AVATAR_ICONS[0]); }}
+                  style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: avatarColor === c ? 3 : 0, borderColor: '#1a1a2e' }}
+                />
+              ))}
+            </View>
+          ) : null}
+
+          {!openField ? <View style={{ marginBottom: 6 }} /> : null}
+
           <Label>Name</Label>
           <TextInput
             value={name}

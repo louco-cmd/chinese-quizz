@@ -1,6 +1,7 @@
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../theme';
+import Avatar from '../Avatar';
 
 // Style de ligne en OBJET INLINE (pas de fonction/rowBase) — le plus robuste sur
 // natif. `last` retire la bordure du bas de la dernière ligne.
@@ -9,15 +10,6 @@ const row = (last) => ({
   borderBottomWidth: last ? 0 : 1, borderBottomColor: '#f5f5f5',
 });
 
-// Petit avatar rond avec l'initiale du nom.
-function Avatar({ name, bg = '#e8f0ff', color = COLORS.jiayou }) {
-  return (
-    <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ color, fontWeight: '700', fontSize: 16 }}>{(name || '?').charAt(0).toUpperCase()}</Text>
-    </View>
-  );
-}
-
 // ── Duel en attente : avatar + adversaire + mise. ──
 export function PendingDuelRow({ duel, last, onPlay }) {
   const other = duel.user_role === 'challenger' ? duel.opponent_name : duel.challenger_name;
@@ -25,7 +17,7 @@ export function PendingDuelRow({ duel, last, onPlay }) {
 
   const inner = (
     <>
-      <Avatar name={other} />
+      <Avatar icon={duel.opponent_avatar_icon} color={duel.opponent_avatar_color} name={other} size={38} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontWeight: '600', color: '#1a1a2e', fontSize: 14 }}>{other}</Text>
         <Text style={{ fontSize: 12, color: '#999', marginTop: 1 }}>
@@ -60,7 +52,7 @@ export function RecentDuelRow({ duel, last, onPress }) {
   }[duel.result] || { color: COLORS.muted, label: '—', bg: '#f1f3f5' };
   const inner = (
     <>
-      <Avatar name={duel.opponent_name} bg={cfg.bg} color={cfg.color} />
+      <Avatar icon={duel.opponent_avatar_icon} color={duel.opponent_avatar_color} name={duel.opponent_name} size={38} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontWeight: '600', color: '#1a1a2e', fontSize: 14 }}>{duel.opponent_name}</Text>
         <Text style={{ fontSize: 12, color: '#999', marginTop: 1 }}>{duel.my_score} – {duel.opp_score}</Text>

@@ -114,16 +114,13 @@ export default function SettingsScreen({ onLogout, onOpen, onBack }) {
             <SettingsRow icon="brush" iconColor="#7c3aed" iconBg="#f3e8ff" label={t('set_writing')} sub={t('set_writing_sub')} onPress={() => onOpen?.('writing')} />
           </SettingsGroup>
 
-          {/* ── Notifications ── */}
+          {/* ── Notifications ── (un seul flag `notifications_enabled` gate TOUTES
+              les push : duels, vente de pack, virements/red envelopes). */}
           <SettingsGroup title={t('set_grp_notifications')}>
             <SettingsRow
               icon="notifications" iconColor="#198754" iconBg="#e8f5e9"
-              label={t('set_duel_notif')} sub={t('set_duel_notif_sub')}
+              label={t('set_push')} sub={t('set_push_sub')}
               right={<Toggle value={s.notifications_enabled} onValueChange={(v) => patch({ notifications_enabled: v })} />}
-            />
-            <SettingsRow
-              icon="journal" label={t('set_word_review')} sub={t('set_word_review_sub')}
-              right={<Toggle value={s.word_review_enabled} onValueChange={(v) => patch({ word_review_enabled: v })} />}
             />
           </SettingsGroup>
 

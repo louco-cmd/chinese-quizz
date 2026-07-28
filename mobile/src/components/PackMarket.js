@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator, FlatList, useWindowDimensions } from 'react-native';
 import { getMe, getMarketPacks } from '../api';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
-import PackDetailPopup, { glyphOf, COVER_BG, COVER_FG } from './PackDetailPopup';
+import PackDetailPopup, { glyphOf, COVER_BG, COVER_FG, OwnedProgress } from './PackDetailPopup';
 
 function PackCard({ pack, onPress }) {
   const soon = (pack.word_count || 0) === 0;
@@ -23,6 +23,8 @@ function PackCard({ pack, onPress }) {
               <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>NEW</Text>
             </View>
           ) : null}
+          {/* Jauge de part possédée, bas-droite — masquée si le pack est déjà acheté. */}
+          {!pack.owned ? <OwnedProgress owned={pack.owned_words} total={pack.word_count} /> : null}
         </View>
         <View style={{ padding: 11 }}>
           {/* Titre */}
