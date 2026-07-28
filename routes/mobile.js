@@ -1655,7 +1655,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
     const year = new Date().getFullYear();
-    const [me, wordRows, quizzes, duels, contrib, recent] = await Promise.all([
+    const [me, wordRows, quizzes, duels, contrib, recent, duelRank] = await Promise.all([
       pool.query('SELECT name, balance, tagline, country, quiz_direction FROM users WHERE id = $1', [uid]),
       pool.query(
         `SELECT um.score, um.score_character, m.hsk
@@ -1674,6 +1674,18 @@ router.get('/api/m/account', requireToken, async (req, res) => {
         `SELECT score, total_questions, ratio, quiz_type, date_completed
          FROM quiz_history WHERE user_id = $1
          ORDER BY date_completed DESC LIMIT 5`, [uid]),
+      // Rang au classement des duels = position par nombre de victoires (les
+      // joueurs sans victoire ne sont pas classés → rank null).
+      pool.query(
+        `WITH wins AS (
+           SELECT winner_id AS uid, COUNT(*)::int AS w
+           FROM duels WHERE status = 'completed' AND winner_id IS NOT NULL
+           GROUP BY winner_id
+         ), ranked AS (
+           SELECT uid, RANK() OVER (ORDER BY w DESC) AS rank FROM wins
+         )
+         SELECT r.rank::int AS rank, (SELECT COUNT(*) FROM wins)::int AS total
+         FROM ranked r WHERE r.uid = $1`, [uid]),
     ]);
 
     const words = wordRows.rows;
@@ -1714,8 +1726,11 @@ router.get('/api/m/account', requireToken, async (req, res) => {
       quizDirection: me.rows[0]?.quiz_direction || 'en→zh',
       balance: me.rows[0]?.balance || 0,
       words: words.length,
+      wordsKnown: pinyinDist.mastered,
       quizzes: quizzes.rows[0].n,
       duels: duels.rows[0].n,
+      duelRank: duelRank.rows[0]?.rank || null,
+      duelRankTotal: duelRank.rows[0]?.total || 0,
       mastery: { pinyin: pinyinDist, character: charDist, total: words.length },
       hsk,
       recentQuizzes: recent.rows.map((r) => ({

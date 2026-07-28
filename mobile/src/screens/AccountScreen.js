@@ -28,21 +28,6 @@ function UsageTile({ icon, value, label }) {
   );
 }
 
-// Streak courant : jours consécutifs de pratique jusqu'à aujourd'hui (ou hier si
-// rien fait aujourd'hui, pour ne pas casser la série avant la fin de journée).
-function currentStreak(contribs) {
-  const active = new Set((contribs || []).filter((c) => c.count > 0).map((c) => c.date));
-  const key = (d) => d.toISOString().split('T')[0];
-  const d = new Date(); d.setHours(0, 0, 0, 0);
-  if (!active.has(key(d))) {
-    d.setDate(d.getDate() - 1);
-    if (!active.has(key(d))) return 0;
-  }
-  let n = 0;
-  while (active.has(key(d))) { n++; d.setDate(d.getDate() - 1); }
-  return n;
-}
-
 export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -100,7 +85,6 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   }
 
   const activeDays = (data.contributions || []).filter((c) => c.count > 0).length;
-  const streak = currentStreak(data.contributions);
   const learningChinese = data.quizDirection !== 'zh→en';
   const total = data.mastery?.total || 0;
   const pinyinDist = data.mastery?.pinyin || {};
@@ -125,6 +109,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
           activeDays={activeDays}
           contributions={data.contributions}
           hPad={hPad}
+          onEdit={() => setEditing(true)}
         />
 
         {/* Corps centré et borné à 1200px comme .account-layout de l'EJS */}
@@ -138,11 +123,15 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
                   : null
               }
             >
-              <AccountCard icon="stats-chart-outline" title="Your statistics" actionLabel="Edit personal info" onPress={() => setEditing(true)}>
-                {/* Stats d'utilisation en tête : série en cours + jours actifs */}
+              <AccountCard icon="stats-chart-outline" title="Your statistics">
+                {/* Stats d'utilisation en tête : mots connus + rang en duel */}
                 <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-                  <UsageTile icon="🔥" value={streak} label={streak === 1 ? 'day streak' : 'day streak'} />
-                  <UsageTile icon="📅" value={activeDays} label={`active ${activeDays === 1 ? 'day' : 'days'} in ${data.year}`} />
+                  <UsageTile icon="📖" value={data.wordsKnown ?? 0} label={data.wordsKnown === 1 ? 'word known' : 'words known'} />
+                  <UsageTile
+                    icon="🏆"
+                    value={data.duelRank ? `#${data.duelRank}` : '—'}
+                    label={data.duelRank ? `duel rank / ${data.duelRankTotal}` : 'unranked in duels'}
+                  />
                 </View>
 
                 <StatTriplet words={data.words} quizzes={data.quizzes} duels={data.duels} />
