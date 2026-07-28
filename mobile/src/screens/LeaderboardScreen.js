@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, useWindowDimensions } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import { flagEmoji } from '../components/account/EditProfilePopup';
 import UserProfileScreen from './UserProfileScreen';
-import { COLORS, SHADOW_CARD } from '../theme';
+import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 function Stat({ value, label, color = '#1a1a2e' }) {
   return (
@@ -69,7 +69,7 @@ export default function LeaderboardScreen({ board, onBack }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <ScrollView contentContainerStyle={{ paddingVertical: 16 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: 16, paddingBottom: TAB_CLEARANCE }}>
         <View style={{ width: '100%', maxWidth: 900, alignSelf: 'center', paddingHorizontal: hPad }}>
           {/* En-tête avec retour */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>

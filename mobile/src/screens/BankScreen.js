@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { SendRedEnvelopePopup } from '../components/RedEnvelopePopups';
 import { getWallet } from '../api';
-import { COLORS, SHADOW_CARD } from '../theme';
+import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 // Type de transaction → icône + libellé (calqué sur TX_ICONS de bank.ejs).
 const TX_META = {
@@ -139,7 +139,7 @@ export default function BankScreen({ onBack }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: TAB_CLEARANCE }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={COLORS.jiayou} />}
       >
         {Hero}
