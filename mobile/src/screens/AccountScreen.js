@@ -7,7 +7,7 @@ import StatTriplet from '../components/account/StatTriplet';
 import MasteryBar from '../components/account/MasteryBar';
 import HskStatList from '../components/account/HskStatList';
 import RecentQuizzes from '../components/account/RecentQuizzes';
-import EditProfilePopup, { flagEmoji } from '../components/account/EditProfilePopup';
+import EditProfilePopup from '../components/account/EditProfilePopup';
 import YourMentorsCard from '../components/teachers/YourMentorsCard';
 import MyPacksCard from '../components/account/MyPacksCard';
 import PurchasedPacksCard from '../components/account/PurchasedPacksCard';
@@ -16,6 +16,32 @@ import CoursePage from './CoursePage';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getAccount, getStudentClasses, leaveMentor } from '../api';
 import { COLORS, TAB_CLEARANCE } from '../theme';
+
+// Tuile de stat d'utilisation (série, jours actifs…) en tête de la carte stats.
+function UsageTile({ icon, value, label }) {
+  return (
+    <View style={{ flex: 1, backgroundColor: '#f6f8fb', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center' }}>
+      <Text style={{ fontSize: 20 }}>{icon}</Text>
+      <Text style={{ fontSize: 26, fontWeight: '800', color: '#111', lineHeight: 30, marginTop: 2 }}>{value}</Text>
+      <Text style={{ fontSize: 11, color: '#999', marginTop: 2, textAlign: 'center' }}>{label}</Text>
+    </View>
+  );
+}
+
+// Streak courant : jours consécutifs de pratique jusqu'à aujourd'hui (ou hier si
+// rien fait aujourd'hui, pour ne pas casser la série avant la fin de journée).
+function currentStreak(contribs) {
+  const active = new Set((contribs || []).filter((c) => c.count > 0).map((c) => c.date));
+  const key = (d) => d.toISOString().split('T')[0];
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  if (!active.has(key(d))) {
+    d.setDate(d.getDate() - 1);
+    if (!active.has(key(d))) return 0;
+  }
+  let n = 0;
+  while (active.has(key(d))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
 
 export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   const [data, setData] = useState(null);
@@ -74,6 +100,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   }
 
   const activeDays = (data.contributions || []).filter((c) => c.count > 0).length;
+  const streak = currentStreak(data.contributions);
   const learningChinese = data.quizDirection !== 'zh→en';
   const total = data.mastery?.total || 0;
   const pinyinDist = data.mastery?.pinyin || {};
@@ -92,6 +119,8 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
       >
         <AccountHero
           name={data.name}
+          tagline={data.tagline}
+          country={data.country}
           year={data.year}
           activeDays={activeDays}
           contributions={data.contributions}
@@ -109,18 +138,11 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
                   : null
               }
             >
-              <AccountCard icon="person-outline" title="Your info" actionLabel="Edit personal info" onPress={() => setEditing(true)}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 }}>
-                  <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text style={{ fontSize: 11, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Your words</Text>
-                    <Text style={{ fontSize: 14, fontWeight: '500', color: '#333' }} numberOfLines={2}>
-                      “{data.tagline || 'Learning Chinese!'}”
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={{ fontSize: 11, color: '#aaa', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>Representing</Text>
-                    <Text style={{ fontSize: 26 }}>{flagEmoji(data.country)}</Text>
-                  </View>
+              <AccountCard icon="stats-chart-outline" title="Your statistics" actionLabel="Edit personal info" onPress={() => setEditing(true)}>
+                {/* Stats d'utilisation en tête : série en cours + jours actifs */}
+                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                  <UsageTile icon="🔥" value={streak} label={streak === 1 ? 'day streak' : 'day streak'} />
+                  <UsageTile icon="📅" value={activeDays} label={`active ${activeDays === 1 ? 'day' : 'days'} in ${data.year}`} />
                 </View>
 
                 <StatTriplet words={data.words} quizzes={data.quizzes} duels={data.duels} />

@@ -34,7 +34,7 @@ function daysUpToToday(year) {
 // On mesure la largeur, on calcule un nombre entier de colonnes et une taille de
 // carré ENTIÈRE, puis on laisse `gap` gérer l'espacement (pas de marges par case,
 // qui désynchronisaient le flex-wrap et faisaient se chevaucher les cases).
-export default function ContributionsHeatmap({ contributions, year, gap = 3, minSquare = 11 }) {
+export default function ContributionsHeatmap({ contributions, year, gap = 3, minSquare = 11, footerLeft }) {
   const [width, setWidth] = useState(0);
   const map = {};
   (contributions || []).forEach((c) => { map[c.date] = c.count; });
@@ -64,13 +64,18 @@ export default function ContributionsHeatmap({ contributions, year, gap = 3, min
         )}
       </View>
 
-      {/* Légende */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 6, gap: 4 }}>
-        <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11 }}>Less</Text>
-        {LEVEL_BG.map((bg, i) => (
-          <View key={i} style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: bg }} />
-        ))}
-        <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11 }}>More</Text>
+      {/* Pied : compteur de jours à gauche, légende Less/More à droite */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, gap: 8 }}>
+        <Text numberOfLines={1} style={{ color: '#fff', fontSize: 12, fontWeight: '600', flexShrink: 1 }}>
+          {footerLeft || ''}
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11 }}>Less</Text>
+          {LEVEL_BG.map((bg, i) => (
+            <View key={i} style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: bg }} />
+          ))}
+          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11 }}>More</Text>
+        </View>
       </View>
     </View>
   );
