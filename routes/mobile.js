@@ -2061,7 +2061,10 @@ async function ensureReferralCode(userId) {
 router.get('/api/m/referral', requireToken, async (req, res) => {
   try {
     const code = await ensureReferralCode(req.tokenUser.id);
-    res.json({ code, link: `https://jiayou.fr/?ref=${encodeURIComponent(code)}` });
+    // Lien vers l'app web RN (app.jiayou.fr) qui capte ?ref= ; jiayou.fr est le
+    // site vitrine et n'embarque pas la logique de parrainage.
+    const base = process.env.APP_WEB_URL || 'https://app.jiayou.fr';
+    res.json({ code, link: `${base}/?ref=${encodeURIComponent(code)}` });
   } catch (e) {
     console.error('m/referral error:', e);
     res.status(500).json({ error: 'Server error' });
@@ -3021,9 +3024,17 @@ router.post('/api/m/subscription/rc-sync', requireToken, async (req, res) => {
     const r = await fetch(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(uid)}`, {
       headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
     });
-    if (!r.ok) return res.json({ synced: false, reason: `http_${r.status}` });
+    if (!r.ok) {
+      // 404 = RevenueCat n'a AUCUN abonné pour cet app_user_id → l'achat n'est
+      // jamais remonté jusqu'à RevenueCat (validation Google KO côté RC).
+      console.log(`🔄 rc-sync user ${uid} → HTTP ${r.status} (RevenueCat ne connaît pas cet utilisateur)`);
+      return res.json({ synced: false, reason: `http_${r.status}` });
+    }
     const data = await r.json();
-    const ent = data?.subscriber?.entitlements?.premium;
+    const sub = data?.subscriber || {};
+    const entKeys = Object.keys(sub.entitlements || {});
+    const subKeys = Object.keys(sub.subscriptions || {});
+    const ent = sub.entitlements?.premium;
     const expires = ent?.expires_date ? new Date(ent.expires_date) : null;
     const active = !!(expires && expires > new Date());
     if (active) {
@@ -3032,8 +3043,12 @@ router.post('/api/m/subscription/rc-sync', requireToken, async (req, res) => {
       // Entitlement connu mais expiré → on nettoie (sans toucher à l'état Stripe).
       await pool.query('UPDATE users SET rc_expires_at = $1, rc_will_renew = FALSE WHERE id = $2', [expires, uid]);
     }
-    console.log(`🔄 rc-sync user ${uid} → active=${active} expires=${expires?.toISOString() || 'n/a'}`);
-    res.json({ synced: true, active, expires: expires ? expires.toISOString() : null });
+    // Diagnostic complet : entitlements et abonnements connus de RevenueCat pour
+    // cet utilisateur. Si entitlements=[] mais subscriptions=[...], le produit
+    // Play n'est pas rattaché à l'entitlement `premium`. Si les deux sont vides,
+    // RevenueCat n'a jamais validé l'achat (droits du compte de service Google).
+    console.log(`🔄 rc-sync user ${uid} → active=${active} expires=${expires?.toISOString() || 'n/a'} entitlements=[${entKeys.join(',')}] subscriptions=[${subKeys.join(',')}]`);
+    res.json({ synced: true, active, expires: expires ? expires.toISOString() : null, entitlements: entKeys, subscriptions: subKeys });
   } catch (e) {
     console.error('rc-sync error:', e.message);
     res.json({ synced: false, reason: 'error' });

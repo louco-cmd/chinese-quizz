@@ -265,12 +265,6 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
         </View>
       </View>
     );
-    const footer = (
-      <View style={{ marginTop: 6 }}>
-        {error ? <Text className="text-danger text-[13px] font-semibold mb-2 text-center">{error}</Text> : null}
-        <PrimaryButton label="Let's start" onPress={finishLearner} saving={saving} />
-      </View>
-    );
     return (
       <SafeAreaView className="flex-1 bg-surface-page">
         <PackMarket
@@ -278,9 +272,21 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
           extraTileAt={1}
           onBalance={setBalance}
           ListHeaderComponent={header}
-          ListFooterComponent={footer}
-          contentContainerStyle={{ width: '100%', maxWidth: 520, alignSelf: 'center', padding: 20, paddingBottom: 40 }}
+          contentContainerStyle={{ width: '100%', maxWidth: 520, alignSelf: 'center', padding: 20, paddingBottom: 24 }}
         />
+        {/* Barre sticky : "Let's start" toujours visible, suit le scroll. */}
+        <View
+          style={{
+            borderTopWidth: 1, borderTopColor: COLORS.line,
+            backgroundColor: '#f8f9fa',
+            paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12,
+          }}
+        >
+          <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center' }}>
+            {error ? <Text className="text-danger text-[13px] font-semibold mb-2 text-center">{error}</Text> : null}
+            <PrimaryButton label="Let's start" onPress={finishLearner} saving={saving} />
+          </View>
+        </View>
       </SafeAreaView>
     );
   }

@@ -1,6 +1,7 @@
 import { View, Text, Pressable, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../theme';
 import { useT } from '../i18n';
 
@@ -31,6 +32,8 @@ export default function TabBar({ active, onChange }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const maxWidth = width >= 992 ? 560 : undefined;
+  // Fondu vers le blanc derrière la barre, sauf sur l'onglet Add Word.
+  const showFade = active !== 'add';
 
   return (
     <View
@@ -40,6 +43,17 @@ export default function TabBar({ active, onChange }) {
         paddingHorizontal: 14, paddingBottom: Math.max(insets.bottom, 12) + 8, paddingTop: 14,
       }}
     >
+      {/* Dégradé transparent → blanc qui estompe le contenu de la page derrière la
+          barre. Débordé vers le haut (au-delà du conteneur) pour un fondu doux. */}
+      {showFade ? (
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(248,249,250,0)', 'rgba(248,249,250,0.85)', '#f8f9fa']}
+          locations={[0, 0.55, 1]}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 150 }}
+        />
+      ) : null}
+
       {/* Couche d'OMBRE (pas d'overflow, sinon l'ombre iOS serait rognée). */}
       <View
         style={{
@@ -50,7 +64,7 @@ export default function TabBar({ active, onChange }) {
         {/* Couche qui CLIPPE le fond flou aux coins arrondis + porte les onglets. */}
         <View
           style={{
-            flexDirection: 'row', height: 62, alignItems: 'center', paddingHorizontal: 6,
+            flexDirection: 'row', height: 70, alignItems: 'center', paddingHorizontal: 6,
             borderRadius: RADIUS, overflow: 'hidden',
             // Blanc translucide uniforme (plus de bande blanche).
             backgroundColor: 'rgba(255,255,255,0.85)',
@@ -64,10 +78,10 @@ export default function TabBar({ active, onChange }) {
             // Onglet "Add Word" : bouton + façon TikTok, sans libellé.
             if (tab.key === 'add') {
               return (
-                <Pressable key={tab.key} onPress={() => onChange(tab.key)} style={{ flex: 1, height: 50, alignItems: 'center', justifyContent: 'center' }}>
-                  {/* Sélectionné : bleu plein, + blanc. Sinon : tuile bleu clair, + bleu. */}
-                  <View style={{ width: 52, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? ACTIVE : COLORS.jiayouContainer }}>
-                    <Ionicons name="add" size={26} color={on ? '#fff' : ACTIVE} />
+                <Pressable key={tab.key} onPress={() => onChange(tab.key)} style={{ flex: 1, height: 56, alignItems: 'center', justifyContent: 'center' }}>
+                  {/* Bouton carré, + épais. Sélectionné : bleu plein, + blanc. Sinon : tuile bleu clair, + bleu. */}
+                  <View style={{ width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? ACTIVE : COLORS.jiayouContainer }}>
+                    <MaterialCommunityIcons name="plus-thick" size={24} color={on ? '#fff' : ACTIVE} />
                   </View>
                 </Pressable>
               );
@@ -77,7 +91,7 @@ export default function TabBar({ active, onChange }) {
               <Pressable
                 key={tab.key}
                 onPress={() => onChange(tab.key)}
-                style={{ flex: 1, height: 50, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 16, backgroundColor: on ? COLORS.jiayouContainer : 'transparent' }}
+                style={{ flex: 1, height: 56, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 16, backgroundColor: on ? COLORS.jiayouContainer : 'transparent' }}
               >
                 <Icon name={tab.icon} size={21} color={on ? ACTIVE : INACTIVE} />
                 <Text style={{ fontSize: 10.5, fontWeight: on ? '700' : '500', color: on ? ACTIVE : INACTIVE }}>

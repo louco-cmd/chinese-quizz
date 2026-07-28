@@ -231,9 +231,6 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
               <VsPlayer name={duel.opponent_name} score={duel.opp_score} winner={theyWon} loser={iWon} />
             </View>
           </View>
-
-          {/* Courbe basse (couleur du fond de page) */}
-          <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 28, backgroundColor: pageBg, borderTopLeftRadius: 28, borderTopRightRadius: 28 }} />
         </View>
 
         {/* ── Contenu ── */}

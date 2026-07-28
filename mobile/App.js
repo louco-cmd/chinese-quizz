@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator, AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken } from './src/api';
+import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef } from './src/api';
 import { configurePurchases } from './src/purchases';
 import { registerForPush, configureNotificationHandler } from './src/push';
 import { LangContext, makeT } from './src/i18n';
@@ -61,6 +61,7 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [envelopes, setEnvelopes] = useState([]); // red envelopes non vues
   const [lang, setLang] = useState('en'); // langue de l'interface (en | zh)
+  const [refCode, setRefCode] = useState(null); // code de parrainage capté (?ref=)
   // Web mobile : le clavier réduit la zone visible et la TabBar recouvrirait le
   // bas du contenu (champ de réponse du quiz…) → on la masque le temps de la saisie.
   const kbOpen = useKeyboardOpen();
@@ -121,8 +122,23 @@ export default function App() {
       } else if (url.pathname.includes('welcome-jiayou-premium') || url.searchParams.get('session_id')) {
         setShowWelcome(true);
       }
+      // Parrainage : ?ref=CODE → on persiste (survit au redirect Google OAuth) et
+      // on retire le paramètre de l'URL pour ne pas le rejouer.
+      const ref = url.searchParams.get('ref');
+      if (ref) {
+        setPendingRef(ref);
+        setRefCode(ref);
+        if (window.history?.replaceState) {
+          url.searchParams.delete('ref');
+          window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+        }
+      }
     } catch { /* ignore URL invalide */ }
   }, []);
+
+  // Hydrate le code de parrainage persisté (si l'utilisateur revient après le
+  // redirect Google, la query a disparu mais le storage le conserve).
+  useEffect(() => { getPendingRef().then((r) => { if (r) setRefCode(r); }); }, []);
 
   function clearUrl() {
     if (typeof window !== 'undefined' && window.history?.replaceState) {
@@ -166,6 +182,8 @@ export default function App() {
   // ou revient aux réglages si rejoué depuis là.
   async function onOnboardingDone(role) {
     if (flowFromSettings) { backToSettings(); return; }
+    // Le code de parrainage a été transmis au backend par l'onboarding : on purge.
+    clearPendingRef(); setRefCode(null);
     const me = await loadProfile({ route: false });
     // Les profs vont directement à leur espace ; le tutoriel est côté élève.
     if (role === 'teacher') { setFlow(null); return; }
@@ -246,6 +264,7 @@ export default function App() {
       return (
         <OnboardingScreen
           initial={{ name: profile?.name }}
+          refCode={refCode}
           onDone={onOnboardingDone}
           onClose={flowFromSettings ? backToSettings : undefined}
         />

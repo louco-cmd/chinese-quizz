@@ -12,25 +12,28 @@ export default function AccountHero({ name, tagline, country, year, activeDays, 
     <View style={{ backgroundColor: '#0d6efd', paddingTop: 20, paddingBottom: 40 }}>
       {/* Contenu centré et borné à 1200px comme .account-layout de l'EJS */}
       <View style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: hPad }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
-          {/* Identité */}
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Ionicons name="person-circle" size={40} color="#fff" />
-              <Text numberOfLines={1} style={{ color: '#fff', fontWeight: '800', fontSize: 24, flexShrink: 1 }}>
-                {name || 'User'}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+          {/* Identité : icône à gauche, colonne nom+phrase à droite (phrase
+              alignée sous le nom, en face de l'icône). */}
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Ionicons name="person-circle" size={40} color="#fff" />
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text numberOfLines={1} style={{ color: '#fff', fontWeight: '800', fontSize: 24, flexShrink: 1 }}>
+                  {name || 'User'}
+                </Text>
+                {flag ? <Text style={{ fontSize: 22 }}>{flag}</Text> : null}
+              </View>
+              <Text
+                numberOfLines={2}
+                style={{ color: '#fff', fontSize: 18, fontStyle: 'italic', fontWeight: '600', marginTop: 6 }}
+              >
+                “{tagline || 'Learning Chinese!'}”
               </Text>
-              {flag ? <Text style={{ fontSize: 22 }}>{flag}</Text> : null}
             </View>
-            <Text
-              numberOfLines={2}
-              style={{ color: '#fff', fontSize: 18, fontStyle: 'italic', fontWeight: '600', marginTop: 10 }}
-            >
-              “{tagline || 'Learning Chinese!'}”
-            </Text>
           </View>
 
-          {/* Bouton Edit */}
+          {/* Bouton Edit, centré verticalement avec l'identité */}
           <Pressable
             onPress={onEdit}
             style={{
@@ -50,15 +53,6 @@ export default function AccountHero({ name, tagline, country, year, activeDays, 
           footerLeft={`${activeDays} ${activeDays === 1 ? 'day' : 'days'} of practice in ${year}`}
         />
       </View>
-
-      {/* Courbe arrondie qui fait la jonction avec le corps clair */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute', left: 0, right: 0, bottom: -1, height: 24,
-          backgroundColor: '#f8f9fa', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-        }}
-      />
     </View>
   );
 }

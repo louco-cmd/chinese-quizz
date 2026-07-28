@@ -120,12 +120,6 @@ export default function BankScreen({ onBack }) {
           <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13.5 }}>Send a red envelope</Text>
         </Pressable>
       </View>
-
-      {/* Courbe arrondie qui fait la jonction avec le corps clair (comme la page account) */}
-      <View
-        pointerEvents="none"
-        style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 24, backgroundColor: '#f8f9fa', borderTopLeftRadius: 24, borderTopRightRadius: 24 }}
-      />
     </View>
   );
 

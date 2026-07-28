@@ -45,6 +45,33 @@ export async function setToken(token) {
   else await SecureStore.deleteItemAsync(TOKEN_KEY);
 }
 
+// Code de parrainage capté depuis l'URL (?ref=) à la première visite. On le
+// PERSISTE car l'inscription passe par un redirect Google OAuth qui efface la
+// query : il faut le retrouver au moment de l'onboarding pour créditer le
+// parrain. Nettoyé une fois l'onboarding terminé.
+const REF_KEY = 'jiayou_pending_ref';
+
+export async function getPendingRef() {
+  try {
+    if (isWeb) return typeof localStorage !== 'undefined' ? localStorage.getItem(REF_KEY) : null;
+    return await SecureStore.getItemAsync(REF_KEY);
+  } catch { return null; }
+}
+
+export async function setPendingRef(code) {
+  try {
+    if (isWeb) { if (typeof localStorage !== 'undefined') localStorage.setItem(REF_KEY, code); return; }
+    await SecureStore.setItemAsync(REF_KEY, code);
+  } catch { /* noop */ }
+}
+
+export async function clearPendingRef() {
+  try {
+    if (isWeb) { if (typeof localStorage !== 'undefined') localStorage.removeItem(REF_KEY); return; }
+    await SecureStore.deleteItemAsync(REF_KEY);
+  } catch { /* noop */ }
+}
+
 async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {

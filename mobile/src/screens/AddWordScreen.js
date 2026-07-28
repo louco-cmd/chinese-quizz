@@ -311,12 +311,19 @@ export default function AddWordScreen() {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 4 }}>
           <Text style={{ color: '#1a1a2e', fontSize: 16, fontWeight: '700' }}>
-            {results.length ? `${results.length} result${results.length > 1 ? 's' : ''}` : 'No match'}
+            {results.length ? `${results.length} result${results.length > 1 ? 's' : ''}` : '😢'}
           </Text>
           <Pressable onPress={() => setShowResults(false)} hitSlop={10}>
             <Ionicons name="close" size={24} color={COLORS.muted} />
           </Pressable>
         </View>
+
+        {/* Aucun résultat : Jiayou ne connaît pas ce mot → on invite à le traduire. */}
+        {results.length === 0 ? (
+          <Text style={{ color: '#1a1a2e', fontSize: 18, fontWeight: '800', textAlign: 'center', paddingHorizontal: 24, marginTop: 2 }}>
+            Jiayou doesn't know this word
+          </Text>
+        ) : null}
 
         <View>
           <Animated.ScrollView
@@ -364,8 +371,11 @@ export default function AddWordScreen() {
               }}
             >
               <Ionicons name="add-circle" size={40} color="#6f42c1" />
-              <Text style={{ color: '#6f42c1', fontWeight: '700', marginTop: 8 }} numberOfLines={1}>
+              <Text style={{ color: '#6f42c1', fontWeight: '700', marginTop: 8, textAlign: 'center' }} numberOfLines={1}>
                 Create a new word
+              </Text>
+              <Text style={{ color: '#9a7fd0', fontSize: 12, fontWeight: '600', marginTop: 4, textAlign: 'center', paddingHorizontal: 14 }}>
+                and share it with Jiaworld
               </Text>
             </Pressable>
 
@@ -386,9 +396,11 @@ export default function AddWordScreen() {
           />
         </View>
 
-        <Text style={{ color: COLORS.mutedLight, textAlign: 'center', fontSize: 12, marginTop: 2 }}>
-          ← swipe to browse →
-        </Text>
+        {results.length > 0 ? (
+          <Text style={{ color: COLORS.mutedLight, textAlign: 'center', fontSize: 12, marginTop: 2 }}>
+            ← swipe to browse →
+          </Text>
+        ) : null}
       </Popup>
 
       {/* ── Popup New word (création / édition avant capture) ── */}
