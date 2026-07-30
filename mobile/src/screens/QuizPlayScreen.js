@@ -17,6 +17,22 @@ function parseAnswers(str) {
     .map((s) => s.trim().toLowerCase())
     .filter((s, i, arr) => s.length > 0 && arr.indexOf(s) === i);
 }
+// Lettres seules (minuscule, accents retirés) — pour l'anglais on ne compare QUE
+// les lettres/chiffres : ponctuation (. , ' -) et espaces ignorés.
+function stripLetters(str) {
+  return (str || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+}
+// Sens valides d'une réponse, séparés par / (et , 、 … pour l'anglais) → UN SEUL
+// suffit. Anglais : parseAnswers ; pinyin : découpe sur / uniquement.
+function answerSenses(w, type, direction) {
+  if (direction === 'zh→en') return parseAnswers(w?.english);
+  if (type === 'pinyin') return (w?.pinyin || '').split('/').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return parseAnswers(w?.chinese);
+}
+// Jetons (un par mot/syllabe) du 1er sens → structure des boîtes (une par jeton).
+function firstSenseTokens(w, type, direction) {
+  return (answerSenses(w, type, direction)[0] || '').split(/\s+/).filter(Boolean);
+}
 
 const infoLabel = (hsk, levels) => {
   let h;
@@ -85,8 +101,10 @@ export default function QuizPlayScreen({ config, onExit }) {
     setSecond(false);
     setFeedback(null);
     setLocked(false);
-    if (type === 'pinyin' && direction !== 'zh→en') {
-      setInputs((w.pinyin || '').split(' ').map(() => ''));
+    if (direction === 'zh→en' || type === 'pinyin') {
+      // Un champ par jeton (mot anglais / syllabe pinyin) du 1er sens ; au moins 1.
+      const toks = firstSenseTokens(w, type, direction);
+      setInputs((toks.length ? toks : ['']).map(() => ''));
     } else {
       setInputs(['']);
     }
@@ -118,22 +136,20 @@ export default function QuizPlayScreen({ config, onExit }) {
   const correctCountRef = useRef(0);
   useEffect(() => { correctCountRef.current = correctCount; }, [correctCount]);
 
-  // Nombre de sens DISTINCTS correctement donnés (zh→en, plusieurs traductions).
-  // Un seul suffit pour le point ; chaque sens en plus = point bonus.
-  function countMatchedSenses(w, arr) {
-    const senses = parseAnswers(w.english);
-    const given = arr.map((s) => s.trim().toLowerCase()).filter(Boolean);
-    return senses.reduce((n, s) => n + (given.includes(s) ? 1 : 0), 0);
-  }
-
   function checkAnswer(w) {
+    const senses = answerSenses(w, type, direction);
     if (direction === 'zh→en') {
-      return countMatchedSenses(w, inputs) >= 1;
+      // Lettres concaténées des champs vs lettres de chaque sens (ponctuation/espaces
+      // ignorés) → UN sens suffit.
+      const got = stripLetters(inputs.join(''));
+      return got.length > 0 && senses.some((s) => stripLetters(s) === got);
     }
     if (type === 'pinyin') {
-      return normalizePinyin(inputs.join(' ')) === normalizePinyin(w.pinyin);
+      // Syllabes concaténées vs chaque sens pinyin → UN sens suffit.
+      const got = normalizePinyin(inputs.join(' '));
+      return got.length > 0 && senses.some((s) => normalizePinyin(s) === got);
     }
-    return parseAnswers(w.chinese).some((a) => a === inputs[0].trim());
+    return senses.some((a) => a === inputs[0].trim().toLowerCase());
   }
 
   function submit() {
@@ -141,8 +157,7 @@ export default function QuizPlayScreen({ config, onExit }) {
     const w = words[idx];
     const ok = checkAnswer(w);
     const answer = direction === 'zh→en' ? w.english : type === 'pinyin' ? w.pinyin : w.chinese;
-    // Sens en plus (au-delà du 1er) = points bonus, uniquement en zh→en.
-    const bonus = direction === 'zh→en' ? Math.max(0, countMatchedSenses(w, inputs) - 1) : 0;
+    const bonus = 0; // saisie structurée (un mot par champ) → une seule réponse.
 
     if (ok) {
       // Point (+ bonus) seulement si trouvé à la 1re tentative.
@@ -229,6 +244,16 @@ export default function QuizPlayScreen({ config, onExit }) {
 
   const fbColor = feedback?.kind === 'success' ? { bg: '#e8f5e9', fg: COLORS.success } : { bg: '#fff3cd', fg: '#856404' };
 
+  // Champs à jetons (un par mot/syllabe) : pinyin OU anglais. Les boîtes sont
+  // structurées sur le 1er sens ; n'importe quel sens (séparé par /) est accepté.
+  const isEn = direction === 'zh→en';
+  const tokenFields = isPinyin || isEn;
+  const senses = answerSenses(w, type, direction);
+  const primary = tokenFields ? firstSenseTokens(w, type, direction) : [];
+  const multiHint = senses.length > 1;
+  const tokenTarget = (i) => (isEn ? stripLetters(primary[i] || '').length : normalizePinyin(primary[i] || '').length);
+  const typedLen = (tt) => (isEn ? stripLetters(tt).length : (tt || '').length);
+
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <TopBar onExit={onExit} progress={`${idx + 1}/${words.length}`} />
@@ -255,72 +280,32 @@ export default function QuizPlayScreen({ config, onExit }) {
 
           {/* Champs de réponse */}
           <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, ...SHADOW_CARD }}>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
-              {isPinyin ? (
-                inputs.map((val, i) => (
-                  <TextInput
-                    key={i}
-                    ref={(el) => { inputRefs.current[i] = el; if (i === 0) firstRef.current = el; }}
-                    value={val}
-                    onChangeText={(t) => {
-                      setInputs((arr) => arr.map((x, j) => (j === i ? t : x)));
-                      // Auto-avance vers la syllabe suivante quand celle-ci est complète.
-                      const target = normalizePinyin(w.pinyin.split(' ')[i] || '').length;
-                      if (target && t.length >= target && i < inputs.length - 1) {
-                        inputRefs.current[i + 1]?.focus?.();
-                      }
-                    }}
-                    onSubmitEditing={submit}
-                    editable={!locked}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    placeholder={`${normalizePinyin(w.pinyin.split(' ')[i] || '').length}`}
-                    placeholderTextColor="#c4c4c4"
-                    style={syllableStyle(second)}
-                  />
-                ))
-              ) : direction === 'zh→en' ? (
-                // Traductions : un champ suffit ; le "+" en ajoute pour des bonus.
-                <View style={{ width: '100%' }}>
-                  {inputs.map((val, i) => (
-                    <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <TextInput
-                        ref={i === 0 ? firstRef : undefined}
-                        value={val}
-                        onChangeText={(t) => setInputs((arr) => arr.map((x, j) => (j === i ? t : x)))}
-                        onSubmitEditing={submit}
-                        editable={!locked}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        placeholder={i === 0 ? 'English translation…' : 'Another meaning (bonus)…'}
-                        placeholderTextColor="#adb5bd"
-                        style={[fullInputStyle(second), { flex: 1 }]}
-                      />
-                      {inputs.length > 1 ? (
-                        <Pressable onPress={() => setInputs((arr) => arr.filter((_, j) => j !== i))} hitSlop={8} disabled={locked}>
-                          <Ionicons name="close-circle" size={24} color={COLORS.danger} />
-                        </Pressable>
-                      ) : null}
-                    </View>
-                  ))}
-                  {(() => {
-                    const senses = parseAnswers(w.english).length;
-                    if (senses <= 1) return null;
-                    return (
-                      <>
-                        {inputs.length < senses ? (
-                          <Pressable onPress={() => setInputs((arr) => [...arr, ''])} disabled={locked} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', marginTop: 2 }}>
-                            <Ionicons name="add-circle-outline" size={18} color={COLORS.jiayou} />
-                            <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }}>Add another meaning (+1 bonus)</Text>
-                          </Pressable>
-                        ) : null}
-                        <Text style={{ textAlign: 'center', color: COLORS.mutedLight, fontSize: 12, marginTop: 8 }}>
-                          {senses} translations possible — one is enough
-                        </Text>
-                      </>
-                    );
-                  })()}
-                </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: multiHint ? 6 : 16 }}>
+              {tokenFields ? (
+                inputs.map((val, i) => {
+                  const target = tokenTarget(i);
+                  return (
+                    <TextInput
+                      key={i}
+                      ref={(el) => { inputRefs.current[i] = el; if (i === 0) firstRef.current = el; }}
+                      value={val}
+                      onChangeText={(t) => {
+                        setInputs((arr) => arr.map((x, j) => (j === i ? t : x)));
+                        // Auto-avance vers le champ suivant une fois le compte de lettres atteint.
+                        if (target && typedLen(t) >= target && i < inputs.length - 1) {
+                          inputRefs.current[i + 1]?.focus?.();
+                        }
+                      }}
+                      onSubmitEditing={submit}
+                      editable={!locked}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      placeholder={`${target}`}
+                      placeholderTextColor="#c4c4c4"
+                      style={[syllableStyle(second), isEn ? { minWidth: Math.max(64, target * 14 + 22) } : null]}
+                    />
+                  );
+                })
               ) : (
                 <TextInput
                   ref={firstRef}
@@ -336,6 +321,11 @@ export default function QuizPlayScreen({ config, onExit }) {
                 />
               )}
             </View>
+            {multiHint ? (
+              <Text style={{ textAlign: 'center', color: COLORS.mutedLight, fontSize: 12, marginBottom: 14 }}>
+                {`${senses.length} answers possible — one is enough`}
+              </Text>
+            ) : null}
 
             <Pressable
               onPress={submit}

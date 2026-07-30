@@ -18,18 +18,22 @@ const fmtDate = (iso) => {
 const PREMIUM_URL = 'https://jiayou.fr/#pricing';
 
 const PREMIUM_FEATURES = [
-  { icon: 'infinite', kind: 'inf', title: 'Unlimited words', sub: 'Learn without limits' },
-  { icon: 'infinite', kind: 'inf', title: 'Unlimited duels', sub: 'Challenge anytime' },
+  { icon: 'infinite', kind: 'inf', title: 'Unlimited words', sub: 'No 600-word cap' },
   { icon: 'infinite', kind: 'inf', title: 'Unlimited quizzes', sub: 'Practice endlessly' },
-  { icon: 'checkmark', kind: 'yes', title: 'HSK packs access', sub: 'Curated word packs' },
-  { icon: 'checkmark', kind: 'yes', title: 'Priority support', sub: "We've got your back" },
+  { icon: 'infinite', kind: 'inf', title: 'Unlimited duels', sub: 'Challenge anytime' },
+  { icon: 'infinite', kind: 'inf', title: 'Unlimited pack purchases', sub: 'Buy as many as you like' },
+  { icon: 'checkmark', kind: 'yes', title: 'All HSK packs (1–6)', sub: 'Including HSK 4, 5 & 6' },
+  { icon: 'checkmark', kind: 'yes', title: 'Writing practice', sub: 'Draw characters stroke by stroke' },
+  { icon: 'checkmark', kind: 'yes', title: 'Ghost mode', sub: 'Hide from leaderboard & search' },
 ];
 const FREE_FEATURES = [
-  { icon: 'bookmark', kind: 'lim', title: '600 words', sub: 'Vocabulary limit' },
-  { icon: 'time', kind: 'lim', title: '1 duel / day', sub: 'Challenge friends' },
-  { icon: 'time', kind: 'lim', title: '4 quizzes / day', sub: 'Practice daily' },
-  { icon: 'checkmark', kind: 'yes', title: 'HSK pack access', sub: 'HSK 1' },
-  { icon: 'checkmark', kind: 'yes', title: 'Word Booster', sub: 'Discover new words' },
+  { icon: 'bookmark', kind: 'lim', title: '600 words', sub: 'Vocabulary cap' },
+  { icon: 'time', kind: 'lim', title: '3 quizzes / day', sub: 'Daily limit' },
+  { icon: 'time', kind: 'lim', title: '1 duel / day', sub: 'Daily limit' },
+  { icon: 'bag-handle', kind: 'lim', title: '3 packs max', sub: 'Lifetime purchases' },
+  { icon: 'close', kind: 'no', title: 'HSK 4 / 5 / 6 packs', sub: 'Not available' },
+  { icon: 'close', kind: 'no', title: 'Writing practice', sub: 'Premium only' },
+  { icon: 'close', kind: 'no', title: 'Ghost mode', sub: 'Premium only' },
 ];
 const FAQ = [
   { q: 'Can I switch between plans?', a: "Yes! You can upgrade to Premium anytime. If you cancel, you keep Premium access until the end of your billing period, then revert to Free." },
@@ -38,7 +42,12 @@ const FAQ = [
   { q: 'Can I reactivate a canceled subscription?', a: 'Yes! Just resubscribe on jiayou.fr — your Premium access is restored immediately after payment.' },
 ];
 
-const ICON_BG = { inf: { bg: '#e8f0ff', fg: COLORS.jiayou }, yes: { bg: '#e8f5e9', fg: COLORS.success }, lim: { bg: '#fff3cd', fg: '#b8860b' } };
+const ICON_BG = {
+  inf: { bg: '#e8f0ff', fg: COLORS.jiayou },
+  yes: { bg: '#e8f5e9', fg: COLORS.success },
+  lim: { bg: '#fff3cd', fg: '#b8860b' },
+  no: { bg: '#f1f3f5', fg: '#adb5bd' },
+};
 
 function FeatureRow({ f, last }) {
   const c = ICON_BG[f.kind];
@@ -48,7 +57,7 @@ function FeatureRow({ f, last }) {
         <Ionicons name={f.icon} size={16} color={c.fg} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 14, fontWeight: '700', color: '#1d1d1f' }}>{f.title}</Text>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: f.kind === 'no' ? '#adb5bd' : '#1d1d1f' }}>{f.title}</Text>
         <Text style={{ fontSize: 12, color: '#8a8a8e', marginTop: 1 }}>{f.sub}</Text>
       </View>
     </View>

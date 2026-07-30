@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, ScrollView, Pressable, RefreshControl, ActivityIndicator, Platform, useWindowDimensions, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AccountHero from '../components/account/AccountHero';
 import AccountCard from '../components/account/AccountCard';
@@ -40,6 +40,19 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   const [courseId, setCourseId] = useState(null); // task ouverte
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
+
+  // Swipe vers la GAUCHE → ouvre les réglages. On ne capture QUE les gestes
+  // clairement horizontaux (sinon le scroll vertical de la page serait volé).
+  const navRef = useRef(onNavigate);
+  navRef.current = onNavigate;
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => g.dx < -18 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4,
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -55 && Math.abs(g.dx) > Math.abs(g.dy) * 1.4) navRef.current?.('settings');
+      },
+    })
+  ).current;
   const hPad = isDesktop ? 24 : 16;
 
   const load = useCallback(async () => {
@@ -93,7 +106,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   const charPct = total > 0 ? Math.round(((charDist.mastered || 0) / total) * 100) : 0;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
+    <View style={{ flex: 1, backgroundColor: '#f8f9fa' }} {...pan.panHandlers}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: TAB_CLEARANCE }}

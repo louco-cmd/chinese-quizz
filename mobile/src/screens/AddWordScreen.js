@@ -211,9 +211,9 @@ export default function AddWordScreen() {
   const dismissProps = Platform.OS === 'web' ? {} : { onPress: () => Keyboard.dismiss() };
 
   return (
-    <LinearGradient colors={['#0d6efd', '#0dcaf0']} style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.jiayou }}>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <DismissArea {...dismissProps} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 }}>
+        <DismissArea {...dismissProps} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, paddingBottom: 96 }}>
           <Animated.Text
             style={{
               fontSize: 72, fontWeight: '800', color: '#fff', marginBottom: 28,
@@ -479,7 +479,7 @@ export default function AddWordScreen() {
           </>
         )}
       </Popup>
-    </LinearGradient>
+    </View>
   );
 }
 

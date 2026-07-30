@@ -19,6 +19,20 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
 const TOKEN_TTL = '30d';
 
+// Limites du plan gratuit (le premium lève tout). maxWords appliqué ailleurs (600).
+const FREE_LIMITS = { quizPerDay: 3, duelPerDay: 1, packsMax: 3 };
+// Packs verrouillés au premium (niveaux avancés), repérés par cover_key.
+const PREMIUM_PACK_COVERS = ['hsk4', 'hsk5', 'hsk6'];
+
+// Compte les lignes d'aujourd'hui (fuseau serveur). `dateCol` diffère selon la
+// table (quiz_history = date_completed, duels = created_at).
+async function countToday(table, userCol, dateCol, userId) {
+  const { rows } = await pool.query(
+    `SELECT COUNT(*)::int AS n FROM ${table} WHERE ${userCol} = $1 AND ${dateCol}::date = CURRENT_DATE`,
+    [userId]);
+  return rows[0]?.n || 0;
+}
+
 // CORS léger pour les routes mobiles (utile si tu testes via Expo Web ;
 // en natif ce n'est pas nécessaire, mais inoffensif).
 router.use(['/api/auth', '/api/m'], (req, res, next) => {
@@ -1006,7 +1020,7 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
   try {
     await client.query('BEGIN');
     const { rows: pk } = await client.query(
-      'SELECT id, title, price, creator_id FROM word_packs WHERE id = $1 AND published = TRUE FOR UPDATE', [id]);
+      'SELECT id, title, price, creator_id, cover_key FROM word_packs WHERE id = $1 AND published = TRUE FOR UPDATE', [id]);
     if (!pk.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pack not found' }); }
     const pack = pk[0];
     if (pack.creator_id === uid) { await client.query('ROLLBACK'); return res.status(400).json({ error: "It's your own pack." }); }
@@ -1014,6 +1028,19 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
     const { rows: already } = await client.query(
       'SELECT 1 FROM pack_purchases WHERE pack_id = $1 AND buyer_id = $2', [id, uid]);
     if (already.length) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'You already own this pack.' }); }
+
+    // Limites gratuites : packs HSK avancés réservés au premium + plafond d'achats.
+    if (!(await isUserPremium(uid))) {
+      if (PREMIUM_PACK_COVERS.includes(pack.cover_key)) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'HSK 4/5/6 packs are Premium.', upgradeRequired: true, feature: 'hsk_pack' });
+      }
+      const { rows: bought } = await client.query('SELECT COUNT(*)::int AS n FROM pack_purchases WHERE buyer_id = $1', [uid]);
+      if (bought[0].n >= FREE_LIMITS.packsMax) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: `Free users can buy up to ${FREE_LIMITS.packsMax} packs.`, upgradeRequired: true, feature: 'pack_limit' });
+      }
+    }
 
     const { rows: cnt } = await client.query('SELECT COUNT(*)::int AS n FROM word_pack_items WHERE pack_id = $1', [id]);
     if (cnt[0].n === 0) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'This pack is not available yet.' }); }
@@ -1917,7 +1944,13 @@ router.patch('/api/m/settings', requireToken, async (req, res) => {
       }
       push('interface_lang', body.interface_lang);
     }
-    if (typeof body.ghost_mode === 'boolean') push('ghost_mode', body.ghost_mode);
+    if (typeof body.ghost_mode === 'boolean') {
+      // Ghost mode réservé au premium (on autorise toujours la DÉSACTIVATION).
+      if (body.ghost_mode && !(await isUserPremium(req.tokenUser.id))) {
+        return res.status(403).json({ error: 'Ghost mode is Premium.', upgradeRequired: true, feature: 'ghost' });
+      }
+      push('ghost_mode', body.ghost_mode);
+    }
     if (typeof body.notifications_enabled === 'boolean') push('notifications_enabled', body.notifications_enabled);
     if (typeof body.word_review_enabled === 'boolean') push('word_review_enabled', body.word_review_enabled);
 
@@ -2164,6 +2197,17 @@ router.post('/api/m/duels/create', requireToken, async (req, res) => {
   if (!opponent_id) return res.status(400).json({ error: 'Opponent required' });
   if (opponent_id === challengerId) return res.status(400).json({ error: "You can't duel yourself." });
 
+  // Limite gratuite : N duel lancé par jour (le premium lève la limite).
+  if (!(await isUserPremium(challengerId))) {
+    const today = await countToday('duels', 'challenger_id', 'created_at', challengerId);
+    if (today >= FREE_LIMITS.duelPerDay) {
+      return res.status(403).json({
+        error: `Daily duel limit reached (${FREE_LIMITS.duelPerDay}/day on Free).`,
+        limitReached: true, upgradeRequired: true, feature: 'duel',
+      });
+    }
+  }
+
   const client = await pool.connect();
   try {
     const opp = await client.query('SELECT id, name, balance FROM users WHERE id = $1', [opponent_id]);
@@ -2390,6 +2434,17 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
   const packId = parseInt(req.query.packId, 10) || null; // entraînement sur un pack
 
   try {
+    // Limite gratuite : N quiz par jour (le premium lève la limite).
+    if (!(await isUserPremium(userId))) {
+      const today = await countToday('quiz_history', 'user_id', 'date_completed', userId);
+      if (today >= FREE_LIMITS.quizPerDay) {
+        return res.status(403).json({
+          error: `Daily quiz limit reached (${FREE_LIMITS.quizPerDay}/day on Free).`,
+          limitReached: true, upgradeRequired: true, feature: 'quiz',
+        });
+      }
+    }
+
     // Mode pack : mots du pack que l'utilisateur possède, mots faibles d'abord.
     if (packId) {
       const { rows } = await pool.query(

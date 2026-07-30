@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, ActivityIndicator,
-  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
@@ -38,8 +37,15 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
   const [buying, setBuying] = useState(false);
 
   const scrollRef = useRef(null);
-  // Fait défiler jusqu'au bas quand un champ bas prend le focus (clavier ouvert).
-  const revealBottom = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 180);
+  // Au focus d'un champ : sur WEB mobile le viewport se réduit sous le clavier mais
+  // la page ne défile pas seule → on remonte le champ focalisé au centre. Sur natif,
+  // e.target n'est pas un nœud DOM → no-op (adjustResize Android / insets iOS gèrent).
+  const focusScroll = (e) => {
+    const node = e?.target;
+    if (node && typeof node.scrollIntoView === 'function') {
+      setTimeout(() => { try { node.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { /* noop */ } }, 60);
+    }
+  };
 
   const priceNum = parseInt(price, 10);
   const priceValid = price !== '' && Number.isInteger(priceNum) && priceNum >= 0 && priceNum <= 100000;
@@ -104,8 +110,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       {/* iOS : padding géré par KAV. Android : `adjustResize` (défaut Expo) suffit —
           y ajouter `behavior=padding` double l'ajustement et fait remonter/rogner. */}
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16, paddingBottom: 140, width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16, paddingBottom: 160, width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {/* Header : scrolle avec le reste (plus fixe en haut). */}
         <View style={{ marginBottom: 14 }}>
           {onBack ? (
@@ -119,26 +124,26 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
         </View>
 
         <Field label="Title">
-          <TextInput value={title} onChangeText={setTitle} maxLength={80}
+          <TextInput value={title} onChangeText={setTitle} maxLength={80} onFocus={focusScroll}
             placeholder="e.g. Café & Restaurant" placeholderTextColor={COLORS.mutedLight} style={inputStyle} />
         </Field>
 
         <Field label="Description" hint="(optional)">
-          <TextInput value={description} onChangeText={setDescription} maxLength={300} multiline
+          <TextInput value={description} onChangeText={setDescription} maxLength={300} multiline onFocus={focusScroll}
             placeholder="What's inside this pack?" placeholderTextColor={COLORS.mutedLight}
             style={{ ...inputStyle, minHeight: 72, textAlignVertical: 'top' }} />
         </Field>
 
         <Field label="Price" hint="in coins (₵)">
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TextInput value={price} onChangeText={(t) => setPrice(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad"
+            <TextInput value={price} onChangeText={(t) => setPrice(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad" onFocus={focusScroll}
               placeholder="0" placeholderTextColor={COLORS.mutedLight} style={{ ...inputStyle, width: 120 }} />
             <Text style={{ marginLeft: 10, fontSize: 16, color: COLORS.muted, fontWeight: '700' }}>₵</Text>
           </View>
         </Field>
 
         <Field label="Words" hint="one per line">
-          <TextInput value={text} onChangeText={setText} multiline autoCapitalize="none" onFocus={revealBottom}
+          <TextInput value={text} onChangeText={setText} multiline autoCapitalize="none" onFocus={focusScroll}
             placeholder={'你好\n谢谢\n再见'} placeholderTextColor={COLORS.mutedLight}
             style={{ ...inputStyle, minHeight: 150, textAlignVertical: 'top', lineHeight: 22 }} />
         </Field>
@@ -155,7 +160,6 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
           )}
         </Pressable>
       </ScrollView>
-      </KeyboardAvoidingView>
 
       {/* ── Checkout : acquérir les mots manquants ── */}
       <Popup visible={!!checkout} onClose={() => { if (!buying) setCheckout(null); }} maxWidth={440}>

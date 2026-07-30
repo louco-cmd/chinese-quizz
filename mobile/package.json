@@ -22,6 +22,8 @@
     "expo-updates": "~57.0.8",
     "expo-web-browser": "~57.0.1",
     "hanzi-writer": "^3.7.3",
+    "lottie-react": "^2.4.1",
+    "lottie-react-native": "~7.3.8",
     "nativewind": "^4.2.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",

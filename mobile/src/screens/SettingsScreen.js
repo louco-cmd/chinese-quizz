@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, ActivityIndicator, Pressable,
-  useWindowDimensions,
+  useWindowDimensions, Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SettingsGroup from '../components/settings/SettingsGroup';
@@ -15,16 +15,35 @@ import { getSettings, updateSettings, deleteAccount } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 
-export default function SettingsScreen({ onLogout, onOpen, onBack }) {
+// Petit badge PREMIUM pour les fonctions verrouillées au plan gratuit.
+function PremiumPill() {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fff3cd', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+      <Ionicons name="star" size={11} color="#b8860b" />
+      <Text style={{ color: '#8a6d00', fontWeight: '800', fontSize: 10.5 }}>PREMIUM</Text>
+    </View>
+  );
+}
+
+export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = false }) {
   const { t, setLang } = useT();
   const { width } = useWindowDimensions();
   const hPad = width >= 992 ? 24 : 16;
+
   const [s, setS] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+
+  // Slide-in depuis la droite quand le contenu apparaît (façon navigation "push").
+  const slideX = useRef(new Animated.Value(width)).current;
+  useEffect(() => {
+    if (loading) return;
+    slideX.setValue(width);
+    Animated.timing(slideX, { toValue: 0, duration: 260, useNativeDriver: true }).start();
+  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     setError('');
@@ -75,7 +94,7 @@ export default function SettingsScreen({ onLogout, onOpen, onBack }) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
+    <Animated.View style={{ flex: 1, backgroundColor: '#f8f9fa', transform: [{ translateX: slideX }] }}>
       {/* En-tête : retour vers la page compte (la barre est masquée ici). */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: hPad, paddingTop: 14, paddingBottom: 6 }}>
         {onBack ? (
@@ -111,7 +130,11 @@ export default function SettingsScreen({ onLogout, onOpen, onBack }) {
               />
             </SettingsRow>
             <SettingsRow icon="cloud-upload" iconColor="#0d6efd" iconBg="#e8f0ff" label={t('set_import')} sub={t('set_import_sub')} onPress={() => onOpen?.('import')} />
-            <SettingsRow icon="brush" iconColor="#7c3aed" iconBg="#f3e8ff" label={t('set_writing')} sub={t('set_writing_sub')} onPress={() => onOpen?.('writing')} />
+            <SettingsRow
+              icon="brush" iconColor="#7c3aed" iconBg="#f3e8ff" label={t('set_writing')} sub={t('set_writing_sub')}
+              onPress={() => (isPremium ? onOpen?.('writing') : onOpen?.('pricing'))}
+              right={isPremium ? undefined : <PremiumPill />}
+            />
           </SettingsGroup>
 
           {/* ── Notifications ── (un seul flag `notifications_enabled` gate TOUTES
@@ -126,13 +149,22 @@ export default function SettingsScreen({ onLogout, onOpen, onBack }) {
 
           {/* ── Privacy ── */}
           <SettingsGroup title={t('set_grp_privacy')}>
-            <SettingsRow
-              icon="eye-off" iconColor="#7c3aed" iconBg="#f3e8ff"
-              label={t('set_ghost')} sub={t('set_ghost_sub')}
-              right={<Toggle value={s.ghost_mode} onValueChange={(v) => patch({ ghost_mode: v })} />}
-            />
+            {isPremium ? (
+              <SettingsRow
+                icon="eye-off" iconColor="#7c3aed" iconBg="#f3e8ff"
+                label={t('set_ghost')} sub={t('set_ghost_sub')}
+                right={<Toggle value={s.ghost_mode} onValueChange={(v) => patch({ ghost_mode: v })} />}
+              />
+            ) : (
+              <SettingsRow
+                icon="eye-off" iconColor="#7c3aed" iconBg="#f3e8ff"
+                label={t('set_ghost')} sub={t('set_ghost_sub')}
+                onPress={() => onOpen?.('pricing')}
+                right={<PremiumPill />}
+              />
+            )}
           </SettingsGroup>
-          {s.ghost_mode && (
+          {isPremium && s.ghost_mode && (
             <View style={{
               backgroundColor: '#fff8e1', borderWidth: 1, borderColor: '#ffe082', borderRadius: 12,
               padding: 12, marginTop: -12, marginBottom: 24,
@@ -204,6 +236,6 @@ export default function SettingsScreen({ onLogout, onOpen, onBack }) {
           </Pressable>
         </View>
       </Popup>
-    </View>
+    </Animated.View>
   );
 }
