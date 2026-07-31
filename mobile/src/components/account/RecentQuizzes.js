@@ -1,4 +1,5 @@
 import { View, Text } from 'react-native';
+import { useT } from '../../i18n';
 
 // Coins gagnés selon le % de réussite (mêmes paliers que calcCoins EJS).
 function calcCoins(pct) {
@@ -10,14 +11,14 @@ function calcCoins(pct) {
 
 const TYPE_COLOR = { pinyin: '#0d6efd', character: '#ffc107', mixed: '#198754' };
 
-function cap(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Quiz';
-}
-
 // Liste des derniers quiz : pastille type + score + coins à gauche, date à droite.
 export default function RecentQuizzes({ quizzes }) {
+  const { t } = useT();
+  const typeLabel = (type) => (type === 'pinyin' ? t('qz_pinyin')
+    : type === 'character' ? t('qz_characters')
+      : type === 'mixed' ? t('ac_mixed') : t('ac_quiz'));
   if (!quizzes || !quizzes.length) {
-    return <Text style={{ color: '#adb5bd', textAlign: 'center', fontSize: 13, paddingVertical: 8 }}>No quizzes yet</Text>;
+    return <Text style={{ color: '#adb5bd', textAlign: 'center', fontSize: 13, paddingVertical: 8 }}>{t('ac_no_quizzes')}</Text>;
   }
   return (
     <View>
@@ -37,11 +38,11 @@ export default function RecentQuizzes({ quizzes }) {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <View style={{ borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, backgroundColor: TYPE_COLOR[q.type] || '#6c757d' }}>
-                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{cap(q.type)}</Text>
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{typeLabel(q.type)}</Text>
               </View>
               <Text style={{ fontWeight: '600', fontSize: 14, color: '#1a1a2e' }}>{q.score}/{q.total}</Text>
               <Text style={{ fontSize: 13, color: '#f0a500', fontWeight: '500' }}>
-                {coins > 0 ? `+${coins} coins` : '0 coins'}
+                {coins > 0 ? `+${coins} ${t('ac_coins')}` : `0 ${t('ac_coins')}`}
               </Text>
             </View>
             <Text style={{ fontSize: 12, color: '#bbb' }}>{dateStr}</Text>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text } from 'react-native';
+import { useT } from '../../i18n';
 
 // Échelle INVERSÉE (plus de quiz = plus blanc, sur fond bleu), comme l'EJS.
 export const LEVEL_BG = [
@@ -35,6 +36,7 @@ function daysUpToToday(year) {
 // carré ENTIÈRE, puis on laisse `gap` gérer l'espacement (pas de marges par case,
 // qui désynchronisaient le flex-wrap et faisaient se chevaucher les cases).
 export default function ContributionsHeatmap({ contributions, year, gap = 3, minSquare = 11, footerLeft }) {
+  const { t } = useT();
   const [width, setWidth] = useState(0);
   const map = {};
   (contributions || []).forEach((c) => { map[c.date] = c.count; });
@@ -70,11 +72,11 @@ export default function ContributionsHeatmap({ contributions, year, gap = 3, min
           {footerLeft || ''}
         </Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11 }}>Less</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11 }}>{t('ah_less')}</Text>
           {LEVEL_BG.map((bg, i) => (
             <View key={i} style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: bg }} />
           ))}
-          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11 }}>More</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11 }}>{t('ah_more')}</Text>
         </View>
       </View>
     </View>

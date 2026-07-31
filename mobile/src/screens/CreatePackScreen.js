@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, ActivityIndicator,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
@@ -107,10 +108,18 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      {/* iOS : padding géré par KAV. Android : `adjustResize` (défaut Expo) suffit —
-          y ajouter `behavior=padding` double l'ajustement et fait remonter/rogner. */}
-      <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16, paddingBottom: 160, width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: '#f8f9fa' }}
+      // iOS : on décale le contenu avec un padding égal à la hauteur du clavier.
+      // Android : `undefined` → on laisse `adjustResize` (défaut Expo) rétrécir la
+      // fenêtre ; c'est le `style flex:1` de la ScrollView (ci-dessous) qui la borne
+      // à cette nouvelle hauteur et rend le bas de nouveau atteignable au scroll.
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* `style flex:1` = ScrollView bornée à la fenêtre (indispensable pour que la
+          zone scrollable rétrécisse avec le clavier). `paddingBottom` = marge pour
+          faire remonter le dernier champ + le bouton au-dessus du clavier. */}
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 220, width: '100%', maxWidth: 560, alignSelf: 'center' }} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
         {/* Header : scrolle avec le reste (plus fixe en haut). */}
         <View style={{ marginBottom: 14 }}>
           {onBack ? (
@@ -222,6 +231,6 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
           </View>
         ) : null}
       </Popup>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

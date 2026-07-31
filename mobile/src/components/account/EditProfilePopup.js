@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, ActivityIndicator, FlatList } from 'r
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../Popup';
 import { COLORS } from '../../theme';
+import { useT } from '../../i18n';
 import { COUNTRIES } from '../../data/countries';
 import { updateAccount } from '../../api';
 import Avatar, { AVATAR_ICONS, AVATAR_COLORS } from '../Avatar';
@@ -33,6 +34,7 @@ const inputStyle = {
 // Popup d'édition du profil (nom / tagline / pays), basée sur le composant Popup
 // standard de l'app. `onSaved({name, tagline, country})` remonte les valeurs.
 export default function EditProfilePopup({ visible, initial, onClose, onSaved }) {
+  const { t } = useT();
   const [name, setName] = useState('');
   const [tagline, setTagline] = useState('');
   const [country, setCountry] = useState(null);
@@ -68,7 +70,7 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
   }
 
   async function save() {
-    if (!name.trim()) return setError('Name is required.');
+    if (!name.trim()) return setError(t('ep_name_required'));
     setSaving(true);
     setError('');
     try {
@@ -76,7 +78,7 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
       onSaved({ name: d.name, tagline: d.tagline, country: d.country, avatar_icon: d.avatar_icon, avatar_color: d.avatar_color });
       onClose();
     } catch (e) {
-      setError(e.message || 'Could not save.');
+      setError(e.message || t('ep_could_not_save'));
     } finally {
       setSaving(false);
     }
@@ -92,7 +94,7 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
       {/* En-tête */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e' }}>
-          {picking ? 'Select your country' : 'Edit personal info'}
+          {picking ? t('ep_select_country') : t('ep_edit_info')}
         </Text>
         <Pressable onPress={picking ? () => setPicking(false) : onClose} hitSlop={10}>
           <Ionicons name={picking ? 'arrow-back' : 'close'} size={22} color={COLORS.muted} />
@@ -105,7 +107,7 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search a country…"
+            placeholder={t('ep_search_country')}
             placeholderTextColor="#adb5bd"
             autoFocus
             style={{ ...inputStyle, marginBottom: 10 }}
@@ -134,7 +136,7 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
         // ── Formulaire ── (pas de scroll : la popup grandit avec son contenu)
         <View>
           {/* Avatar : aperçu + deux menus déroulants (picto / couleur) */}
-          <Label>Avatar</Label>
+          <Label>{t('ep_avatar')}</Label>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 10 }}>
             <Avatar icon={avatarIcon} color={avatarColor} name={name} size={56} />
             <View style={{ flex: 1, gap: 8 }}>
@@ -145,7 +147,7 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Ionicons name={avatarIcon || 'happy-outline'} size={18} color={avatarIcon ? '#1a1a2e' : '#adb5bd'} />
-                  <Text style={{ fontSize: 14, color: avatarIcon ? '#1a1a2e' : '#adb5bd' }}>{avatarIcon ? 'Icon' : 'Pick an icon'}</Text>
+                  <Text style={{ fontSize: 14, color: avatarIcon ? '#1a1a2e' : '#adb5bd' }}>{avatarIcon ? t('ep_icon') : t('ep_pick_icon')}</Text>
                 </View>
                 <Ionicons name={openField === 'icon' ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.muted} />
               </Pressable>
@@ -156,7 +158,7 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: avatarColor || '#e3e8f7' }} />
-                  <Text style={{ fontSize: 14, color: avatarColor ? '#1a1a2e' : '#adb5bd' }}>{avatarColor ? 'Background' : 'Pick a color'}</Text>
+                  <Text style={{ fontSize: 14, color: avatarColor ? '#1a1a2e' : '#adb5bd' }}>{avatarColor ? t('ep_background') : t('ep_pick_color')}</Text>
                 </View>
                 <Ionicons name={openField === 'color' ? 'chevron-up' : 'chevron-down'} size={16} color={COLORS.muted} />
               </Pressable>
@@ -196,28 +198,28 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
 
           {!openField ? <View style={{ marginBottom: 6 }} /> : null}
 
-          <Label>Name</Label>
+          <Label>{t('ep_name')}</Label>
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="Your name"
+            placeholder={t('ep_your_name')}
             placeholderTextColor="#adb5bd"
             maxLength={50}
             style={{ ...inputStyle, marginBottom: 16 }}
           />
 
-          <Label>Tagline</Label>
+          <Label>{t('ep_tagline')}</Label>
           <TextInput
             value={tagline}
             onChangeText={setTagline}
-            placeholder="Your learning motto…"
+            placeholder={t('ep_your_motto')}
             placeholderTextColor="#adb5bd"
             maxLength={100}
             multiline
             style={{ ...inputStyle, marginBottom: 16, minHeight: 64, textAlignVertical: 'top' }}
           />
 
-          <Label>Country</Label>
+          <Label>{t('ep_country')}</Label>
           <Pressable
             onPress={() => setPicking(true)}
             style={{ ...inputStyle, marginBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
@@ -225,7 +227,7 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <Text style={{ fontSize: 20 }}>{flagEmoji(country)}</Text>
               <Text style={{ fontSize: 15, color: currentCountry ? '#1a1a2e' : '#adb5bd' }}>
-                {currentCountry ? currentCountry.name : 'Select your country'}
+                {currentCountry ? currentCountry.name : t('ep_select_country')}
               </Text>
             </View>
             <Ionicons name="chevron-down" size={18} color={COLORS.muted} />
@@ -235,10 +237,10 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
 
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-              <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
+              <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_cancel')}</Text>
             </Pressable>
             <Pressable onPress={save} disabled={saving} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-              {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text>}
+              {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{t('common_save')}</Text>}
             </Pressable>
           </View>
         </View>

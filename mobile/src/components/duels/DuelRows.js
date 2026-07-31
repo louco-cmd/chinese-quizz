@@ -1,6 +1,7 @@
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../theme';
+import { useT } from '../../i18n';
 import Avatar from '../Avatar';
 
 // Style de ligne en OBJET INLINE (pas de fonction/rowBase) — le plus robuste sur
@@ -12,6 +13,7 @@ const row = (last) => ({
 
 // ── Duel en attente : avatar + adversaire + mise. ──
 export function PendingDuelRow({ duel, last, onPlay }) {
+  const { t } = useT();
   const other = duel.user_role === 'challenger' ? duel.opponent_name : duel.challenger_name;
   const played = duel.my_score !== null && duel.my_score !== undefined;
 
@@ -21,7 +23,7 @@ export function PendingDuelRow({ duel, last, onPlay }) {
       <View style={{ flex: 1 }}>
         <Text style={{ fontWeight: '600', color: '#1a1a2e', fontSize: 14 }}>{other}</Text>
         <Text style={{ fontSize: 12, color: '#999', marginTop: 1 }}>
-          {played ? `Waiting for ${other}` : 'Tap to play your round'}
+          {played ? `${t('du_waiting_for')} ${other}` : t('du_tap_play')}
         </Text>
       </View>
       {duel.bet_amount > 0 ? (
@@ -31,7 +33,7 @@ export function PendingDuelRow({ duel, last, onPlay }) {
       ) : null}
       {played ? (
         <View style={{ backgroundColor: '#e8f0ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
-          <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 12 }}>{duel.my_score} pts</Text>
+          <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 12 }}>{duel.my_score} {t('du_pts')}</Text>
         </View>
       ) : (
         <Ionicons name="play-circle" size={22} color={COLORS.jiayou} />
@@ -45,10 +47,11 @@ export function PendingDuelRow({ duel, last, onPlay }) {
 
 // ── Duel récent terminé : avatar + score + issue. ──
 export function RecentDuelRow({ duel, last, onPress }) {
+  const { t } = useT();
   const cfg = {
-    won: { color: COLORS.success, label: 'Won', bg: '#e8f5e9' },
-    lost: { color: COLORS.danger, label: 'Lost', bg: '#fff0f0' },
-    draw: { color: COLORS.muted, label: 'Draw', bg: '#f1f3f5' },
+    won: { color: COLORS.success, label: t('du_won'), bg: '#e8f5e9' },
+    lost: { color: COLORS.danger, label: t('du_lost'), bg: '#fff0f0' },
+    draw: { color: COLORS.muted, label: t('du_draw'), bg: '#f1f3f5' },
   }[duel.result] || { color: COLORS.muted, label: '—', bg: '#f1f3f5' };
   const inner = (
     <>
@@ -69,6 +72,7 @@ export function RecentDuelRow({ duel, last, onPress }) {
 
 // ── Rival (bully) cliquable pour lancer un défi. ──
 export function PlayerRow({ player, last, onChallenge }) {
+  const { t } = useT();
   const positive = (player.balance || 0) >= 0;
   return (
     <Pressable onPress={() => onChallenge(player)} style={row(last)}>
@@ -77,7 +81,7 @@ export function PlayerRow({ player, last, onChallenge }) {
         <Text style={{ fontWeight: '600', color: '#1a1a2e', fontSize: 14 }}>{player.name}</Text>
         {player.balance !== undefined ? (
           <Text style={{ fontSize: 12, color: positive ? COLORS.success : COLORS.danger, marginTop: 1 }}>
-            {positive ? '+' : ''}{player.balance}₵ net
+            {positive ? '+' : ''}{player.balance}₵ {t('du_net')}
           </Text>
         ) : null}
       </View>

@@ -101,15 +101,15 @@ export default function QuizScreen({ onOpenStore, initialPack, onInitialConsumed
         <CtaCard
           colors={['#0d6efd', '#0a4fcf']}
           icon="rocket"
-          title={learningEnglish ? t('quiz_single') : 'Start a quiz'}
-          text={learningEnglish ? t('quiz_single_sub') : 'Your whole collection'}
+          title={learningEnglish ? t('quiz_single') : t('qz_start_quiz')}
+          text={learningEnglish ? t('quiz_single_sub') : t('qz_whole_collection')}
           onPress={() => setPending({ scope: 'collection' })}
         />
         <CtaCard
           colors={['#7828a7', '#4e1e7e']}
           icon="albums"
-          title="Train on a pack"
-          text="Practice a specific pack"
+          title={t('qz_train_pack')}
+          text={t('qz_train_pack_sub')}
           onPress={() => setPacksOpen(true)}
         />
       </View>
@@ -147,7 +147,7 @@ export default function QuizScreen({ onOpenStore, initialPack, onInitialConsumed
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="albums" size={20} color="#7828a7" />
-            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>Train on a pack</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>{t('qz_train_pack')}</Text>
           </View>
           <Pressable onPress={() => setPacksOpen(false)} hitSlop={10}><Ionicons name="close" size={22} color={COLORS.muted} /></Pressable>
         </View>
@@ -166,7 +166,7 @@ export default function QuizScreen({ onOpenStore, initialPack, onInitialConsumed
         ) : (
           <View style={{ alignItems: 'center', paddingVertical: 22 }}>
             <Ionicons name="albums-outline" size={34} color={COLORS.mutedLight} />
-            <Text style={{ color: COLORS.muted, marginTop: 10, textAlign: 'center' }}>You don't own any pack yet.</Text>
+            <Text style={{ color: COLORS.muted, marginTop: 10, textAlign: 'center' }}>{t('qz_no_pack')}</Text>
           </View>
         )}
 
@@ -176,7 +176,7 @@ export default function QuizScreen({ onOpenStore, initialPack, onInitialConsumed
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16, paddingVertical: 13, borderRadius: 999, borderWidth: 1.5, borderColor: '#e0d3f2', backgroundColor: '#faf7ff' }}
         >
           <Ionicons name="storefront" size={16} color="#7828a7" />
-          <Text style={{ color: '#7828a7', fontWeight: '700' }}>Get new packs</Text>
+          <Text style={{ color: '#7828a7', fontWeight: '700' }}>{t('qz_get_packs')}</Text>
         </Pressable>
       </Popup>
 

@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import QuizPlayScreen from './QuizPlayScreen';
 import { getLesson, startTask } from '../api';
-import { COLORS, SHADOW_CARD } from '../theme';
+import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 // Page d'une task / cours (copie de student-course.ejs) : titre + notes + mots,
 // et bouton "Practice these words" qui lance le quiz sur les mots du cours.
@@ -61,7 +61,7 @@ export default function CoursePage({ lessonId, onBack }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <ScrollView contentContainerStyle={{ paddingVertical: 16 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: 16, paddingBottom: TAB_CLEARANCE }}>
         <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 16 }}>
           {Back}
 

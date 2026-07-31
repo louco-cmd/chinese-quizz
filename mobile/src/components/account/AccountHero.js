@@ -3,11 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import ContributionsHeatmap from './ContributionsHeatmap';
 import { flagEmoji } from './EditProfilePopup';
 import Avatar from '../Avatar';
+import { useT } from '../../i18n';
 
 // Hero bleu de la page account : identité (icône + nom + pays, puis phrase
 // d'accroche) à gauche, bouton Edit à droite, puis heatmap pleine largeur avec
 // le compteur de jours à gauche face à la légende Less/More.
 export default function AccountHero({ name, tagline, country, avatarIcon, avatarColor, year, activeDays, contributions, hPad = 16, onEdit }) {
+  const { t } = useT();
   const flag = flagEmoji(country);
   return (
     <View style={{ backgroundColor: '#0d6efd', paddingTop: 20, paddingBottom: 40 }}>
@@ -21,7 +23,7 @@ export default function AccountHero({ name, tagline, country, avatarIcon, avatar
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text numberOfLines={1} style={{ color: '#fff', fontWeight: '800', fontSize: 24, flexShrink: 1 }}>
-                  {name || 'User'}
+                  {name || t('ac_user')}
                 </Text>
                 {flag ? <Text style={{ fontSize: 22 }}>{flag}</Text> : null}
               </View>
@@ -29,7 +31,7 @@ export default function AccountHero({ name, tagline, country, avatarIcon, avatar
                 numberOfLines={2}
                 style={{ color: '#fff', fontSize: 14, fontStyle: 'italic', fontWeight: '600', marginTop: 6 }}
               >
-                “{tagline || 'Learning Chinese!'}”
+                “{tagline || t('ac_default_tagline')}”
               </Text>
             </View>
           </View>
@@ -44,14 +46,14 @@ export default function AccountHero({ name, tagline, country, avatarIcon, avatar
             }}
           >
             <Ionicons name="pencil" size={14} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Edit</Text>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{t('ah_edit')}</Text>
           </Pressable>
         </View>
 
         <ContributionsHeatmap
           contributions={contributions}
           year={year}
-          footerLeft={`${activeDays} ${activeDays === 1 ? 'day' : 'days'} of practice in ${year}`}
+          footerLeft={(activeDays === 1 ? t('ah_practice_one') : t('ah_practice')).replace('{n}', activeDays).replace('{year}', year)}
         />
       </View>
     </View>

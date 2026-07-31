@@ -2,24 +2,25 @@ import { useState, useEffect } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../Popup';
+import { useT } from '../../i18n';
 import { COLORS } from '../../theme';
 
 const HSK_LEVELS = [1, 2, 3, 4, 5, 6, 7]; // 7 = Street / unclassified
 const label = (n) => (n === 7 ? 'S' : String(n));
 
 const WORD_COUNTS = [
-  { value: 10, sub: 'fast' },
-  { value: 20, sub: 'standard' },
-  { value: 30, sub: 'serious' },
-  { value: 100, sub: 'crazy' },
+  { value: 10, sub: 'wc_fast' },
+  { value: 20, sub: 'wc_standard' },
+  { value: 30, sub: 'wc_serious' },
+  { value: 100, sub: 'wc_crazy' },
 ];
 // Niveaux de maîtrise, ordonnés du plus faible au plus fort (comme une plage HSK).
 const KNOWLEDGE = [
-  { key: 'seed', emoji: '🌱', label: 'New' },
-  { key: 'meh', emoji: '😐', label: 'Weak' },
-  { key: 'ok', emoji: '🙂', label: 'Okay' },
-  { key: 'cool', emoji: '😎', label: 'Strong' },
-  { key: 'trophy', emoji: '🏆', label: 'Mastered' },
+  { key: 'seed', emoji: '🌱', lk: 'kn_new' },
+  { key: 'meh', emoji: '😐', lk: 'kn_weak' },
+  { key: 'ok', emoji: '🙂', lk: 'kn_okay' },
+  { key: 'cool', emoji: '😎', lk: 'kn_strong' },
+  { key: 'trophy', emoji: '🏆', lk: 'quiz_mastered' },
 ];
 const K_MAX = KNOWLEDGE.length - 1;
 
@@ -36,6 +37,7 @@ function SectionLabel({ children }) {
 //  showMode : afficher le toggle Pinyin/Characters (faux en zh→en)
 //  onStart({ type, count[, hsk, levels] })
 export default function QuizSettingsPopup({ visible, scope = 'collection', packLabel, showMode = true, onClose, onStart }) {
+  const { t } = useT();
   const [type, setType] = useState('pinyin');
   const [hskMin, setHskMin] = useState(1);
   const [hskMax, setHskMax] = useState(7);
@@ -62,11 +64,11 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
 
   const isAll = hskMin === 1 && hskMax === 7;
   const status = isAll
-    ? 'All levels (HSK 1–6 + Street)'
+    ? t('qz_all_levels_full')
     : hskMin === 7
-      ? 'Street'
+      ? t('qz_street')
       : hskMax === 7
-        ? (hskMin === 6 ? 'HSK 6 + Street' : `HSK ${hskMin}–6 + Street`)
+        ? (hskMin === 6 ? `HSK 6 + ${t('qz_street')}` : `HSK ${hskMin}–6 + ${t('qz_street')}`)
         : hskMin === hskMax ? `HSK ${label(hskMin)}` : `HSK ${label(hskMin)}–${label(hskMax)}`;
 
   function start() {
@@ -80,24 +82,24 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
   return (
     <Popup visible={visible} onClose={onClose} maxWidth={440}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-        <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e' }}>Quiz settings</Text>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e' }}>{t('qz_settings')}</Text>
         <Pressable onPress={onClose} hitSlop={10}><Ionicons name="close" size={22} color={COLORS.muted} /></Pressable>
       </View>
       {scope === 'pack' && packLabel ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
           <Ionicons name="albums" size={14} color={COLORS.jiayou} />
-          <Text style={{ fontSize: 13.5, color: COLORS.muted }} numberOfLines={1}>Training on <Text style={{ fontWeight: '700', color: '#1a1a2e' }}>{packLabel}</Text></Text>
+          <Text style={{ fontSize: 13.5, color: COLORS.muted }} numberOfLines={1}>{t('qz_training_on')} <Text style={{ fontWeight: '700', color: '#1a1a2e' }}>{packLabel}</Text></Text>
         </View>
       ) : <View style={{ height: 14 }} />}
 
       {/* Mode (pinyin / caractères) */}
       {showMode ? (
         <>
-          <SectionLabel>MODE</SectionLabel>
+          <SectionLabel>{t('qz_mode')}</SectionLabel>
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
             {[
-              { value: 'pinyin', title: 'Pinyin', icon: 'text' },
-              { value: 'character', title: 'Characters', icon: 'language' },
+              { value: 'pinyin', title: t('qz_pinyin'), icon: 'text' },
+              { value: 'character', title: t('qz_characters'), icon: 'language' },
             ].map((m) => {
               const active = type === m.value;
               return (
@@ -115,7 +117,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
       {/* HSK range — collection uniquement */}
       {scope === 'collection' ? (
         <>
-          <SectionLabel>HSK LEVEL RANGE</SectionLabel>
+          <SectionLabel>{t('qz_hsk_range')}</SectionLabel>
           <Text style={{ fontSize: 14, fontWeight: '500', color: COLORS.jiayou, marginBottom: 12 }}>{status}</Text>
           <View style={{ flexDirection: 'row', gap: 6, marginBottom: 4 }}>
             {HSK_LEVELS.map((n) => {
@@ -132,9 +134,9 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
           <View style={{ height: 20 }} />
 
           {/* Difficulté — même UI (plage de tuiles) que le HSK, juste dessous. */}
-          <SectionLabel>DIFFICULTY</SectionLabel>
+          <SectionLabel>{t('qz_difficulty')}</SectionLabel>
           <Text style={{ fontSize: 14, fontWeight: '500', color: COLORS.jiayou, marginBottom: 12 }}>
-            {kAll ? 'All levels' : kMin === kMax ? KNOWLEDGE[kMin].label : `${KNOWLEDGE[kMin].label} → ${KNOWLEDGE[kMax].label}`}
+            {kAll ? t('qz_all_levels') : kMin === kMax ? t(KNOWLEDGE[kMin].lk) : `${t(KNOWLEDGE[kMin].lk)} → ${t(KNOWLEDGE[kMax].lk)}`}
           </Text>
           <View style={{ flexDirection: 'row', gap: 6, marginBottom: 20 }}>
             {KNOWLEDGE.map((b, i) => {
@@ -152,7 +154,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
       ) : null}
 
       {/* Number of words */}
-      <SectionLabel>NUMBER OF WORDS</SectionLabel>
+      <SectionLabel>{t('qz_num_words')}</SectionLabel>
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
         {WORD_COUNTS.map((w) => {
           const active = w.value === count;
@@ -160,7 +162,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
             <Pressable key={w.value} onPress={() => setCount(w.value)}
               style={{ flex: 1, borderRadius: 999, borderWidth: 2, paddingVertical: 10, alignItems: 'center', borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
               <Text style={{ fontWeight: '700', fontSize: 20, color: active ? COLORS.jiayou : '#1a1a2e' }}>{w.value}</Text>
-              <Text style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{w.sub}</Text>
+              <Text style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{t(w.sub)}</Text>
             </Pressable>
           );
         })}
@@ -168,11 +170,11 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
-          <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
+          <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_cancel')}</Text>
         </Pressable>
         <Pressable onPress={start} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
           <Ionicons name="rocket" size={16} color="#fff" />
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Start quiz</Text>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>{t('qz_start_quiz_btn')}</Text>
         </Pressable>
       </View>
     </Popup>

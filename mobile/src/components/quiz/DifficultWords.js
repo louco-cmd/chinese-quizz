@@ -3,6 +3,7 @@ import { View, Text, Pressable, ActivityIndicator, Animated, useWindowDimensions
 import { Ionicons } from '@expo/vector-icons';
 import Toggle from '../Toggle';
 import { COLORS, SHADOW_CARD } from '../../theme';
+import { useT } from '../../i18n';
 import { getDifficultWords, getMe } from '../../api';
 
 // Carte recto/verso qui se retourne au tap (rotateY), comme les flip-cards EJS.
@@ -28,7 +29,7 @@ function FlipCard({ front, sub, back, width }) {
     <Pressable onPress={flip} style={{ width, height: 110, borderRadius: 14, backgroundColor: '#fff', ...SHADOW_CARD }}>
       {/* Recto : fond blanc, texte bleu */}
       <Animated.View style={[face, { transform: [{ perspective: 800 }, { rotateY: frontRotate }] }]}>
-        <Text style={{ fontSize: 24, fontWeight: '700', color: COLORS.jiayou, textAlign: 'center' }}>{front}</Text>
+        <Text style={{ fontSize: 21, fontWeight: '700', color: COLORS.jiayou, textAlign: 'center' }}>{front}</Text>
         {sub ? <Text style={{ fontSize: 13, color: COLORS.jiayou, opacity: 0.7, marginTop: 4 }}>{sub}</Text> : null}
       </Animated.View>
       {/* Verso : fond bleu, texte blanc */}
@@ -41,6 +42,7 @@ function FlipCard({ front, sub, back, width }) {
 
 // Section "Your difficulties" : mots les plus ratés en flip-cards + quick quiz.
 export default function DifficultWords({ onQuickQuiz }) {
+  const { t } = useT();
   const { width } = useWindowDimensions();
   const [words, setWords] = useState(null);
   const [direction, setDirection] = useState('en→zh');
@@ -65,10 +67,10 @@ export default function DifficultWords({ onQuickQuiz }) {
   return (
     <View style={{ marginTop: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>Your difficulties</Text>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>{t('qz_your_difficulties')}</Text>
         {learningChinese && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ color: COLORS.muted, fontSize: 13 }}>Pinyin</Text>
+            <Text style={{ color: COLORS.muted, fontSize: 13 }}>{t('qz_pinyin')}</Text>
             <Toggle value={showPinyin} onValueChange={setShowPinyin} />
           </View>
         )}
@@ -79,7 +81,7 @@ export default function DifficultWords({ onQuickQuiz }) {
       ) : words.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 24 }}>
           <Ionicons name="happy-outline" size={40} color={COLORS.muted} />
-          <Text style={{ color: COLORS.muted, marginTop: 8 }}>No difficult words today! Keep it up 🎉</Text>
+          <Text style={{ color: COLORS.muted, marginTop: 8 }}>{t('qz_no_difficult')}</Text>
         </View>
       ) : (
         <>
@@ -100,7 +102,7 @@ export default function DifficultWords({ onQuickQuiz }) {
             style={{ alignSelf: 'center', marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#6c757d', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 18 }}
           >
             <Ionicons name="flash" size={15} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Start a quick quiz on these words</Text>
+            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>{t('qz_quick_quiz')}</Text>
           </Pressable>
         </>
       )}

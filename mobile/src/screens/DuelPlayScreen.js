@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getMe, getDuel, submitDuelScore } from '../api';
+import { useT } from '../i18n';
+import useAndroidBack from '../useAndroidBack';
 import { COLORS, SHADOW_CARD } from '../theme';
 
 // Helpers identiques à quiz-play.ejs
@@ -28,13 +30,19 @@ function answerSenses(w, type, direction) {
 }
 // Jetons (un par mot/syllabe) du 1er sens → structure des boîtes.
 function firstSenseTokens(w, type, direction) {
-  return (answerSenses(w, type, direction)[0] || '').split(/\s+/).filter(Boolean);
+  // Écarte les jetons sans caractère comparable (ponctuation seule : « ! », « ? »…)
+  // → ils ne comptent pas dans la solution, donc pas de boîte vide.
+  const hasContent = (tok) => (type === 'pinyin' && direction !== 'zh→en'
+    ? normalizePinyin(tok).length > 0
+    : stripLetters(tok).length > 0);
+  return (answerSenses(w, type, direction)[0] || '').split(/\s+/).filter((t) => t && hasContent(t));
 }
 function shuffle(a) { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
 
 // Page de duel jouée : même format que le quiz, + confirmation avant de quitter
 // (le score courant est soumis comme score final — anti-triche, comme l'EJS).
 export default function DuelPlayScreen({ duelId, onExit }) {
+  const { t: tr } = useT();
   const [direction, setDirection] = useState('en→zh');
   const [duel, setDuel] = useState(null);
   const [words, setWords] = useState(null);
@@ -68,7 +76,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
       setDuel(d);
       if (d.already_played) { setWords([]); return; } // déjà joué → écran d'attente
       const ws = shuffle(d.words || []);
-      if (!ws.length) { setError('This duel has no words.'); return; }
+      if (!ws.length) { setError(tr('dp_no_words')); return; }
       setWords(ws);
       resetQuestion(ws[0], d.quiz_type, me.quiz_direction || direction);
     } catch (e) {
@@ -127,18 +135,18 @@ export default function DuelPlayScreen({ duelId, onExit }) {
     const bonus = 0; // saisie structurée (un mot par champ) → une seule réponse.
     if (ok) {
       if (!second) setCorrectCount((c) => c + 1 + bonus);
-      setFeedback({ kind: 'success', text: bonus > 0 ? `Correct! +${bonus} bonus` : 'Correct!' });
+      setFeedback({ kind: 'success', text: tr('qp_correct') });
       setLocked(true);
       setTimeout(() => advance(idx + 1), 900);
     } else if (!second) {
       // 1re erreur : on marque faux, on MONTRE la réponse, puis 2e chance (recopie).
       setWrongCount((c) => c + 1);
       setSecond(true);
-      setFeedback({ kind: 'reveal', text: `Answer: ${answer}` });
+      setFeedback({ kind: 'reveal', text: `${tr('qp_answer')} ${answer}` });
       setInputs((arr) => arr.map(() => ''));
       setTimeout(() => firstRef.current?.focus?.(), 60);
     } else {
-      setFeedback({ kind: 'reveal', text: `Answer: ${answer}` });
+      setFeedback({ kind: 'reveal', text: `${tr('qp_answer')} ${answer}` });
       setLocked(true);
       setTimeout(() => advance(idx + 1), 1300);
     }
@@ -150,6 +158,13 @@ export default function DuelPlayScreen({ duelId, onExit }) {
     if (inProgress) setShowLeave(true);
     else onExit();
   }
+  // Retour Android : ferme d'abord la confirmation si ouverte, sinon même flux que
+  // la flèche (confirmation anti-triche si le duel est en cours).
+  useAndroidBack(() => {
+    if (showLeave) { setShowLeave(false); return true; }
+    requestExit();
+    return true;
+  }, true, [showLeave, inProgress]);
   async function confirmLeave() {
     setShowLeave(false);
     if (!submitted.current) {
@@ -173,11 +188,11 @@ export default function DuelPlayScreen({ duelId, onExit }) {
         <TopBar onExit={onExit} />
         <Centered>
           <Ionicons name="hourglass-outline" size={44} color={COLORS.muted} />
-          <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginTop: 12 }}>Already played</Text>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginTop: 12 }}>{tr('dp_already_played')}</Text>
           <Text style={{ color: COLORS.muted, textAlign: 'center', marginTop: 6 }}>
-            Waiting for {duel.opponent_name} to play their round.
+            {tr('dp_waiting_round').replace('{name}', duel.opponent_name)}
           </Text>
-          <PrimaryBtn label="Back to duels" onPress={onExit} />
+          <PrimaryBtn label={tr('dp_back_to_duels')} onPress={onExit} />
         </Centered>
       </View>
     );
@@ -190,12 +205,12 @@ export default function DuelPlayScreen({ duelId, onExit }) {
         <TopBar onExit={onExit} />
         <Centered>
           {result === 'submitting' ? (
-            <><ActivityIndicator color={COLORS.jiayou} /><Text style={{ color: COLORS.muted, marginTop: 12 }}>Submitting your score…</Text></>
+            <><ActivityIndicator color={COLORS.jiayou} /><Text style={{ color: COLORS.muted, marginTop: 12 }}>{tr('dp_submitting')}</Text></>
           ) : result.error ? (
             <>
               <Ionicons name="alert-circle" size={44} color={COLORS.danger} />
-              <Text style={{ marginTop: 10, color: COLORS.muted }}>Could not submit your score.</Text>
-              <PrimaryBtn label="Back to duels" onPress={onExit} />
+              <Text style={{ marginTop: 10, color: COLORS.muted }}>{tr('dp_could_not_submit')}</Text>
+              <PrimaryBtn label={tr('dp_back_to_duels')} onPress={onExit} />
             </>
           ) : (
             <>
@@ -209,10 +224,10 @@ export default function DuelPlayScreen({ duelId, onExit }) {
               </Text>
               <Text style={{ fontSize: 15, color: COLORS.muted, textAlign: 'center', marginTop: 8 }}>
                 {result.duel_completed
-                  ? (result.you_won ? 'You won the duel! 🎉' : result.winner_id ? 'You lost this one — rematch?' : "It's a tie!")
-                  : `Score submitted — waiting for ${duel.opponent_name} to play.`}
+                  ? (result.you_won ? tr('dp_you_won') : result.winner_id ? tr('dp_you_lost') : tr('dp_tie'))
+                  : tr('dp_score_submitted').replace('{name}', duel.opponent_name)}
               </Text>
-              <PrimaryBtn label="Back to duels" onPress={onExit} />
+              <PrimaryBtn label={tr('dp_back_to_duels')} onPress={onExit} />
             </>
           )}
         </Centered>
@@ -222,7 +237,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
 
   const w = words[idx];
   const question = direction === 'zh→en' ? null
-    : type === 'pinyin' ? `How to say "${w.english}" in pinyin?` : `How to write "${w.english}" in Chinese?`;
+    : type === 'pinyin' ? tr('qp_how_pinyin').replace('{w}', w.english) : tr('qp_how_chinese').replace('{w}', w.english);
   const fb = feedback?.kind === 'success' ? { bg: '#e8f5e9', fg: COLORS.success } : { bg: '#fff3cd', fg: '#856404' };
 
   // Champs à jetons (un par mot/syllabe) : pinyin OU anglais. Boîtes structurées
@@ -237,13 +252,13 @@ export default function DuelPlayScreen({ duelId, onExit }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <TopBar onExit={requestExit} progress={`${idx + 1}/${words.length}`} label={`vs ${duel.opponent_name}`} />
+      <TopBar onExit={requestExit} progress={`${idx + 1}/${words.length}`} label={`${tr('dp_vs')} ${duel.opponent_name}`} />
       <ScrollView contentContainerStyle={{ padding: 16, alignItems: 'center' }} keyboardShouldPersistTaps="handled">
         <View style={{ width: '100%', maxWidth: 560 }}>
           <View style={{ alignItems: 'center', marginVertical: 22 }}>
             {direction === 'zh→en' ? (
               <>
-                <Text style={{ fontSize: 16, color: COLORS.muted }}>What does this mean in English?</Text>
+                <Text style={{ fontSize: 16, color: COLORS.muted }}>{tr('qp_what_mean_en')}</Text>
                 <Text style={{ fontSize: 56, fontWeight: '800', color: '#1a1a2e', marginTop: 8 }}>{w.chinese}</Text>
               </>
             ) : (
@@ -284,42 +299,42 @@ export default function DuelPlayScreen({ duelId, onExit }) {
                 <TextInput
                   ref={firstRef} value={inputs[0]} onChangeText={(t) => setInputs([t])}
                   onSubmitEditing={submit} editable={!locked} autoCapitalize="none" autoCorrect={false}
-                  placeholder={'Write Chinese characters…'}
+                  placeholder={tr('qp_write_chinese')}
                   placeholderTextColor="#adb5bd" style={fullInputStyle(second)}
                 />
               )}
             </View>
             {multiHint ? (
               <Text style={{ textAlign: 'center', color: COLORS.mutedLight, fontSize: 12, marginBottom: 14 }}>
-                {`${senses.length} answers possible — one is enough`}
+                {`${senses.length} ${tr('qp_answers_possible')}`}
               </Text>
             ) : null}
             <Pressable onPress={submit} disabled={locked}
               style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: locked ? 0.6 : 1 }}>
               <Ionicons name="send" size={16} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Submit</Text>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{tr('qp_submit')}</Text>
             </Pressable>
           </View>
 
           <View style={{ alignItems: 'center', marginTop: 18 }}>
             <Text style={{ fontWeight: '700', fontSize: 16, color: '#1a1a2e' }}>✅ {correctCount}  |  ❌ {wrongCount}</Text>
-            <Text style={{ color: COLORS.muted, marginTop: 4 }}>Question {idx + 1}/{words.length}</Text>
+            <Text style={{ color: COLORS.muted, marginTop: 4 }}>{tr('qp_question')} {idx + 1}/{words.length}</Text>
           </View>
         </View>
       </ScrollView>
 
       {/* Avertissement anti-triche avant de quitter */}
       <Popup visible={showLeave} onClose={() => setShowLeave(false)} maxWidth={400}>
-        <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Leave the duel?</Text>
+        <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{tr('dp_leave_title')}</Text>
         <Text style={{ fontSize: 14, color: COLORS.muted, lineHeight: 20, marginBottom: 20 }}>
-          To keep things fair, your current score {correctCount}/{words.length} will be submitted as your final score. You can't retry.
+          {tr('dp_leave_body').replace('{score}', `${correctCount}/${words.length}`)}
         </Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Pressable onPress={() => setShowLeave(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Keep playing</Text>
+            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{tr('dp_keep_playing')}</Text>
           </Pressable>
           <Pressable onPress={confirmLeave} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Leave & submit</Text>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('dp_leave_submit')}</Text>
           </Pressable>
         </View>
       </Popup>

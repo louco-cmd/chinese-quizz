@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator, FlatList, useWindowDimensions } from 'react-native';
 import { getMe, getMarketPacks } from '../api';
+import { useT } from '../i18n';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 import PackDetailPopup, { glyphOf, COVER_BG, COVER_FG, OwnedProgress } from './PackDetailPopup';
 
 function PackCard({ pack, onPress }) {
+  const { t } = useT();
   const soon = (pack.word_count || 0) === 0;
   return (
     <Pressable onPress={soon ? undefined : () => onPress(pack)} style={{ flex: 1, marginBottom: 18, opacity: soon ? 0.75 : 1 }}>
@@ -13,14 +15,14 @@ function PackCard({ pack, onPress }) {
           <Text style={{ fontSize: 32, fontWeight: '700', color: COVER_FG }}>{glyphOf(pack.cover_key)}</Text>
           {pack.owned ? (
             <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: COLORS.success, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>Owned</Text>
+              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{t('st_owned')}</Text>
             </View>
           ) : null}
           {/* Nouveauté (< 7 jours) — coin opposé au badge Owned, donc les deux
               peuvent coexister sur un pack récent qu'on possède. */}
           {pack.is_new ? (
             <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: '#ff6b35', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>NEW</Text>
+              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{t('st_new')}</Text>
             </View>
           ) : null}
           {/* Jauge de part possédée, bas-droite — masquée si le pack est déjà acheté. */}
@@ -31,26 +33,26 @@ function PackCard({ pack, onPress }) {
           <Text numberOfLines={1} style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e' }}>{pack.title}</Text>
           {/* Stats du pack, juste sous le titre */}
           <Text numberOfLines={1} style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 2 }}>
-            {pack.word_count} words · {pack.sales_count || 0} bought
+            {pack.word_count} {t('st_words')} · {pack.sales_count || 0} {t('st_bought')}
           </Text>
 
           {soon ? (
             <View style={{ alignSelf: 'flex-start', backgroundColor: '#f1f3f5', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginTop: 10 }}>
-              <Text style={{ fontSize: 11.5, color: COLORS.muted, fontWeight: '600' }}>Soon available</Text>
+              <Text style={{ fontSize: 11.5, color: COLORS.muted, fontWeight: '600' }}>{t('st_soon')}</Text>
             </View>
           ) : (
             <>
               {/* Début de description (2 lignes) */}
               <Text numberOfLines={2} style={{ fontSize: 12, color: COLORS.muted, lineHeight: 16, marginTop: 7, minHeight: 32 }}>
-                {pack.description || 'No description'}
+                {pack.description || t('st_no_desc')}
               </Text>
               {/* Prix ↔ créateur */}
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 9 }}>
                 <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.jiayou }}>
-                  {pack.price === 0 ? 'Free' : `${pack.price} ₵`}
+                  {pack.price === 0 ? t('st_free') : `${pack.price} ₵`}
                 </Text>
                 <Text numberOfLines={1} style={{ flexShrink: 1, marginLeft: 8, fontSize: 11.5, color: COLORS.muted, textAlign: 'right' }}>
-                  by {pack.creator}
+                  {t('st_by')} {pack.creator}
                 </Text>
               </View>
             </>
@@ -75,6 +77,7 @@ export default function PackMarket({
   onStartQuiz,
   onEditPack,
 }) {
+  const { t } = useT();
   const [me, setMe] = useState(null);
   const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -138,7 +141,7 @@ export default function PackMarket({
           ) : error ? (
             <Text style={{ textAlign: 'center', color: COLORS.danger, marginTop: 30 }}>{error}</Text>
           ) : (
-            <Text style={{ textAlign: 'center', color: COLORS.muted, marginTop: 40 }}>No packs yet.</Text>
+            <Text style={{ textAlign: 'center', color: COLORS.muted, marginTop: 40 }}>{t('st_no_packs')}</Text>
           )
         }
       />

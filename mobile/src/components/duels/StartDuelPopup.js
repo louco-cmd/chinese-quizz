@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Popup from '../Popup';
 import SegmentedPicker from '../settings/SegmentedPicker';
 import { COLORS } from '../../theme';
+import { useT } from '../../i18n';
 import { searchDuelPlayers, createDuel, getRecentOpponents } from '../../api';
 
 function Label({ children }) {
@@ -17,6 +18,7 @@ function Label({ children }) {
 // Popup "Start a duel" : recherche d'adversaire + type + nombre de mots + mise.
 // `presetOpponent` = { id, name } pour pré-remplir (défi depuis la liste des rivaux).
 export default function StartDuelPopup({ visible, presetOpponent, onClose, onCreated }) {
+  const { t } = useT();
   const [opponent, setOpponent] = useState(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -60,7 +62,7 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
   }, [query, opponent]);
 
   async function create() {
-    if (!opponent) return setError('Pick an opponent first.');
+    if (!opponent) return setError(t('du_pick_opponent'));
     setCreating(true);
     setError('');
     try {
@@ -74,7 +76,7 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
       onCreated?.();
       onClose();
     } catch (e) {
-      setError(e.message || 'Could not create the duel.');
+      setError(e.message || t('du_could_not_create'));
     } finally {
       setCreating(false);
     }
@@ -84,13 +86,13 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
     <Popup visible={visible} onClose={onClose} maxWidth={420}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e' }}>
-          Challenge {opponent ? opponent.name : 'a player'}
+          {t('du_challenge')} {opponent ? opponent.name : t('du_a_player')}
         </Text>
         <Pressable onPress={onClose} hitSlop={10}><Ionicons name="close" size={22} color={COLORS.muted} /></Pressable>
       </View>
 
       {/* Adversaire */}
-      <Label>Opponent</Label>
+      <Label>{t('du_opponent')}</Label>
       {opponent ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#e8f0ff', borderRadius: 12, padding: 12, marginBottom: 16 }}>
           <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center' }}>
@@ -104,7 +106,7 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search a player…"
+            placeholder={t('du_search_player')}
             placeholderTextColor="#adb5bd"
             autoCapitalize="none"
             style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e3e8f7', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, fontSize: 15, color: '#1a1a2e' }}
@@ -125,7 +127,7 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
           {!query.trim() && !searching && recent.length > 0 ? (
             <View style={{ marginTop: 10 }}>
               <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-                Recent opponents
+                {t('du_recent_opponents')}
               </Text>
               <ScrollView
                 horizontal
@@ -156,17 +158,17 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
       )}
 
       {/* Type de duel */}
-      <Label>Duel type</Label>
+      <Label>{t('du_duel_type')}</Label>
       <View style={{ marginBottom: 16 }}>
         <SegmentedPicker
           value={duelType}
           onChange={setDuelType}
-          options={[{ value: 'classic', label: '🎲 Random' }, { value: 'match_aa', label: '🤝 AA' }]}
+          options={[{ value: 'classic', label: t('du_random') }, { value: 'match_aa', label: t('du_aa') }]}
         />
       </View>
 
       {/* Nombre de mots */}
-      <Label>Word count</Label>
+      <Label>{t('du_word_count')}</Label>
       <View style={{ marginBottom: 16 }}>
         <SegmentedPicker
           value={wordCount}
@@ -176,17 +178,17 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
       </View>
 
       {/* Mode (pinyin / caractères) */}
-      <Label>Mode</Label>
+      <Label>{t('du_mode')}</Label>
       <View style={{ marginBottom: 16 }}>
         <SegmentedPicker
           value={quizType}
           onChange={setQuizType}
-          options={[{ value: 'pinyin', label: 'Pinyin' }, { value: 'character', label: 'Characters' }]}
+          options={[{ value: 'pinyin', label: t('qz_pinyin') }, { value: 'character', label: t('qz_characters') }]}
         />
       </View>
 
       {/* Mise */}
-      <Label>Bet (coins)</Label>
+      <Label>{t('du_bet')}</Label>
       <TextInput
         value={bet}
         onChangeText={(v) => setBet(v.replace(/[^0-9]/g, ''))}
@@ -200,10 +202,10 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-          <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
+          <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_cancel')}</Text>
         </Pressable>
         <Pressable onPress={create} disabled={creating} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-          {creating ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Create duel</Text>}
+          {creating ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{t('du_create')}</Text>}
         </Pressable>
       </View>
     </Popup>

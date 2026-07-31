@@ -3,6 +3,7 @@ import { View, Text, Pressable, ActivityIndicator, ScrollView } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import Popup from './Popup';
 import { getMarketPack, buyMarketPack } from '../api';
+import { useT } from '../i18n';
 import { COLORS } from '../theme';
 
 // Illustration fictive : fond bleu pâle + idéogramme du niveau HSK.
@@ -14,11 +15,12 @@ export const COVER_FG = '#5b8def';
 // Jauge « part déjà possédée », posée en bas à droite de la cover bleue :
 // barre remplie à X% + libellé. Rendue seulement si on possède déjà des mots.
 export function OwnedProgress({ owned, total }) {
+  const { t } = useT();
   if (!total || !owned) return null;
   const pct = Math.min(100, Math.round((owned / total) * 100));
   return (
     <View style={{ position: 'absolute', right: 8, bottom: 8, alignItems: 'flex-end' }}>
-      <Text style={{ fontSize: 10, fontWeight: '800', color: COVER_FG, marginBottom: 3 }}>{pct}% owned</Text>
+      <Text style={{ fontSize: 10, fontWeight: '800', color: COVER_FG, marginBottom: 3 }}>{pct}% {t('st_owned_gauge')}</Text>
       <View style={{ width: 66, height: 5, borderRadius: 999, backgroundColor: 'rgba(91,141,239,0.28)', overflow: 'hidden' }}>
         <View style={{ width: `${pct}%`, height: '100%', backgroundColor: COVER_FG, borderRadius: 999 }} />
       </View>
@@ -48,6 +50,7 @@ export function WordRow({ w, last }) {
 //   onStartQuiz : (pack) => void — affiche "Start a quiz" si possédé
 //   onBought    : (packId, { newBalance, wordsAdded }) => void — après achat
 export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, onBought, onEditPack }) {
+  const { t } = useT();
   const [detail, setDetail] = useState(null); // { pack, words?, preview? }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -75,7 +78,7 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
     setBuying(true); setError('');
     try {
       const d = await buyMarketPack(pack.id);
-      setMsg(`Added to your collection — ${d.wordsAdded} new word${d.wordsAdded === 1 ? '' : 's'}!`);
+      setMsg(t('st_added').replace('{n}', d.wordsAdded));
       try { setDetail(await getMarketPack(pack.id)); } catch { /* noop */ }
       onBought?.(pack.id, d);
     } catch (e) { setError(e.message); } finally { setBuying(false); }
@@ -93,7 +96,7 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
           </View>
           <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e' }}>{p.title}</Text>
           <Text style={{ fontSize: 13, color: COLORS.muted, marginTop: 2 }}>
-            by {p.creator || '—'} · {p.word_count || 0} words · {p.sales_count || 0} bought
+            {t('st_by')} {p.creator || '—'} · {p.word_count || 0} {t('st_words')} · {p.sales_count || 0} {t('st_bought')}
           </Text>
           {p.description ? (
             <Text style={{ fontSize: 13.5, color: '#444', marginTop: 10, lineHeight: 19 }}>{p.description}</Text>
@@ -101,17 +104,17 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
 
           {words?.length ? (
             <View style={{ marginTop: 14, backgroundColor: '#f8f9fa', borderRadius: 12, padding: 10 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Words · {words.length}</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{t('st_words_head')} · {words.length}</Text>
               <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
                 {words.map((w, i) => <WordRow key={w.id} w={w} last={i === words.length - 1} />)}
               </ScrollView>
             </View>
           ) : preview?.length ? (
             <View style={{ marginTop: 14, backgroundColor: '#f8f9fa', borderRadius: 12, padding: 10 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Preview</Text>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{t('st_preview')}</Text>
               {preview.map((w, i) => <WordRow key={w.id} w={w} last={i === preview.length - 1} />)}
               {p.word_count > preview.length ? (
-                <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 6 }}>+ {p.word_count - preview.length} more…</Text>
+                <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 6 }}>+ {p.word_count - preview.length} {t('st_more_suffix')}</Text>
               ) : null}
             </View>
           ) : null}
@@ -133,7 +136,7 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
                   style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
                 >
                   <Ionicons name="play" size={16} color="#fff" />
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Start a quiz</Text>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{t('st_start_quiz')}</Text>
                 </Pressable>
               ) : null}
               {p.isMine && onEditPack ? (
@@ -142,16 +145,16 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
                   style={{ borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
                 >
                   <Ionicons name="create-outline" size={16} color={COLORS.jiayou} />
-                  <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>Edit pack</Text>
+                  <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>{t('st_edit_pack')}</Text>
                 </Pressable>
               ) : null}
               <Text style={{ textAlign: 'center', color: COLORS.muted, fontWeight: '700', fontSize: 13 }}>
-                {p.isMine ? 'Your pack' : '✓ In your collection'}
+                {p.isMine ? t('st_your_pack') : t('st_in_collection')}
               </Text>
             </View>
           ) : (p.word_count || 0) === 0 ? (
             <View style={{ marginTop: 16, backgroundColor: '#e9ecef', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
-              <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Coming soon</Text>
+              <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('st_coming_soon')}</Text>
             </View>
           ) : (
             <Pressable
@@ -163,7 +166,7 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
                 <>
                   <Ionicons name="cart" size={16} color={canBuy ? '#fff' : COLORS.muted} />
                   <Text style={{ color: canBuy ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>
-                    {canBuy ? `Buy for ${p.price} ₵` : 'Not enough coins'}
+                    {canBuy ? t('st_buy_for').replace('{price}', p.price) : t('st_not_enough')}
                   </Text>
                 </>
               )}

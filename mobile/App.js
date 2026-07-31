@@ -1,6 +1,6 @@
 import './global.css';
 import { useEffect, useState, useCallback } from 'react';
-import { View, ActivityIndicator, AppState } from 'react-native';
+import { View, ActivityIndicator, AppState, BackHandler, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef } from './src/api';
@@ -217,6 +217,39 @@ export default function App() {
     setBankReturn('settings');
     setTab(name);
   }
+
+  // ── Retour matériel Android (bouton / geste depuis le bord) ──
+  // Sur web le navigateur gère l'historique ; sur natif rien n'interceptait le
+  // retour → l'app se fermait. On mappe ici chaque écran vers son parent, comme
+  // les boutons « Back ». Les écrans à état interne (quiz/duel en cours, liste de
+  // la collection…) enregistrent leur PROPRE handler : RN les appelle en premier
+  // (ordre LIFO) et n'arrive ici que s'ils n'ont pas consommé le retour.
+  useEffect(() => {
+    if (Platform.OS === 'web') return undefined;
+    const onBack = () => {
+      // 1) Overlays d'abord.
+      if (envelopes.length > 0) { markEnvelopesSeen().catch(() => {}); setEnvelopes([]); return true; }
+      if (showWelcome) return true; // page de bienvenue paiement : on reste
+      // 2) Onboarding / tutoriel : on ne quitte jamais l'app par erreur.
+      if (flow) { if (flowFromSettings) backToSettings(); return true; }
+      // 3) Écran de login : laisser le comportement par défaut (quitter).
+      if (!authed) return false;
+      // 4) Plateforme prof : ses onglets gèrent leur propre retour.
+      if (profile?.role === 'teacher') return false;
+      // 5) Sous-écrans → parent (miroir de leurs boutons onBack).
+      const PARENTS = { settings: 'account', account: 'add', writing: 'settings', 'create-pack': 'store' };
+      if (PARENTS[tab]) { setTab(PARENTS[tab]); return true; }
+      if (['bank', 'pricing', 'teachers', 'import', 'support', 'legal'].includes(tab)) {
+        setTab(bankReturn || 'add'); return true;
+      }
+      // 6) Onglet principal (store/collection/quiz/duels) → accueil (Add Word).
+      if (tab !== 'add') { setTab('add'); return true; }
+      // 7) Accueil : comportement par défaut (quitter l'app).
+      return false;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    return () => sub.remove();
+  }, [tab, flow, flowFromSettings, authed, profile, showWelcome, envelopes, bankReturn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function renderScreen() {
     switch (tab) {

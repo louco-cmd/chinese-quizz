@@ -15,6 +15,7 @@ import Popup from '../components/Popup';
 import CoursePage from './CoursePage';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getAccount, getStudentClasses, leaveMentor } from '../api';
+import { useT } from '../i18n';
 import { COLORS, TAB_CLEARANCE } from '../theme';
 
 // Tuile de stat d'utilisation (série, jours actifs…) en tête de la carte stats.
@@ -29,6 +30,7 @@ function UsageTile({ icon, value, label }) {
 }
 
 export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
+  const { t } = useT();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -138,14 +140,14 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
                   : null
               }
             >
-              <AccountCard icon="stats-chart-outline" title="Your statistics">
+              <AccountCard icon="stats-chart-outline" title={t('ac_your_stats')}>
                 {/* Stats d'utilisation en tête : mots connus + rang en duel */}
                 <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
-                  <UsageTile icon="📖" value={data.wordsKnown ?? 0} label={data.wordsKnown === 1 ? 'word known' : 'words known'} />
+                  <UsageTile icon="📖" value={data.wordsKnown ?? 0} label={data.wordsKnown === 1 ? t('ac_word_known') : t('ac_words_known')} />
                   <UsageTile
                     icon="🏆"
                     value={data.duelRank ? `#${data.duelRank}` : '—'}
-                    label={data.duelRank ? `duel rank / ${data.duelRankTotal}` : 'unranked in duels'}
+                    label={data.duelRank ? `${t('ac_duel_rank')} ${data.duelRankTotal}` : t('ac_unranked')}
                   />
                 </View>
 
@@ -155,10 +157,10 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
                   <MasteryBar
                     dist={pinyinDist}
                     total={total}
-                    caption={`${pinyinPct}% ${learningChinese ? 'pinyin mastered' : 'of words mastered'}`}
+                    caption={`${pinyinPct}% ${learningChinese ? t('ac_pinyin_mastered') : t('ac_words_mastered')}`}
                   />
                   {learningChinese && (
-                    <MasteryBar dist={charDist} total={total} caption={`${charPct}% characters mastered`} />
+                    <MasteryBar dist={charDist} total={total} caption={`${charPct}% ${t('ac_chars_mastered')}`} />
                   )}
                 </View>
               </AccountCard>
@@ -175,11 +177,11 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
                 />
               )}
 
-              <AccountCard icon="search-outline" title="Statistics on words">
+              <AccountCard icon="search-outline" title={t('ac_stats_on_words')}>
                 <HskStatList items={data.hsk} />
               </AccountCard>
 
-              <AccountCard icon="time-outline" title="Recent quizzes" actionLabel="Start a new quiz" onPress={() => onNavigate?.('quiz')}>
+              <AccountCard icon="time-outline" title={t('ac_recent_quizzes')} actionLabel={t('ac_start_new_quiz')} onPress={() => onNavigate?.('quiz')}>
                 <RecentQuizzes quizzes={data.recentQuizzes} />
               </AccountCard>
 
@@ -197,7 +199,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
             }}
           >
             <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
-            <Text style={{ color: COLORS.danger, fontWeight: '600' }}>Log out</Text>
+            <Text style={{ color: COLORS.danger, fontWeight: '600' }}>{t('set_logout')}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -211,16 +213,16 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
 
       {/* Quitter un prof */}
       <Popup visible={!!leaving} onClose={() => setLeaving(null)} maxWidth={380}>
-        <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Leave {leaving?.name}?</Text>
+        <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{t('ac_leave_title').replace('{name}', leaving?.name || '')}</Text>
         <Text style={{ fontSize: 14, color: COLORS.muted, lineHeight: 20, marginBottom: 20 }}>
-          You'll be removed from this teacher's classes and tasks. You can rejoin later with the class code.
+          {t('ac_leave_body')}
         </Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Pressable onPress={() => setLeaving(null)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
+            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_cancel')}</Text>
           </Pressable>
           <Pressable onPress={confirmLeave} disabled={leaveBusy} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            {leaveBusy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Leave</Text>}
+            {leaveBusy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{t('ac_leave')}</Text>}
           </Pressable>
         </View>
       </Popup>

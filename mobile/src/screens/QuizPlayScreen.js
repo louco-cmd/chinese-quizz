@@ -3,6 +3,8 @@ import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView } from 
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getMe, getQuizPlayWords, saveQuiz, saveTaskResult } from '../api';
+import { useT } from '../i18n';
+import useAndroidBack from '../useAndroidBack';
 import { COLORS, SHADOW_CARD } from '../theme';
 
 // ── Helpers (identiques à quiz-play.ejs) ──
@@ -30,8 +32,13 @@ function answerSenses(w, type, direction) {
   return parseAnswers(w?.chinese);
 }
 // Jetons (un par mot/syllabe) du 1er sens → structure des boîtes (une par jeton).
+// On écarte les jetons qui n'ont AUCUN caractère comparable (ponctuation seule :
+// « ! », « ? »…) : ils ne comptent pas dans la solution, donc pas de boîte vide.
 function firstSenseTokens(w, type, direction) {
-  return (answerSenses(w, type, direction)[0] || '').split(/\s+/).filter(Boolean);
+  const hasContent = (tok) => (type === 'pinyin' && direction !== 'zh→en'
+    ? normalizePinyin(tok).length > 0
+    : stripLetters(tok).length > 0);
+  return (answerSenses(w, type, direction)[0] || '').split(/\s+/).filter((t) => t && hasContent(t));
 }
 
 const infoLabel = (hsk, levels) => {
@@ -44,6 +51,9 @@ const infoLabel = (hsk, levels) => {
 };
 
 export default function QuizPlayScreen({ config, onExit }) {
+  const { t: tr } = useT();
+  // Retour Android → quitter le quiz (revenir à la liste), pas fermer l'app.
+  useAndroidBack(() => { onExit(); return true; }, true, [onExit]);
   const { type, count, hsk, levels, ids, packId, lessonId, title } = config;
   const [direction, setDirection] = useState('en→zh');
   const [words, setWords] = useState(null);
@@ -70,12 +80,12 @@ export default function QuizPlayScreen({ config, onExit }) {
       const [me, d] = await Promise.all([getMe().catch(() => ({})), getQuizPlayWords({ type, count, hsk, levels, ids, packId })]);
       if (me.quiz_direction) setDirection(me.quiz_direction);
       const ws = d.words || [];
-      if (!ws.length) { setError('Not enough words in your collection for these settings.'); setWords(null); return; }
+      if (!ws.length) { setError(tr('qp_not_enough')); setWords(null); return; }
       setWords(ws);
       results.current = ws.map((w) => ({ mot_id: w.id, correct: null, bonus: 0, pinyin: w.pinyin }));
       resetQuestion(ws[0]);
     } catch (e) {
-      setError(e.message || 'Could not start the quiz.');
+      setError(e.message || tr('qp_could_not_start'));
     } finally {
       setLoading(false);
     }
@@ -163,7 +173,7 @@ export default function QuizPlayScreen({ config, onExit }) {
       // Point (+ bonus) seulement si trouvé à la 1re tentative.
       if (results.current[idx].correct === null) { results.current[idx].correct = true; results.current[idx].bonus = bonus; }
       if (!second) setCorrectCount((c) => c + 1 + bonus);
-      setFeedback({ kind: 'success', text: bonus > 0 ? `Correct! +${bonus} bonus` : 'Correct!' });
+      setFeedback({ kind: 'success', text: tr('qp_correct') });
       setLocked(true);
       setTimeout(() => advance(idx + 1, words), 1000);
     } else if (!second) {
@@ -171,12 +181,12 @@ export default function QuizPlayScreen({ config, onExit }) {
       results.current[idx].correct = false;
       setWrongCount((c) => c + 1);
       setSecond(true);
-      setFeedback({ kind: 'reveal', text: `Answer: ${answer}` });
+      setFeedback({ kind: 'reveal', text: `${tr('qp_answer')} ${answer}` });
       setInputs((arr) => arr.map(() => ''));
       setTimeout(() => firstRef.current?.focus?.(), 60);
     } else {
       // 2e erreur : on révèle la réponse et on avance
-      setFeedback({ kind: 'reveal', text: `Answer: ${answer}` });
+      setFeedback({ kind: 'reveal', text: `${tr('qp_answer')} ${answer}` });
       setLocked(true);
       setTimeout(() => advance(idx + 1, words), 1400);
     }
@@ -202,10 +212,10 @@ export default function QuizPlayScreen({ config, onExit }) {
   if (ended) {
     const total = words.length;
     const pct = total > 0 ? Math.round((correctCount / total) * 100) : 0;
-    const motivation = pct >= 80 ? "Outstanding! You're a Chinese master!"
-      : pct >= 60 ? 'Great job! Excellent progress!'
-      : pct >= 40 ? 'Good effort! Keep practicing!'
-      : "Practice makes perfect! Don't give up!";
+    const motivation = pct >= 80 ? tr('qp_motiv_80')
+      : pct >= 60 ? tr('qp_motiv_60')
+      : pct >= 40 ? tr('qp_motiv_40')
+      : tr('qp_motiv_0');
     return (
       <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
         <TopBar onExit={onExit} />
@@ -213,20 +223,20 @@ export default function QuizPlayScreen({ config, onExit }) {
           <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 28, width: '100%', maxWidth: 420, alignItems: 'center', ...SHADOW_CARD }}>
             <Ionicons name="trophy" size={48} color="#f7c948" />
             <Text style={{ fontSize: 26, fontWeight: '800', color: '#1a1a2e', marginTop: 12 }}>{correctCount}/{total}</Text>
-            <Text style={{ fontSize: 15, color: COLORS.jiayou, fontWeight: '600', marginTop: 2 }}>{pct}% correct</Text>
+            <Text style={{ fontSize: 15, color: COLORS.jiayou, fontWeight: '600', marginTop: 2 }}>{pct}% {tr('qp_pct_correct')}</Text>
             <Text style={{ fontSize: 14, color: COLORS.muted, textAlign: 'center', marginTop: 12 }}>{motivation}</Text>
             {coins > 0 && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff8e1', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, marginTop: 16 }}>
                 <Ionicons name="add-circle" size={16} color="#d97706" />
-                <Text style={{ color: '#856404', fontWeight: '700' }}>{coins} coins earned</Text>
+                <Text style={{ color: '#856404', fontWeight: '700' }}>{coins} {tr('qp_coins_earned')}</Text>
               </View>
             )}
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 24, width: '100%' }}>
               <Pressable onPress={onExit} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Back</Text>
+                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{tr('common_back')}</Text>
               </Pressable>
               <Pressable onPress={restart} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-                <Text style={{ color: '#fff', fontWeight: '700' }}>New quiz</Text>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('qp_new_quiz')}</Text>
               </Pressable>
             </View>
           </View>
@@ -239,8 +249,8 @@ export default function QuizPlayScreen({ config, onExit }) {
   const question = direction === 'zh→en'
     ? null
     : type === 'pinyin'
-      ? `How to say "${w.english}" in pinyin?`
-      : `How to write "${w.english}" in Chinese?`;
+      ? tr('qp_how_pinyin').replace('{w}', w.english)
+      : tr('qp_how_chinese').replace('{w}', w.english);
 
   const fbColor = feedback?.kind === 'success' ? { bg: '#e8f5e9', fg: COLORS.success } : { bg: '#fff3cd', fg: '#856404' };
 
@@ -263,7 +273,7 @@ export default function QuizPlayScreen({ config, onExit }) {
           <View style={{ alignItems: 'center', marginVertical: 22 }}>
             {direction === 'zh→en' ? (
               <>
-                <Text style={{ fontSize: 16, color: COLORS.muted }}>What does this mean in English?</Text>
+                <Text style={{ fontSize: 16, color: COLORS.muted }}>{tr('qp_what_mean_en')}</Text>
                 <Text style={{ fontSize: 56, fontWeight: '800', color: '#1a1a2e', marginTop: 8 }}>{w.chinese}</Text>
               </>
             ) : (
@@ -315,7 +325,7 @@ export default function QuizPlayScreen({ config, onExit }) {
                   editable={!locked}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  placeholder={'Write Chinese characters…'}
+                  placeholder={tr('qp_write_chinese')}
                   placeholderTextColor="#adb5bd"
                   style={fullInputStyle(second)}
                 />
@@ -323,7 +333,7 @@ export default function QuizPlayScreen({ config, onExit }) {
             </View>
             {multiHint ? (
               <Text style={{ textAlign: 'center', color: COLORS.mutedLight, fontSize: 12, marginBottom: 14 }}>
-                {`${senses.length} answers possible — one is enough`}
+                {`${senses.length} ${tr('qp_answers_possible')}`}
               </Text>
             ) : null}
 
@@ -333,15 +343,15 @@ export default function QuizPlayScreen({ config, onExit }) {
               style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: locked ? 0.6 : 1 }}
             >
               <Ionicons name="send" size={16} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Submit</Text>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{tr('qp_submit')}</Text>
             </Pressable>
           </View>
 
           {/* Score + progression */}
           <View style={{ alignItems: 'center', marginTop: 18 }}>
             <Text style={{ fontWeight: '700', fontSize: 16, color: '#1a1a2e' }}>✅ {correctCount}  |  ❌ {wrongCount}</Text>
-            <Text style={{ color: COLORS.muted, marginTop: 4 }}>Question {idx + 1}/{words.length}</Text>
-            <Text style={{ color: '#adb5bd', fontSize: 12, marginTop: 4 }}>{packId ? (title || 'Pack') : lessonId ? (title || 'Lesson') : ids ? 'Your difficulties' : infoLabel(hsk, levels)}</Text>
+            <Text style={{ color: COLORS.muted, marginTop: 4 }}>{tr('qp_question')} {idx + 1}/{words.length}</Text>
+            <Text style={{ color: '#adb5bd', fontSize: 12, marginTop: 4 }}>{packId ? (title || tr('qp_pack')) : lessonId ? (title || tr('qp_lesson')) : ids ? tr('qz_your_difficulties') : infoLabel(hsk, levels)}</Text>
           </View>
         </View>
       </ScrollView>

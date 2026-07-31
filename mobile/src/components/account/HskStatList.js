@@ -1,10 +1,12 @@
 import { View, Text } from 'react-native';
+import { useT } from '../../i18n';
 
 // Liste des stats HSK : libellé à gauche, « x% mastered » + pastille du nombre
 // à droite (façon .list-group + badge EJS). `items` = [{ label, count, masteredPct, key }].
 export default function HskStatList({ items }) {
+  const { t } = useT();
   if (!items || !items.length) {
-    return <Text style={{ color: '#aaa', textAlign: 'center', paddingVertical: 12 }}>No words yet</Text>;
+    return <Text style={{ color: '#aaa', textAlign: 'center', paddingVertical: 12 }}>{t('ac_no_words')}</Text>;
   }
   return (
     <View>
@@ -22,7 +24,7 @@ export default function HskStatList({ items }) {
             <Text style={{ fontWeight: '500', color: '#333', fontSize: 14 }}>{it.label}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={{ fontSize: 12, color: '#aaa' }}>
-                {it.masteredPct > 0 ? `${it.masteredPct}% mastered` : '-'}
+                {it.masteredPct > 0 ? `${it.masteredPct}% ${t('ac_mastered_suffix')}` : '-'}
               </Text>
               <View style={{
                 minWidth: 26, alignItems: 'center', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2,

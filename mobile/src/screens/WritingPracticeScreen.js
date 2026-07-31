@@ -50,6 +50,8 @@ export default function WritingPracticeScreen({ onBack }) {
   const [done, setDone] = useState(0);
   const [result, setResult] = useState(null);
   const [hintNonce, setHintNonce] = useState(0);
+  const [revealNonce, setRevealNonce] = useState(0);
+  const [revealed, setRevealed] = useState(false); // repli "je ne connais pas" utilisé
 
   const load = useCallback(async () => {
     setError('');
@@ -90,7 +92,7 @@ export default function WritingPracticeScreen({ onBack }) {
 
   function start() {
     setDeck(buildDeck(words, hskMin, hskMax));
-    setIdx(0); setDone(0); setResult(null); setStarted(true);
+    setIdx(0); setDone(0); setResult(null); setRevealed(false); setStarted(true);
   }
 
   const current = deck[idx];
@@ -100,7 +102,11 @@ export default function WritingPracticeScreen({ onBack }) {
     setDone((d) => d + 1);
     setTimeout(() => { setResult(null); next(); }, 1100);
   }
-  function next() { setIdx((i) => i + 1); }
+  function next() { setRevealed(false); setIdx((i) => i + 1); }
+
+  // Repli « je ne connais pas » : on révèle le pinyin et on affiche le caractère
+  // en exemple (contour + ordre des traits) pour le recopier.
+  function reveal() { setRevealed(true); setRevealNonce((n) => n + 1); }
 
   if (words === null && !error) return <Loading />;
   if (error) return <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}><Header onBack={onBack} /><ErrorRetry error={error} onRetry={load} /></View>;
@@ -201,7 +207,10 @@ export default function WritingPracticeScreen({ onBack }) {
         <Text style={{ fontSize: 22, fontWeight: '800', color: '#1a1a2e', marginTop: 4, textAlign: 'center' }} numberOfLines={2}>
           {current.english || '—'}
         </Text>
-        {current.pinyin ? <Text style={{ fontSize: 15, color: COLORS.jiayou, marginTop: 2 }}>{current.pinyin}</Text> : null}
+        {/* Le pinyin n'est révélé qu'en repli (« I don't know ») : on écrit d'abord de mémoire. */}
+        {revealed && current.pinyin
+          ? <Text style={{ fontSize: 15, color: COLORS.jiayou, marginTop: 2 }}>{current.pinyin}</Text>
+          : <Text style={{ fontSize: 12.5, color: COLORS.mutedLight, marginTop: 2 }}>from memory — write here</Text>}
 
         <View style={{ marginTop: 18, borderRadius: 20, overflow: 'hidden' }}>
           {/* Pas de `key` par caractère : remonter la WebView rechargeait la page
@@ -212,6 +221,7 @@ export default function WritingPracticeScreen({ onBack }) {
             nextChar={deck[idx + 1]?.char}
             size={size}
             hintNonce={hintNonce}
+            revealNonce={revealNonce}
             onComplete={onComplete}
           />
         </View>
@@ -225,9 +235,11 @@ export default function WritingPracticeScreen({ onBack }) {
           </View>
         ) : (
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-            <Pressable onPress={() => setHintNonce((n) => n + 1)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 18 }}>
-              <Ionicons name="eye-outline" size={17} color={COLORS.jiayou} />
-              <Text style={{ color: COLORS.jiayou, fontWeight: '700' }}>Show me</Text>
+            {/* Repli : révèle pinyin + caractère en exemple à recopier. Une fois
+                révélé, le bouton devient un simple rappel de l'ordre des traits. */}
+            <Pressable onPress={revealed ? () => setHintNonce((n) => n + 1) : reveal} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 18 }}>
+              <Ionicons name={revealed ? 'eye-outline' : 'help-circle-outline'} size={17} color={COLORS.jiayou} />
+              <Text style={{ color: COLORS.jiayou, fontWeight: '700' }}>{revealed ? 'Show strokes' : "I don't know"}</Text>
             </Pressable>
             <Pressable onPress={next} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingVertical: 11, paddingHorizontal: 18, backgroundColor: '#eef0f4' }}>
               <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Skip</Text>

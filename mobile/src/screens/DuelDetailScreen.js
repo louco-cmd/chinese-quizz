@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import Avatar from '../components/Avatar';
 import { getDuel } from '../api';
+import { useT } from '../i18n';
+import useAndroidBack from '../useAndroidBack';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 const DEFEAT = '#c0392b';
@@ -71,6 +73,7 @@ function VsAvatar({ winner, icon, color, name }) {
 }
 
 function VsPlayer({ name, score, winner, loser, icon, color }) {
+  const { t } = useT();
   return (
     <View style={{ flex: 1, alignItems: 'center' }}>
       <VsAvatar winner={winner} icon={icon} color={color} name={name} />
@@ -82,7 +85,7 @@ function VsPlayer({ name, score, winner, loser, icon, color }) {
       </Text>
       {winner ? (
         <View style={{ marginTop: 6, backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 2 }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>🏆 Winner</Text>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff' }}>🏆 {t('dd_winner')}</Text>
         </View>
       ) : null}
     </View>
@@ -90,6 +93,7 @@ function VsPlayer({ name, score, winner, loser, icon, color }) {
 }
 
 function WordRow({ word, last }) {
+  const { t } = useT();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: last ? 0 : 1, borderColor: '#f5f5f5' }}>
       <Text style={{ fontSize: 22, fontWeight: '500', color: '#1d1d1f', minWidth: 48, textAlign: 'center' }}>{word.chinese}</Text>
@@ -104,7 +108,7 @@ function WordRow({ word, last }) {
         </View>
       ) : (
         <View style={{ backgroundColor: '#f0f0f0', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: '#888' }}>Street</Text>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: '#888' }}>{t('qz_street')}</Text>
         </View>
       )}
     </View>
@@ -125,6 +129,8 @@ function DetailRow({ icon, label, value, last }) {
 }
 
 export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }) {
+  const { t } = useT();
+  useAndroidBack(() => { onBack(); return true; }, true, [onBack]);
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
   const [duel, setDuel] = useState(null);
@@ -136,7 +142,7 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
     try {
       setDuel(await getDuel(duelId));
     } catch (e) {
-      setError(e.message || 'Could not load the duel.');
+      setError(e.message || t('dd_could_not_load'));
     } finally {
       setLoading(false);
     }
@@ -160,9 +166,9 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
   const iWon = duel.result === 'won';
   const theyWon = duel.result === 'lost';
   const isTie = duel.result === 'draw';
-  const chip = iWon ? { bg: 'rgba(255,255,255,0.28)', fg: '#fff', label: '🏆 Won' }
-    : theyWon ? { bg: 'rgba(0,0,0,0.25)', fg: 'rgba(255,255,255,0.85)', label: '😵 Lost' }
-    : isTie ? { bg: 'rgba(255,255,255,0.2)', fg: '#fff', label: '🤝 Draw' }
+  const chip = iWon ? { bg: 'rgba(255,255,255,0.28)', fg: '#fff', label: `🏆 ${t('du_won')}` }
+    : theyWon ? { bg: 'rgba(0,0,0,0.25)', fg: 'rgba(255,255,255,0.85)', label: `😵 ${t('du_lost')}` }
+    : isTie ? { bg: 'rgba(255,255,255,0.2)', fg: '#fff', label: `🤝 ${t('du_draw')}` }
     : { bg: '#ffc107', fg: '#333', label: (duel.status || 'pending').replace('_', ' ') };
 
   const heroBg = theyWon ? DEFEAT : COLORS.jiayou;
@@ -171,10 +177,10 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
   const completed = duel.status === 'completed' && onRematch;
 
   const details = [
-    { icon: 'shuffle', label: 'Mode', value: duel.duel_type === 'classic' ? 'Random' : 'AA Match' },
-    { icon: 'help-circle', label: 'Quiz type', value: duel.quiz_type === 'pinyin' ? 'Pinyin' : 'Characters' },
-    { icon: 'list', label: 'Words', value: String(words.length) },
-    ...(duel.bet_amount > 0 ? [{ icon: 'cash', label: 'Bet', value: `${duel.bet_amount}₵` }] : []),
+    { icon: 'shuffle', label: t('dd_mode'), value: duel.duel_type === 'classic' ? t('dd_random') : t('dd_aa_match') },
+    { icon: 'help-circle', label: t('dd_quiz_type'), value: duel.quiz_type === 'pinyin' ? t('qz_pinyin') : t('qz_characters') },
+    { icon: 'list', label: t('dd_words'), value: String(words.length) },
+    ...(duel.bet_amount > 0 ? [{ icon: 'cash', label: t('dd_bet'), value: `${duel.bet_amount}₵` }] : []),
   ];
 
   const rematchBtn = completed ? (
@@ -183,14 +189,14 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
       style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
     >
       <Ionicons name="repeat" size={17} color="#fff" />
-      <Text style={{ color: '#fff', fontSize: 14.5, fontWeight: '700' }} numberOfLines={1}>Rematch with {duel.opponent_name}</Text>
+      <Text style={{ color: '#fff', fontSize: 14.5, fontWeight: '700' }} numberOfLines={1}>{t('dd_rematch_with').replace('{name}', duel.opponent_name)}</Text>
     </Pressable>
   ) : null;
 
   // Carte "Match details" (utilisée en desktop ET en mobile).
   const detailsCard = (
     <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, ...SHADOW_CARD }}>
-      <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4 }}>Match details</Text>
+      <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4 }}>{t('dd_match_details')}</Text>
       {details.map((d, i) => <DetailRow key={d.label} icon={d.icon} label={d.label} value={d.value} last={i === details.length - 1} />)}
       {rematchBtn ? <View style={{ marginTop: 14 }}>{rematchBtn}</View> : null}
     </View>
@@ -204,7 +210,7 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
         ) : (
           <View style={{ paddingVertical: 40, paddingHorizontal: 24, alignItems: 'center' }}>
             <Ionicons name="file-tray-outline" size={38} color="#bbb" />
-            <Text style={{ color: '#bbb', marginTop: 10 }}>No words in this duel.</Text>
+            <Text style={{ color: '#bbb', marginTop: 10 }}>{t('dd_no_words')}</Text>
           </View>
         )}
       </View>

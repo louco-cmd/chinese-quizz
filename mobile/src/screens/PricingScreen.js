@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Platform
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SHADOW_CARD } from '../theme';
+import { useT } from '../i18n';
 import { getBillingPortal, refreshSubscription, syncRevenueCat } from '../api';
 import { buyPremium, purchasesAvailable, restorePurchases, getPremiumPlans, yearlySavingPct, isTestStore } from '../purchases';
 
@@ -17,30 +18,26 @@ const fmtDate = (iso) => {
 
 const PREMIUM_URL = 'https://jiayou.fr/#pricing';
 
+// Features/FAQ portés par clés i18n (traduits au rendu via useT).
 const PREMIUM_FEATURES = [
-  { icon: 'infinite', kind: 'inf', title: 'Unlimited words', sub: 'No 600-word cap' },
-  { icon: 'infinite', kind: 'inf', title: 'Unlimited quizzes', sub: 'Practice endlessly' },
-  { icon: 'infinite', kind: 'inf', title: 'Unlimited duels', sub: 'Challenge anytime' },
-  { icon: 'infinite', kind: 'inf', title: 'Unlimited pack purchases', sub: 'Buy as many as you like' },
-  { icon: 'checkmark', kind: 'yes', title: 'All HSK packs (1–6)', sub: 'Including HSK 4, 5 & 6' },
-  { icon: 'checkmark', kind: 'yes', title: 'Writing practice', sub: 'Draw characters stroke by stroke' },
-  { icon: 'checkmark', kind: 'yes', title: 'Ghost mode', sub: 'Hide from leaderboard & search' },
+  { icon: 'infinite', kind: 'inf', tk: 'pf_words' },
+  { icon: 'infinite', kind: 'inf', tk: 'pf_quizzes' },
+  { icon: 'infinite', kind: 'inf', tk: 'pf_duels' },
+  { icon: 'infinite', kind: 'inf', tk: 'pf_packs' },
+  { icon: 'checkmark', kind: 'yes', tk: 'pf_hsk' },
+  { icon: 'checkmark', kind: 'yes', tk: 'pf_writing' },
+  { icon: 'checkmark', kind: 'yes', tk: 'pf_ghost' },
 ];
 const FREE_FEATURES = [
-  { icon: 'bookmark', kind: 'lim', title: '600 words', sub: 'Vocabulary cap' },
-  { icon: 'time', kind: 'lim', title: '3 quizzes / day', sub: 'Daily limit' },
-  { icon: 'time', kind: 'lim', title: '1 duel / day', sub: 'Daily limit' },
-  { icon: 'bag-handle', kind: 'lim', title: '3 packs max', sub: 'Lifetime purchases' },
-  { icon: 'close', kind: 'no', title: 'HSK 4 / 5 / 6 packs', sub: 'Not available' },
-  { icon: 'close', kind: 'no', title: 'Writing practice', sub: 'Premium only' },
-  { icon: 'close', kind: 'no', title: 'Ghost mode', sub: 'Premium only' },
+  { icon: 'bookmark', kind: 'lim', tk: 'ff_words' },
+  { icon: 'time', kind: 'lim', tk: 'ff_quizzes' },
+  { icon: 'time', kind: 'lim', tk: 'ff_duels' },
+  { icon: 'bag-handle', kind: 'lim', tk: 'ff_packs' },
+  { icon: 'close', kind: 'no', tk: 'ff_hsk' },
+  { icon: 'close', kind: 'no', tk: 'ff_writing' },
+  { icon: 'close', kind: 'no', tk: 'ff_ghost' },
 ];
-const FAQ = [
-  { q: 'Can I switch between plans?', a: "Yes! You can upgrade to Premium anytime. If you cancel, you keep Premium access until the end of your billing period, then revert to Free." },
-  { q: 'How does payment work?', a: 'Subscriptions are managed securely on jiayou.fr. Tapping "Start Premium" opens your browser to pay with any major card. Your Premium access syncs back to the app automatically.' },
-  { q: 'Can I cancel my subscription?', a: 'Absolutely — no commitment. Cancel from your subscription settings at any time. You keep Premium until the billing period ends.' },
-  { q: 'Can I reactivate a canceled subscription?', a: 'Yes! Just resubscribe on jiayou.fr — your Premium access is restored immediately after payment.' },
-];
+const FAQ = ['faq1', 'faq2', 'faq3', 'faq4'];
 
 const ICON_BG = {
   inf: { bg: '#e8f0ff', fg: COLORS.jiayou },
@@ -50,6 +47,7 @@ const ICON_BG = {
 };
 
 function FeatureRow({ f, last }) {
+  const { t } = useT();
   const c = ICON_BG[f.kind];
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11, borderBottomWidth: last ? 0 : 1, borderColor: '#f2f2f4' }}>
@@ -57,28 +55,30 @@ function FeatureRow({ f, last }) {
         <Ionicons name={f.icon} size={16} color={c.fg} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 14, fontWeight: '700', color: f.kind === 'no' ? '#adb5bd' : '#1d1d1f' }}>{f.title}</Text>
-        <Text style={{ fontSize: 12, color: '#8a8a8e', marginTop: 1 }}>{f.sub}</Text>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: f.kind === 'no' ? '#adb5bd' : '#1d1d1f' }}>{t(`${f.tk}_t`)}</Text>
+        <Text style={{ fontSize: 12, color: '#8a8a8e', marginTop: 1 }}>{t(`${f.tk}_s`)}</Text>
       </View>
     </View>
   );
 }
 
-function FaqItem({ q, a }) {
+function FaqItem({ tk }) {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   return (
     <View style={{ borderBottomWidth: 1, borderColor: '#f0f0f0' }}>
       <Pressable onPress={() => setOpen((o) => !o)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 }}>
-        <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: '#1d1d1f', paddingRight: 10 }}>{q}</Text>
+        <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: '#1d1d1f', paddingRight: 10 }}>{t(`${tk}_q`)}</Text>
         <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.muted} />
       </Pressable>
-      {open ? <Text style={{ fontSize: 13.5, color: '#6c757d', lineHeight: 20, paddingBottom: 14 }}>{a}</Text> : null}
+      {open ? <Text style={{ fontSize: 13.5, color: '#6c757d', lineHeight: 20, paddingBottom: 14 }}>{t(`${tk}_a`)}</Text> : null}
     </View>
   );
 }
 
 // Page Pricing : hero + carte Premium (featured) + carte Free + trust + FAQ.
 export default function PricingScreen({ onBack, isPremium = false, onPurchased }) {
+  const { t } = useT();
   const [portalBusy, setPortalBusy] = useState(false);
   const [portalError, setPortalError] = useState('');
   const [sub, setSub] = useState({ cancelAtPeriodEnd: false, currentPeriodEnd: null });
@@ -127,7 +127,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
       if (native) { Linking.openURL(PLAY_SUBSCRIPTIONS_URL); return; }
       setPortalError(''); setPortalBusy(true);
       try { const { url } = await getBillingPortal(); await Linking.openURL(url); }
-      catch (e) { setPortalError(e.message || 'Could not open the billing portal'); }
+      catch (e) { setPortalError(e.message || t('pricing_err_portal')); }
       finally { setPortalBusy(false); }
       return;
     }
@@ -143,7 +143,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
         }
       } catch (e) {
         // Annulation utilisateur : pas une erreur, on n'affiche rien.
-        if (e?.userCancelled !== true) setPortalError(e?.message || 'Purchase failed.');
+        if (e?.userCancelled !== true) setPortalError(e?.message || t('pricing_err_purchase'));
       } finally { setPortalBusy(false); }
       return;
     }
@@ -163,9 +163,9 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
         // RevenueCat a l'achat mais le SDK local est en cache).
         const s = await syncRevenueCat().catch(() => null);
         if (s?.active) onPurchased?.();
-        else setPortalError('No previous purchase found.');
+        else setPortalError(t('pricing_no_purchase'));
       }
-    } catch (e) { setPortalError(e?.message || 'Restore failed.'); }
+    } catch (e) { setPortalError(e?.message || t('pricing_err_restore')); }
     finally { setPortalBusy(false); }
   }
 
@@ -177,30 +177,29 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
           {onBack ? (
             <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 }}>
               <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.9)" />
-              <Text style={{ color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>Back</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>{t('common_back')}</Text>
             </Pressable>
           ) : null}
           <View style={{ alignItems: 'center' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 12 }}>
               <Ionicons name="flash" size={13} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>Simple pricing</Text>
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>{t('pricing_badge')}</Text>
             </View>
-            <Text style={{ color: '#fff', fontSize: 24, fontWeight: '800', textAlign: 'center' }}>Unlock your Chinese potential</Text>
+            <Text style={{ color: '#fff', fontSize: 24, fontWeight: '800', textAlign: 'center' }}>{t('pricing_hero_title')}</Text>
             <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13.5, textAlign: 'center', marginTop: 6 }}>
-              Start free, upgrade when you're ready. Cancel anytime.
+              {t('pricing_hero_sub')}
             </Text>
           </View>
-          <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 24, backgroundColor: '#f8f9fa', borderTopLeftRadius: 24, borderTopRightRadius: 24 }} />
         </View>
 
         <View style={{ width: '100%', maxWidth: 460, alignSelf: 'center', paddingHorizontal: 16, marginTop: 18 }}>
           {/* ── Premium (featured) ── */}
           <View style={{ backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', marginBottom: 16, ...SHADOW_CARD }}>
             <LinearGradient colors={['#0d6efd', '#0a58ca']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 18 }}>
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 17, marginBottom: 4 }}>Premium</Text>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 17, marginBottom: 4 }}>{t('pricing_premium')}</Text>
               {/* Prix : celui du store si dispo (localisé + à jour), sinon le tarif web. */}
               <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800' }}>{plan ? plan.priceString : '5€'}</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>{plan ? plan.period : 'per month'}</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>{plan ? plan.period : t('pricing_per_month')}</Text>
             </LinearGradient>
             <View style={{ padding: 18 }}>
               {/* Choix de la formule (natif + offering configurée). */}
@@ -222,7 +221,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                         <Text style={{ fontSize: 15, fontWeight: '800', color: on ? COLORS.jiayou : '#1d1d1f', marginTop: 2 }}>{p.priceString}</Text>
                         {p.annual && saving ? (
                           <View style={{ marginTop: 5, backgroundColor: COLORS.success, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-                            <Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '700' }}>Save {saving}%</Text>
+                            <Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '700' }}>{t('pricing_save')} {saving}%</Text>
                           </View>
                         ) : null}
                       </Pressable>
@@ -234,7 +233,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#fff8e1', borderRadius: 12, padding: 12, marginBottom: 14 }}>
                   <Ionicons name="time-outline" size={18} color="#b8860b" />
                   <Text style={{ flex: 1, fontSize: 13, color: '#7a5c00', lineHeight: 18, fontWeight: '600' }}>
-                    Your Premium is set to cancel. You keep access until {fmtDate(sub.currentPeriodEnd)} — resume anytime below.
+                    {t('pricing_cancel_notice').replace('{date}', fmtDate(sub.currentPeriodEnd))}
                   </Text>
                 </View>
               ) : null}
@@ -248,7 +247,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                   <>
                     <Ionicons name={isPremium ? 'settings' : 'rocket'} size={16} color="#fff" />
                     <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
-                      {isPremium ? 'Manage subscription' : `Start Premium — ${plan ? plan.priceString : '€5/mo'}`}
+                      {isPremium ? t('pricing_manage') : `${t('pricing_start')} — ${plan ? plan.priceString : '€5/mo'}`}
                     </Text>
                   </>
                 )}
@@ -258,16 +257,16 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
               ) : null}
               {native && !isPremium ? (
                 <Pressable onPress={onRestore} disabled={portalBusy} style={{ marginTop: 10, alignItems: 'center' }}>
-                  <Text style={{ color: COLORS.jiayou, fontSize: 12.5, fontWeight: '600' }}>Restore purchases</Text>
+                  <Text style={{ color: COLORS.jiayou, fontSize: 12.5, fontWeight: '600' }}>{t('pricing_restore')}</Text>
                 </Pressable>
               ) : null}
               <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 11.5, marginTop: 10 }}>
-                <Ionicons name={native ? 'logo-google-playstore' : 'globe-outline'} size={11} color={COLORS.muted} />  {native ? 'Billed through Google Play · Cancel anytime' : 'Managed on jiayou.fr · Cancel anytime'}
+                <Ionicons name={native ? 'logo-google-playstore' : 'globe-outline'} size={11} color={COLORS.muted} />  {native ? t('pricing_billed_google') : t('pricing_billed_web')}
               </Text>
               {/* Clé RevenueCat de test : aucun paiement réel n'a lieu. */}
               {native && isTestStore() ? (
                 <Text style={{ textAlign: 'center', color: '#b8860b', fontSize: 11, marginTop: 6, fontWeight: '700' }}>
-                  Sandbox mode — purchases are simulated
+                  {t('pricing_sandbox')}
                 </Text>
               ) : null}
             </View>
@@ -278,14 +277,14 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
             <View style={{ padding: 18, borderBottomWidth: 1, borderColor: '#f2f2f4' }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <View>
-                  <Text style={{ color: '#1d1d1f', fontWeight: '700', fontSize: 17, marginBottom: 4 }}>Free</Text>
+                  <Text style={{ color: '#1d1d1f', fontWeight: '700', fontSize: 17, marginBottom: 4 }}>{t('pricing_free')}</Text>
                   <Text style={{ color: '#1d1d1f', fontSize: 34, fontWeight: '800' }}>0€</Text>
-                  <Text style={{ color: '#888', fontSize: 12.5 }}>forever</Text>
+                  <Text style={{ color: '#888', fontSize: 12.5 }}>{t('pricing_forever')}</Text>
                 </View>
                 {!isPremium ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#e8ecf0', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
                     <Ionicons name="checkmark-circle" size={13} color={COLORS.success} />
-                    <Text style={{ color: '#555', fontWeight: '600', fontSize: 11.5 }}>Current plan</Text>
+                    <Text style={{ color: '#555', fontWeight: '600', fontSize: 11.5 }}>{t('pricing_current_plan')}</Text>
                   </View>
                 ) : null}
               </View>
@@ -293,17 +292,17 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
             <View style={{ padding: 18 }}>
               {FREE_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === FREE_FEATURES.length - 1} />)}
               <View style={{ marginTop: 18, borderRadius: 999, paddingVertical: 13, alignItems: 'center', backgroundColor: '#f1f3f5' }}>
-                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{isPremium ? 'Free plan' : 'Your current plan'}</Text>
+                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{isPremium ? t('pricing_free_plan') : t('pricing_your_current_plan')}</Text>
               </View>
             </View>
           </View>
 
           {/* FAQ */}
           <Text style={{ textAlign: 'center', fontWeight: '700', fontSize: 16, color: '#1d1d1f', marginBottom: 8 }}>
-            Frequently asked questions
+            {t('pricing_faq_title')}
           </Text>
           <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 16, ...SHADOW_CARD }}>
-            {FAQ.map((f, i) => <FaqItem key={i} q={f.q} a={f.a} />)}
+            {FAQ.map((tk) => <FaqItem key={tk} tk={tk} />)}
           </View>
         </View>
       </ScrollView>

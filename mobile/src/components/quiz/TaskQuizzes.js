@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOW_CARD } from '../../theme';
+import { useT } from '../../i18n';
 import { getStudentClasses, startTask } from '../../api';
 
 // Section "Task quizzes from your teacher" (page quiz) : chaque task avec jauge
 // de maîtrise + bouton Practice qui lance le quiz sur les mots de la task.
 export default function TaskQuizzes({ onStart }) {
+  const { t: tr } = useT();
   const [tasks, setTasks] = useState(null);
   const [busy, setBusy] = useState(null); // id en cours de démarrage
 
@@ -30,7 +32,7 @@ export default function TaskQuizzes({ onStart }) {
     <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, ...SHADOW_CARD }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <Ionicons name="school" size={18} color={COLORS.muted} />
-        <Text style={{ fontSize: 15, fontWeight: '700', color: '#444' }}>Task quizzes from your teacher</Text>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: '#444' }}>{tr('qz_task_quizzes')}</Text>
       </View>
 
       {tasks.map((t, i) => {
@@ -57,7 +59,7 @@ export default function TaskQuizzes({ onStart }) {
               disabled={busy === t.id}
               style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14, minWidth: 78, alignItems: 'center' }}
             >
-              {busy === t.id ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Practice</Text>}
+              {busy === t.id ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{tr('qz_practice')}</Text>}
             </Pressable>
           </View>
         );

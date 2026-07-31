@@ -8,6 +8,8 @@ import * as Speech from 'expo-speech';
 import { Loading, ErrorRetry } from '../components/ErrorRetry';
 import Popup from '../components/Popup';
 import { COLORS, SHADOW_CARD_FLAT, TAB_CLEARANCE } from '../theme';
+import { useT } from '../i18n';
+import useAndroidBack from '../useAndroidBack';
 import { getCollection, updateWord, deleteWord, getCharacter, getMe, getPurchasedPacks, getMyPacks } from '../api';
 
 // Sélection de la meilleure voix par langue (qualité "Enhanced" en priorité).
@@ -63,11 +65,11 @@ function scorePicto(s) {
 
 // Paliers de connaissance (mêmes seuils/icônes que scorePicto) pour le filtre.
 const KNOWLEDGE = [
-  { key: 'trophy', emoji: '🏆', label: 'Mastered', min: 90 },
-  { key: 'cool', emoji: '😎', label: 'Strong', min: 75 },
-  { key: 'ok', emoji: '🙂', label: 'Okay', min: 50 },
-  { key: 'meh', emoji: '😐', label: 'Weak', min: 25 },
-  { key: 'seed', emoji: '🌱', label: 'New', min: 0 },
+  { key: 'trophy', emoji: '🏆', lk: 'quiz_mastered', min: 90 },
+  { key: 'cool', emoji: '😎', lk: 'kn_strong', min: 75 },
+  { key: 'ok', emoji: '🙂', lk: 'kn_okay', min: 50 },
+  { key: 'meh', emoji: '😐', lk: 'kn_weak', min: 25 },
+  { key: 'seed', emoji: '🌱', lk: 'kn_new', min: 0 },
 ];
 const bucketOf = (s) => (s >= 90 ? 'trophy' : s >= 75 ? 'cool' : s >= 50 ? 'ok' : s >= 25 ? 'meh' : 'seed');
 const hskKey = (w) => (w.hsk ? String(w.hsk) : 'street');
@@ -82,6 +84,7 @@ const circleBtn = {
 };
 
 export default function CollectionScreen() {
+  const { t: tr } = useT();
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width * 0.86, 340);
   const cardH = Math.min(height * 0.62, 500);
@@ -151,30 +154,30 @@ export default function CollectionScreen() {
   const filterPopup = (
     <Popup visible={filterOpen} onClose={() => setFilterOpen(false)} maxWidth={420}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>Filters</Text>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>{tr('co_filters')}</Text>
         <Pressable onPress={() => setFilterOpen(false)} hitSlop={10}><Ionicons name="close" size={22} color={COLORS.muted} /></Pressable>
       </View>
 
-      <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>HSK level</Text>
+      <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{tr('co_hsk_level')}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
         {hskOptions.map((k) => {
           const on = fHsk.includes(k);
           return (
             <Pressable key={k} onPress={() => toggleIn(setFHsk)(k)} style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, backgroundColor: on ? '#e8f0ff' : '#fff', borderColor: on ? COLORS.jiayou : COLORS.line }}>
-              <Text style={{ color: on ? COLORS.jiayou : COLORS.muted, fontWeight: on ? '700' : '500', fontSize: 13.5 }}>{hskLabel(k)}</Text>
+              <Text style={{ color: on ? COLORS.jiayou : COLORS.muted, fontWeight: on ? '700' : '500', fontSize: 13.5 }}>{k === 'street' ? tr('qz_street') : hskLabel(k)}</Text>
             </Pressable>
           );
         })}
       </View>
 
-      <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Knowledge</Text>
+      <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{tr('co_knowledge')}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
         {KNOWLEDGE.map((b) => {
           const on = fKnow.includes(b.key);
           return (
             <Pressable key={b.key} onPress={() => toggleIn(setFKnow)(b.key)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, backgroundColor: on ? '#e8f0ff' : '#fff', borderColor: on ? COLORS.jiayou : COLORS.line }}>
               <Text style={{ fontSize: 15 }}>{b.emoji}</Text>
-              <Text style={{ color: on ? COLORS.jiayou : COLORS.muted, fontWeight: on ? '700' : '500', fontSize: 13.5 }}>{b.label}</Text>
+              <Text style={{ color: on ? COLORS.jiayou : COLORS.muted, fontWeight: on ? '700' : '500', fontSize: 13.5 }}>{tr(b.lk)}</Text>
             </Pressable>
           );
         })}
@@ -182,14 +185,14 @@ export default function CollectionScreen() {
 
       {purchasedPacks.length ? (
         <View style={{ marginBottom: 18 }}>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Pack</Text>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{tr('co_pack')}</Text>
           {/* Menu déroulant : sélectionne un pack acheté pour n'afficher que ses mots. */}
           <Pressable
             onPress={() => setPackMenuOpen((o) => !o)}
             style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderWidth: 1, borderColor: packMenuOpen ? COLORS.jiayou : COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 }}
           >
             <Text style={{ color: selectedPack ? '#1a1a2e' : COLORS.muted, fontWeight: selectedPack ? '700' : '500', fontSize: 14 }} numberOfLines={1}>
-              {selectedPack ? selectedPack.title : 'All words'}
+              {selectedPack ? selectedPack.title : tr('co_all_words')}
             </Text>
             <Ionicons name={packMenuOpen ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.muted} />
           </Pressable>
@@ -200,7 +203,7 @@ export default function CollectionScreen() {
                   onPress={() => { setFPackId(null); setPackMenuOpen(false); }}
                   style={{ paddingHorizontal: 14, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: !fPackId ? '#e8f0ff' : '#fff' }}
                 >
-                  <Text style={{ color: !fPackId ? COLORS.jiayou : '#1a1a2e', fontWeight: !fPackId ? '700' : '500', fontSize: 14 }}>All words</Text>
+                  <Text style={{ color: !fPackId ? COLORS.jiayou : '#1a1a2e', fontWeight: !fPackId ? '700' : '500', fontSize: 14 }}>{tr('co_all_words')}</Text>
                   {!fPackId ? <Ionicons name="checkmark" size={16} color={COLORS.jiayou} /> : null}
                 </Pressable>
                 {purchasedPacks.map((p) => {
@@ -224,17 +227,18 @@ export default function CollectionScreen() {
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Pressable onPress={resetFilters} disabled={!activeCount} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center', opacity: activeCount ? 1 : 0.5 }}>
-          <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Reset</Text>
+          <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{tr('co_reset')}</Text>
         </Pressable>
         <Pressable onPress={() => setFilterOpen(false)} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Show {deck.length}</Text>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('co_show')} {deck.length}</Text>
         </Pressable>
       </View>
     </Popup>
   );
 
-  // Bouton filtre flottant, partagé par les vues carte ET liste (bas-droite, au
-  // dessus du contenu, juste au-dessus de la TabBar).
+  // Bouton filtre flottant — vue LISTE uniquement (bas-droite, au-dessus de la
+  // TabBar). Ombre portée marquée (iOS shadow + elevation Android) pour le détacher
+  // du fond ; plus de fondu de vue sur ce FAB → pas de halo gris à craindre.
   const filterFab = (
     <Pressable
       onPress={() => setFilterOpen(true)}
@@ -243,13 +247,36 @@ export default function CollectionScreen() {
         position: 'absolute', bottom: TAB_CLEARANCE, right: 16, zIndex: 20,
         width: 54, height: 54, borderRadius: 27, backgroundColor: '#fff',
         alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.line,
-        // ombre iOS seule (pas d'elevation → pas de halo gris pendant le fondu de vue).
-        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.22, shadowRadius: 14,
+        elevation: 8,
       }}
     >
       <Ionicons name={activeCount ? 'funnel' : 'funnel-outline'} size={23} color={COLORS.jiayou} />
       {activeCount ? (
         <View style={{ position: 'absolute', top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{activeCount}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+
+  // Gélule filtre — vue CARTE : posée au-dessus de la carte, alignée à droite.
+  // (Le FAB flottant faisait un peu "collé à la TabBar" sur cette vue.)
+  const filterPill = (
+    <Pressable
+      onPress={() => setFilterOpen(true)}
+      hitSlop={8}
+      style={{
+        flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8,
+        borderWidth: 1, borderColor: activeCount ? COLORS.jiayou : COLORS.line,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8,
+      }}
+    >
+      <Ionicons name={activeCount ? 'funnel' : 'funnel-outline'} size={15} color={COLORS.jiayou} />
+      <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 13.5 }}>{tr('co_filter')}</Text>
+      {activeCount ? (
+        <View style={{ minWidth: 18, height: 18, borderRadius: 9, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
           <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{activeCount}</Text>
         </View>
       ) : null}
@@ -297,6 +324,13 @@ export default function CollectionScreen() {
         .start(() => { switchingRef.current = false; });
     });
   }, [screenFade]);
+
+  // Retour Android : en vue liste, revient à la vue carte (consomme le retour) ;
+  // en vue carte, on ne consomme pas → App.js remonte à l'accueil.
+  useAndroidBack(() => {
+    if (viewRef.current === 'list') { switchView('card'); return true; }
+    return false;
+  }, true, [switchView]);
 
   // Web : molette vers le bas depuis la carte → vue liste.
   // (Le scroll vers le haut dans la liste ne repasse PAS en vue carte : on laisse
@@ -389,7 +423,7 @@ export default function CollectionScreen() {
     return (
       <View className="flex-1 items-center justify-center px-8 bg-surface-page">
         <Ionicons name="documents-outline" size={40} color={COLORS.mutedLight} />
-        <Text className="text-muted mt-3 text-center">No words yet. Add some from “Add Word”.</Text>
+        <Text className="text-muted mt-3 text-center">{tr('co_no_words')}</Text>
       </View>
     );
   }
@@ -414,7 +448,7 @@ export default function CollectionScreen() {
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="Search your words…"
+              placeholder={tr('co_search')}
               placeholderTextColor={COLORS.mutedLight}
               autoCapitalize="none"
               style={{ flex: 1, backgroundColor: '#fff', borderRadius: 999, borderWidth: 1, borderColor: COLORS.line, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15 }}
@@ -429,7 +463,9 @@ export default function CollectionScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(x) => String(x.id)}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: TAB_CLEARANCE }}
+          // +80 : marge pour que le FAB filtre + la TabBar ne masquent pas les
+          // dernières lignes (elles restent atteignables et lisibles au scroll).
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: TAB_CLEARANCE + 80 }}
           renderItem={({ item, index }) => (
             <Pressable
               onPress={() => { setIdx(Math.max(0, deck.indexOf(item))); switchView('card'); }}
@@ -440,7 +476,7 @@ export default function CollectionScreen() {
               <Text style={{ color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{cap(item.english)}</Text>
             </Pressable>
           )}
-          ListEmptyComponent={<Text style={{ textAlign: 'center', color: COLORS.mutedLight, padding: 20 }}>No match.</Text>}
+          ListEmptyComponent={<Text style={{ textAlign: 'center', color: COLORS.mutedLight, padding: 20 }}>{tr('co_no_match')}</Text>}
         />
         </View>
         {filterFab}
@@ -453,13 +489,13 @@ export default function CollectionScreen() {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: COLORS.page }}>
         <Ionicons name="funnel-outline" size={40} color={COLORS.mutedLight} />
-        <Text style={{ color: COLORS.muted, marginTop: 12, textAlign: 'center' }}>No words match your filters.</Text>
+        <Text style={{ color: COLORS.muted, marginTop: 12, textAlign: 'center' }}>{tr('co_no_match_filters')}</Text>
         <View style={{ flexDirection: 'row', gap: 12, marginTop: 18 }}>
           <Pressable onPress={() => setFilterOpen(true)} style={{ borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 20 }}>
-            <Text style={{ color: COLORS.jiayou, fontWeight: '700' }}>Edit filters</Text>
+            <Text style={{ color: COLORS.jiayou, fontWeight: '700' }}>{tr('co_edit_filters')}</Text>
           </Pressable>
           <Pressable onPress={resetFilters} style={{ backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 22 }}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Clear filters</Text>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('co_clear_filters')}</Text>
           </Pressable>
         </View>
         {filterPopup}
@@ -505,7 +541,10 @@ export default function CollectionScreen() {
 
   return (
     <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 16, opacity: screenFade, transform: [{ scale: screenScale }] }}>
-      {filterFab}
+      {/* Gélule filtre posée au-dessus de la carte, alignée à droite. */}
+      <View style={{ width: cardW, flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
+        {filterPill}
+      </View>
 
       <Animated.View {...cardPan.panHandlers} style={{ width: cardW, height: cardH, opacity: fade }}>
         <View style={{ flex: 1, backgroundColor: '#fff', borderRadius: 24, padding: 18, ...SHADOW_CARD_FLAT }}>
@@ -513,7 +552,7 @@ export default function CollectionScreen() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Text style={{ fontSize: 22 }}>{scorePicto(w.score || 0)}</Text>
             <View style={{ borderWidth: 1, borderColor: COLORS.line, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-              <Text style={{ fontSize: 11, color: COLORS.muted, fontWeight: '600' }}>HSK : {w.hsk || 'Street'}</Text>
+              <Text style={{ fontSize: 11, color: COLORS.muted, fontWeight: '600' }}>HSK : {w.hsk || tr('qz_street')}</Text>
             </View>
           </View>
 
@@ -522,7 +561,7 @@ export default function CollectionScreen() {
           <View style={{ height: glyphBoxH, borderWidth: 1, borderColor: COLORS.lineSoft, borderRadius: 16, paddingHorizontal: 10, marginTop: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {learningEnglish ? (
               <Text style={{ fontSize: enSize, fontWeight: '800', color: COLORS.jiayou, textAlign: 'center' }}>
-                {w.english ? cap(w.english) : 'No translation'}
+                {w.english ? cap(w.english) : tr('co_no_translation')}
               </Text>
             ) : (
               // Chinois + pinyin ensemble dans l'encart du haut.
@@ -540,22 +579,22 @@ export default function CollectionScreen() {
           {/* Réponse (masquable), rapprochée de l'encart. en→zh : anglais. zh→en : chinois + pinyin. */}
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 6, paddingTop: 16 }}>
             {hideTranslation ? (
-              <Text style={{ color: COLORS.mutedLight, fontStyle: 'italic' }}>translation hidden</Text>
+              <Text style={{ color: COLORS.mutedLight, fontStyle: 'italic' }}>{tr('co_translation_hidden')}</Text>
             ) : learningEnglish ? (
               <>
                 {renderGlyphs(Math.min(zhSize, 40), true)}
                 <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.muted, marginTop: 6 }}>{w.pinyin}</Text>
                 <Text style={{ fontSize: 12.5, color: descriptionText ? COLORS.mutedLight : '#d3d7de', fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>
-                  {descriptionText || 'No description'}
+                  {descriptionText || tr('co_no_description')}
                 </Text>
               </>
             ) : (
               <>
                 <Text style={{ fontSize: 20, fontWeight: '600', color: COLORS.jiayou, textAlign: 'center' }}>
-                  {w.english ? cap(w.english) : 'No translation'}
+                  {w.english ? cap(w.english) : tr('co_no_translation')}
                 </Text>
                 <Text style={{ fontSize: 12.5, color: descriptionText ? COLORS.mutedLight : '#d3d7de', fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>
-                  {descriptionText || 'No description'}
+                  {descriptionText || tr('co_no_description')}
                 </Text>
               </>
             )}
@@ -579,7 +618,7 @@ export default function CollectionScreen() {
             >
               <Ionicons name={hideTranslation ? 'eye' : 'eye-off'} size={18} color={COLORS.muted} />
               <Text style={{ color: COLORS.muted, fontSize: 13, fontWeight: '600' }}>
-                {hideTranslation ? 'Show' : 'Hide'}
+                {hideTranslation ? tr('co_show_btn') : tr('co_hide_btn')}
               </Text>
             </Pressable>
             <Pressable onPress={() => setMenuOpen(true)} style={circleBtn}>
@@ -595,7 +634,7 @@ export default function CollectionScreen() {
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </Pressable>
         <Text numberOfLines={1} style={{ flex: 1, textAlign: 'center', marginHorizontal: 8, color: COLORS.mutedLight, fontSize: 12 }}>
-          {(idx % len) + 1} / {len} · swipe ↑ for the list
+          {(idx % len) + 1} / {len} · {tr('co_swipe_list')}
         </Text>
         <Pressable onPress={() => go('next')} style={{ width: 46, height: 46, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="chevron-forward" size={22} color="#fff" />
@@ -615,7 +654,7 @@ export default function CollectionScreen() {
               <View style={{ backgroundColor: COLORS.jiayouContainer, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4, marginTop: 12 }}>
                 <Text style={{ color: '#1976d2', fontWeight: '600' }}>{charInfo.data.pinyin || 'N/A'}</Text>
               </View>
-              <Text style={{ color: COLORS.muted, marginTop: 8, textAlign: 'center' }}>{charInfo.data.english || 'No translation'}</Text>
+              <Text style={{ color: COLORS.muted, marginTop: 8, textAlign: 'center' }}>{charInfo.data.english || tr('co_no_translation')}</Text>
               {charInfo.data.hsk ? (
                 <View style={{ backgroundColor: '#e8f5e8', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3, marginTop: 8 }}>
                   <Text style={{ color: '#2e7d32', fontSize: 12, fontWeight: '600' }}>HSK {charInfo.data.hsk}</Text>
@@ -623,7 +662,7 @@ export default function CollectionScreen() {
               ) : null}
             </>
           ) : (
-            <Text style={{ color: COLORS.mutedLight, marginTop: 12 }}>Character not registered</Text>
+            <Text style={{ color: COLORS.mutedLight, marginTop: 12 }}>{tr('co_char_not_registered')}</Text>
           )}
           <Pressable onPress={() => play(charInfo?.char, 'zh-CN', 'char')} style={[circleBtn, { marginTop: 16 }]}>
             {speakingKey === 'char'
@@ -637,21 +676,21 @@ export default function CollectionScreen() {
       <Popup visible={menuOpen} onClose={() => setMenuOpen(false)} maxWidth={300}>
         <Pressable onPress={() => { setMenuOpen(false); openEdit(w); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 }}>
           <Ionicons name="pencil" size={20} color={COLORS.jiayou} />
-          <Text style={{ fontSize: 16, fontWeight: '600', color: '#1d1d1f' }}>Edit word</Text>
+          <Text style={{ fontSize: 16, fontWeight: '600', color: '#1d1d1f' }}>{tr('co_edit_word')}</Text>
         </Pressable>
         <View style={{ height: 1, backgroundColor: COLORS.lineSoft }} />
         <Pressable onPress={() => { setMenuOpen(false); setConfirmDel(w); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 }}>
           <Ionicons name="trash" size={20} color={COLORS.danger} />
-          <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.danger }}>Delete word</Text>
+          <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.danger }}>{tr('co_delete_word')}</Text>
         </Pressable>
       </Popup>
 
       {/* ── Popup édition ── */}
       <Popup visible={!!editing} onClose={() => setEditing(null)} maxWidth={440}>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1d1d1f', marginBottom: 16 }}>Edit word</Text>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1d1d1f', marginBottom: 16 }}>{tr('co_edit_word')}</Text>
         {[
-          { key: 'chinese', label: 'Chinese' },
-          { key: 'pinyin', label: 'Pinyin' },
+          { key: 'chinese', label: tr('co_chinese') },
+          { key: 'pinyin', label: tr('co_pinyin') },
         ].map((f) => (
           <View key={f.key} style={{ marginBottom: 12 }}>
             <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{f.label}</Text>
@@ -666,14 +705,14 @@ export default function CollectionScreen() {
         ))}
 
         {/* English : sens multiples (stockés séparés par '/' en base). */}
-        <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>English</Text>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{tr('co_english')}</Text>
         {ef.englishList.map((val, i) => (
           <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <TextInput
               value={val}
               onChangeText={(t) => setEnglishAt(i, t)}
               autoCapitalize="none"
-              placeholder="English translation…"
+              placeholder={tr('co_english_ph')}
               placeholderTextColor={COLORS.mutedLight}
               style={{ flex: 1, borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16 }}
             />
@@ -686,43 +725,43 @@ export default function CollectionScreen() {
         ))}
         <Pressable onPress={addEnglish} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
           <Ionicons name="add-circle-outline" size={16} color={COLORS.jiayou} />
-          <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }}>Add another translation</Text>
+          <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }}>{tr('co_add_translation')}</Text>
         </Pressable>
 
         <View style={{ marginBottom: 12 }}>
-          <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>Description</Text>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{tr('co_description')}</Text>
           <TextInput
             value={ef.description}
             onChangeText={(t) => setEf((s) => ({ ...s, description: t }))}
             autoCapitalize="none"
             multiline
-            placeholder="Optional note or example…"
+            placeholder={tr('co_desc_ph')}
             placeholderTextColor={COLORS.mutedLight}
             style={{ borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, minHeight: 72, textAlignVertical: 'top' }}
           />
         </View>
         <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
           <Pressable onPress={() => setEditing(null)} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
-            <Text style={{ color: '#444', fontWeight: '600' }}>Cancel</Text>
+            <Text style={{ color: '#444', fontWeight: '600' }}>{tr('common_cancel')}</Text>
           </Pressable>
           <Pressable onPress={saveEdit} disabled={busy} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center' }}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text>}
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('common_save')}</Text>}
           </Pressable>
         </View>
       </Popup>
 
       {/* ── Popup suppression ── */}
       <Popup visible={!!confirmDel} onClose={() => setConfirmDel(null)} maxWidth={380}>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1d1d1f', marginBottom: 8 }}>Delete word</Text>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1d1d1f', marginBottom: 8 }}>{tr('co_delete_word')}</Text>
         <Text style={{ color: COLORS.muted, marginBottom: 20 }}>
-          Remove “{confirmDel?.chinese}” from your collection?
+          {tr('co_remove_confirm').replace('{word}', confirmDel?.chinese || '')}
         </Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Pressable onPress={() => setConfirmDel(null)} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
-            <Text style={{ color: '#444', fontWeight: '600' }}>Cancel</Text>
+            <Text style={{ color: '#444', fontWeight: '600' }}>{tr('common_cancel')}</Text>
           </Pressable>
           <Pressable onPress={doDelete} disabled={busy} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, backgroundColor: COLORS.danger, alignItems: 'center' }}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Delete</Text>}
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('common_delete')}</Text>}
           </Pressable>
         </View>
       </Popup>

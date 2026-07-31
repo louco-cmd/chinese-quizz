@@ -4,11 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import AccountCard from './AccountCard';
 import PackDetailPopup from '../PackDetailPopup';
 import { getPurchasedPacks } from '../../api';
+import { useT } from '../../i18n';
 import { COLORS } from '../../theme';
 
 // Carte "Purchased packs" de la page account : packs achetés (≠ créés). Tap sur
 // un pack → popup identique au store (PackDetailPopup) avec mots + "Start a quiz".
 export default function PurchasedPacksCard({ onStartQuiz }) {
+  const { t } = useT();
   const [packs, setPacks] = useState(null);
   const [selected, setSelected] = useState(null);
 
@@ -21,7 +23,7 @@ export default function PurchasedPacksCard({ onStartQuiz }) {
   if (packs !== null && packs.length === 0) return null;
 
   return (
-    <AccountCard icon="bag-handle-outline" title="Purchased packs">
+    <AccountCard icon="bag-handle-outline" title={t('ac_purchased_packs')}>
       {packs === null ? (
         <ActivityIndicator color={COLORS.jiayou} style={{ marginVertical: 12 }} />
       ) : (
@@ -34,7 +36,7 @@ export default function PurchasedPacksCard({ onStartQuiz }) {
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 15, fontWeight: '700', color: '#1a1a2e' }} numberOfLines={1}>{p.title}</Text>
               <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>
-                {p.word_count} words · by {p.creator}
+                {p.word_count} {t('st_words')} · {t('st_by')} {p.creator}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={COLORS.mutedLight} />

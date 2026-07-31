@@ -29,7 +29,7 @@ const html = (size, apiBase) => `<!doctype html><html><head>
 <div id="wrap"><div id="target"></div></div>
 <script>${HANZI_LIB}</script>
 <script>
-  var SIZE=${size}, API=${JSON.stringify(apiBase)}, CURRENT='', writer=null;
+  var SIZE=${size}, API=${JSON.stringify(apiBase)}, CURRENT='', writer=null, OUTLINE=false;
   function post(m){ if(window.ReactNativeWebView) window.ReactNativeWebView.postMessage(JSON.stringify(m)); }
 
   // Les tracés passent par notre backend (joignable partout), pas par un CDN.
@@ -55,7 +55,7 @@ const html = (size, apiBase) => `<!doctype html><html><head>
     writer=HanziWriter.create('target', ch, {
       width:SIZE, height:SIZE, padding:10,
       charDataLoader:loadChar,
-      showCharacter:false, showOutline:true, showHintAfterMisses:3,
+      showCharacter:false, showOutline:OUTLINE, showHintAfterMisses:3,
       strokeColor:'#1a1a2e', outlineColor:'#e2e6ee', drawingColor:'${COLORS.jiayou}',
       drawingWidth:26, highlightColor:'#a5c8ff', highlightOnComplete:true,
       onLoadCharDataError:function(){ post({type:'error', reason:'data'}); },
@@ -69,9 +69,13 @@ const html = (size, apiBase) => `<!doctype html><html><head>
     });
   }
   function hint(){ if(writer){ writer.animateCharacter({ onComplete:function(){ start(CURRENT); } }); } }
+  // Révèle le caractère en EXEMPLE : on réaffiche le contour (OUTLINE) et on anime
+  // l'ordre des traits, puis on relance le quiz par-dessus pour le recopier.
+  function reveal(){ OUTLINE=true; start(CURRENT); hint(); }
   function onMsg(e){ try{ var d=JSON.parse(e.data);
-    if(d.cmd==='start') start(d.char);
+    if(d.cmd==='start'){ OUTLINE=false; start(d.char); }
     else if(d.cmd==='hint') hint();
+    else if(d.cmd==='reveal') reveal();
     else if(d.cmd==='prefetch') prefetch(d.char);
   }catch(err){} }
   window.addEventListener('message', onMsg); document.addEventListener('message', onMsg);
@@ -81,7 +85,7 @@ const html = (size, apiBase) => `<!doctype html><html><head>
 // `char` = caractère à écrire ; `onComplete(mistakes)` quand le tracé est fini.
 // `hintNonce` : incrémenter pour déclencher une démo de l'ordre des traits.
 // `nextChar` (optionnel) est préchargé pendant que l'utilisateur trace le courant.
-export default function HanziQuiz({ char, nextChar, size = 260, onComplete, onProgress, hintNonce = 0 }) {
+export default function HanziQuiz({ char, nextChar, size = 260, onComplete, onProgress, hintNonce = 0, revealNonce = 0 }) {
   const ref = useRef(null);
   const ready = useRef(false);
   const [failed, setFailed] = useState(null); // 'lib' | 'data' | null
@@ -91,6 +95,7 @@ export default function HanziQuiz({ char, nextChar, size = 260, onComplete, onPr
   useEffect(() => { setFailed(null); if (ready.current && char) send({ cmd: 'start', char }); }, [char]);
   useEffect(() => { if (ready.current && nextChar) send({ cmd: 'prefetch', char: nextChar }); }, [nextChar]);
   useEffect(() => { if (ready.current && hintNonce) send({ cmd: 'hint' }); }, [hintNonce]);
+  useEffect(() => { if (ready.current && revealNonce) send({ cmd: 'reveal' }); }, [revealNonce]);
 
   function onMessage(e) {
     let d; try { d = JSON.parse(e.nativeEvent.data); } catch { return; }

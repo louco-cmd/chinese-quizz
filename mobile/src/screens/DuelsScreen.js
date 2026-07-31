@@ -15,6 +15,7 @@ import DuelDetailScreen from './DuelDetailScreen';
 import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getDuels, getLeaderboard, getReferral } from '../api';
+import { useT } from '../i18n';
 import { COLORS, TAB_CLEARANCE } from '../theme';
 
 function Empty({ text }) {
@@ -22,6 +23,7 @@ function Empty({ text }) {
 }
 
 export default function DuelsScreen({ onDefeat }) {
+  const { t } = useT();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
   const hPad = isDesktop ? 24 : 16;
@@ -102,7 +104,7 @@ export default function DuelsScreen({ onDefeat }) {
 
   // ── Blocs réutilisés dans les deux dispositions ──
   const statsCard = (
-    <DuelSectionCard icon="stats-chart" title="My statistics" note="See ranking" onPress={() => setShowLeaderboard(true)}>
+    <DuelSectionCard icon="stats-chart" title={t('quiz_mystats')} note={t('du_see_ranking')} onPress={() => setShowLeaderboard(true)}>
       <DuelStats wins={data.wins} losses={data.losses} />
     </DuelSectionCard>
   );
@@ -113,34 +115,34 @@ export default function DuelsScreen({ onDefeat }) {
         <CtaCard
           colors={['#1a7a4a', '#0f5132']}
           icon="flash"
-          title="Start a duel"
-          text="Challenge a player"
+          title={t('du_start')}
+          text={t('du_challenge_player')}
           onPress={() => setDuelPopup({ opponent: null })}
         />
         <CtaCard
           colors={['#4b5158', '#2b2f36']}
           icon="person-add"
-          title="Invite a friend"
-          text="Earn 80 coins"
+          title={t('du_invite')}
+          text={t('du_earn_coins')}
           onPress={openInvite}
         />
       </View>
 
       {data.pending.length > 0 ? (
-        <DuelSectionCard icon="time-outline" title="Pending duels" noBodyPad>
+        <DuelSectionCard icon="time-outline" title={t('du_pending')} noBodyPad>
           {data.pending.map((d, i) => <PendingDuelRow key={d.id} duel={d} last={i === data.pending.length - 1} onPlay={(du) => setPlayingDuel(du.id)} />)}
         </DuelSectionCard>
       ) : null}
 
-      <DuelSectionCard icon="hourglass-outline" title="Recent duels" noBodyPad>
+      <DuelSectionCard icon="hourglass-outline" title={t('du_recent')} noBodyPad>
         {(!data.recent || data.recent.length === 0)
-          ? <Empty text="No duels played yet." />
+          ? <Empty text={t('du_no_duels')} />
           : data.recent.map((d, i) => <RecentDuelRow key={d.id} duel={d} last={i === data.recent.length - 1} onPress={(du) => setDetailDuel(du.id)} />)}
       </DuelSectionCard>
 
-      <DuelSectionCard icon="people" title="Your rivals" note="Tap to challenge" noBodyPad>
+      <DuelSectionCard icon="people" title={t('du_rivals')} note={t('du_tap_challenge')} noBodyPad>
         {(!data.bullies || data.bullies.length === 0)
-          ? <Empty text="No rivals yet — play some bet duels!" />
+          ? <Empty text={t('du_no_rivals')} />
           : data.bullies.map((p, i) => (
             <PlayerRow key={p.id} player={p} last={i === data.bullies.length - 1} onChallenge={(pl) => setDuelPopup({ opponent: pl })} />
           ))}
@@ -180,21 +182,21 @@ export default function DuelsScreen({ onDefeat }) {
 
       {/* Invite a friend */}
       <Popup visible={showInvite} onClose={() => setShowInvite(false)} maxWidth={380}>
-        <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Invite a friend</Text>
+        <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{t('du_invite')}</Text>
         <Text style={{ fontSize: 14, color: COLORS.muted, lineHeight: 20, marginBottom: 16 }}>
-          Share Jiayou with a friend. When they join, you both earn 80 coins.
+          {t('du_invite_body')}
         </Text>
 
         {/* Aperçu du lien */}
         <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e3e8f7', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 20 }}>
           <Text style={{ fontSize: 13, color: inviteLink ? '#1a1a2e' : '#adb5bd' }} numberOfLines={1}>
-            {inviteLink || 'Generating your link…'}
+            {inviteLink || t('du_generating_link')}
           </Text>
         </View>
 
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Pressable onPress={() => setShowInvite(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Close</Text>
+            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_close')}</Text>
           </Pressable>
           <Pressable
             onPress={copyInviteLink}
@@ -202,7 +204,7 @@ export default function DuelsScreen({ onDefeat }) {
             style={{ flex: 1, backgroundColor: copied ? COLORS.success : COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: inviteLink ? 1 : 0.6 }}
           >
             <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700' }}>{copied ? 'Copied!' : 'Copy my link'}</Text>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>{copied ? t('du_copied') : t('du_copy_link')}</Text>
           </Pressable>
         </View>
       </Popup>

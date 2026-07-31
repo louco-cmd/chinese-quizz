@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { flagEmoji } from '../components/account/EditProfilePopup';
 import UserProfileScreen from './UserProfileScreen';
 import Avatar from '../components/Avatar';
+import { useT } from '../i18n';
+import useAndroidBack from '../useAndroidBack';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 function Stat({ value, label, color = '#1a1a2e' }) {
@@ -16,6 +18,7 @@ function Stat({ value, label, color = '#1a1a2e' }) {
 }
 
 function Row({ player, rank, last, onPress }) {
+  const { t } = useT();
   const medal = ['#f7c948', '#c0c4cc', '#d9945b'][rank - 1];
   return (
     <Pressable
@@ -50,10 +53,7 @@ function Row({ player, rank, last, onPress }) {
         ) : null}
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Stat value={player.total_words || 0} label="Words" />
-        <Stat value={`${player.ratio || 0}%`} label="Ratio" color={COLORS.jiayou} />
-      </View>
+      <Stat value={`${player.ratio || 0}%`} label={t('lb_ratio')} color={COLORS.jiayou} />
       <Ionicons name="chevron-forward" size={15} color="#c4c9d0" />
     </Pressable>
   );
@@ -61,9 +61,17 @@ function Row({ player, rank, last, onPress }) {
 
 // Page de classement dédiée (ouverte depuis "My statistics").
 export default function LeaderboardScreen({ board, onBack }) {
+  const { t } = useT();
   const { width } = useWindowDimensions();
   const hPad = width >= 992 ? 24 : 16;
   const [profileId, setProfileId] = useState(null);
+
+  // Retour Android : ferme d'abord le profil ouvert, sinon revient aux duels.
+  useAndroidBack(() => {
+    if (profileId) { setProfileId(null); return true; }
+    onBack();
+    return true;
+  }, true, [profileId, onBack]);
 
   // Ligne cliquée → profil public du joueur.
   if (profileId) {
@@ -78,21 +86,21 @@ export default function LeaderboardScreen({ board, onBack }) {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
             <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Ionicons name="chevron-back" size={22} color={COLORS.jiayou} />
-              <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 15 }}>Duels</Text>
+              <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 15 }}>{t('nav_duels')}</Text>
             </Pressable>
           </View>
 
           <View style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', ...SHADOW_CARD }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderColor: '#f0f0f0' }}>
               <Ionicons name="trophy" size={19} color="#f7c948" />
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#444' }}>Leaderboard</Text>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#444' }}>{t('lb_leaderboard')}</Text>
               <Text style={{ marginLeft: 'auto', fontSize: 12, color: COLORS.muted }}>
-                {board.length} player{board.length === 1 ? '' : 's'}
+                {board.length} {t('lb_players')}
               </Text>
             </View>
 
             {board.length === 0 ? (
-              <Text style={{ color: '#adb5bd', textAlign: 'center', paddingVertical: 24 }}>No ranked players yet.</Text>
+              <Text style={{ color: '#adb5bd', textAlign: 'center', paddingVertical: 24 }}>{t('lb_none')}</Text>
             ) : (
               board.map((p, i) => <Row key={p.id} player={p} rank={i + 1} last={i === board.length - 1} onPress={(pl) => setProfileId(pl.id)} />)
             )}

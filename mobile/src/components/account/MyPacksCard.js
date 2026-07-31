@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AccountCard from './AccountCard';
 import Popup from '../Popup';
 import { getMyPacks, updatePack, deletePack } from '../../api';
+import { useT } from '../../i18n';
 import { COLORS } from '../../theme';
 
 const inputStyle = {
@@ -12,6 +13,7 @@ const inputStyle = {
 };
 
 export default function MyPacksCard({ onNavigate }) {
+  const { t: tr } = useT();
   const [packs, setPacks] = useState(null);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ title: '', description: '', price: '' });
@@ -46,7 +48,7 @@ export default function MyPacksCard({ onNavigate }) {
   if (packs !== null && packs.length === 0) return null;
 
   return (
-    <AccountCard icon="pricetags-outline" title="My packs" actionLabel="Create a pack" onPress={() => onNavigate?.('create-pack')}>
+    <AccountCard icon="pricetags-outline" title={tr('ac_my_packs')} actionLabel={tr('ac_create_pack')} onPress={() => onNavigate?.('create-pack')}>
       {packs === null ? (
         <ActivityIndicator color={COLORS.jiayou} style={{ marginVertical: 12 }} />
       ) : (
@@ -59,7 +61,7 @@ export default function MyPacksCard({ onNavigate }) {
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 15, fontWeight: '700', color: '#1a1a2e' }} numberOfLines={1}>{p.title}</Text>
               <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>
-                {p.word_count} words · {p.sales_count || 0} sold · {p.price} ₵
+                {p.word_count} {tr('st_words')} · {p.sales_count || 0} {tr('mp_sold')} · {p.price} ₵
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={COLORS.mutedLight} />
@@ -71,38 +73,38 @@ export default function MyPacksCard({ onNavigate }) {
       <Popup visible={!!editing} onClose={() => { if (!busy) setEditing(null); }} maxWidth={440}>
         {confirmDel ? (
           <View>
-            <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Delete this pack?</Text>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{tr('mp_delete_title')}</Text>
             <Text style={{ fontSize: 14, color: COLORS.muted, marginBottom: 20, lineHeight: 20 }}>
-              “{editing?.title}” will be removed from the store. People who already bought it keep their words.
+              {tr('mp_delete_body').replace('{title}', editing?.title || '')}
             </Text>
             {error ? <Text style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12, fontWeight: '600' }}>{error}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <Pressable onPress={() => setConfirmDel(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
+                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{tr('common_cancel')}</Text>
               </Pressable>
               <Pressable onPress={remove} disabled={busy} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-                {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Delete</Text>}
+                {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('common_delete')}</Text>}
               </Pressable>
             </View>
           </View>
         ) : (
           <View>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e', marginBottom: 16 }}>Edit pack</Text>
-            <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, marginBottom: 4 }}>Title</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e', marginBottom: 16 }}>{tr('st_edit_pack')}</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, marginBottom: 4 }}>{tr('mp_title')}</Text>
             <TextInput value={form.title} onChangeText={(t) => setForm((f) => ({ ...f, title: t }))} maxLength={80} style={{ ...inputStyle, marginBottom: 12 }} />
-            <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, marginBottom: 4 }}>Description</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, marginBottom: 4 }}>{tr('mp_description')}</Text>
             <TextInput value={form.description} onChangeText={(t) => setForm((f) => ({ ...f, description: t }))} maxLength={300} multiline style={{ ...inputStyle, minHeight: 64, textAlignVertical: 'top', marginBottom: 12 }} />
-            <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, marginBottom: 4 }}>Price (₵)</Text>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, marginBottom: 4 }}>{tr('mp_price')}</Text>
             <TextInput value={form.price} onChangeText={(t) => setForm((f) => ({ ...f, price: t.replace(/[^0-9]/g, '') }))} keyboardType="number-pad" style={{ ...inputStyle, width: 120, marginBottom: 8 }} />
-            <Text style={{ fontSize: 12, color: COLORS.mutedLight, marginBottom: 16 }}>Words aren't editable — delete and recreate to change them.</Text>
+            <Text style={{ fontSize: 12, color: COLORS.mutedLight, marginBottom: 16 }}>{tr('mp_words_note')}</Text>
             {error ? <Text style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12, fontWeight: '600' }}>{error}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <Pressable onPress={() => setConfirmDel(true)} style={{ paddingVertical: 13, paddingHorizontal: 14, borderRadius: 999, borderWidth: 2, borderColor: '#f3d0d0', alignItems: 'center', flexDirection: 'row', gap: 6 }}>
                 <Ionicons name="trash" size={16} color={COLORS.danger} />
-                <Text style={{ color: COLORS.danger, fontWeight: '700' }}>Delete</Text>
+                <Text style={{ color: COLORS.danger, fontWeight: '700' }}>{tr('common_delete')}</Text>
               </Pressable>
               <Pressable onPress={save} disabled={busy || !form.title.trim()} style={{ flex: 1, backgroundColor: form.title.trim() ? COLORS.jiayou : '#e9ecef', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-                {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: form.title.trim() ? '#fff' : COLORS.muted, fontWeight: '700' }}>Save</Text>}
+                {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: form.title.trim() ? '#fff' : COLORS.muted, fontWeight: '700' }}>{tr('common_save')}</Text>}
               </Pressable>
             </View>
           </View>
