@@ -2125,17 +2125,20 @@ router.get('/api/m/leaderboard', requireToken, async (req, res) => {
          COUNT(*) FILTER (WHERE d.winner_id = u.id)::int AS wins,
          COUNT(*) FILTER (WHERE d.status = 'completed' AND d.winner_id IS NOT NULL
            AND d.winner_id <> u.id)::int AS losses,
-         (SELECT COUNT(*)::int FROM user_mots um WHERE um.user_id = u.id) AS total_words
+         (SELECT COUNT(*)::int FROM user_mots um WHERE um.user_id = u.id) AS total_words,
+         (u.last_login IS NOT NULL AND u.last_login >= NOW() - INTERVAL '14 days') AS active
        FROM users u
        LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
        WHERE u.quiz_direction = (SELECT quiz_direction FROM users WHERE id = $1)
          AND u.ghost_mode = FALSE AND u.role <> 'teacher'
-       GROUP BY u.id, u.name, u.tagline, u.country, u.avatar_icon, u.avatar_color
-       ORDER BY wins DESC, losses ASC, total_words DESC, u.id
+         AND u.name IS NOT NULL AND TRIM(u.name) <> ''
+       GROUP BY u.id, u.name, u.tagline, u.country, u.avatar_icon, u.avatar_color, u.last_login
+       ORDER BY active DESC, wins DESC, losses ASC, total_words DESC, u.id
        LIMIT 100`, [uid]);
     const leaderboard = rows.map((r) => {
       const played = r.wins + r.losses;
-      return { ...r, ratio: played > 0 ? Math.round((r.wins / played) * 100) : 0, isMe: r.id === uid };
+      const { active, ...rest } = r;
+      return { ...rest, ratio: played > 0 ? Math.round((r.wins / played) * 100) : 0, sleeping: !active, isMe: r.id === uid };
     });
     res.json({ leaderboard });
   } catch (e) {

@@ -40,8 +40,9 @@ function Row({ player, rank, last, onPress }) {
 
       <View style={{ flex: 1, minWidth: 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={{ fontWeight: '600', color: '#1a1a2e', fontSize: 14 }} numberOfLines={1}>{player.name}</Text>
+          <Text style={{ fontWeight: '600', color: player.sleeping ? '#9aa0a6' : '#1a1a2e', fontSize: 14 }} numberOfLines={1}>{player.name}</Text>
           {player.country ? <Text style={{ fontSize: 14 }}>{flagEmoji(player.country)}</Text> : null}
+          {player.sleeping ? <Ionicons name="moon" size={13} color="#adb5bd" /> : null}
           {player.isMe ? (
             <View style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 1 }}>
               <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>You</Text>
