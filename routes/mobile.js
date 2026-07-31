@@ -2131,9 +2131,8 @@ router.get('/api/m/leaderboard', requireToken, async (req, res) => {
        WHERE u.quiz_direction = (SELECT quiz_direction FROM users WHERE id = $1)
          AND u.ghost_mode = FALSE AND u.role <> 'teacher'
        GROUP BY u.id, u.name, u.tagline, u.country, u.avatar_icon, u.avatar_color
-       HAVING COUNT(*) FILTER (WHERE d.status = 'completed') > 0
-       ORDER BY wins DESC, losses ASC
-       LIMIT 50`, [uid]);
+       ORDER BY wins DESC, losses ASC, total_words DESC, u.id
+       LIMIT 100`, [uid]);
     const leaderboard = rows.map((r) => {
       const played = r.wins + r.losses;
       return { ...r, ratio: played > 0 ? Math.round((r.wins / played) * 100) : 0, isMe: r.id === uid };
