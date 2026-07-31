@@ -1,42 +1,54 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { completeTutorial } from '../api';
 import { COLORS } from '../theme';
 
-// Tutoriel élève — même design carrousel que le tuto prof. Pas d'images pour
-// l'instant : une icône occupe la zone visuelle (à remplacer par des captures
-// plus tard). Chaque slide a `icon`, `title`, `body`.
+// Tutoriel élève — carrousel. Chaque slide a `icon`, `title`, `body` et
+// (optionnel) `image` = capture d'écran. Si `image` est présente elle occupe la
+// zone visuelle ; sinon on retombe sur l'icône dégradée (aucune casse si les
+// fichiers ne sont pas encore déposés).
+//
+// Captures attendues dans `assets/tutorial/` (à décommenter les require une fois
+// les PNG déposés) :
+//   01-home.png · 02-collection.png · 03-stats.png
+//   04-duels.png · 05-store.png · 06-teacher.png
 const SLIDES = [
   {
     icon: 'earth',
+    image: require('../../assets/tutorial/01-home.png'),
     title: 'Join the Jiayou world',
     body: 'Learn Chinese better and faster with a community-powered app.',
   },
   {
     icon: 'bookmarks',
+    image: require('../../assets/tutorial/02-collection.png'),
     title: 'Collect your words',
     body: 'Save every word you meet and build your own growing collection.',
   },
   {
     icon: 'school',
+    image: require('../../assets/tutorial/03-stats.png'),
     title: 'Train yourself',
     body: 'Practise with personalised quizzes and flash cards to make each word stick.',
   },
   {
     icon: 'trophy',
+    image: require('../../assets/tutorial/04-duels.png'),
     title: 'Challenge your friends',
     body: 'Take on your friends in duels and show them who is the best — mind the coin bets!',
   },
   {
     icon: 'pricetags',
+    image: require('../../assets/tutorial/05-store.png'),
     title: 'Thematic word packs',
     body: 'Build, share and get ready-made vocabulary packs on the JiaStore.',
   },
   {
     icon: 'person-add',
+    image: require('../../assets/tutorial/06-teacher.png'),
     title: 'Invite your teacher',
     body: 'Add your teacher so they can follow your learning and send you homework.',
   },
@@ -75,13 +87,21 @@ export default function TutorialScreen({ onDone, onClose }) {
           width: '100%', maxWidth: 560, backgroundColor: '#fff', borderRadius: 28, padding: 24,
           shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.08, shadowRadius: 32, elevation: 4,
         }}>
-          {/* Zone visuelle (icône pour l'instant, image plus tard) */}
-          <LinearGradient
-            colors={['#1772F5', '#1EBCEE']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={{ height: 300, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Ionicons name={slide.icon} size={96} color="rgba(255,255,255,0.95)" />
-          </LinearGradient>
+          {/* Zone visuelle : capture d'écran si fournie, sinon icône dégradée.
+              Les captures sont déjà sur fond bleu → `contain` sur un fond bleu
+              assorti pour les afficher en entier sans rognage. */}
+          {slide.image ? (
+            <View style={{ height: 300, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1772F5', alignItems: 'center', justifyContent: 'center' }}>
+              <Image source={slide.image} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
+            </View>
+          ) : (
+            <LinearGradient
+              colors={['#1772F5', '#1EBCEE']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={{ height: 300, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name={slide.icon} size={96} color="rgba(255,255,255,0.95)" />
+            </LinearGradient>
+          )}
           <Text style={{ fontSize: 26, fontWeight: '700', color: COLORS.jiayou, marginTop: 18, letterSpacing: -0.4 }}>{slide.title}</Text>
           <Text style={{ fontSize: 15, color: '#4b5565', lineHeight: 24, marginTop: 10 }}>{slide.body}</Text>
         </View>
