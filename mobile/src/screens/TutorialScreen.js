@@ -88,16 +88,17 @@ export default function TutorialScreen({ onDone, onClose }) {
           shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.08, shadowRadius: 32, elevation: 4,
         }}>
           {/* Zone visuelle : capture d'écran si fournie, sinon icône dégradée.
-              Les captures sont déjà sur fond bleu → `contain` sur un fond bleu
-              assorti pour les afficher en entier sans rognage. */}
+              Les captures font 800×600 (4:3) et ont déjà un fond bleu : on cale la
+              boîte sur ce ratio (pleine largeur) → l'image remplit tout le cadre,
+              sans bandes ni rognage. */}
           {slide.image ? (
-            <View style={{ height: 300, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1772F5', alignItems: 'center', justifyContent: 'center' }}>
-              <Image source={slide.image} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
+            <View style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1772F5' }}>
+              <Image source={slide.image} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
             </View>
           ) : (
             <LinearGradient
               colors={['#1772F5', '#1EBCEE']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={{ height: 300, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+              style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
             >
               <Ionicons name={slide.icon} size={96} color="rgba(255,255,255,0.95)" />
             </LinearGradient>
