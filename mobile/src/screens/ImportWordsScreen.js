@@ -14,10 +14,10 @@ const STATUS = {
   owned: { label: 'In collection', color: COLORS.muted, bg: '#eceef1' },
 };
 
-const PLACEHOLDER = `你好, hello
-谢谢, thank you
+const PLACEHOLDER = `你好
+谢谢
 再见
-学习, xué xí, to study`;
+学习`;
 
 export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir }) {
   const [step, setStep] = useState('paste'); // paste | preview | done
@@ -90,9 +90,9 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
           <View style={{ backgroundColor: '#eef4ff', borderRadius: 12, padding: 12, marginBottom: 14, flexDirection: 'row', gap: 8 }}>
             <Ionicons name="information-circle" size={18} color={COLORS.jiayou} />
             <Text style={{ flex: 1, fontSize: 12.5, color: '#33415c', lineHeight: 18 }}>
-              One entry per line. Just the Chinese, or <Text style={{ fontWeight: '700' }}>Chinese, English</Text>, or{' '}
-              <Text style={{ fontWeight: '700' }}>Chinese, pinyin, English</Text>. Commas, tabs or semicolons all work.
-              Pinyin is auto-filled; you'll review everything before importing.
+              Paste <Text style={{ fontWeight: '700' }}>Chinese words</Text>, one per line. Only the Chinese is read —
+              pinyin and English are filled automatically from the dictionary. Review and edit everything in the next
+              step before importing.
             </Text>
           </View>
           <TextInput

@@ -12,6 +12,7 @@ const { pool, reconcileHskPacks } = require('../config/database');
 const { generateDuelQuiz, addTransaction, updateWordScore } = require('../middleware/index');
 const { sendExpoPush } = require('../middleware/push.service');
 const { registerLimiter, loginLimiter, validateSignupEmail } = require('../middleware/signup-guard');
+const cedict = require('../lib/cedict');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const router = express.Router();
@@ -763,14 +764,20 @@ router.post('/api/m/import/preview', requireToken, async (req, res) => {
 
       const rows = unique.map((r) => {
         const d = dictMap.get(r.chinese);
-        // Mot connu → on GARDE la traduction/pinyin du dico (ce qui sera stocké,
-        // l'import n'écrase jamais). Mot inconnu → on prend ceux de ta liste.
-        const pinyin = d?.pinyin || r.pinyin || (toPinyin ? toPinyin(r.chinese, { toneType: 'symbol' }) : '');
-        const english = d?.english || r.latin || '';
-        // owned = déjà dans ta collection ; known = reconnu dans le dictionnaire ;
-        // new = créé avec ta traduction ; sinon à traduire.
+        // On ne fait JAMAIS confiance au pinyin/anglais tapé par l'utilisateur.
+        //  • Mot connu du dico → on source pinyin + anglais depuis la base.
+        //  • Mot inconnu → pinyin toujours généré par pinyin-pro ; l'anglais est
+        //    auto-rempli via CC-CEDICT s'il existe, sinon laissé VIDE.
+        const pinyin = d?.pinyin || (toPinyin ? toPinyin(r.chinese, { toneType: 'symbol' }) : '');
+        // Anglais : base d'abord, sinon CEDICT (mot à créer), sinon vide.
+        const cedictEn = d?.english ? '' : cedict.translate(r.chinese);
+        const english = d?.english || cedictEn || '';
+        // owned : déjà dans ta collection · known : trad de la base (lecture seule)
+        // new : rempli via CEDICT (mot créé, éditable) · needs_translation : à saisir.
         const status = d?.owned ? 'owned'
-          : (!english ? 'needs_translation' : (d ? 'known' : 'new'));
+          : d?.english ? 'known'
+            : english ? 'new'
+              : 'needs_translation';
         return { chinese: r.chinese, pinyin, english, status };
       });
       return res.json({ rows, stats: buildStats(rows, duplicates), direction: 'en→zh' });

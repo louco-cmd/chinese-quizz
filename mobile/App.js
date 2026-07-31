@@ -348,7 +348,7 @@ export default function App() {
             (quiz, recherche de collection…). Sur l'accueil (Add Word) le champ de
             recherche est en HAUT : masquer toute la barre + le chat à chaque focus
             donnait l'impression que la nav-bar « disparaissait » par intermittence. */}
-        {(kbOpen && tab !== 'add') || tab === 'settings' || tab === 'pricing' ? null : (
+        {(kbOpen && tab !== 'add') || tab === 'settings' || tab === 'pricing' || tab === 'import' ? null : (
           <TabBar active={tab} onChange={setTab} showChar={tab === 'add'} />
         )}
       </View>
