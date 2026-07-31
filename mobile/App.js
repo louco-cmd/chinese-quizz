@@ -344,7 +344,11 @@ export default function App() {
         <View className="flex-1">{renderScreen()}</View>
         {/* Barre masquée au clavier et sur les pages secondaires plein écran
             (réglages, abonnement). Fondu coupé sur Add Word (fond dégradé). */}
-        {kbOpen || tab === 'settings' || tab === 'pricing' ? null : (
+        {/* On masque la barre au clavier UNIQUEMENT là où un champ est en bas
+            (quiz, recherche de collection…). Sur l'accueil (Add Word) le champ de
+            recherche est en HAUT : masquer toute la barre + le chat à chaque focus
+            donnait l'impression que la nav-bar « disparaissait » par intermittence. */}
+        {(kbOpen && tab !== 'add') || tab === 'settings' || tab === 'pricing' ? null : (
           <TabBar active={tab} onChange={setTab} showChar={tab === 'add'} />
         )}
       </View>
