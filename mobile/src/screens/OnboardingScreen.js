@@ -284,6 +284,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
         >
           <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center' }}>
             {error ? <Text className="text-danger text-[13px] font-semibold mb-2 text-center">{error}</Text> : null}
+            <Text className="text-muted text-[12.5px] text-center mb-2">You can always buy more packs later.</Text>
             <PrimaryButton label="Let's start" onPress={finishLearner} saving={saving} />
           </View>
         </View>
