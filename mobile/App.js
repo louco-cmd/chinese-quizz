@@ -255,7 +255,7 @@ export default function App() {
     switch (tab) {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
       case 'collection': return <CollectionScreen />;
-      case 'add': return <AddWordScreen />;
+      case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
       case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} />;
       case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} />;
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} />;

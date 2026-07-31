@@ -11,7 +11,7 @@ const crypto = require('crypto');
 const { pool, reconcileHskPacks } = require('../config/database');
 const { generateDuelQuiz, addTransaction, updateWordScore } = require('../middleware/index');
 const { sendExpoPush } = require('../middleware/push.service');
-const { registerLimiter, validateSignupEmail } = require('../middleware/signup-guard');
+const { registerLimiter, loginLimiter, validateSignupEmail } = require('../middleware/signup-guard');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const router = express.Router();
@@ -58,7 +58,7 @@ function requireToken(req, res, next) {
 }
 
 // ── POST /api/auth/token : login email/mot de passe → JWT ────────────────────
-router.post('/api/auth/token', async (req, res) => {
+router.post('/api/auth/token', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body || {};
     if (!email || !password) {
@@ -97,7 +97,7 @@ router.post('/api/auth/token', async (req, res) => {
 
 // ── POST /api/auth/check-email : email-first (signup / login / google_only) ──
 // Miroir de /auth/check-email : dit au client quelle étape présenter.
-router.post('/api/auth/check-email', async (req, res) => {
+router.post('/api/auth/check-email', loginLimiter, async (req, res) => {
   try {
     const email = String(req.body?.email || '').toLowerCase().trim();
     if (!email) return res.status(400).json({ error: 'Email required' });
@@ -459,22 +459,65 @@ router.get('/api/m/pinyin', requireToken, async (req, res) => {
 });
 
 // ── POST /api/m/words/:motId/capture : ajoute un mot existant à sa collection ──
+// Capturer un mot du dico dans sa collection COÛTE 3 coins (même tarif que la
+// création d'un mot). Transaction : solde verrouillé, débit + ledger + insert.
+// Idempotent : si déjà possédé, aucun débit.
 router.post('/api/m/words/:motId/capture', requireToken, async (req, res) => {
+  const motId = parseInt(req.params.motId, 10);
+  if (!motId) return res.status(400).json({ error: 'Invalid word' });
+  const userId = req.tokenUser.id;
+  const COST = 3;
+  const client = await pool.connect();
   try {
-    const motId = parseInt(req.params.motId, 10);
-    if (!motId) return res.status(400).json({ error: 'Invalid word' });
-    await pool.query(
-      `INSERT INTO user_mots (user_id, mot_id, score)
-       SELECT $1, $2, 0
-       WHERE NOT EXISTS (
-         SELECT 1 FROM user_mots WHERE user_id = $1 AND mot_id = $2
-       )`,
-      [req.tokenUser.id, motId]
+    await client.query('BEGIN');
+
+    // Déjà possédé → no-op idempotent, aucun débit.
+    const { rows: owned } = await client.query(
+      'SELECT 1 FROM user_mots WHERE user_id = $1 AND mot_id = $2', [userId, motId]
     );
-    res.json({ success: true });
+    if (owned.length) {
+      await client.query('ROLLBACK');
+      const { rows: b } = await pool.query('SELECT balance FROM users WHERE id = $1', [userId]);
+      return res.json({ success: true, alreadyOwned: true, newBalance: b[0]?.balance ?? null });
+    }
+
+    // Le mot doit exister dans le dictionnaire.
+    const { rows: motRows } = await client.query('SELECT id, chinese FROM mots WHERE id = $1', [motId]);
+    if (!motRows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Word not found' }); }
+
+    // Solde verrouillé + vérification du coût.
+    const { rows: userRows } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    if (!userRows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'User not found' }); }
+    const balance = userRows[0].balance;
+    if (balance < COST) {
+      await client.query('ROLLBACK');
+      return res.status(402).json({ error: 'Insufficient balance (3 coins required)', insufficient: true, cost: COST, balance });
+    }
+
+    // Plafond du plan free (600 mots), comme à la création.
+    const premium = await isUserPremium(userId);
+    const maxWords = premium ? 100000 : 600;
+    const { rows: wc } = await client.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1', [userId]);
+    if (wc[0].n >= maxWords) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: `Free limit reached (${maxWords} words). Go Premium for unlimited.`, limitReached: true, max: maxWords });
+    }
+
+    await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [COST, userId]);
+    await client.query(
+      `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)`,
+      [userId, -COST, 'capture_word', `Captured word ${motRows[0].chinese}`]
+    );
+    await client.query('INSERT INTO user_mots (user_id, mot_id, score) VALUES ($1, $2, 0)', [userId, motId]);
+
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance: balance - COST });
   } catch (e) {
+    await client.query('ROLLBACK');
     console.error('m/capture error:', e);
     res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
   }
 });
 

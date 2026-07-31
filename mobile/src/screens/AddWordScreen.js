@@ -33,7 +33,7 @@ function isChinese(s) {
   return /[一-鿿]/.test(s || '');
 }
 
-export default function AddWordScreen() {
+export default function AddWordScreen({ onBalanceChanged }) {
   const { width: screenW } = useWindowDimensions();
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);
@@ -127,12 +127,16 @@ export default function AddWordScreen() {
   }
 
   async function capture(id) {
+    setError('');
     setCaptured((c) => ({ ...c, [id]: 'loading' }));
     try {
       await captureWord(id);
       setCaptured((c) => ({ ...c, [id]: true }));
-    } catch {
+      onBalanceChanged?.(); // capturer coûte 3 coins → rafraîchir le solde du header
+    } catch (e) {
       setCaptured((c) => ({ ...c, [id]: false }));
+      // Solde insuffisant ou plafond free → on le dit clairement.
+      setError(e.message || 'Could not capture this word.');
     }
   }
 
@@ -190,6 +194,7 @@ export default function AddWordScreen() {
     try {
       const d = await createWord({ chinese, pinyin, english, description });
       if (d.word) setCaptured((c) => ({ ...c, [d.word.id]: true }));
+      onBalanceChanged?.(); // création coûte 3 coins → rafraîchir le solde
       setEditor(null);
       setShowResults(false);
       setQ('');

@@ -14,6 +14,20 @@ const registerLimiter = rateLimit({
   message: { error: 'Too many accounts created from this network. Try again later.' },
 });
 
+// Limite stricte anti-brute-force pour le LOGIN (mot de passe) et la vérification
+// d'email. La limite globale /api (200/min) est bien trop lâche pour empêcher un
+// bourrage de mots de passe. `skipSuccessfulRequests` : seuls les échecs (401/4xx)
+// consomment le quota → un utilisateur légitime qui se trompe 1-2 fois puis
+// réussit n'est jamais bloqué.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,           // 15 min
+  max: 10,                            // 10 échecs / IP / 15 min
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please wait a few minutes and try again.' },
+});
+
 // Domaines jetables / de test : signature nette des bots (@example.com de la
 // capture, adresses temporaires). Liste courte des plus courants ; extensible.
 const BLOCKED_DOMAINS = new Set([
@@ -34,4 +48,4 @@ function validateSignupEmail(raw) {
   return { ok: true, email };
 }
 
-module.exports = { registerLimiter, validateSignupEmail, BLOCKED_DOMAINS };
+module.exports = { registerLimiter, loginLimiter, validateSignupEmail, BLOCKED_DOMAINS };
