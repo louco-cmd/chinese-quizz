@@ -27,7 +27,6 @@ const {
   addTransaction
 } = require('./middleware/index');
 const { sendPasswordResetEmail, sendVerificationEmail, sendReengagementEmail } = require('./middleware/mail.service');
-const { withSubscription } = require('./middleware/subscription');
 const { initVapid, sendPushToUser } = require('./middleware/push.service');
 initVapid();
 const cron = require('node-cron');
