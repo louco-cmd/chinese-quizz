@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import GoogleSignIn from '../components/GoogleSignIn';
 import { login, register, checkEmail, loginWithGoogle, setToken } from '../api';
 
@@ -29,6 +30,7 @@ const GOOGLE_FAIL_MSG =
 export default function LoginScreen({ onLoggedIn, onForgot }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false); // afficher/masquer le mot de passe
   const [step, setStep] = useState('email'); // 'email' | 'login' | 'signup' | 'google_only'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -79,7 +81,7 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
   }
 
   function resetEmail() {
-    setStep('email'); setPassword(''); setError('');
+    setStep('email'); setPassword(''); setError(''); setShowPw(false);
   }
 
   const onEmailKey = () => { if (step === 'email') continueEmail(); };
@@ -147,12 +149,21 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
             {/* Étape 2 : mot de passe (login ou signup) */}
             {(step === 'login' || step === 'signup') && (
               <>
-                <TextInput
-                  style={inputStyle}
-                  secureTextEntry value={password} onChangeText={setPassword}
-                  autoFocus onSubmitEditing={step === 'login' ? doLogin : doSignup} returnKeyType="go"
-                  placeholder={step === 'signup' ? 'Choose a password' : 'Password'} placeholderTextColor="#9aa4b2"
-                />
+                <View style={{ position: 'relative' }}>
+                  <TextInput
+                    style={[inputStyle, { paddingRight: 46 }]}
+                    secureTextEntry={!showPw} value={password} onChangeText={setPassword}
+                    autoFocus onSubmitEditing={step === 'login' ? doLogin : doSignup} returnKeyType="go"
+                    placeholder={step === 'signup' ? 'Choose a password' : 'Password'} placeholderTextColor="#9aa4b2"
+                  />
+                  {/* Toggle œil : afficher/masquer le mot de passe. */}
+                  <Pressable
+                    onPress={() => setShowPw((v) => !v)} hitSlop={8}
+                    style={{ position: 'absolute', right: 14, top: 0, bottom: 12, justifyContent: 'center' }}
+                  >
+                    <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={21} color="#9aa4b2" />
+                  </Pressable>
+                </View>
                 {step === 'signup' && (
                   <Text className="text-gray-400 text-xs mb-3 -mt-1">At least 8 characters, 1 uppercase and 1 number.</Text>
                 )}
