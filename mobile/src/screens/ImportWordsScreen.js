@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ActivityIndicator, FlatList, ScrollView,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { importPreview, importCommit } from '../api';
 import { COLORS, SHADOW_CARD } from '../theme';
 
@@ -20,6 +21,7 @@ const PLACEHOLDER = `你好
 学习`;
 
 export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir }) {
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState('paste'); // paste | preview | done
   const [text, setText] = useState('');
   const [rows, setRows] = useState([]);
@@ -85,7 +87,7 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
     return (
       <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
         {Hero}
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, width: '100%', maxWidth: 640, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
           <View style={{ backgroundColor: '#eef4ff', borderRadius: 12, padding: 12, marginBottom: 14, flexDirection: 'row', gap: 8 }}>
             <Ionicons name="information-circle" size={18} color={COLORS.jiayou} />
@@ -175,7 +177,7 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
       <FlatList
         data={rows}
         keyExtractor={(r, i) => `${r.chinese}-${i}`}
-        contentContainerStyle={{ padding: 16, width: '100%', maxWidth: 640, alignSelf: 'center', paddingBottom: 100 }}
+        contentContainerStyle={{ padding: 16, width: '100%', maxWidth: 640, alignSelf: 'center', paddingBottom: 120 + insets.bottom }}
         ListHeaderComponent={StatsBar}
         renderItem={({ item, index }) => {
           const st = STATUS[item.status] || STATUS.new;
@@ -227,8 +229,8 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
       />
 
       {/* Barre d'action fixe : bouton Importer centré + lien Edit à gauche */}
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: COLORS.line, paddingVertical: 12, justifyContent: 'center', alignItems: 'center' }}>
-        <Pressable onPress={() => setStep('paste')} hitSlop={8} style={{ position: 'absolute', left: 16, top: 0, bottom: 0, justifyContent: 'center' }}>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: COLORS.line, paddingTop: 12, paddingBottom: 12 + insets.bottom, justifyContent: 'center', alignItems: 'center' }}>
+        <Pressable onPress={() => setStep('paste')} hitSlop={8} style={{ position: 'absolute', left: 16, top: 0, bottom: insets.bottom, justifyContent: 'center' }}>
           <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Edit</Text>
         </Pressable>
         <Pressable
@@ -247,7 +249,7 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
         </Pressable>
       </View>
       {error ? (
-        <Text style={{ position: 'absolute', bottom: 70, alignSelf: 'center', color: COLORS.danger, fontSize: 13, fontWeight: '600' }}>{error}</Text>
+        <Text style={{ position: 'absolute', bottom: 76 + insets.bottom, alignSelf: 'center', color: COLORS.danger, fontSize: 13, fontWeight: '600' }}>{error}</Text>
       ) : null}
     </View>
   );
