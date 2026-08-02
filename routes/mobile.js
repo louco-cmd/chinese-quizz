@@ -891,6 +891,12 @@ router.post('/api/m/import/commit', requireToken, async (req, res) => {
       pushed.add(id);
       candidates.push(id);
     }
+    // Free déjà au plafond : rien ne peut être ajouté → paywall (au lieu d'un
+    // import « 0 mot » silencieux avec un simple succès).
+    if (!premium && remaining === 0 && candidates.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: `Free limit reached (${maxWords} words). Go Premium for unlimited.`, upgradeRequired: true, feature: 'words', max: maxWords });
+    }
     const toAdd = candidates.slice(0, remaining);
     if (toAdd.length) {
       await client.query(
@@ -1089,6 +1095,17 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
       if (bought[0].n >= FREE_LIMITS.packsMax) {
         await client.query('ROLLBACK');
         return res.status(403).json({ error: `Free users can buy up to ${FREE_LIMITS.packsMax} packs.`, upgradeRequired: true, feature: 'pack_limit' });
+      }
+      // Plafond de mots : un pack ne doit pas faire dépasser les 600 mots du free.
+      // On compte les mots du pack pas encore possédés (ceux qui seraient ajoutés).
+      const { rows: wc } = await client.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1', [uid]);
+      const { rows: newW } = await client.query(
+        `SELECT COUNT(*)::int AS n FROM word_pack_items i
+         WHERE i.pack_id = $1 AND NOT EXISTS (SELECT 1 FROM user_mots um WHERE um.user_id = $2 AND um.mot_id = i.mot_id)`,
+        [id, uid]);
+      if (wc[0].n + newW[0].n > 600) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Free limit reached (600 words). This pack would exceed it. Go Premium for unlimited.', upgradeRequired: true, feature: 'words', max: 600 });
       }
     }
 
