@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, ActivityIndicator,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
@@ -110,11 +110,13 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: '#f8f9fa' }}
-      // iOS : on décale le contenu avec un padding égal à la hauteur du clavier.
-      // Android : `undefined` → on laisse `adjustResize` (défaut Expo) rétrécir la
-      // fenêtre ; c'est le `style flex:1` de la ScrollView (ci-dessous) qui la borne
-      // à cette nouvelle hauteur et rend le bas de nouveau atteignable au scroll.
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      // `padding` sur les DEUX plateformes : le composant écoute les events clavier
+      // et ajoute un padding bas = hauteur du clavier, poussant le contenu vers le
+      // haut. On ne peut PAS compter sur `adjustResize` côté Android : en SDK 57
+      // l'edge-to-edge est activé par défaut et la fenêtre ne se redimensionne plus
+      // sous le clavier → `undefined`/`height` ne poussaient rien (champs cachés).
+      behavior="padding"
+      keyboardVerticalOffset={0}
     >
       {/* `style flex:1` = ScrollView bornée à la fenêtre (indispensable pour que la
           zone scrollable rétrécisse avec le clavier). `paddingBottom` = marge pour
