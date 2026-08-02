@@ -79,6 +79,11 @@ export async function clearPendingRef() {
 let upgradeHandler = null;
 export function setUpgradeHandler(fn) { upgradeHandler = fn; }
 
+// Solde insuffisant (402 `insufficient`) : il n'existe pas d'achat de pièces →
+// on affiche une popup « comment gagner des pièces » (mêmes raisons que le paywall).
+let coinsHandler = null;
+export function setCoinsHandler(fn) { coinsHandler = fn; }
+
 async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {
@@ -96,6 +101,8 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
     // s'affiche même si l'appelant avale l'erreur silencieusement).
     if (data && data.upgradeRequired && upgradeHandler) {
       try { upgradeHandler(data.feature || 'default', data); } catch { /* noop */ }
+    } else if (data && data.insufficient && coinsHandler) {
+      try { coinsHandler(data); } catch { /* noop */ }
     }
     const err = new Error(data.error || `HTTP ${res.status}`);
     err.status = res.status;

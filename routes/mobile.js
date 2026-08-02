@@ -546,7 +546,7 @@ router.post('/api/m/words', requireToken, async (req, res) => {
     const balance = userRows[0].balance;
     if (balance < COST) {
       await client.query('ROLLBACK');
-      return res.status(402).json({ error: 'Insufficient balance (3 coins required)' });
+      return res.status(402).json({ error: 'Insufficient balance (3 coins required)', insufficient: true, cost: COST, balance });
     }
 
     // Upsert du mot par `chinese`
@@ -1097,7 +1097,7 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
 
     const { rows: bal } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [uid]);
     if (!bal.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'User not found' }); }
-    if (bal[0].balance < pack.price) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Not enough coins' }); }
+    if (bal[0].balance < pack.price) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Not enough coins', insufficient: true, cost: pack.price, balance: bal[0].balance }); }
 
     // Ajoute les mots du pack non déjà possédés
     const ins = await client.query(
@@ -1240,7 +1240,7 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       const { rows: balRows } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [uid]);
       if ((balRows[0]?.balance ?? 0) < cost) {
         await client.query('ROLLBACK');
-        return res.status(402).json({ error: `Not enough coins (need ${cost} ₵).`, cost });
+        return res.status(402).json({ error: `Not enough coins (need ${cost} ₵).`, insufficient: true, cost, balance: balRows[0]?.balance ?? 0 });
       }
       let toPinyin = null;
       try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente */ }
@@ -1428,7 +1428,7 @@ router.post('/api/m/bank/red-envelope', requireToken, async (req, res) => {
     if (!rcpt.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Recipient not found.' }); }
 
     const { rows: me } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [uid]);
-    if ((me[0]?.balance ?? 0) < amount) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Not enough coins.' }); }
+    if ((me[0]?.balance ?? 0) < amount) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Not enough coins.', insufficient: true, cost: amount, balance: me[0]?.balance ?? 0 }); }
 
     await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [amount, uid]);
     await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [amount, recipientId]);

@@ -279,6 +279,15 @@ export const TRANSLATIONS = {
     pw_hsk_pack: 'HSK 4, 5 & 6 packs are Premium. Unlock them all with Premium.',
     pw_ghost: 'Ghost mode is a Premium feature. Go Premium to stay invisible.',
     pw_default: "You've reached a limit of the free plan. Go Premium to unlock everything.",
+    // ── Solde insuffisant : comment gagner des pièces ──
+    ic_title: 'You need more coins',
+    ic_intro: '5 ways to earn them:',
+    ic_way_quiz: 'Do quizzes and get good marks',
+    ic_way_duel: 'Bet and win duels',
+    ic_way_redpocket: 'Beg your friends for a red pocket',
+    ic_way_pack: 'Create word packs and hope people buy them',
+    ic_way_invite: 'Invite your friends to Jiayou (referral link)',
+    ic_got_it: 'Got it',
   },
   zh: {
     nav_teachers: '老师',
@@ -554,6 +563,15 @@ export const TRANSLATIONS = {
     pw_hsk_pack: 'HSK 4、5、6 词包为高级版专享。升级即可全部解锁。',
     pw_ghost: '隐身模式是高级版功能。升级高级版，保持隐身。',
     pw_default: '你达到了免费版的一个上限。升级高级版，解锁全部功能。',
+    // ── 金币不足：如何赚取金币 ──
+    ic_title: '你需要更多金币',
+    ic_intro: '5 种赚取方式：',
+    ic_way_quiz: '做测验并取得好成绩',
+    ic_way_duel: '下注并赢得对战',
+    ic_way_redpocket: '求朋友给你发红包',
+    ic_way_pack: '创建词包，期待有人购买',
+    ic_way_invite: '邀请朋友加入加油（推荐链接）',
+    ic_got_it: '知道了',
   },
 };
 

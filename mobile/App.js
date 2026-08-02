@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator, AppState, BackHandler, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef, setUpgradeHandler } from './src/api';
+import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef, setUpgradeHandler, setCoinsHandler } from './src/api';
 import { configurePurchases } from './src/purchases';
 import { registerForPush, configureNotificationHandler } from './src/push';
 import { LangContext, makeT } from './src/i18n';
@@ -35,6 +35,7 @@ import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import WelcomePremiumScreen from './src/screens/WelcomePremiumScreen';
 import { RedEnvelopeReceivedPopup } from './src/components/RedEnvelopePopups';
 import PremiumLimitPopup from './src/components/PremiumLimitPopup';
+import EarnCoinsPopup from './src/components/EarnCoinsPopup';
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -62,6 +63,7 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [envelopes, setEnvelopes] = useState([]); // red envelopes non vues
   const [paywall, setPaywall] = useState(null); // feature de la limite atteinte → popup Go Premium
+  const [needCoins, setNeedCoins] = useState(false); // solde insuffisant → popup « gagner des pièces »
   const [lang, setLang] = useState('en'); // langue de l'interface (en | zh)
   const [refCode, setRefCode] = useState(null); // code de parrainage capté (?ref=)
   // Web mobile : le clavier réduit la zone visible et la TabBar recouvrirait le
@@ -73,7 +75,8 @@ export default function App() {
   // de toutes les autres popups. Enregistré une fois au montage.
   useEffect(() => {
     setUpgradeHandler((feature) => setPaywall(feature || 'default'));
-    return () => setUpgradeHandler(null);
+    setCoinsHandler(() => setNeedCoins(true));
+    return () => { setUpgradeHandler(null); setCoinsHandler(null); };
   }, []);
 
   // Charge le profil et calcule l'aiguillage initial (sauf si `route:false`,
@@ -383,6 +386,7 @@ export default function App() {
             if (tab !== 'pricing') { setBankReturn(tab); setTab('pricing'); }
           }}
         />
+        <EarnCoinsPopup visible={needCoins} onClose={() => setNeedCoins(false)} />
       </SafeAreaProvider>
     </LangContext.Provider>
   );
