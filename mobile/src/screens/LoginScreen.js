@@ -17,6 +17,12 @@ const inputStyle = {
 };
 const inputLocked = { backgroundColor: '#f9fafb', color: '#6b7280' };
 
+// Message d'échec Google : la cause n°1 pour notre public est le blocage de
+// Google en Chine → on oriente vers le VPN. Bilingue (en + zh) car l'écran de
+// login est en anglais par défaut mais l'utilisateur concerné lit le chinois.
+const GOOGLE_FAIL_MSG =
+  "Google sign-in failed. If you're in China, you may need a VPN to reach Google.\nGoogle 登录失败。如果你在中国，可能需要 VPN 才能连接 Google。";
+
 // Login email-first (miroir de l'EJS) :
 //  1) email → check-email → 'login' | 'signup' | 'google_only'
 //  2) mot de passe → connexion ou création de compte.
@@ -33,7 +39,7 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
       const { token } = await loginWithGoogle(idToken);
       await setToken(token);
       onLoggedIn();
-    } catch (e) { setError(e.message || 'Google sign-in failed'); }
+    } catch { setError(GOOGLE_FAIL_MSG); }
   }
 
   // Étape 1 : détermine si l'email existe.
@@ -100,7 +106,11 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
             </View>
 
             {/* Google */}
-            <GoogleSignIn onSuccess={exchangeGoogle} onError={setError} />
+            <GoogleSignIn onSuccess={exchangeGoogle} onError={() => setError(GOOGLE_FAIL_MSG)} />
+            {/* Hint permanent : Google est bloqué en Chine → VPN nécessaire. */}
+            <Text className="text-gray-400 text-center text-xs mt-2">
+              In China? Google may require a VPN. · 中国用户可能需要 VPN
+            </Text>
 
             {/* Divider */}
             <View className="flex-row items-center my-5">
