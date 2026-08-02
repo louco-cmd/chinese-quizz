@@ -1,17 +1,31 @@
-import { useRef, useState } from 'react';
-import { UIManager } from 'react-native';
+import { Component, useRef, useState } from 'react';
 
-// Version NATIVE : lottie-react-native est un module NATIF absent des builds ≤ 10.
-// Comme pour le blur, require() réussit (JS bundlé) mais le RENDU crasherait si le
-// natif est absent. On ne rend donc QUE si le view manager `LottieAnimationView`
-// est enregistré → rien en OTA sur les vieux builds, activé au prochain AAB.
-function hasNativeLottie() {
-  try {
-    return !!(UIManager.getViewManagerConfig && UIManager.getViewManagerConfig('LottieAnimationView'));
-  } catch { return false; }
+// Version NATIVE du chat de la nav-bar (lottie-react-native).
+//
+// lottie-react-native 7.x expose son composant via `codegenNativeComponent`
+// (Fabric pur). Sur la New Architecture — activée par défaut en SDK 57 —
+// `UIManager.getViewManagerConfig('LottieAnimationView')` renvoie TOUJOURS null
+// pour ce type de composant : l'ancien garde masquait donc le chat même quand
+// le natif était bien présent (build ≥ 14).
+//
+// Détection fiable et agnostique de l'archi : on tente de RENDRE Lottie dans un
+// ErrorBoundary. Build qui contient le natif → le chat s'affiche ; vieux build
+// sans le natif → le rendu échoue et on retombe silencieusement sur null.
+
+let LottieView; // résolu paresseusement (require peut échouer si natif absent)
+function getLottie() {
+  if (LottieView !== undefined) return LottieView;
+  try { LottieView = require('lottie-react-native').default; } catch { LottieView = null; }
+  return LottieView;
 }
 
-let LottieView;
+class LottieBoundary extends Component {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch() { /* natif absent : on masque, sans remonter l'erreur */ }
+  render() { return this.state.failed ? null : this.props.children; }
+}
+
 export default function NavBarLottie({ size = 150, speed = 0.6 }) {
   const ref = useRef(null);
   const dir = useRef(1);
@@ -19,11 +33,8 @@ export default function NavBarLottie({ size = 150, speed = 0.6 }) {
   // (le loop repart de la frame 0 → cassure). play → reverse → play à l'infini.
   const [spd, setSpd] = useState(speed);
 
-  if (!hasNativeLottie()) return null;
-  if (LottieView === undefined) {
-    try { LottieView = require('lottie-react-native').default; } catch { LottieView = null; }
-  }
-  if (!LottieView) return null;
+  const Lottie = getLottie();
+  if (!Lottie) return null;
 
   const onFinish = () => {
     dir.current = -dir.current;
@@ -32,14 +43,16 @@ export default function NavBarLottie({ size = 150, speed = 0.6 }) {
   };
 
   return (
-    <LottieView
-      ref={ref}
-      source={require('../../assets/lottie/navbar-char.json')}
-      autoPlay
-      loop={false}
-      speed={spd}
-      onAnimationFinish={onFinish}
-      style={{ width: size, height: size }}
-    />
+    <LottieBoundary>
+      <Lottie
+        ref={ref}
+        source={require('../../assets/lottie/navbar-char.json')}
+        autoPlay
+        loop={false}
+        speed={spd}
+        onAnimationFinish={onFinish}
+        style={{ width: size, height: size }}
+      />
+    </LottieBoundary>
   );
 }
