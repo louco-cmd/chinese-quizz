@@ -268,6 +268,17 @@ export const TRANSLATIONS = {
     co_english_ph: 'English translation…', co_add_translation: 'Add another translation',
     co_description: 'Description', co_desc_ph: 'Optional note or example…',
     co_remove_confirm: 'Remove “{word}” from your collection?',
+    // ── Paywall (limites du plan gratuit) ──
+    pw_title: 'Oops! You hit a limit',
+    pw_go: 'Go Premium',
+    pw_later: 'Later',
+    pw_words: "You've reached the free plan limit of 600 words. Go Premium for unlimited vocabulary.",
+    pw_duel: "You've used your free duel for today. Go Premium for unlimited duels.",
+    pw_quiz: "You've reached today's free quiz limit. Go Premium for unlimited quizzes.",
+    pw_pack_limit: 'Free accounts can own up to 3 packs. Go Premium to collect as many as you like.',
+    pw_hsk_pack: 'HSK 4, 5 & 6 packs are Premium. Unlock them all with Premium.',
+    pw_ghost: 'Ghost mode is a Premium feature. Go Premium to stay invisible.',
+    pw_default: "You've reached a limit of the free plan. Go Premium to unlock everything.",
   },
   zh: {
     nav_teachers: '老师',
@@ -532,6 +543,17 @@ export const TRANSLATIONS = {
     co_english_ph: '英文翻译…', co_add_translation: '添加另一个翻译',
     co_description: '描述', co_desc_ph: '可选的备注或例句…',
     co_remove_confirm: '从你的词库中移除"{word}"？',
+    // ── 付费墙（免费版上限）──
+    pw_title: '哎呀！你达到了上限',
+    pw_go: '升级高级版',
+    pw_later: '以后再说',
+    pw_words: '免费版最多 600 个词。升级高级版，词汇无上限。',
+    pw_duel: '今天的免费对战已用完。升级高级版，对战无限制。',
+    pw_quiz: '今天的免费测验已达上限。升级高级版，测验无限制。',
+    pw_pack_limit: '免费账户最多拥有 3 个词包。升级高级版，随心收藏。',
+    pw_hsk_pack: 'HSK 4、5、6 词包为高级版专享。升级即可全部解锁。',
+    pw_ghost: '隐身模式是高级版功能。升级高级版，保持隐身。',
+    pw_default: '你达到了免费版的一个上限。升级高级版，解锁全部功能。',
   },
 };
 

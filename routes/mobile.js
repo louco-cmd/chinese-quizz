@@ -501,7 +501,7 @@ router.post('/api/m/words/:motId/capture', requireToken, async (req, res) => {
     const { rows: wc } = await client.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1', [userId]);
     if (wc[0].n >= maxWords) {
       await client.query('ROLLBACK');
-      return res.status(403).json({ error: `Free limit reached (${maxWords} words). Go Premium for unlimited.`, limitReached: true, max: maxWords });
+      return res.status(403).json({ error: `Free limit reached (${maxWords} words). Go Premium for unlimited.`, limitReached: true, upgradeRequired: true, feature: 'words', max: maxWords });
     }
 
     await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [COST, userId]);
@@ -585,7 +585,7 @@ router.post('/api/m/words', requireToken, async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(403).json({
         error: `Free limit reached (${maxWords} words). Go Premium for unlimited.`,
-        limitReached: true, max: maxWords,
+        limitReached: true, upgradeRequired: true, feature: 'words', max: maxWords,
       });
     }
 

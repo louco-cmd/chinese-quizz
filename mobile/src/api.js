@@ -72,6 +72,13 @@ export async function clearPendingRef() {
   } catch { /* noop */ }
 }
 
+// Paywall global : les réponses d'erreur des limites du plan gratuit portent
+// `upgradeRequired: true` (+ `feature`). On notifie un handler unique enregistré
+// par App.js → une popup « Go Premium » s'affiche à la racine, AU-DESSUS de toutes
+// les autres popups (le message d'erreur inline était sinon caché derrière elles).
+let upgradeHandler = null;
+export function setUpgradeHandler(fn) { upgradeHandler = fn; }
+
 async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {
@@ -85,6 +92,11 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    // Limite du plan gratuit → paywall global (avant de throw, pour qu'il
+    // s'affiche même si l'appelant avale l'erreur silencieusement).
+    if (data && data.upgradeRequired && upgradeHandler) {
+      try { upgradeHandler(data.feature || 'default', data); } catch { /* noop */ }
+    }
     const err = new Error(data.error || `HTTP ${res.status}`);
     err.status = res.status;
     err.data = data; // ex. { missing: [...] } pour la création de pack
