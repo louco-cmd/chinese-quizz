@@ -13,7 +13,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "fr.jiayou.app"
+      "bundleIdentifier": "fr.jiayou.app",
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "fr.jiayou.app",
@@ -33,7 +34,8 @@
       "expo-font",
       "expo-status-bar",
       "@react-native-google-signin/google-signin",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-apple-authentication"
     ],
     "extra": {
       "eas": {

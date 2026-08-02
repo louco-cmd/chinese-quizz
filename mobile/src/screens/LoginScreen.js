@@ -6,7 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import GoogleSignIn from '../components/GoogleSignIn';
-import { login, register, checkEmail, loginWithGoogle, setToken } from '../api';
+import AppleSignIn from '../components/AppleSignIn';
+import { login, register, checkEmail, loginWithGoogle, loginWithApple, setToken } from '../api';
 
 // Style explicite (et pas seulement className) : sur natif, NativeWind n'applique
 // pas de façon fiable la couleur du texte d'un TextInput → texte invisible. On fixe
@@ -42,6 +43,15 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
       await setToken(token);
       onLoggedIn();
     } catch { setError(GOOGLE_FAIL_MSG); }
+  }
+
+  async function exchangeApple(identityToken, name) {
+    setError('');
+    try {
+      const { token } = await loginWithApple(identityToken, name);
+      await setToken(token);
+      onLoggedIn();
+    } catch (e) { setError(e.message || 'Apple sign-in failed'); }
   }
 
   // Étape 1 : détermine si l'email existe.
@@ -105,6 +115,12 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
                 Learn Chinese in the real world. Collect your words, test yourself,
                 challenge your friends and much more.
               </Text>
+            </View>
+
+            {/* Apple (iOS only) — requis par la règle 4.8 dès qu'on offre Google.
+                Le composant se masque tout seul hors iOS. */}
+            <View className="mb-3">
+              <AppleSignIn onSuccess={exchangeApple} onError={(m) => setError(m)} />
             </View>
 
             {/* Google */}

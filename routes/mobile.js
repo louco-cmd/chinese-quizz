@@ -239,6 +239,66 @@ router.post('/api/auth/google-token', async (req, res) => {
   }
 });
 
+// ── POST /api/auth/apple-token : identityToken Apple → JWT ───────────────────
+// L'app (expo-apple-authentication, iOS) obtient un identityToken signé par Apple
+// et l'échange ici. Liaison : apple_id (sub stable) d'abord, sinon email (comme
+// Google), sinon création. Le nom n'est fourni par Apple qu'au 1er login → le
+// client le passe dans le body ; on ne l'a plus ensuite.
+router.post('/api/auth/apple-token', async (req, res) => {
+  try {
+    const { identity_token, name } = req.body || {};
+    if (!identity_token) return res.status(400).json({ error: 'Missing identity_token' });
+
+    const appleSignin = require('apple-signin-auth');
+    const data = await appleSignin.verifyIdToken(identity_token, {
+      audience: process.env.APPLE_BUNDLE_ID || 'fr.jiayou.app',
+      ignoreExpiration: false,
+    });
+    const appleId = data.sub;
+    const email = (data.email || '').toLowerCase().trim();
+    if (!appleId) return res.status(400).json({ error: 'Invalid Apple token' });
+
+    // 1) match par apple_id (le plus fiable — email peut être un relais privé).
+    let { rows } = await pool.query(
+      'SELECT id, email, name, role, onboarding_done FROM users WHERE apple_id = $1', [appleId]);
+    let user = rows[0];
+
+    // 2) sinon, match par email → on lie le compte existant à cet Apple ID.
+    if (!user && email) {
+      const byEmail = await pool.query(
+        'SELECT id, email, name, role, onboarding_done FROM users WHERE email = $1', [email]);
+      if (byEmail.rows[0]) {
+        user = byEmail.rows[0];
+        await pool.query('UPDATE users SET apple_id = $1 WHERE id = $2', [appleId, user.id]);
+      }
+    }
+
+    // 3) sinon création (email requis pour un nouveau compte).
+    if (!user) {
+      if (!email) return res.status(400).json({ error: 'No email in Apple token' });
+      const ins = await pool.query(
+        `INSERT INTO users (email, name, provider, apple_id, email_verified, balance)
+         VALUES ($1, $2, 'apple', $3, true, 200)
+         RETURNING id, email, name, role, onboarding_done`,
+        [email, (name || '').trim() || null, appleId]);
+      user = ins.rows[0];
+    }
+
+    await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_TTL });
+    res.json({
+      token,
+      user: {
+        id: user.id, email: user.email, name: user.name,
+        role: user.role, onboarding_done: user.onboarding_done,
+      },
+    });
+  } catch (e) {
+    console.error('apple-token error:', e);
+    res.status(401).json({ error: 'Invalid Apple token' });
+  }
+});
+
 // ── GET /api/m/me : profil courant ───────────────────────────────────────────
 router.get('/api/m/me', requireToken, async (req, res) => {
   try {

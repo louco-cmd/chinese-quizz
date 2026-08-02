@@ -141,6 +141,10 @@ export function resetPassword(token, newPassword) {
   return request('/auth/reset-password', { method: 'POST', body: { token, newPassword }, auth: false });
 }
 
+export function loginWithApple(identityToken, name) {
+  return request('/api/auth/apple-token', { method: 'POST', body: { identity_token: identityToken, name }, auth: false });
+}
+
 export function loginWithGoogle(idToken) {
   return request('/api/auth/google-token', { method: 'POST', body: { id_token: idToken }, auth: false });
 }

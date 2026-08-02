@@ -296,6 +296,11 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_rewarded BOOLEAN NOT NULL DEFAULT FALSE`);
     console.log("✅ Colonnes parrainage (referral_code/referred_by/referral_rewarded) vérifiées.");
 
+    // ── Sign in with Apple : `sub` Apple stable (email peut être un relais privé) ──
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS apple_id TEXT`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_apple_id_key ON users(apple_id) WHERE apple_id IS NOT NULL`);
+    console.log("✅ Colonne Sign in with Apple (apple_id) vérifiée.");
+
     // ── JiaStore : marketplace de packs de mots ───────────────────────────────
     // word_packs = packs vendables ; word_pack_items = mots du pack ;
     // pack_purchases = achats (empêche le rachat, trace les ventes).
