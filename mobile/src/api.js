@@ -112,6 +112,10 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
   return data;
 }
 
+export function getAppVersion() {
+  return request('/api/m/app-version', { auth: false });
+}
+
 export function login(email, password) {
   return request('/api/auth/token', { method: 'POST', body: { email, password }, auth: false });
 }

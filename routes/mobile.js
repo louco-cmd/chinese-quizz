@@ -25,6 +25,27 @@ const FREE_LIMITS = { quizPerDay: 3, duelPerDay: 1, packsMax: 3 };
 // Packs verrouillés au premium (niveaux avancés), repérés par cover_key.
 const PREMIUM_PACK_COVERS = ['hsk4', 'hsk5', 'hsk6'];
 
+// Dernier build natif publié par plateforme, pour la popup « mise à jour dispo »
+// (soft, non bloquante). Modifiable sans redéploiement via variables d'env :
+// quand tu publies un nouvel AAB/IPA, monte LATEST_ANDROID_BUILD / LATEST_IOS_BUILD.
+const APP_VERSION = {
+  android: {
+    latestBuild: parseInt(process.env.LATEST_ANDROID_BUILD || '14', 10),
+    url: process.env.ANDROID_STORE_URL || 'https://play.google.com/store/apps/details?id=fr.jiayou.app',
+  },
+  ios: {
+    latestBuild: parseInt(process.env.LATEST_IOS_BUILD || '1', 10),
+    url: process.env.IOS_STORE_URL || '',
+  },
+};
+
+// GET /api/m/app-version : le client compare son build natif installé à latestBuild
+// et affiche une popup incitative si une mise à jour store existe. Public + caché.
+router.get('/api/m/app-version', (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json(APP_VERSION);
+});
+
 // Compte les lignes d'aujourd'hui (fuseau serveur). `dateCol` diffère selon la
 // table (quiz_history = date_completed, duels = created_at).
 async function countToday(table, userCol, dateCol, userId) {

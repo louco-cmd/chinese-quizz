@@ -36,6 +36,8 @@ import WelcomePremiumScreen from './src/screens/WelcomePremiumScreen';
 import { RedEnvelopeReceivedPopup } from './src/components/RedEnvelopePopups';
 import PremiumLimitPopup from './src/components/PremiumLimitPopup';
 import EarnCoinsPopup from './src/components/EarnCoinsPopup';
+import UpdateAvailablePopup from './src/components/UpdateAvailablePopup';
+import { checkStoreUpdate } from './src/appUpdate';
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -64,6 +66,7 @@ export default function App() {
   const [envelopes, setEnvelopes] = useState([]); // red envelopes non vues
   const [paywall, setPaywall] = useState(null); // feature de la limite atteinte → popup Go Premium
   const [needCoins, setNeedCoins] = useState(false); // solde insuffisant → popup « gagner des pièces »
+  const [updateUrl, setUpdateUrl] = useState(null); // build store plus récent → popup incitative
   const [lang, setLang] = useState('en'); // langue de l'interface (en | zh)
   const [refCode, setRefCode] = useState(null); // code de parrainage capté (?ref=)
   // Web mobile : le clavier réduit la zone visible et la TabBar recouvrirait le
@@ -77,6 +80,12 @@ export default function App() {
     setUpgradeHandler((feature) => setPaywall(feature || 'default'));
     setCoinsHandler(() => setNeedCoins(true));
     return () => { setUpgradeHandler(null); setCoinsHandler(null); };
+  }, []);
+
+  // Une fois par lancement : si un build store plus récent existe, on propose la
+  // mise à jour (non bloquant). Tout échec est silencieux (checkStoreUpdate → null).
+  useEffect(() => {
+    checkStoreUpdate().then((url) => { if (url) setUpdateUrl(url); });
   }, []);
 
   // Charge le profil et calcule l'aiguillage initial (sauf si `route:false`,
@@ -387,6 +396,7 @@ export default function App() {
           }}
         />
         <EarnCoinsPopup visible={needCoins} onClose={() => setNeedCoins(false)} />
+        <UpdateAvailablePopup url={updateUrl} onClose={() => setUpdateUrl(null)} />
       </SafeAreaProvider>
     </LangContext.Provider>
   );

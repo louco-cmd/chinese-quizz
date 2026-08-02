@@ -288,6 +288,11 @@ export const TRANSLATIONS = {
     ic_way_pack: 'Create word packs and hope people buy them',
     ic_way_invite: 'Invite your friends to Jiayou (referral link)',
     ic_got_it: 'Got it',
+    // ── Mise à jour store disponible (soft) ──
+    up_title: 'Update available',
+    up_body: 'A new version of Jiayou is available on the store, with the latest features and fixes.',
+    up_now: 'Update now',
+    up_later: 'Later',
   },
   zh: {
     nav_teachers: '老师',
@@ -572,6 +577,11 @@ export const TRANSLATIONS = {
     ic_way_pack: '创建词包，期待有人购买',
     ic_way_invite: '邀请朋友加入加油（推荐链接）',
     ic_got_it: '知道了',
+    // ── 商店有可用更新（软提示）──
+    up_title: '有可用更新',
+    up_body: '加油的新版本已在应用商店上线，包含最新功能和修复。',
+    up_now: '立即更新',
+    up_later: '稍后',
   },
 };
 
