@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import { GOOGLE_CLIENT_ID } from '../api';
+import { GOOGLE_CLIENT_ID, GOOGLE_IOS_CLIENT_ID } from '../api';
 
 // Google Sign-In natif (Android/iOS) via @react-native-google-signin.
 // On configure avec le CLIENT WEB (GOOGLE_CLIENT_ID) : l'idToken renvoyé a pour
@@ -10,7 +10,9 @@ import { GOOGLE_CLIENT_ID } from '../api';
 // Côté Android, Google fait le lien via le package + l'empreinte SHA-1 déclarés
 // dans un client OAuth "Android" sur Google Cloud (pas d'ID Android à passer ici).
 if (GOOGLE_CLIENT_ID) {
-  GoogleSignin.configure({ webClientId: GOOGLE_CLIENT_ID });
+  // webClientId → l'idToken garde l'audience web (le backend le vérifie déjà).
+  // iosClientId → requis pour le flux natif iOS (sinon échec silencieux sur iPhone).
+  GoogleSignin.configure({ webClientId: GOOGLE_CLIENT_ID, iosClientId: GOOGLE_IOS_CLIENT_ID });
 }
 
 // `onSuccess(idToken)` / `onError(message)`.

@@ -156,6 +156,11 @@ export function loginWithGoogle(idToken) {
 export const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID
   || '722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com';
 
+// Client iOS Google (obligatoire pour le login natif iOS + l'URL scheme du build).
+// Différent du client web : c'est celui déclaré pour le bundle fr.jiayou.app.
+export const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+  || '722514557052-iu88tafpkm7tef0a1njda1053bf8dtg2.apps.googleusercontent.com';
+
 export function getMe() {
   return request('/api/m/me');
 }
