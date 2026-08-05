@@ -71,7 +71,7 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
   }
 
   const Hero = (
-    <View style={{ paddingTop: 14, paddingHorizontal: 16, paddingBottom: 6 }}>
+    <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 16, paddingBottom: 6 }}>
       {onBack ? (
         <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
           <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
