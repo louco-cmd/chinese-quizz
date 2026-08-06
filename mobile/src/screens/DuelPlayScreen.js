@@ -7,6 +7,7 @@ import { getMe, getDuel, submitDuelScore } from '../api';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
 import { COLORS, SHADOW_CARD } from '../theme';
+import CatLoader from '../components/CatLoader';
 
 // Helpers identiques à quiz-play.ejs
 function normalizePinyin(str) {
@@ -175,7 +176,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
 
   // ── Rendu ──
   if (loading) {
-    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}><ActivityIndicator color={COLORS.jiayou} /></View>;
+    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}><CatLoader size={110} /></View>;
   }
   if (error) {
     return <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}><TopBar onExit={onExit} /><ErrorRetry error={error} onRetry={load} /></View>;
@@ -205,7 +206,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
         <TopBar onExit={onExit} />
         <Centered>
           {result === 'submitting' ? (
-            <><ActivityIndicator color={COLORS.jiayou} /><Text style={{ color: COLORS.muted, marginTop: 12 }}>{tr('dp_submitting')}</Text></>
+            <><CatLoader size={110} /><Text style={{ color: COLORS.muted, marginTop: 12 }}>{tr('dp_submitting')}</Text></>
           ) : result.error ? (
             <>
               <Ionicons name="alert-circle" size={44} color={COLORS.danger} />

@@ -5,6 +5,7 @@ import { ErrorRetry } from '../components/ErrorRetry';
 import QuizPlayScreen from './QuizPlayScreen';
 import { getLesson, startTask } from '../api';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
+import CatLoader from '../components/CatLoader';
 
 // Page d'une task / cours (copie de student-course.ejs) : titre + notes + mots,
 // et bouton "Practice these words" qui lance le quiz sur les mots du cours.
@@ -48,7 +49,7 @@ export default function CoursePage({ lessonId, onBack }) {
   );
 
   if (loading) {
-    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}><ActivityIndicator color={COLORS.jiayou} /></View>;
+    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}><CatLoader size={110} /></View>;
   }
   if (error) {
     return (

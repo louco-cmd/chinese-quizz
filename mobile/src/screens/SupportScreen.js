@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, Pressable, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SHADOW_CARD } from '../theme';
+import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 // FAQ reprise de la page support de l'app (views/support.ejs).
 const SECTIONS = [
@@ -54,7 +54,7 @@ function FaqItem({ q, a, last }) {
 export default function SupportScreen({ onBack }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 30 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: TAB_CLEARANCE }}>
         {/* Hero */}
         <View style={{ backgroundColor: COLORS.jiayou, paddingTop: 16, paddingBottom: 40, paddingHorizontal: 16 }}>
           {onBack ? (
@@ -67,7 +67,6 @@ export default function SupportScreen({ onBack }) {
             <Text style={{ fontSize: 34 }}>❓</Text>
             <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 4 }}>Help & FAQ</Text>
           </View>
-          <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: -1, height: 24, backgroundColor: '#f8f9fa', borderTopLeftRadius: 24, borderTopRightRadius: 24 }} />
         </View>
 
         <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 16, marginTop: 16 }}>

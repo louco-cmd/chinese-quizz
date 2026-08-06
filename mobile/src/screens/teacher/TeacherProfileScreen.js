@@ -6,6 +6,7 @@ import Popup from '../../components/Popup';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import { teacherGetProfile, teacherSaveProfile } from '../../api';
 import { COLORS, SHADOW_CARD } from '../../theme';
+import CatLoader from '../../components/CatLoader';
 
 const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'CNY', 'JPY', 'CAD', 'AUD', 'SGD', 'HKD'];
 const TEACH_LANGS = ['English', 'Chinese'];
@@ -69,7 +70,7 @@ export default function TeacherProfileScreen() {
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   }
 
-  if (loading) return <View className="flex-1 items-center justify-center bg-surface-page"><ActivityIndicator color={COLORS.jiayou} /></View>;
+  if (loading) return <View className="flex-1 items-center justify-center bg-surface-page"><CatLoader size={110} /></View>;
   if (error && !name) return <View className="flex-1 bg-surface-page"><ErrorRetry error={error} onRetry={load} /></View>;
 
   return (

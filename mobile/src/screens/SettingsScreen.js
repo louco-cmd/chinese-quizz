@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, ActivityIndicator, Pressable,
-  useWindowDimensions, Animated,
+  useWindowDimensions, Animated, PanResponder, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SettingsGroup from '../components/settings/SettingsGroup';
@@ -11,7 +11,7 @@ import Toggle from '../components/Toggle';
 import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
 import UpdateFooter from '../components/settings/UpdateFooter';
-import { getSettings, updateSettings, deleteAccount } from '../api';
+import { getSettings, getCachedSettings, updateSettings, deleteAccount } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 
@@ -30,8 +30,10 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
   const { width } = useWindowDimensions();
   const hPad = width >= 992 ? 24 : 16;
 
-  const [s, setS] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Réglages préchargés depuis la page Compte → affichage immédiat, sans spinner.
+  const cachedSettings = getCachedSettings();
+  const [s, setS] = useState(cachedSettings);
+  const [loading, setLoading] = useState(!cachedSettings);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -45,16 +47,46 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
     Animated.timing(slideX, { toValue: 0, duration: 260, useNativeDriver: true }).start();
   }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Swipe vers la DROITE pour revenir au Compte (comme un "pop" de navigation).
+  // On suit le doigt, puis on ferme si le geste dépasse ~1/3 de l'écran ou est
+  // rapide, sinon on revient en place. Valeurs fraîches via refs (PanResponder
+  // créé une seule fois).
+  const onBackRef = useRef(onBack); onBackRef.current = onBack;
+  const widthRef = useRef(width); widthRef.current = width;
+  const pan = useRef(
+    PanResponder.create({
+      // On ne prend le geste QUE s'il est nettement horizontal vers la droite
+      // → le scroll vertical de la page reste intact. Désactivé sur web (souris).
+      onMoveShouldSetPanResponder: (_, g) =>
+        Platform.OS !== 'web' && g.dx > 10 && g.dx > Math.abs(g.dy) * 1.6,
+      onPanResponderMove: (_, g) => { slideX.setValue(Math.max(0, g.dx)); },
+      onPanResponderRelease: (_, g) => {
+        const w = widthRef.current;
+        if (g.dx > w * 0.33 || g.vx > 0.5) {
+          Animated.timing(slideX, { toValue: w, duration: 200, useNativeDriver: true })
+            .start(() => onBackRef.current?.());
+        } else {
+          Animated.spring(slideX, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(slideX, { toValue: 0, useNativeDriver: true, bounciness: 0 }).start();
+      },
+    })
+  ).current;
+
   const load = useCallback(async () => {
     setError('');
     try {
       setS(await getSettings());
     } catch (e) {
-      setError(e.message);
+      // Revalidation en fond échouée mais on a déjà les données cachées → on
+      // n'affiche pas l'écran d'erreur (qui remplacerait le contenu).
+      if (!cachedSettings) setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [cachedSettings]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -94,7 +126,7 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
   }
 
   return (
-    <Animated.View style={{ flex: 1, backgroundColor: '#f8f9fa', transform: [{ translateX: slideX }] }}>
+    <Animated.View {...pan.panHandlers} style={{ flex: 1, backgroundColor: '#f8f9fa', transform: [{ translateX: slideX }] }}>
       {/* En-tête : retour vers la page compte (la barre est masquée ici). */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: hPad, paddingTop: 14, paddingBottom: 6 }}>
         {onBack ? (

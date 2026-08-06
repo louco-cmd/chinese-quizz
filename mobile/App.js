@@ -38,6 +38,7 @@ import PremiumLimitPopup from './src/components/PremiumLimitPopup';
 import EarnCoinsPopup from './src/components/EarnCoinsPopup';
 import UpdateAvailablePopup from './src/components/UpdateAvailablePopup';
 import { checkStoreUpdate } from './src/appUpdate';
+import CatLoader from './src/components/CatLoader';
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -178,10 +179,13 @@ export default function App() {
     });
   }, [loadProfile]);
 
-  // Langue de l'interface = interface_lang du profil.
+  // Langue de l'interface = interface_lang du profil. Dépendance sur la VALEUR
+  // interface_lang (pas l'objet profil) : sinon refreshBalance — qui recrée le
+  // profil à chaque changement d'onglet en gardant l'ancienne langue — annulait
+  // le choix fait en direct dans les réglages (retour à l'ancienne langue).
   useEffect(() => {
     if (profile?.interface_lang === 'en' || profile?.interface_lang === 'zh') setLang(profile.interface_lang);
-  }, [profile]);
+  }, [profile?.interface_lang]);
 
   async function onLoggedIn() {
     setAuthed(true);
@@ -296,7 +300,7 @@ export default function App() {
 
   const spinner = (
     <View className="flex-1 items-center justify-center bg-white">
-      <ActivityIndicator color="#0d6efd" />
+      <CatLoader size={200} />
     </View>
   );
 

@@ -7,6 +7,7 @@ import Popup from '../../components/Popup';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import { teacherOverview, teacherClasses, teacherCreateClass } from '../../api';
 import { COLORS, SHADOW_CARD } from '../../theme';
+import CatLoader from '../../components/CatLoader';
 
 function StatPill({ n, label, wide }) {
   return (
@@ -53,7 +54,7 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass }) {
     try { await Clipboard.setStringAsync(code); setCopied(code); setTimeout(() => setCopied(null), 1400); } catch { /* ignore */ }
   }
 
-  if (loading) return <View className="flex-1 items-center justify-center bg-surface-page"><ActivityIndicator color={COLORS.jiayou} /></View>;
+  if (loading) return <View className="flex-1 items-center justify-center bg-surface-page"><CatLoader size={110} /></View>;
   if (error) return <View className="flex-1 bg-surface-page"><ErrorRetry error={error} onRetry={load} /></View>;
 
   const statsCard = (

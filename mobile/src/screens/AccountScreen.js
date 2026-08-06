@@ -14,7 +14,7 @@ import PurchasedPacksCard from '../components/account/PurchasedPacksCard';
 import Popup from '../components/Popup';
 import CoursePage from './CoursePage';
 import { ErrorRetry } from '../components/ErrorRetry';
-import { getAccount, getStudentClasses, leaveMentor } from '../api';
+import { getAccount, getStudentClasses, leaveMentor, prefetchSettings } from '../api';
 import { useT } from '../i18n';
 import { COLORS, TAB_CLEARANCE } from '../theme';
 
@@ -72,6 +72,8 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  // Précharge les réglages en arrière-plan → slide vers Settings instantané.
+  useEffect(() => { prefetchSettings(); }, []);
 
   async function confirmLeave() {
     if (!leaving) return;

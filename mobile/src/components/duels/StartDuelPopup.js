@@ -76,6 +76,10 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
       onCreated?.();
       onClose();
     } catch (e) {
+      // Limite atteinte → le paywall global (Modal) s'affiche déjà. On ferme cette
+      // popup pour ne PAS empiler deux Modals (sinon le scroll de la page reste
+      // bloqué après fermeture, bug natif des Modals empilés).
+      if (e?.data?.upgradeRequired) { onClose(); return; }
       setError(e.message || t('du_could_not_create'));
     } finally {
       setCreating(false);

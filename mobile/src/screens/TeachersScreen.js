@@ -10,6 +10,7 @@ import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getMentors, getReferral } from '../api';
 import { COLORS, TAB_CLEARANCE } from '../theme';
+import CatLoader from '../components/CatLoader';
 
 function priceMatches(price, active) {
   if (active === 'any') return true;
@@ -71,7 +72,7 @@ export default function TeachersScreen({ onBack }) {
   }
 
   if (loading) {
-    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}><ActivityIndicator color={COLORS.jiayou} /></View>;
+    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}><CatLoader size={110} /></View>;
   }
   if (error) {
     return <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}><ErrorRetry error={error} onRetry={load} /></View>;

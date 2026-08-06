@@ -106,6 +106,10 @@ export default function CollectionScreen() {
   const [ef, setEf] = useState({ chinese: '', pinyin: '', englishList: [''], description: '' });
   const [confirmDel, setConfirmDel] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Nb de lignes du titre / de la description sur la carte → aligné à GAUCHE
+  // au-delà de 2 lignes (plus lisible), centré sinon.
+  const [titleLines, setTitleLines] = useState(1);
+  const [descLines, setDescLines] = useState(1);
   const [charInfo, setCharInfo] = useState(null); // { char, loading, data }
   const [busy, setBusy] = useState(false);
   const [direction, setDirection] = useState('en→zh'); // sens d'apprentissage
@@ -584,16 +588,25 @@ export default function CollectionScreen() {
               <>
                 {renderGlyphs(Math.min(zhSize, 40), true)}
                 <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.muted, marginTop: 6 }}>{w.pinyin}</Text>
-                <Text style={{ fontSize: 12.5, color: descriptionText ? COLORS.mutedLight : '#d3d7de', fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>
+                <Text
+                  onTextLayout={(e) => setDescLines(e.nativeEvent.lines.length)}
+                  style={{ fontSize: 12.5, color: descriptionText ? COLORS.mutedLight : '#d3d7de', fontStyle: 'italic', alignSelf: 'stretch', textAlign: descLines > 2 ? 'left' : 'center', marginTop: 8 }}
+                >
                   {descriptionText || tr('co_no_description')}
                 </Text>
               </>
             ) : (
               <>
-                <Text style={{ fontSize: 20, fontWeight: '600', color: COLORS.jiayou, textAlign: 'center' }}>
+                <Text
+                  onTextLayout={(e) => setTitleLines(e.nativeEvent.lines.length)}
+                  style={{ fontSize: 20, fontWeight: '600', color: COLORS.jiayou, alignSelf: 'stretch', textAlign: titleLines > 2 ? 'left' : 'center' }}
+                >
                   {w.english ? cap(w.english) : tr('co_no_translation')}
                 </Text>
-                <Text style={{ fontSize: 12.5, color: descriptionText ? COLORS.mutedLight : '#d3d7de', fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>
+                <Text
+                  onTextLayout={(e) => setDescLines(e.nativeEvent.lines.length)}
+                  style={{ fontSize: 12.5, color: descriptionText ? COLORS.mutedLight : '#d3d7de', fontStyle: 'italic', alignSelf: 'stretch', textAlign: descLines > 2 ? 'left' : 'center', marginTop: 8 }}
+                >
                   {descriptionText || tr('co_no_description')}
                 </Text>
               </>

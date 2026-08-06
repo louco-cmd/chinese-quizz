@@ -5,6 +5,7 @@ import { flagEmoji } from '../components/account/EditProfilePopup';
 import StartDuelPopup from '../components/duels/StartDuelPopup';
 import Avatar from '../components/Avatar';
 import { ErrorRetry } from '../components/ErrorRetry';
+import CatLoader from '../components/CatLoader';
 import { getUserProfile } from '../api';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
@@ -93,7 +94,7 @@ export default function UserProfileScreen({ userId, onBack }) {
           </View>
 
           {loading ? (
-            <ActivityIndicator color={COLORS.jiayou} style={{ marginTop: 40 }} />
+            <View style={{ alignItems: 'center', marginTop: 40 }}><CatLoader size={110} /></View>
           ) : error ? (
             <ErrorRetry error={error} onRetry={load} />
           ) : (

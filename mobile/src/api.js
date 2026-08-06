@@ -342,12 +342,23 @@ export function updateAccount(fields) {
   return request('/api/m/account', { method: 'PUT', body: fields });
 }
 
-export function getSettings() {
-  return request('/api/m/settings');
+// Cache mémoire des réglages : préchargé depuis la page Compte pour que
+// l'ouverture des Réglages (slide) soit instantanée, sans spinner.
+let _settingsCache = null;
+export function getCachedSettings() { return _settingsCache; }
+export function prefetchSettings() { getSettings().catch(() => {}); }
+
+export async function getSettings() {
+  const d = await request('/api/m/settings');
+  _settingsCache = d;
+  return d;
 }
 
-export function updateSettings(fields) {
-  return request('/api/m/settings', { method: 'PATCH', body: fields });
+export async function updateSettings(fields) {
+  const d = await request('/api/m/settings', { method: 'PATCH', body: fields });
+  // Garde le cache à jour pour un prochain retour dans les réglages.
+  if (_settingsCache) _settingsCache = { ..._settingsCache, ...fields };
+  return d;
 }
 
 export function deleteAccount() {

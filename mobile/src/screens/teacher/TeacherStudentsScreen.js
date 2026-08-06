@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import { teacherStudents } from '../../api';
 import { COLORS, SHADOW_CARD } from '../../theme';
+import CatLoader from '../../components/CatLoader';
 
 function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
@@ -29,7 +30,7 @@ export default function TeacherStudentsScreen() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  if (loading) return <View className="flex-1 items-center justify-center bg-surface-page"><ActivityIndicator color={COLORS.jiayou} /></View>;
+  if (loading) return <View className="flex-1 items-center justify-center bg-surface-page"><CatLoader size={110} /></View>;
   if (error) return <View className="flex-1 bg-surface-page"><ErrorRetry error={error} onRetry={load} /></View>;
 
   return (

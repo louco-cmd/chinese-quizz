@@ -7,6 +7,7 @@ import { getDuel } from '../api';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
+import CatLoader from '../components/CatLoader';
 
 const DEFEAT = '#c0392b';
 const DEFEAT_BG = '#fbeceb'; // fond de page teinté rouge clair
@@ -157,7 +158,7 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
   useEffect(() => () => onDefeat?.(false), [onDefeat]);
 
   if (loading) {
-    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.page }}><ActivityIndicator color={COLORS.jiayou} /></View>;
+    return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.page }}><CatLoader size={110} /></View>;
   }
   if (error) {
     return <View style={{ flex: 1, backgroundColor: COLORS.page }}><ErrorRetry error={error} onRetry={load} /></View>;

@@ -3,6 +3,8 @@ import { View, Text, ScrollView, Pressable, RefreshControl, ActivityIndicator } 
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { SendRedEnvelopePopup } from '../components/RedEnvelopePopups';
+import EarnCoinsPopup from '../components/EarnCoinsPopup';
+import CatLoader from '../components/CatLoader';
 import { getWallet } from '../api';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
@@ -71,6 +73,10 @@ export default function BankScreen({ onBack }) {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('month');
   const [sendOpen, setSendOpen] = useState(false);
+  const [earnOpen, setEarnOpen] = useState(false);
+  // Solde bas (≤ 10 ₵) : envoyer une red envelope n'a plus de sens → on propose
+  // plutôt d'apprendre à gagner des pièces.
+  const lowBalance = data != null && Number(data.balance) <= 10;
 
   const load = useCallback(async () => {
     setError('');
@@ -111,20 +117,30 @@ export default function BankScreen({ onBack }) {
           <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 24, fontWeight: '700', marginLeft: 4, marginBottom: 4 }}>₵</Text>
         </View>
 
-        {/* Envoyer une red envelope */}
-        <Pressable
-          onPress={() => setSendOpen(true)}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, marginTop: 14 }}
-        >
-          <Text style={{ fontSize: 15 }}>🧧</Text>
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13.5 }}>Send a red envelope</Text>
-        </Pressable>
+        {/* Solde bas → « How to earn coins » ; sinon envoyer une red envelope. */}
+        {lowBalance ? (
+          <Pressable
+            onPress={() => setEarnOpen(true)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, marginTop: 14 }}
+          >
+            <Text style={{ fontSize: 15 }}>🪙</Text>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13.5 }}>How to earn coins</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => setSendOpen(true)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, marginTop: 14 }}
+          >
+            <Text style={{ fontSize: 15 }}>🧧</Text>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13.5 }}>Send a red envelope</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
 
   if (loading) {
-    return <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>{Hero}<ActivityIndicator color={COLORS.jiayou} style={{ marginTop: 40 }} /></View>;
+    return <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>{Hero}<View style={{ alignItems: 'center', marginTop: 40 }}><CatLoader size={110} /></View></View>;
   }
   if (error) {
     return <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>{Hero}<ErrorRetry error={error} onRetry={load} /></View>;
@@ -187,6 +203,7 @@ export default function BankScreen({ onBack }) {
           load(); // rafraîchit l'historique
         }}
       />
+      <EarnCoinsPopup visible={earnOpen} onClose={() => setEarnOpen(false)} />
     </View>
   );
 }
