@@ -15,42 +15,23 @@ import { COLORS } from '../theme';
 // les PNG déposés) :
 //   01-home.png · 02-collection.png · 03-stats.png
 //   04-duels.png · 05-store.png · 06-teacher.png
+// Tutoriel : 3 slides « key features », icônes uniquement pour l'instant
+// (captures portrait à venir → rajouter `image: require(...)` par slide).
 const SLIDES = [
   {
-    icon: 'earth',
-    image: require('../../assets/tutorial/01-home.png'),
-    title: 'Join the Jiayou world',
-    body: 'Learn Chinese better and faster with a community-powered app.',
-  },
-  {
     icon: 'bookmarks',
-    image: require('../../assets/tutorial/02-collection.png'),
     title: 'Collect your words',
     body: 'Save every word you meet and build your own growing collection.',
   },
   {
     icon: 'school',
-    image: require('../../assets/tutorial/03-stats.png'),
-    title: 'Train yourself',
-    body: 'Practise with personalised quizzes and flash cards to make each word stick.',
+    title: 'Train & memorize',
+    body: 'Personalized quizzes and flashcards make each word stick.',
   },
   {
     icon: 'trophy',
-    image: require('../../assets/tutorial/04-duels.png'),
     title: 'Challenge your friends',
-    body: 'Take on your friends in duels and show them who is the best — mind the coin bets!',
-  },
-  {
-    icon: 'pricetags',
-    image: require('../../assets/tutorial/05-store.png'),
-    title: 'Thematic word packs',
-    body: 'Build, share and get ready-made vocabulary packs on the JiaStore.',
-  },
-  {
-    icon: 'person-add',
-    image: require('../../assets/tutorial/06-teacher.png'),
-    title: 'Invite your teacher',
-    body: 'Add your teacher so they can follow your learning and send you homework.',
+    body: 'Duel your friends, bet coins, and prove who is the best.',
   },
 ];
 
@@ -92,13 +73,13 @@ export default function TutorialScreen({ onDone, onClose }) {
               boîte sur ce ratio (pleine largeur) → l'image remplit tout le cadre,
               sans bandes ni rognage. */}
           {slide.image ? (
-            <View style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1772F5' }}>
+            <View style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1772F5' }}>
               <Image source={slide.image} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
             </View>
           ) : (
             <LinearGradient
               colors={['#1772F5', '#1EBCEE']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+              style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
             >
               <Ionicons name={slide.icon} size={96} color="rgba(255,255,255,0.95)" />
             </LinearGradient>
