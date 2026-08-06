@@ -250,8 +250,12 @@ router.post('/api/auth/apple-token', async (req, res) => {
     if (!identity_token) return res.status(400).json({ error: 'Missing identity_token' });
 
     const appleSignin = require('apple-signin-auth');
+    // Audience acceptée : le bundle iOS (login natif) ET le Services ID (login web,
+    // flux « Sign in with Apple JS »). Le `sub` est le même entre les deux tant que
+    // le Services ID est rattaché au même App ID primaire → même compte lié.
+    const audience = [process.env.APPLE_BUNDLE_ID || 'fr.jiayou.app', process.env.APPLE_SERVICES_ID].filter(Boolean);
     const data = await appleSignin.verifyIdToken(identity_token, {
-      audience: process.env.APPLE_BUNDLE_ID || 'fr.jiayou.app',
+      audience,
       ignoreExpiration: false,
     });
     const appleId = data.sub;
