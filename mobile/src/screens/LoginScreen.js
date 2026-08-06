@@ -125,10 +125,6 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
 
             {/* Google */}
             <GoogleSignIn onSuccess={exchangeGoogle} onError={() => setError(GOOGLE_FAIL_MSG)} />
-            {/* Hint permanent : Google est bloqué en Chine → VPN nécessaire. */}
-            <Text className="text-gray-400 text-center text-xs mt-2">
-              In China? Google may require a VPN. · 中国用户可能需要 VPN
-            </Text>
 
             {/* Divider */}
             <View className="flex-row items-center my-5">
