@@ -53,9 +53,11 @@ export default function AppleSignIn({ onSuccess, onError }) {
   return (
     <AA.AppleAuthenticationButton
       buttonType={AA.AppleAuthenticationButtonType.CONTINUE}
-      buttonStyle={AA.AppleAuthenticationButtonStyle.BLACK}
+      // WHITE_OUTLINE = variante officielle « outline » → cohérent avec le bouton
+      // Google (pill outline) et moins « fort » que le noir plein.
+      buttonStyle={AA.AppleAuthenticationButtonStyle.WHITE_OUTLINE}
       cornerRadius={999}
-      style={{ width: '100%', height: 48 }}
+      style={{ width: '100%', height: 46 }}
       onPress={onPress}
     />
   );

@@ -63,13 +63,18 @@ export default function AppleSignIn({ onSuccess, onError }) {
   }
 
   return (
+    // Pill outline aligné sur le bouton Google GIS (outline / large / pill, 320×40).
     <Pressable
       onPress={onPress}
       disabled={!ready}
-      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000', borderRadius: 999, height: 48, opacity: ready ? 1 : 0.6 }}
+      style={{
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        backgroundColor: '#fff', borderWidth: 1, borderColor: '#dadce0', borderRadius: 999,
+        height: 40, width: 320, maxWidth: '100%', alignSelf: 'center', opacity: ready ? 1 : 0.6,
+      }}
     >
-      <Ionicons name="logo-apple" size={18} color="#fff" style={{ marginRight: 8 }} />
-      <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>Continue with Apple</Text>
+      <Ionicons name="logo-apple" size={17} color="#000" style={{ marginRight: 8 }} />
+      <Text style={{ color: '#3c4043', fontWeight: '500', fontSize: 14 }}>Continue with Apple</Text>
     </Pressable>
   );
 }
