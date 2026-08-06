@@ -17,6 +17,7 @@ import { ErrorRetry } from '../components/ErrorRetry';
 import { getAccount, getStudentClasses, leaveMentor, prefetchSettings } from '../api';
 import { useT } from '../i18n';
 import { COLORS, TAB_CLEARANCE } from '../theme';
+import CatLoader from '../components/CatLoader';
 
 // Tuile de stat d'utilisation (série, jours actifs…) en tête de la carte stats.
 function UsageTile({ icon, value, label }) {
@@ -93,7 +94,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>
-        <ActivityIndicator color={COLORS.jiayou} />
+        <CatLoader size={110} />
       </View>
     );
   }

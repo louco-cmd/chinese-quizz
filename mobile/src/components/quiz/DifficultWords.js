@@ -5,6 +5,7 @@ import Toggle from '../Toggle';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import { useT } from '../../i18n';
 import { getDifficultWords, getMe } from '../../api';
+import CatLoader from '../CatLoader';
 
 // Carte recto/verso qui se retourne au tap (rotateY), comme les flip-cards EJS.
 function FlipCard({ front, sub, back, width }) {
@@ -77,7 +78,7 @@ export default function DifficultWords({ onQuickQuiz }) {
       </View>
 
       {loading ? (
-        <ActivityIndicator color={COLORS.jiayou} style={{ marginVertical: 24 }} />
+        <View style={{ marginVertical: 24, alignItems: 'center' }}><CatLoader size={90} /></View>
       ) : words.length === 0 ? (
         <View style={{ alignItems: 'center', paddingVertical: 24 }}>
           <Ionicons name="happy-outline" size={40} color={COLORS.muted} />

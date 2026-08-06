@@ -1,9 +1,12 @@
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
+import CatLoader from './CatLoader';
 
+// Loader plein écran générique — utilisé par la plupart des écrans.
+// Rend le chat Lottie (fallback spinner géré dans CatLoader sur les vieux builds).
 export function Loading() {
   return (
     <View className="flex-1 items-center justify-center">
-      <ActivityIndicator color="#0d6efd" />
+      <CatLoader size={110} />
     </View>
   );
 }

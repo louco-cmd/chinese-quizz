@@ -6,6 +6,7 @@ import PackDetailPopup from '../PackDetailPopup';
 import { getPurchasedPacks } from '../../api';
 import { useT } from '../../i18n';
 import { COLORS } from '../../theme';
+import CatLoader from '../CatLoader';
 
 // Carte "Purchased packs" de la page account : packs achetés (≠ créés). Tap sur
 // un pack → popup identique au store (PackDetailPopup) avec mots + "Start a quiz".
@@ -25,7 +26,7 @@ export default function PurchasedPacksCard({ onStartQuiz }) {
   return (
     <AccountCard icon="bag-handle-outline" title={t('ac_purchased_packs')}>
       {packs === null ? (
-        <ActivityIndicator color={COLORS.jiayou} style={{ marginVertical: 12 }} />
+        <View style={{ marginVertical: 12, alignItems: 'center' }}><CatLoader size={80} /></View>
       ) : (
         packs.map((p, i) => (
           <Pressable

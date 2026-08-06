@@ -17,6 +17,7 @@ import { ErrorRetry } from '../components/ErrorRetry';
 import { getDuels, getLeaderboard, getReferral } from '../api';
 import { useT } from '../i18n';
 import { COLORS, TAB_CLEARANCE } from '../theme';
+import CatLoader from '../components/CatLoader';
 
 function Empty({ text }) {
   return <Text style={{ color: '#adb5bd', paddingHorizontal: 18, paddingVertical: 14 }}>{text}</Text>;
@@ -75,7 +76,7 @@ export default function DuelsScreen({ onDefeat }) {
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>
-        <ActivityIndicator color={COLORS.jiayou} />
+        <CatLoader size={110} />
       </View>
     );
   }

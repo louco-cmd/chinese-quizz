@@ -4,6 +4,7 @@ import { getMe, getMarketPacks } from '../api';
 import { useT } from '../i18n';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 import PackDetailPopup, { glyphOf, COVER_BG, COVER_FG, OwnedProgress } from './PackDetailPopup';
+import CatLoader from './CatLoader';
 
 function PackCard({ pack, onPress }) {
   const { t } = useT();
@@ -137,7 +138,7 @@ export default function PackMarket({
         }
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator color={COLORS.jiayou} style={{ marginTop: 30 }} />
+            <View style={{ marginTop: 30, alignItems: 'center' }}><CatLoader size={110} /></View>
           ) : error ? (
             <Text style={{ textAlign: 'center', color: COLORS.danger, marginTop: 30 }}>{error}</Text>
           ) : (

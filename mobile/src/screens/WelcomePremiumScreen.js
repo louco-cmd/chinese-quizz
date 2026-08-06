@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getMe } from '../api';
 import { COLORS } from '../theme';
+import CatLoader from '../components/CatLoader';
 
 const MAX_ATTEMPTS = 15;
 
@@ -60,7 +61,7 @@ export default function WelcomePremiumScreen({ onDone }) {
             </>
           ) : (
             <>
-              <ActivityIndicator color={COLORS.jiayou} size="large" style={{ marginTop: 16 }} />
+              <View style={{ marginTop: 16, alignItems: 'center' }}><CatLoader size={110} /></View>
               <Text className="text-[17px] font-bold text-ink mt-4">Confirming your payment…</Text>
               <Text className="text-muted text-center text-[13px] mt-2">({attempts}/{MAX_ATTEMPTS}) This only takes a few seconds.</Text>
             </>

@@ -6,6 +6,7 @@ import { getMe, getQuizPlayWords, saveQuiz, saveTaskResult } from '../api';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
 import { COLORS, SHADOW_CARD } from '../theme';
+import CatLoader from '../components/CatLoader';
 
 // ── Helpers (identiques à quiz-play.ejs) ──
 function normalizePinyin(str) {
@@ -196,7 +197,7 @@ export default function QuizPlayScreen({ config, onExit }) {
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>
-        <ActivityIndicator color={COLORS.jiayou} />
+        <CatLoader size={110} />
       </View>
     );
   }

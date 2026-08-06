@@ -11,6 +11,7 @@ import { COLORS, SHADOW_CARD_FLAT, TAB_CLEARANCE } from '../theme';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
 import { getCollection, updateWord, deleteWord, getCharacter, getMe, getPurchasedPacks, getMyPacks } from '../api';
+import CatLoader from '../components/CatLoader';
 
 // Sélection de la meilleure voix par langue (qualité "Enhanced" en priorité).
 // Gratuit : utilise les voix du moteur TTS du système (Google TTS sur Android,
@@ -661,7 +662,7 @@ export default function CollectionScreen() {
         <View style={{ alignItems: 'center' }}>
           <Text style={{ fontSize: 52, fontWeight: '800', color: '#1a1a2e' }}>{charInfo?.char}</Text>
           {charInfo?.loading ? (
-            <ActivityIndicator color={COLORS.jiayou} style={{ marginTop: 12 }} />
+            <View style={{ marginTop: 12, alignItems: 'center' }}><CatLoader size={80} /></View>
           ) : charInfo?.data ? (
             <>
               <View style={{ backgroundColor: COLORS.jiayouContainer, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4, marginTop: 12 }}>

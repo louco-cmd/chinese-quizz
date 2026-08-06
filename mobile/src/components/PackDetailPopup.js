@@ -5,6 +5,7 @@ import Popup from './Popup';
 import { getMarketPack, buyMarketPack } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
+import CatLoader from './CatLoader';
 
 // Illustration fictive : fond bleu pâle + idéogramme du niveau HSK.
 const HSK_GLYPH = { hsk1: '一', hsk2: '二', hsk3: '三', hsk4: '四', hsk5: '五', hsk6: '六' };
@@ -87,7 +88,7 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
   return (
     <Popup visible={!!pack} onClose={onClose} maxWidth={420}>
       {loading && !detail ? (
-        <ActivityIndicator color={COLORS.jiayou} style={{ marginVertical: 30 }} />
+        <View style={{ marginVertical: 30, alignItems: 'center' }}><CatLoader size={90} /></View>
       ) : (
         <View>
           <View style={{ height: 84, borderRadius: 14, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>

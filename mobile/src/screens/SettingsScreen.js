@@ -14,6 +14,7 @@ import UpdateFooter from '../components/settings/UpdateFooter';
 import { getSettings, getCachedSettings, updateSettings, deleteAccount } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
+import CatLoader from '../components/CatLoader';
 
 // Petit badge PREMIUM pour les fonctions verrouillées au plan gratuit.
 function PremiumPill() {
@@ -117,7 +118,7 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>
-        <ActivityIndicator color={COLORS.jiayou} />
+        <CatLoader size={110} />
       </View>
     );
   }

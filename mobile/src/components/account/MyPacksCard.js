@@ -6,6 +6,7 @@ import Popup from '../Popup';
 import { getMyPacks, updatePack, deletePack } from '../../api';
 import { useT } from '../../i18n';
 import { COLORS } from '../../theme';
+import CatLoader from '../CatLoader';
 
 const inputStyle = {
   backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.line,
@@ -50,7 +51,7 @@ export default function MyPacksCard({ onNavigate }) {
   return (
     <AccountCard icon="pricetags-outline" title={tr('ac_my_packs')} actionLabel={tr('ac_create_pack')} onPress={() => onNavigate?.('create-pack')}>
       {packs === null ? (
-        <ActivityIndicator color={COLORS.jiayou} style={{ marginVertical: 12 }} />
+        <View style={{ marginVertical: 12, alignItems: 'center' }}><CatLoader size={80} /></View>
       ) : (
         packs.map((p, i) => (
           <Pressable
