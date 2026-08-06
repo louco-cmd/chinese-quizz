@@ -253,7 +253,7 @@ router.post('/api/auth/apple-token', async (req, res) => {
     // Audience acceptée : le bundle iOS (login natif) ET le Services ID (login web,
     // flux « Sign in with Apple JS »). Le `sub` est le même entre les deux tant que
     // le Services ID est rattaché au même App ID primaire → même compte lié.
-    const audience = [process.env.APPLE_BUNDLE_ID || 'fr.jiayou.app', process.env.APPLE_SERVICES_ID].filter(Boolean);
+    const audience = [process.env.APPLE_BUNDLE_ID || 'fr.jiayou.app', process.env.APPLE_SERVICES_ID || 'fr.jiayou.web'].filter(Boolean);
     const data = await appleSignin.verifyIdToken(identity_token, {
       audience,
       ignoreExpiration: false,

@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 //
 // Prérequis Apple : un Services ID (EXPO_PUBLIC_APPLE_SERVICES_ID) configuré avec
 // le domaine app.jiayou.fr vérifié + la Return URL = https://app.jiayou.fr.
-const APPLE_SERVICES_ID = process.env.EXPO_PUBLIC_APPLE_SERVICES_ID;
+const APPLE_SERVICES_ID = process.env.EXPO_PUBLIC_APPLE_SERVICES_ID || 'fr.jiayou.web';
 const SDK_SRC = 'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
 
 function loadAppleSdk() {
