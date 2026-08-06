@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SHADOW_CARD } from '../theme';
@@ -79,6 +79,8 @@ function FaqItem({ tk }) {
 // Page Pricing : hero + carte Premium (featured) + carte Free + trust + FAQ.
 export default function PricingScreen({ onBack, isPremium = false, onPurchased }) {
   const { t } = useT();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 900; // tuiles côte à côte (Free à gauche, Premium à droite)
   const [portalBusy, setPortalBusy] = useState(false);
   const [portalError, setPortalError] = useState('');
   const [sub, setSub] = useState({ cancelAtPeriodEnd: false, currentPeriodEnd: null });
@@ -192,9 +194,12 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
           </View>
         </View>
 
-        <View style={{ width: '100%', maxWidth: 460, alignSelf: 'center', paddingHorizontal: 16, marginTop: 18 }}>
+        <View style={{ width: '100%', maxWidth: isDesktop ? 940 : 460, alignSelf: 'center', paddingHorizontal: 16, marginTop: 18 }}>
+          {/* Cartes de prix : empilées sur mobile (Premium en haut), côte à côte
+              sur desktop avec `row-reverse` → Premium à DROITE, Free à gauche. */}
+          <View style={{ flexDirection: isDesktop ? 'row-reverse' : 'column', alignItems: 'flex-start', gap: isDesktop ? 20 : 0, marginBottom: 20 }}>
           {/* ── Premium (featured) ── */}
-          <View style={{ backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', marginBottom: 16, ...SHADOW_CARD }}>
+          <View style={{ flex: isDesktop ? 1 : undefined, width: isDesktop ? undefined : '100%', backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', marginBottom: isDesktop ? 0 : 16, ...SHADOW_CARD }}>
             <LinearGradient colors={['#0d6efd', '#0a58ca']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 18 }}>
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 17, marginBottom: 4 }}>{t('pricing_premium')}</Text>
               {/* Prix : celui du store si dispo (localisé + à jour), sinon le tarif web. */}
@@ -273,7 +278,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
           </View>
 
           {/* ── Free ── */}
-          <View style={{ backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', marginBottom: 20, ...SHADOW_CARD }}>
+          <View style={{ flex: isDesktop ? 1 : undefined, width: isDesktop ? undefined : '100%', backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', marginBottom: 0, ...SHADOW_CARD }}>
             <View style={{ padding: 18, borderBottomWidth: 1, borderColor: '#f2f2f4' }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <View>
@@ -296,6 +301,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
               </View>
             </View>
           </View>
+          </View>{/* fin rangée cartes */}
 
           {/* FAQ */}
           <Text style={{ textAlign: 'center', fontWeight: '700', fontSize: 16, color: '#1d1d1f', marginBottom: 8 }}>

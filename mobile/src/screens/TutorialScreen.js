@@ -33,6 +33,11 @@ const SLIDES = [
     title: 'Challenge your friends',
     body: 'Duel your friends, bet coins, and prove who is the best.',
   },
+  {
+    icon: 'pricetags',
+    title: 'Word packs & JiaStore',
+    body: 'Build, share and grab ready-made vocabulary packs on the JiaStore.',
+  },
 ];
 
 // `onDone` appelé après avoir marqué le tutoriel vu ; `onClose` (optionnel)
