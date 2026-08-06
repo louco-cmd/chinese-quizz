@@ -78,13 +78,13 @@ export default function TutorialScreen({ onDone, onClose }) {
               boîte sur ce ratio (pleine largeur) → l'image remplit tout le cadre,
               sans bandes ni rognage. */}
           {slide.image ? (
-            <View style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1772F5' }}>
+            <View style={{ width: '100%', aspectRatio: 4 / 3, maxHeight: 300, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1772F5' }}>
               <Image source={slide.image} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
             </View>
           ) : (
             <LinearGradient
               colors={['#1772F5', '#1EBCEE']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={{ width: '100%', aspectRatio: 3 / 4, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+              style={{ width: '100%', aspectRatio: 4 / 3, maxHeight: 300, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
             >
               <Ionicons name={slide.icon} size={96} color="rgba(255,255,255,0.95)" />
             </LinearGradient>
