@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "247237336922",
+    "project_id": "jiayou-63d08",
+    "storage_bucket": "jiayou-63d08.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:247237336922:android:25079ced8e24048f831d63",
+        "android_client_info": {
+          "package_name": "fr.jiayou.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA5_5EHWXyrFc3u0p58jT8ftbXoClXWSME"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
