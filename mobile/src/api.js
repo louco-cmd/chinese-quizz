@@ -408,6 +408,11 @@ export function getBillingPortal() {
   return request('/api/m/billing-portal', { method: 'POST' });
 }
 
+// Session Stripe Checkout (web) : renvoie l'URL pour aller DIRECTEMENT au paiement.
+export function createCheckout(returnUrl) {
+  return request('/api/m/create-checkout', { method: 'POST', body: { returnUrl } });
+}
+
 // Resync live de l'abonnement depuis Stripe → { isPremium, cancelAtPeriodEnd, currentPeriodEnd }.
 export function refreshSubscription() {
   return request('/api/m/subscription/refresh', { method: 'POST' });

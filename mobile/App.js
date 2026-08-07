@@ -375,7 +375,10 @@ export default function App() {
             recherche est en HAUT : masquer toute la barre + le chat à chaque focus
             donnait l'impression que la nav-bar « disparaissait » par intermittence. */}
         {(kbOpen && tab !== 'add') || tab === 'settings' || tab === 'pricing' || tab === 'import' ? null : (
-          <TabBar active={tab} onChange={setTab} showChar={tab === 'add'} />
+          // On garde la nav-bar sur Add Word même clavier ouvert, mais on masque
+          // le CHAT (showChar) tant que le clavier est là : sinon il chevauche le
+          // champ de recherche (surtout en web mobile) et gêne la saisie.
+          <TabBar active={tab} onChange={setTab} showChar={tab === 'add' && !kbOpen} />
         )}
       </View>
     );

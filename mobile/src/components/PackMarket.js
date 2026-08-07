@@ -128,7 +128,7 @@ export default function PackMarket({
         key={numColumns}
         numColumns={numColumns}
         columnWrapperStyle={{ gap: 18 }}
-        contentContainerStyle={contentContainerStyle || { width: '100%', maxWidth: numColumns === 3 ? 980 : 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: TAB_CLEARANCE }}
+        contentContainerStyle={contentContainerStyle || { flexGrow: 1, width: '100%', maxWidth: numColumns === 3 ? 980 : 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: TAB_CLEARANCE }}
         ListHeaderComponent={ListHeaderComponent}
         ListFooterComponent={ListFooterComponent}
         renderItem={({ item }) =>
@@ -137,13 +137,15 @@ export default function PackMarket({
               : <PackCard pack={item} onPress={setSelected} />
         }
         ListEmptyComponent={
-          loading ? (
-            <View style={{ marginTop: 30, alignItems: 'center' }}><CatLoader size={110} /></View>
-          ) : error ? (
-            <Text style={{ textAlign: 'center', color: COLORS.danger, marginTop: 30 }}>{error}</Text>
-          ) : (
-            <Text style={{ textAlign: 'center', color: COLORS.muted, marginTop: 40 }}>{t('st_no_packs')}</Text>
-          )
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
+            {loading ? (
+              <CatLoader size={110} />
+            ) : error ? (
+              <Text style={{ textAlign: 'center', color: COLORS.danger }}>{error}</Text>
+            ) : (
+              <Text style={{ textAlign: 'center', color: COLORS.muted }}>{t('st_no_packs')}</Text>
+            )}
+          </View>
         }
       />
 

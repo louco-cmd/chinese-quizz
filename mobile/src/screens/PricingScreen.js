@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SHADOW_CARD } from '../theme';
 import { useT } from '../i18n';
-import { getBillingPortal, refreshSubscription, syncRevenueCat } from '../api';
+import { getBillingPortal, refreshSubscription, syncRevenueCat, createCheckout } from '../api';
 import { buyPremium, purchasesAvailable, restorePurchases, getPremiumPlans, yearlySavingPct, isTestStore } from '../purchases';
 
 // Android : gérer/annuler l'abonnement se fait dans le Play Store.
@@ -16,7 +16,6 @@ const fmtDate = (iso) => {
   return isNaN(d) ? '' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
-const PREMIUM_URL = 'https://jiayou.fr/#pricing';
 
 // Features/FAQ portés par clés i18n (traduits au rendu via useT).
 const PREMIUM_FEATURES = [
@@ -149,7 +148,15 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
       } finally { setPortalBusy(false); }
       return;
     }
-    Linking.openURL(PREMIUM_URL); // web → Stripe
+    // web → Stripe DIRECT (plus de détour par le site public).
+    setPortalError(''); setPortalBusy(true);
+    try {
+      const origin = (typeof window !== 'undefined' && window.location?.origin) || undefined;
+      const { url } = await createCheckout(origin);
+      await Linking.openURL(url);
+    } catch (e) {
+      setPortalError(e.message || t('pricing_err_purchase'));
+    } finally { setPortalBusy(false); }
   }
 
   // Restaurer un achat précédent (obligatoire sur les stores).
@@ -266,7 +273,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                 </Pressable>
               ) : null}
               <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 11.5, marginTop: 10 }}>
-                <Ionicons name={native ? 'logo-google-playstore' : 'globe-outline'} size={11} color={COLORS.muted} />  {native ? t('pricing_billed_google') : t('pricing_billed_web')}
+                <Ionicons name={native ? (Platform.OS === 'ios' ? 'logo-apple' : 'logo-google-playstore') : 'lock-closed'} size={11} color={COLORS.muted} />  {native ? (Platform.OS === 'ios' ? t('pricing_billed_apple') : t('pricing_billed_google')) : t('pricing_billed_web')}
               </Text>
               {/* Clé RevenueCat de test : aucun paiement réel n'a lieu. */}
               {native && isTestStore() ? (

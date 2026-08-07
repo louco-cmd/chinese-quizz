@@ -3328,6 +3328,52 @@ router.post('/api/m/billing-portal', requireToken, async (req, res) => {
   }
 });
 
+// ── POST /api/m/create-checkout : session Stripe Checkout (web) → { url } ─────
+// Abonnement web SANS détour par le site public : on crée la session Stripe et
+// le client ouvre l'URL directement. Retour géré par le SPA via ?session_id=.
+router.post('/api/m/create-checkout', requireToken, async (req, res) => {
+  try {
+    const priceID = process.env.STRIPE_PRICE_PREMIUM;
+    if (!priceID) return res.status(500).json({ error: 'Stripe not configured' });
+    const uid = req.tokenUser.id;
+    const { rows: u } = await pool.query('SELECT email FROM users WHERE id = $1', [uid]);
+    const email = u[0]?.email;
+
+    // Origine de retour : allowlist stricte (anti open-redirect).
+    const ALLOWED = ['https://app.jiayou.fr', 'https://jiayou.fr', 'http://localhost:8081'];
+    const raw = String(req.body?.returnUrl || '').replace(/\/+$/, '');
+    const base = ALLOWED.includes(raw) ? raw : 'https://app.jiayou.fr';
+
+    const { rows: sub } = await pool.query(
+      'SELECT stripe_customer_id FROM user_subscriptions WHERE user_id = $1 LIMIT 1', [uid]);
+    const customerId = sub[0]?.stripe_customer_id || null;
+
+    const params = {
+      mode: 'subscription',
+      line_items: [{ price: priceID, quantity: 1 }],
+      success_url: `${base}/?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${base}/`,
+      metadata: { userId: String(uid), planName: 'premium' },
+    };
+    if (customerId) params.customer = customerId; else params.customer_email = email;
+
+    let session;
+    try {
+      session = await stripe.checkout.sessions.create(params);
+    } catch (err) {
+      // Customer supprimé côté Stripe (test) : retry sans lui.
+      if (err.code === 'resource_missing' && customerId) {
+        delete params.customer; params.customer_email = email;
+        session = await stripe.checkout.sessions.create(params);
+      } else throw err;
+    }
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error('m/create-checkout error:', e);
+    res.status(500).json({ error: 'Could not start checkout' });
+  }
+});
+
 // -------------------- Données de tracés (hanzi-writer) --------------------
 // L'app ne peut pas taper jsDelivr : le CDN est bloqué / très instable en Chine,
 // où se trouve l'essentiel des utilisateurs. Le serveur (hors Chine) va donc
