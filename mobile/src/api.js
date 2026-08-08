@@ -130,6 +130,11 @@ export function register(email, password) {
   return request('/api/auth/register', { method: 'POST', body: { email, password }, auth: false });
 }
 
+// Renvoie l'email de vérification au compte connecté (nudge de vérification).
+export function resendVerification() {
+  return request('/api/m/resend-verification', { method: 'POST' });
+}
+
 // ── Réinitialisation de mot de passe (endpoints web, sans session) ───────────
 export function forgotPassword(email) {
   return request('/auth/forgot-password', { method: 'POST', body: { email }, auth: false });

@@ -7,8 +7,14 @@ import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, compl
 import { configurePurchases } from './src/purchases';
 import { registerForPush, configureNotificationHandler } from './src/push';
 import { LangContext, makeT } from './src/i18n';
+import { initSentry, wrapApp } from './src/sentry';
+
+// Initialise Sentry le plus tôt possible (avant le premier rendu). No-op si le
+// module natif ou le DSN est absent (voir src/sentry.js).
+initSentry();
 import useKeyboardOpen from './src/useKeyboardOpen';
 import Header from './src/components/Header';
+import VerifyEmailBanner from './src/components/VerifyEmailBanner';
 import TabBar from './src/components/TabBar';
 import LoginScreen from './src/screens/LoginScreen';
 import TeachersScreen from './src/screens/TeachersScreen';
@@ -25,6 +31,7 @@ import CreatePackScreen from './src/screens/CreatePackScreen';
 import ImportWordsScreen from './src/screens/ImportWordsScreen';
 import SupportScreen from './src/screens/SupportScreen';
 import LegalScreen from './src/screens/LegalScreen';
+import { TERMS_BLOCKS, PRIVACY_BLOCKS } from './src/data/legalContent';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TutorialScreen from './src/screens/TutorialScreen';
 import TeacherHome from './src/screens/teacher/TeacherHome';
@@ -40,7 +47,7 @@ import UpdateAvailablePopup from './src/components/UpdateAvailablePopup';
 import { checkStoreUpdate } from './src/appUpdate';
 import CatLoader from './src/components/CatLoader';
 
-export default function App() {
+function App() {
   const [ready, setReady] = useState(false);
   const [authed, setAuthed] = useState(false);
   const [tab, setTab] = useState('add'); // page d'accueil = Add words
@@ -265,7 +272,7 @@ export default function App() {
       // 5) Sous-écrans → parent (miroir de leurs boutons onBack).
       const PARENTS = { settings: 'account', account: 'add', writing: 'settings', 'create-pack': 'store' };
       if (PARENTS[tab]) { setTab(PARENTS[tab]); return true; }
-      if (['bank', 'pricing', 'teachers', 'import', 'support', 'legal'].includes(tab)) {
+      if (['bank', 'pricing', 'teachers', 'import', 'support', 'legal', 'terms', 'privacy'].includes(tab)) {
         setTab(bankReturn || 'add'); return true;
       }
       // 6) Onglet principal (store/collection/quiz/duels) → accueil (Add Word).
@@ -280,20 +287,22 @@ export default function App() {
   function renderScreen() {
     switch (tab) {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
-      case 'collection': return <CollectionScreen />;
+      case 'collection': return <CollectionScreen onNavigate={setTab} />;
       case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
       case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} />;
-      case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} />;
+      case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} emailVerified={profile?.emailVerified} />;
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onBack={() => setTab('account')} isPremium={!!profile?.isPremium} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} onPurchased={() => loadProfile({ route: false })} />;
-      case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} onStartQuiz={startPackQuiz} onEditPack={startEditPack} />;
+      case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} onStartQuiz={startPackQuiz} onEditPack={startEditPack} onUpgrade={() => { setBankReturn('store'); setTab('pricing'); }} />;
       case 'create-pack': return <CreatePackScreen editPack={editPack} onBack={() => { setEditPack(null); setTab('store'); }} onCreated={() => { setEditPack(null); setTab('store'); }} />;
       case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} onDone={() => setTab('add')} />;
       case 'writing': return <WritingPracticeScreen onBack={() => setTab('settings')} />;
       case 'support': return <SupportScreen onBack={() => setTab(bankReturn)} />;
       case 'legal': return <LegalScreen onBack={() => setTab(bankReturn)} />;
+      case 'terms': return <LegalScreen onBack={() => setTab(bankReturn)} title={makeT(lang)('set_terms')} blocks={TERMS_BLOCKS} />;
+      case 'privacy': return <LegalScreen onBack={() => setTab(bankReturn)} title={makeT(lang)('set_privacy_policy')} blocks={PRIVACY_BLOCKS} />;
       default: return <CollectionScreen />;
     }
   }
@@ -367,6 +376,8 @@ export default function App() {
           onPlan={() => { if (tab !== 'pricing') { setBankReturn(tab); setTab('pricing'); } }}
           hideLogo={tab === 'add'}
         />
+        {/* Rappel non bloquant de vérification d'email (masqué si vérifié / OAuth). */}
+        {profile && profile.emailVerified === false ? <VerifyEmailBanner /> : null}
         <View className="flex-1">{renderScreen()}</View>
         {/* Barre masquée au clavier et sur les pages secondaires plein écran
             (réglages, abonnement). Fondu coupé sur Add Word (fond dégradé). */}
@@ -374,7 +385,8 @@ export default function App() {
             (quiz, recherche de collection…). Sur l'accueil (Add Word) le champ de
             recherche est en HAUT : masquer toute la barre + le chat à chaque focus
             donnait l'impression que la nav-bar « disparaissait » par intermittence. */}
-        {(kbOpen && tab !== 'add') || tab === 'settings' || tab === 'pricing' || tab === 'import' ? null : (
+        {(kbOpen && tab !== 'add') || tab === 'settings' || tab === 'pricing' || tab === 'import'
+          || tab === 'legal' || tab === 'terms' || tab === 'privacy' || tab === 'support' ? null : (
           // On garde la nav-bar sur Add Word même clavier ouvert, mais on masque
           // le CHAT (showChar) tant que le clavier est là : sinon il chevauche le
           // champ de recherche (surtout en web mobile) et gêne la saisie.
@@ -408,3 +420,7 @@ export default function App() {
     </LangContext.Provider>
   );
 }
+
+// Enveloppé par Sentry (ErrorBoundary + capture des crashs). Dégrade en App brut
+// si Sentry est indisponible (build sans le module natif / DSN non configuré).
+export default wrapApp(App);

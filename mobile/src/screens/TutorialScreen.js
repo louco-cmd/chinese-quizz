@@ -3,46 +3,45 @@ import { View, Text, Pressable, ActivityIndicator, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import { completeTutorial } from '../api';
 import { COLORS } from '../theme';
 
-// Tutoriel élève — carrousel. Chaque slide a `icon`, `title`, `body` et
-// (optionnel) `image` = capture d'écran. Si `image` est présente elle occupe la
-// zone visuelle ; sinon on retombe sur l'icône dégradée (aucune casse si les
-// fichiers ne sont pas encore déposés).
-//
-// Captures attendues dans `assets/tutorial/` (à décommenter les require une fois
-// les PNG déposés) :
-//   01-home.png · 02-collection.png · 03-stats.png
-//   04-duels.png · 05-store.png · 06-teacher.png
-// Tutoriel : 3 slides « key features », icônes uniquement pour l'instant
-// (captures portrait à venir → rajouter `image: require(...)` par slide).
+// Tutoriel élève — carrousel. Chaque slide a `icon`, `title`, `body` et une
+// `image` (300×400, ratio 3:4) qui contient déjà le titre manuscrit. Quand une
+// image est présente on masque le titre texte (évite le doublon) ; `icon` sert
+// de repli si l'image manque.
 const SLIDES = [
   {
     icon: 'bookmarks',
-    title: 'Collect your words',
-    body: 'Save every word you meet and build your own growing collection.',
-  },
-  {
-    icon: 'school',
-    title: 'Train & memorize',
-    body: 'Personalized quizzes and flashcards make each word stick.',
+    title: 'Capture words',
+    body: 'Save every word you meet — Chinese, pinyin or English — and build your own collection.',
+    image: require('../../assets/tutorial/01-capture.png'),
   },
   {
     icon: 'trophy',
     title: 'Challenge your friends',
-    body: 'Duel your friends, bet coins, and prove who is the best.',
+    body: 'Duel your friends in real time, bet coins and climb the leaderboard.',
+    image: require('../../assets/tutorial/02-challenge.png'),
   },
   {
-    icon: 'pricetags',
-    title: 'Word packs & JiaStore',
-    body: 'Build, share and grab ready-made vocabulary packs on the JiaStore.',
+    icon: 'storefront',
+    title: 'Join the community',
+    body: 'Buy, sell and create vocabulary packs with other learners on the JiaStore.',
+    image: require('../../assets/tutorial/03-community.png'),
+  },
+  {
+    icon: 'school',
+    title: 'Learn, train, quiz',
+    body: 'Train with personalized quizzes and track your progress by HSK level.',
+    image: require('../../assets/tutorial/04-learn.png'),
   },
 ];
 
 // `onDone` appelé après avoir marqué le tutoriel vu ; `onClose` (optionnel)
 // pour un simple retour sans re-marquer (rejoué depuis les réglages).
 export default function TutorialScreen({ onDone, onClose }) {
+  const [fontsLoaded] = useFonts({ LaBelleAurore_400Regular });
   const [index, setIndex] = useState(0);
   const [finishing, setFinishing] = useState(false);
   const total = SLIDES.length;
@@ -73,24 +72,32 @@ export default function TutorialScreen({ onDone, onClose }) {
           width: '100%', maxWidth: 560, backgroundColor: '#fff', borderRadius: 28, padding: 24,
           shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.08, shadowRadius: 32, elevation: 4,
         }}>
-          {/* Zone visuelle : capture d'écran si fournie, sinon icône dégradée.
-              Les captures font 800×600 (4:3) et ont déjà un fond bleu : on cale la
-              boîte sur ce ratio (pleine largeur) → l'image remplit tout le cadre,
-              sans bandes ni rognage. */}
+          {/* Titre manuscrit (La Belle Aurore) écrit en code, au-dessus de l'image. */}
+          <Text
+            style={{
+              fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined,
+              fontStyle: fontsLoaded ? 'normal' : 'italic',
+              fontSize: 34, lineHeight: 44, color: COLORS.jiayou, textAlign: 'center', marginBottom: 12,
+            }}
+          >
+            {slide.title}
+          </Text>
+
+          {/* Zone visuelle : mockups (carré, fond transparent) ou icône en repli. */}
           {slide.image ? (
-            <View style={{ width: '100%', aspectRatio: 4 / 3, maxHeight: 300, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1772F5' }}>
-              <Image source={slide.image} resizeMode="cover" style={{ width: '100%', height: '100%' }} />
+            <View style={{ width: '100%', maxWidth: 460, alignSelf: 'center', aspectRatio: 1346 / 1444, borderRadius: 20, overflow: 'hidden' }}>
+              <Image source={slide.image} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
             </View>
           ) : (
             <LinearGradient
               colors={['#1772F5', '#1EBCEE']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-              style={{ width: '100%', aspectRatio: 4 / 3, maxHeight: 300, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
+              style={{ width: '100%', aspectRatio: 1, maxHeight: 450, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
             >
               <Ionicons name={slide.icon} size={96} color="rgba(255,255,255,0.95)" />
             </LinearGradient>
           )}
-          <Text style={{ fontSize: 26, fontWeight: '700', color: COLORS.jiayou, marginTop: 18, letterSpacing: -0.4 }}>{slide.title}</Text>
-          <Text style={{ fontSize: 15, color: '#4b5565', lineHeight: 24, marginTop: 10 }}>{slide.body}</Text>
+
+          <Text style={{ fontSize: 16.5, color: '#4b5565', lineHeight: 25, marginTop: 14, textAlign: 'center' }}>{slide.body}</Text>
         </View>
       </View>
 

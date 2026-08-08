@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TextInput, Pressable, ScrollView, FlatList, ActivityIndicator,
+  View, Text, TextInput, Pressable, ScrollView, FlatList, ActivityIndicator, useWindowDimensions, Animated,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COUNTRIES } from '../data/countries';
@@ -34,6 +36,47 @@ function OptionCard({ emoji, title, sub, active, onPress }) {
       <Text className={`text-[13px] font-bold text-center ${active ? 'text-jiayou' : 'text-ink'}`}>{title}</Text>
       {sub ? <Text className="text-[11.5px] text-muted mt-0.5 text-center leading-4">{sub}</Text> : null}
     </Pressable>
+  );
+}
+
+// Grande tuile de rôle en dégradé, icône blanche. Pleine largeur (empilées) en
+// mobile, côte à côte en desktop. Utilisée à l'étape 'role' de l'onboarding.
+function RoleTile({ colors, icon, title, sub, onPress }) {
+  return (
+    <Pressable onPress={onPress} style={{ flex: 1 }} className="active:opacity-90">
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={{ borderRadius: 22, paddingVertical: 26, paddingHorizontal: 20, minHeight: 150, justifyContent: 'center' }}
+      >
+        <Ionicons name="arrow-forward-circle" size={22} color="rgba(255,255,255,0.7)" style={{ position: 'absolute', top: 12, right: 14 }} />
+        <View style={{ alignItems: 'center' }}>
+          <Ionicons name={icon} size={40} color="#fff" style={{ marginBottom: 10 }} />
+          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 18, textAlign: 'center' }}>{title}</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13.5, marginTop: 4, textAlign: 'center', lineHeight: 18 }}>{sub}</Text>
+        </View>
+      </LinearGradient>
+    </Pressable>
+  );
+}
+
+// Tagline manuscrite qui bascule (Chinese ↔ English) avec un petit fondu + slide.
+function AnimatedTagline({ text, style }) {
+  const anim = useRef(new Animated.Value(1)).current;
+  const [shown, setShown] = useState(text);
+  useEffect(() => {
+    if (text === shown) return;
+    Animated.timing(anim, { toValue: 0, duration: 130, useNativeDriver: false }).start(() => {
+      setShown(text);
+      Animated.timing(anim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
+    });
+  }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <Animated.Text
+      style={[style, { opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}
+    >
+      {shown}
+    </Animated.Text>
   );
 }
 
@@ -123,6 +166,9 @@ function BalanceChip({ balance }) {
 // `onDone(role)` appelé après enregistrement ; `onClose` si rejoué depuis réglages.
 export default function OnboardingScreen({ initial, refCode, onDone, onClose }) {
   const [step, setStep] = useState('role'); // 'role' | 'teacher' | 'learner'
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 700;
+  const [fontsLoaded] = useFonts({ LaBelleAurore_400Regular });
   const [picking, setPicking] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -148,7 +194,20 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   const [importing, setImporting] = useState(false);
   const [balance, setBalance] = useState(null);
 
-  const firstName = (initial?.name || '').split(' ')[0] || 'learner';
+  // Prénom live : suit le champ "name" (candy : "Welcome, learner!" → "Welcome, John!").
+  const firstName = (name || '').trim().split(' ')[0] || 'learner';
+  // Tagline selon la direction d'apprentissage (zh→en = j'apprends l'anglais).
+  const taglineText = dir === 'zh→en' ? 'Unlock your English' : 'Unlock your Chinese';
+
+  // Header figé, identique sur les 3 étapes : même padding + même conteneur
+  // (maxWidth 1120) → Back, stepper et balance restent toujours à la même place.
+  const fixedTopBar = ({ onBack, index, total, right = null }) => (
+    <View style={{ paddingHorizontal: isDesktop ? 24 : 20, paddingTop: isDesktop ? 18 : 12, paddingBottom: 4 }}>
+      <View style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}>
+        <TopBar onBack={onBack} index={index} total={total} right={right} />
+      </View>
+    </View>
+  );
 
   // Enregistre le profil. Renvoie true en cas de succès (sans naviguer).
   async function saveProfile(role) {
@@ -248,46 +307,71 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
         />
       </View>
     );
-    // En-tête : même structure/marges que les autres étapes (TopBar + header 加油).
-    // Tout est dans le ListHeaderComponent → un seul scroller, marges identiques.
-    const header = (
-      <View>
-        <TopBar
-          onBack={() => setStep('learner')}
-          index={2}
-          total={3}
-          right={<BalanceChip balance={balance} />}
+    // Bloc branding réutilisé (logo + tagline manuscrite + titre d'étape).
+    const wordsBranding = (
+      <>
+        <Text className="text-jiayou font-extrabold" style={{ fontSize: isDesktop ? 58 : 44 }}>加油!</Text>
+        <AnimatedTagline
+          text={taglineText}
+          style={{ fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined, fontStyle: fontsLoaded ? 'normal' : 'italic', fontSize: isDesktop ? 36 : 27, lineHeight: isDesktop ? 46 : 36, color: COLORS.jiayou, marginTop: 6, textAlign: 'center' }}
         />
-        <View className="items-center mb-7">
-          <Text className="text-[44px] font-extrabold text-jiayou">加油！</Text>
-          <Text className="text-[22px] font-bold text-ink mt-1.5">Get a good start</Text>
-          <Text className="text-muted text-[14.5px] mt-1">buy a pack or upload your words</Text>
+        <Text className="text-[20px] font-bold text-ink mt-4 text-center">Get a good start</Text>
+        <Text className="text-muted text-[14px] mt-1 text-center">buy a pack or upload your words</Text>
+      </>
+    );
+    const stickyBar = (
+      <View style={{ borderTopWidth: 1, borderTopColor: COLORS.line, backgroundColor: '#f8f9fa', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12 }}>
+        <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center' }}>
+          {error ? <Text className="text-danger text-[13px] font-semibold mb-2 text-center">{error}</Text> : null}
+          <PrimaryButton label="Let's start" onPress={finishLearner} saving={saving} />
+          <Text className="text-muted text-[14px] text-center mt-2.5">You can always buy more packs later.</Text>
         </View>
       </View>
     );
+
+    // ── Desktop : 2 colonnes (branding à gauche, grille de packs à droite en grand) ──
+    if (isDesktop) {
+      return (
+        <SafeAreaView className="flex-1 bg-surface-page">
+          {fixedTopBar({ onBack: () => setStep('learner'), index: 2, total: 3, right: <BalanceChip balance={balance} /> })}
+          <View style={{ flex: 1, width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 24 }}>
+            <View style={{ flex: 1, flexDirection: 'row', gap: 40 }}>
+              <View style={{ width: 300, alignItems: 'center', justifyContent: 'center' }}>
+                {wordsBranding}
+              </View>
+              <View style={{ flex: 1 }}>
+                <PackMarket
+                  extraTile={uploadTile}
+                  extraTileAt={1}
+                  maxPrice={200}
+                  columns={2}
+                  onBalance={setBalance}
+                  contentContainerStyle={{ width: '100%', paddingVertical: 12, paddingBottom: 20 }}
+                />
+                {stickyBar}
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    // ── Mobile : une seule colonne. Header figé en haut, branding dans la liste. ──
+    const header = (
+      <View className="items-center mb-7 mt-2">{wordsBranding}</View>
+    );
     return (
       <SafeAreaView className="flex-1 bg-surface-page">
+        {fixedTopBar({ onBack: () => setStep('learner'), index: 2, total: 3, right: <BalanceChip balance={balance} /> })}
         <PackMarket
           extraTile={uploadTile}
           extraTileAt={1}
+          maxPrice={200}
           onBalance={setBalance}
           ListHeaderComponent={header}
           contentContainerStyle={{ width: '100%', maxWidth: 520, alignSelf: 'center', padding: 20, paddingBottom: 24 }}
         />
-        {/* Barre sticky : "Let's start" toujours visible, suit le scroll. */}
-        <View
-          style={{
-            borderTopWidth: 1, borderTopColor: COLORS.line,
-            backgroundColor: '#f8f9fa',
-            paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12,
-          }}
-        >
-          <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center' }}>
-            {error ? <Text className="text-danger text-[13px] font-semibold mb-2 text-center">{error}</Text> : null}
-            <Text className="text-muted text-[12.5px] text-center mb-2">You can always buy more packs later.</Text>
-            <PrimaryButton label="Let's start" onPress={finishLearner} saving={saving} />
-          </View>
-        </View>
+        {stickyBar}
       </SafeAreaView>
     );
   }
@@ -299,30 +383,37 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
       : COUNTRIES;
     return (
       <SafeAreaView className="flex-1 bg-surface-page">
-        <View className="w-full max-w-[480px] self-center flex-1 px-5 pt-4">
-          <View className="flex-row items-center gap-2.5 mb-3">
-            <Pressable onPress={() => { setPicking(false); setQuery(''); }} hitSlop={10}>
-              <Ionicons name="arrow-back" size={22} color={COLORS.ink} />
-            </Pressable>
-            <Text className="text-[17px] font-bold text-ink">Select your country</Text>
+        {/* Desktop : carte centrée à hauteur limitée. Mobile : plein écran. */}
+        <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', paddingHorizontal: 20, paddingTop: isDesktop ? 28 : 12, paddingBottom: isDesktop ? 28 : 0, justifyContent: isDesktop ? 'center' : 'flex-start' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: isDesktop ? 24 : 0, overflow: 'hidden', flexGrow: isDesktop ? 0 : 1, flexShrink: 1, maxHeight: isDesktop ? 560 : undefined, ...(isDesktop ? cardShadow : {}) }}>
+            <View style={{ paddingHorizontal: isDesktop ? 20 : 0, paddingTop: isDesktop ? 20 : 4 }}>
+              <View className="flex-row items-center gap-2.5 mb-3">
+                <Pressable onPress={() => { setPicking(false); setQuery(''); }} hitSlop={10}>
+                  <Ionicons name="arrow-back" size={22} color={COLORS.ink} />
+                </Pressable>
+                <Text className="text-[17px] font-bold text-ink">Select your country</Text>
+              </View>
+              <TextInput
+                value={query} onChangeText={setQuery} placeholder="Search a country…"
+                placeholderTextColor={COLORS.mutedLight} autoFocus className={`${inputClass} mb-2.5`}
+              />
+            </View>
+            <FlatList
+              data={filtered} keyExtractor={(c) => c.code} keyboardShouldPersistTaps="handled"
+              style={{ flexGrow: 1, flexShrink: 1 }}
+              contentContainerStyle={{ paddingHorizontal: isDesktop ? 20 : 0, paddingBottom: 12 }}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => { setCountry(item.code); setPicking(false); setQuery(''); }}
+                  className="flex-row items-center gap-2.5 py-3 border-b border-line-soft"
+                >
+                  <Text className="text-[20px]">{flagEmoji(item.code)}</Text>
+                  <Text className="text-[15px] text-ink flex-1">{item.name}</Text>
+                  {country === item.code && <Ionicons name="checkmark" size={18} color={COLORS.jiayou} />}
+                </Pressable>
+              )}
+            />
           </View>
-          <TextInput
-            value={query} onChangeText={setQuery} placeholder="Search a country…"
-            placeholderTextColor={COLORS.mutedLight} autoFocus className={`${inputClass} mb-2.5`}
-          />
-          <FlatList
-            data={filtered} keyExtractor={(c) => c.code} keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => { setCountry(item.code); setPicking(false); setQuery(''); }}
-                className="flex-row items-center gap-2.5 py-3 border-b border-line-soft"
-              >
-                <Text className="text-[20px]">{flagEmoji(item.code)}</Text>
-                <Text className="text-[15px] text-ink flex-1">{item.name}</Text>
-                {country === item.code && <Ionicons name="checkmark" size={18} color={COLORS.jiayou} />}
-              </Pressable>
-            )}
-          />
         </View>
       </SafeAreaView>
     );
@@ -338,33 +429,67 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     teacher: { index: 1, total: 2, back: () => { setStep('role'); setError(''); } },
   }[step] || { index: 0, total: 3, back: null };
 
+  // Desktop + étape formulaire (learner/teacher) → 2 colonnes (branding à gauche,
+  // formulaire à droite, sans scroll). L'étape 'role' garde le logo en tête +
+  // les tuiles côte à côte.
+  const twoCol = isDesktop && step !== 'role';
+  const branding = (
+    <>
+      <Text className="text-jiayou font-extrabold" style={{ fontSize: twoCol ? 58 : 44 }}>加油!</Text>
+      <AnimatedTagline
+        text={taglineText}
+        style={{ fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined, fontStyle: fontsLoaded ? 'normal' : 'italic', fontSize: twoCol ? 36 : 27, lineHeight: twoCol ? 46 : 36, color: COLORS.jiayou, marginTop: 6, textAlign: 'center' }}
+      />
+      <Text className="text-[20px] font-bold text-ink mt-4">Welcome, {firstName}!</Text>
+      <Text className="text-muted text-[14px] mt-1 text-center">Let's set up your profile before you start.</Text>
+    </>
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-surface-page">
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
-        <View className="w-full max-w-[480px] self-center">
+      {/* Header figé en haut (identique sur toutes les étapes) */}
+      {fixedTopBar({ onBack: stepMeta.back, index: stepMeta.index, total: stepMeta.total })}
+      <ScrollView
+        contentContainerStyle={twoCol ? { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 28 } : { padding: 20, paddingBottom: 60 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={{ width: '100%', maxWidth: twoCol ? 940 : 480, alignSelf: 'center' }}>
 
-          {/* Barre du haut : retour + stepper */}
-          <TopBar onBack={stepMeta.back} index={stepMeta.index} total={stepMeta.total} />
+          {/* Corps : 2 colonnes en desktop-formulaire, empilé sinon */}
+          <View style={twoCol ? { flexDirection: 'row', alignItems: 'center', gap: 56, marginTop: 8 } : undefined}>
 
-          {/* Header */}
-          <View className={`items-center mb-7 ${onClose ? '' : 'mt-3'}`}>
-            <Text className="text-[44px] font-extrabold text-jiayou">加油！</Text>
-            <Text className="text-[22px] font-bold text-ink mt-1.5">Welcome, {firstName}!</Text>
-            <Text className="text-muted text-[14.5px] mt-1">Let's set up your profile before you start.</Text>
-          </View>
+            {/* Branding : logo + tagline (à gauche en desktop, en tête sinon) */}
+            <View style={twoCol ? { flex: 1, alignItems: 'center' } : { alignItems: 'center', marginBottom: 28, marginTop: onClose ? 0 : 12 }}>
+              {branding}
+            </View>
 
-          {/* Carte */}
+            {/* Colonne contenu (formulaire / tuiles) */}
+            <View style={twoCol ? { flex: 1, maxWidth: 460 } : undefined}>
+
+          {/* Étape rôle : tuiles colorées désencapsulées (empilées en mobile,
+              côte à côte en desktop). Les autres étapes restent dans la carte. */}
+          {step === 'role' && (
+            <View style={{ flexDirection: isDesktop ? 'row' : 'column', gap: 14 }}>
+              <RoleTile
+                colors={['#0d6efd', '#0a4fcf']}
+                icon="school"
+                title="I'm a learner"
+                sub="Build vocabulary & practice with quizzes"
+                onPress={() => setStep('learner')}
+              />
+              <RoleTile
+                colors={['#7c3aed', '#5b21b6']}
+                icon="easel"
+                title="I'm a teacher"
+                sub="Create classes & follow students"
+                onPress={enterTeacher}
+              />
+            </View>
+          )}
+
+          {/* Carte (étapes teacher / learner) */}
+          {step !== 'role' && (
           <View className="bg-white rounded-3xl p-6" style={cardShadow}>
-
-            {step === 'role' && (
-              <>
-                <StepLabel icon="people">How will you use Jiayou?</StepLabel>
-                <View className="flex-row gap-3">
-                  <OptionCard emoji="🎓" title="I'm a learner" sub="Build vocabulary & practice with quizzes" onPress={() => setStep('learner')} />
-                  <OptionCard emoji="🧑‍🏫" title="I'm a teacher" sub="Create classes & follow students" onPress={enterTeacher} />
-                </View>
-              </>
-            )}
 
             {step === 'teacher' && (
               <>
@@ -491,10 +616,14 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                 </View>
 
                 {error ? <Text className="text-danger text-[13px] font-semibold mt-2">{error}</Text> : null}
-                <PrimaryButton label="Continue 加油！🚀" onPress={submitLearner} saving={saving} />
+                <PrimaryButton label="Continue 加油!🚀" onPress={submitLearner} saving={saving} />
               </>
             )}
           </View>
+          )}
+
+            </View>{/* fin colonne contenu */}
+          </View>{/* fin corps (row/colonne) */}
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -48,7 +48,16 @@
       [
         "expo-build-properties",
         {
-          "ios": { "useFrameworks": "static" }
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      [
+        "@sentry/react-native",
+        {
+          "organization": "jiayou-qe",
+          "project": "react-native"
         }
       ]
     ],

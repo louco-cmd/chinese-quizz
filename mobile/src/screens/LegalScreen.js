@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, Pressable, Linking } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { LEGAL_BLOCKS, LEGAL_UPDATED, LEGAL_CONTACT } from '../data/legalContent';
@@ -50,25 +51,27 @@ function Block({ block }) {
   }
 }
 
-// Page Legal & Privacy — reproduction native de views/legal.ejs (texte intégral).
-export default function LegalScreen({ onBack }) {
+// Page de document légal. Par défaut : document complet (Legal & Privacy).
+// `title` + `blocks` permettent de rendre une page scindée (CGU ou Confidentialité).
+export default function LegalScreen({ onBack, title = '加油! Legal & Privacy', blocks = LEGAL_BLOCKS }) {
+  const insets = useSafeAreaInsets();
   return (
     <View className="flex-1 bg-surface-page">
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Hero */}
-        <View className="bg-jiayou px-4 pt-4 pb-10">
+        <View className="bg-jiayou px-4 pb-10" style={{ paddingTop: insets.top + 12 }}>
           {onBack ? (
             <Pressable onPress={onBack} hitSlop={10} className="flex-row items-center gap-1 mb-2">
               <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.9)" />
               <Text className="text-white/90 font-semibold">Back</Text>
             </Pressable>
           ) : null}
-          <Text className="text-white font-extrabold text-[24px]">加油！ Legal & Privacy</Text>
+          <Text className="text-white font-extrabold text-[24px]">{title}</Text>
           <Text className="text-white/80 text-[12.5px] mt-1">Last updated: {LEGAL_UPDATED}</Text>
         </View>
 
         <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center', paddingHorizontal: 18, marginTop: 10 }}>
-          {LEGAL_BLOCKS.map((b, i) => <Block key={i} block={b} />)}
+          {blocks.map((b, i) => <Block key={i} block={b} />)}
 
           {/* Contact */}
           <Pressable

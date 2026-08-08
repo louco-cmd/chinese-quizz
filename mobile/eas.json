@@ -24,7 +24,8 @@
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "722514557052-iu88tafpkm7tef0a1njda1053bf8dtg2.apps.googleusercontent.com",
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gcAUjwvGCVEmshXpQsYMonSlVaQ",
-        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_YsHTICvLeUIpxzBjTDzHMIIIGTS"
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_YsHTICvLeUIpxzBjTDzHMIIIGTS",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://3430607cdf0fcd2733efa714e6e972cc@o4511868824125440.ingest.de.sentry.io/4511868829630544"
       }
     },
     "production": {
@@ -35,7 +36,8 @@
         "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "722514557052-eovl2qc7jiu7ai8h4b6bje1j4vk7dsvn.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "722514557052-iu88tafpkm7tef0a1njda1053bf8dtg2.apps.googleusercontent.com",
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_gcAUjwvGCVEmshXpQsYMonSlVaQ",
-        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_YsHTICvLeUIpxzBjTDzHMIIIGTS"
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_YsHTICvLeUIpxzBjTDzHMIIIGTS",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://3430607cdf0fcd2733efa714e6e972cc@o4511868824125440.ingest.de.sentry.io/4511868829630544"
       }
     }
   },

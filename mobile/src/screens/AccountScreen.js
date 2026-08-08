@@ -193,17 +193,6 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
             </View>
           </View>
 
-          {/* ── Log out ── */}
-          <Pressable
-            onPress={onLogout}
-            style={{
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-              paddingVertical: 14, marginTop: 4,
-            }}
-          >
-            <Ionicons name="log-out-outline" size={18} color={COLORS.danger} />
-            <Text style={{ color: COLORS.danger, fontWeight: '600' }}>{t('set_logout')}</Text>
-          </Pressable>
         </View>
       </ScrollView>
 

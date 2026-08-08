@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import { COLORS, SHADOW_CARD } from '../theme';
 import { useT } from '../i18n';
 import { getBillingPortal, refreshSubscription, syncRevenueCat, createCheckout } from '../api';
@@ -78,6 +79,7 @@ function FaqItem({ tk }) {
 // Page Pricing : hero + carte Premium (featured) + carte Free + trust + FAQ.
 export default function PricingScreen({ onBack, isPremium = false, onPurchased }) {
   const { t } = useT();
+  const [fontsLoaded] = useFonts({ LaBelleAurore_400Regular });
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900; // tuiles côte à côte (Free à gauche, Premium à droite)
   const [portalBusy, setPortalBusy] = useState(false);
@@ -189,13 +191,19 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
               <Text style={{ color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>{t('common_back')}</Text>
             </Pressable>
           ) : null}
-          <View style={{ alignItems: 'center' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 12 }}>
-              <Ionicons name="flash" size={13} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>{t('pricing_badge')}</Text>
-            </View>
-            <Text style={{ color: '#fff', fontSize: 24, fontWeight: '800', textAlign: 'center' }}>{t('pricing_hero_title')}</Text>
-            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13.5, textAlign: 'center', marginTop: 6 }}>
+          {/* Espace vide entre le Back et le titre (le badge a été retiré). */}
+          <View style={{ alignItems: 'center', marginTop: 24 }}>
+            <Text
+              style={{
+                color: '#fff',
+                fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined,
+                fontStyle: fontsLoaded ? 'normal' : 'italic',
+                fontSize: 36, lineHeight: 46, textAlign: 'center', paddingHorizontal: 8,
+              }}
+            >
+              {t('pricing_hero_title')}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13.5, textAlign: 'center', marginTop: 8 }}>
               {t('pricing_hero_sub')}
             </Text>
           </View>

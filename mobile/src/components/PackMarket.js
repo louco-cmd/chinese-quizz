@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator, FlatList, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { getMe, getMarketPacks } from '../api';
 import { useT } from '../i18n';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
-import PackDetailPopup, { glyphOf, COVER_BG, COVER_FG, OwnedProgress } from './PackDetailPopup';
+import PackDetailPopup, { glyphOf, COVER_BG, COVER_FG, OwnedProgress, isPremiumPack } from './PackDetailPopup';
 import CatLoader from './CatLoader';
 
 function PackCard({ pack, onPress }) {
@@ -19,9 +20,13 @@ function PackCard({ pack, onPress }) {
               <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{t('st_owned')}</Text>
             </View>
           ) : null}
-          {/* Nouveauté (< 7 jours) — coin opposé au badge Owned, donc les deux
-              peuvent coexister sur un pack récent qu'on possède. */}
-          {pack.is_new ? (
+          {/* Coin haut-gauche : badge Premium (prioritaire) sinon Nouveauté (<7j). */}
+          {isPremiumPack(pack) ? (
+            <View style={{ position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#f5b301', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+              <Ionicons name="star" size={10} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{t('st_premium_tag')}</Text>
+            </View>
+          ) : pack.is_new ? (
             <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: '#ff6b35', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
               <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{t('st_new')}</Text>
             </View>
@@ -77,6 +82,12 @@ export default function PackMarket({
   onBalance,
   onStartQuiz,
   onEditPack,
+  onUpgrade,       // free qui ouvre un pack premium → propose l'upgrade (via popup)
+  extraBottomPad = 0, // marge basse en plus (ex. dégager un FAB flottant)
+  maxPrice = null, // si défini, n'affiche que les packs coûtant strictement moins (onboarding)
+  columns = null,  // force le nombre de colonnes (sinon auto selon la largeur fenêtre)
+  search = '',     // recherche texte (q)
+  sort = 'featured', // tri : featured | recent | popular | price_asc | price_desc
 }) {
   const { t } = useT();
   const [me, setMe] = useState(null);
@@ -88,15 +99,23 @@ export default function PackMarket({
   const fetchPacks = useCallback(async () => {
     setError('');
     try {
-      const d = await getMarketPacks({ sort: 'featured' });
+      const d = await getMarketPacks({ q: search, sort });
       setPacks(d.packs || []);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
-  }, []);
+  }, [search, sort]);
 
+  // Solde : une seule fois au montage.
   useEffect(() => {
     getMe().then((u) => { setMe(u); onBalance?.(u?.balance); }).catch(() => {});
-    fetchPacks();
-  }, [fetchPacks, onBalance]);
+  }, [onBalance]);
+
+  // Packs : (re)chargés quand la recherche/tri change, avec un léger debounce.
+  // On ne remet PAS loading à true ici → les résultats actuels restent affichés
+  // jusqu'à l'arrivée des nouveaux (pas de clignotement du loader en tapant).
+  useEffect(() => {
+    const timer = setTimeout(fetchPacks, 250);
+    return () => clearTimeout(timer);
+  }, [fetchPacks]);
 
   // Après achat : maj solde + carte de la grille.
   function onBought(id, d) {
@@ -108,11 +127,12 @@ export default function PackMarket({
 
   // 3 colonnes en desktop, 2 sinon. La grille se réajuste avec la fenêtre.
   const { width } = useWindowDimensions();
-  const numColumns = width >= 992 ? 3 : 2;
+  const numColumns = columns || (width >= 992 ? 3 : 2);
 
-  // Construit la grille : packs + tuile injectée + spacers pour compléter la
-  // dernière rangée (multiple de numColumns) et garder des cartes bien alignées.
-  const items = [...packs];
+  // Construit la grille : packs (filtrés par prix si maxPrice) + tuile injectée +
+  // spacers pour compléter la dernière rangée (multiple de numColumns).
+  const visiblePacks = maxPrice == null ? packs : packs.filter((p) => (p.price || 0) < maxPrice);
+  const items = [...visiblePacks];
   if (extraTile) items.splice(Math.min(extraTileAt ?? items.length, items.length), 0, { id: '__extra__', _extra: true });
   const remainder = items.length % numColumns;
   const gridData = remainder === 0
@@ -128,7 +148,7 @@ export default function PackMarket({
         key={numColumns}
         numColumns={numColumns}
         columnWrapperStyle={{ gap: 18 }}
-        contentContainerStyle={contentContainerStyle || { flexGrow: 1, width: '100%', maxWidth: numColumns === 3 ? 980 : 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: TAB_CLEARANCE }}
+        contentContainerStyle={contentContainerStyle || { flexGrow: 1, width: '100%', maxWidth: numColumns === 3 ? 980 : 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: TAB_CLEARANCE + extraBottomPad }}
         ListHeaderComponent={ListHeaderComponent}
         ListFooterComponent={ListFooterComponent}
         renderItem={({ item }) =>
@@ -152,6 +172,8 @@ export default function PackMarket({
       <PackDetailPopup
         pack={selected}
         balance={me?.balance}
+        isPremium={!!me?.isPremium}
+        onUpgrade={onUpgrade}
         onClose={() => setSelected(null)}
         onBought={onBought}
         onStartQuiz={onStartQuiz ? (p) => { setSelected(null); onStartQuiz(p); } : undefined}

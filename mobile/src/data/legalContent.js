@@ -1,6 +1,6 @@
 // Contenu de la page Legal & Privacy (fidèle à views/legal.ejs).
 // Blocs : label | h2 | h3 | p | ul | note | table.
-export const LEGAL_UPDATED = 'June 10, 2026';
+export const LEGAL_UPDATED = 'August 7, 2026';
 export const LEGAL_CONTACT = 'info@jiayou.fr';
 
 export const LEGAL_BLOCKS = [
@@ -195,3 +195,16 @@ export const LEGAL_BLOCKS = [
     'Website: jiayou.fr',
   ] },
 ];
+
+// Bloc de contact générique, réutilisé en pied des deux pages scindées.
+const CONTACT_BLOCKS = [
+  { t: 'h3', text: 'Contact' },
+  { t: 'p', text: 'For any questions or requests:' },
+  { t: 'ul', items: ['Email: info@jiayou.fr', 'Website: jiayou.fr'] },
+];
+
+// Pages scindées dérivées du document complet (aucune réécriture du contenu) :
+// tout ce qui précède le label "Privacy Policy" = CGU, le reste = Confidentialité.
+const _privacyStart = LEGAL_BLOCKS.findIndex((b) => b.t === 'label' && b.text === 'Privacy Policy');
+export const TERMS_BLOCKS = [...LEGAL_BLOCKS.slice(0, _privacyStart), ...CONTACT_BLOCKS];
+export const PRIVACY_BLOCKS = LEGAL_BLOCKS.slice(_privacyStart);

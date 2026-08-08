@@ -12,6 +12,7 @@ const { pool, reconcileHskPacks } = require('../config/database');
 const { generateDuelQuiz, addTransaction, updateWordScore } = require('../middleware/index');
 const { sendExpoPush } = require('../middleware/push.service');
 const { registerLimiter, loginLimiter, validateSignupEmail } = require('../middleware/signup-guard');
+const { rewardPendingReferral } = require('../lib/referral');
 const cedict = require('../lib/cedict');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
@@ -319,7 +320,7 @@ router.get('/api/m/me', requireToken, async (req, res) => {
     const { rows } = await pool.query(
       `SELECT u.id, u.email, u.name, u.balance, u.role,
               u.quiz_direction, u.interface_lang, u.special_guest,
-              u.onboarding_done, u.has_seen_tutorial,
+              u.onboarding_done, u.has_seen_tutorial, u.email_verified, u.provider,
               u.avatar_icon, u.avatar_color,
               u.rc_expires_at, u.rc_will_renew,
               us.plan_name, us.status AS sub_status, us.stripe_status,
@@ -353,6 +354,10 @@ router.get('/api/m/me', requireToken, async (req, res) => {
       interface_lang: row.interface_lang,
       onboarding_done: row.onboarding_done,
       has_seen_tutorial: row.has_seen_tutorial,
+      // Vérification email : les comptes OAuth (Google/Apple) sont vérifiés d'office.
+      // Sert au bandeau de rappel + au gate des actions à risque côté serveur.
+      emailVerified: row.email_verified === true || row.provider === 'google' || row.provider === 'apple',
+      provider: row.provider,
       avatar_icon: row.avatar_icon,
       avatar_color: row.avatar_color,
       isPremium,
@@ -370,45 +375,66 @@ router.get('/api/m/me', requireToken, async (req, res) => {
   }
 });
 
+// Renvoie true si l'utilisateur peut réaliser une action à risque : email
+// vérifié, ou compte OAuth (Google/Apple) intrinsèquement vérifié.
+async function isVerified(userId) {
+  const r = await pool.query('SELECT email_verified, provider FROM users WHERE id = $1', [userId]);
+  const u = r.rows[0];
+  return !!u && (u.email_verified === true || u.provider === 'google' || u.provider === 'apple');
+}
+// Réponse 403 standard pour les gates de vérification (le client affiche un CTA).
+function verifyRequired(res) {
+  return res.status(403).json({ error: 'Please verify your email to use this feature.', verifyRequired: true });
+}
+
+// ── POST /api/m/resend-verification : renvoyer l'email de vérification ────────
+router.post('/api/m/resend-verification', requireToken, loginLimiter, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const r = await pool.query('SELECT email, email_verified, provider FROM users WHERE id = $1', [uid]);
+    const u = r.rows[0];
+    if (!u) return res.status(404).json({ error: 'Not found' });
+    // Déjà vérifié (ou OAuth) → rien à faire, on répond OK (idempotent, pas de fuite d'info).
+    if (u.email_verified === true || u.provider === 'google' || u.provider === 'apple') {
+      return res.json({ ok: true, alreadyVerified: true });
+    }
+    const vtoken = crypto.randomBytes(32).toString('hex');
+    await pool.query(
+      `INSERT INTO email_verification_tokens (user_id, token, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '24 hours')`,
+      [uid, vtoken]
+    );
+    const { sendVerificationEmail } = require('../middleware/mail.service');
+    await sendVerificationEmail(u.email, vtoken);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('m/resend-verification error:', e.message);
+    res.status(500).json({ error: 'Could not send verification email' });
+  }
+});
+
 // ── POST /api/m/onboarding : sauve le profil + marque l'onboarding fini ───────
 // Miroir JWT de /api/user/update-profile + /api/user/complete-onboarding (web).
-// `ref` (optionnel) = code de parrainage capté côté client → crédite le parrain.
-const REFERRAL_REWARD = { student: 80, teacher: 150 };
-
-// Crédite le parrain une seule fois, montant selon le rôle réel de l'invité.
+// `ref` (optionnel) = code de parrainage capté côté client. On POSE le lien
+// (referred_by) à l'onboarding, mais la RÉCOMPENSE du parrain n'est versée que
+// lorsque l'invité a un email vérifié (rewardPendingReferral) — anti-farming :
+// un faux compte non vérifié ne rapporte aucun coin. Pour les comptes déjà
+// vérifiés (Google/Apple), rewardPendingReferral crédite immédiatement.
 async function creditReferralByCode(userId, code) {
-  if (!code) return;
-  const me = await pool.query(
-    'SELECT role, referred_by, referral_rewarded FROM users WHERE id = $1',
-    [userId]
-  );
-  if (!me.rows.length) return;
-  if (me.rows[0].referred_by || me.rows[0].referral_rewarded) return;
-
-  const ref = await pool.query('SELECT id FROM users WHERE referral_code = $1', [code]);
-  if (!ref.rows.length) return;
-  const referrerId = ref.rows[0].id;
-  if (referrerId === userId) return; // pas d'auto-parrainage
-
-  const reward = REFERRAL_REWARD[me.rows[0].role] || REFERRAL_REWARD.student;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const upd = await client.query(
-      `UPDATE users SET referred_by = $1, referral_rewarded = TRUE
-       WHERE id = $2 AND referred_by IS NULL AND referral_rewarded = FALSE`,
-      [referrerId, userId]
-    );
-    if (upd.rowCount === 1) {
-      await addTransaction(client, referrerId, reward, 'referral', 'Referral bonus');
+  if (code) {
+    const me = await pool.query(
+      'SELECT referred_by, referral_rewarded FROM users WHERE id = $1', [userId]);
+    if (me.rows.length && !me.rows[0].referred_by && !me.rows[0].referral_rewarded) {
+      const ref = await pool.query('SELECT id FROM users WHERE referral_code = $1', [code]);
+      if (ref.rows.length && ref.rows[0].id !== userId) { // pas d'auto-parrainage
+        await pool.query(
+          `UPDATE users SET referred_by = $1
+           WHERE id = $2 AND referred_by IS NULL AND referral_rewarded = FALSE`,
+          [ref.rows[0].id, userId]);
+      }
     }
-    await client.query('COMMIT');
-  } catch (e) {
-    await client.query('ROLLBACK');
-    throw e;
-  } finally {
-    client.release();
   }
+  await rewardPendingReferral(userId);
 }
 
 router.post('/api/m/onboarding', requireToken, async (req, res) => {
@@ -1004,6 +1030,9 @@ router.post('/api/m/import/commit', requireToken, async (req, res) => {
 // ── PUT /api/m/words/:motId : éditer un mot (chinois/pinyin/anglais) ──────────
 router.put('/api/m/words/:motId', requireToken, async (req, res) => {
   try {
+    // Gate anti-faux-comptes : modifier un mot (édite la base partagée) exige un
+    // email vérifié, pour éviter qu'un compte non vérifié pollue le contenu.
+    if (!(await isVerified(req.tokenUser.id))) return verifyRequired(res);
     const motId = parseInt(req.params.motId, 10);
     if (!motId) return res.status(400).json({ error: 'Invalid word' });
     const { chinese, pinyin, english, description } = req.body || {};
@@ -1302,6 +1331,8 @@ router.post('/api/m/market/packs/plan', requireToken, async (req, res) => {
 // on les ajoute à la collection (3 ₵/mot ; création + traduction si hors dico).
 router.post('/api/m/market/packs', requireToken, async (req, res) => {
   const uid = req.tokenUser.id;
+  // Gate anti-faux-comptes : publier/vendre un pack exige un email vérifié.
+  if (!(await isVerified(uid))) return verifyRequired(res);
   const title = String(req.body?.title || '').trim();
   const description = String(req.body?.description || '').trim();
   const price = parseInt(req.body?.price, 10);
@@ -1516,6 +1547,8 @@ router.get('/api/m/users/search', requireToken, async (req, res) => {
 // ── POST /api/m/bank/red-envelope : envoyer un virement ──────────────────────
 router.post('/api/m/bank/red-envelope', requireToken, async (req, res) => {
   const uid = req.tokenUser.id;
+  // Gate anti-faux-comptes : envoyer des coins exige un email vérifié.
+  if (!(await isVerified(uid))) return verifyRequired(res);
   const recipientId = parseInt(req.body?.recipientId, 10);
   const amount = parseInt(req.body?.amount, 10);
   const message = String(req.body?.message || '').trim().slice(0, 140) || null;

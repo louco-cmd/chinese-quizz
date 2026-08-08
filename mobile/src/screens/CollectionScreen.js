@@ -84,7 +84,7 @@ const circleBtn = {
   shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 12,
 };
 
-export default function CollectionScreen() {
+export default function CollectionScreen({ onNavigate }) {
   const { t: tr } = useT();
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width * 0.86, 340);
@@ -427,8 +427,39 @@ export default function CollectionScreen() {
   if (!words.length) {
     return (
       <View className="flex-1 items-center justify-center px-8 bg-surface-page">
-        <Ionicons name="documents-outline" size={40} color={COLORS.mutedLight} />
-        <Text className="text-muted mt-3 text-center">{tr('co_no_words')}</Text>
+        {/* Illustration : pile de flashcards inclinées avec une pousse. */}
+        <View style={{ width: 160, height: 150, marginBottom: 30 }}>
+          <View style={{ position: 'absolute', top: 16, left: 22, width: 116, height: 116, borderRadius: 22, backgroundColor: '#dbe7ff', transform: [{ rotate: '-11deg' }] }} />
+          <View style={{ position: 'absolute', top: 12, left: 22, width: 116, height: 116, borderRadius: 22, backgroundColor: '#eef3ff', transform: [{ rotate: '7deg' }] }} />
+          <View style={{ position: 'absolute', top: 18, left: 22, width: 116, height: 116, borderRadius: 22, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', ...SHADOW_CARD_FLAT, borderWidth: 1, borderColor: COLORS.line }}>
+            <Text style={{ fontSize: 30, fontWeight: '800', color: COLORS.jiayou }}>加</Text>
+            <Text style={{ fontSize: 12, color: COLORS.mutedLight, marginTop: 2 }}>jiā</Text>
+          </View>
+          <Text style={{ position: 'absolute', top: 0, right: 10, fontSize: 34 }}>🌱</Text>
+        </View>
+
+        <Text style={{ fontSize: 20, fontWeight: '800', color: COLORS.ink, textAlign: 'center' }}>{tr('co_empty_title')}</Text>
+        <Text style={{ fontSize: 14.5, color: COLORS.muted, textAlign: 'center', marginTop: 8, lineHeight: 21, maxWidth: 300 }}>{tr('co_empty_sub')}</Text>
+
+        {/* CTA primaire : acheter des packs (JiaStore) */}
+        <Pressable
+          onPress={() => onNavigate?.('store')}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 15, paddingHorizontal: 26, marginTop: 30, width: '100%', maxWidth: 320 }}
+          className="active:opacity-80"
+        >
+          <Ionicons name="storefront" size={19} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15.5 }}>{tr('co_empty_buy')}</Text>
+        </Pressable>
+
+        {/* CTA secondaire : ajouter des mots un par un (Add Word) */}
+        <Pressable
+          onPress={() => onNavigate?.('add')}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#fff', borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, paddingHorizontal: 26, marginTop: 12, width: '100%', maxWidth: 320 }}
+          className="active:opacity-70"
+        >
+          <Ionicons name="add-circle-outline" size={19} color={COLORS.jiayou} />
+          <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 15.5 }}>{tr('co_empty_add')}</Text>
+        </Pressable>
       </View>
     );
   }

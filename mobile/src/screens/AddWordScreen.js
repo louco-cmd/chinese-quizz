@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Platform, Animated, Easing, useWindowDimensions, Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
 import { COLORS } from '../theme';
@@ -35,6 +36,7 @@ function isChinese(s) {
 
 export default function AddWordScreen({ onBalanceChanged }) {
   const { width: screenW } = useWindowDimensions();
+  const [fontsLoaded] = useFonts({ LaBelleAurore_400Regular });
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
@@ -45,6 +47,9 @@ export default function AddWordScreen({ onBalanceChanged }) {
   // Langue apprise : zh→en = on apprend l'anglais → l'anglais devient le mot principal.
   const [learningEnglish, setLearningEnglish] = useState(false);
   useEffect(() => { getMe().then((me) => setLearningEnglish(me?.quiz_direction === 'zh→en')).catch(() => {}); }, []);
+  // Overlay de succès de capture (check vert qui pop) avant fermeture + reset.
+  const [showSuccess, setShowSuccess] = useState(false);
+  const successAnim = useRef(new Animated.Value(0)).current;
 
   // Bouton loupe qui "se détache" du corps de la barre au focus (ressort organique).
   const detach = useRef(new Animated.Value(0)).current;
@@ -133,11 +138,28 @@ export default function AddWordScreen({ onBalanceChanged }) {
       await captureWord(id);
       setCaptured((c) => ({ ...c, [id]: true }));
       onBalanceChanged?.(); // capturer coûte 3 coins → rafraîchir le solde du header
+      runCaptureSuccess();
     } catch (e) {
       setCaptured((c) => ({ ...c, [id]: false }));
       // Solde insuffisant ou plafond free → on le dit clairement.
       setError(e.message || 'Could not capture this word.');
     }
+  }
+
+  // Petite animation de succès, puis fermeture de la popup + reset de la recherche.
+  function runCaptureSuccess() {
+    setShowSuccess(true);
+    successAnim.setValue(0);
+    Animated.spring(successAnim, { toValue: 1, friction: 5, tension: 90, useNativeDriver: true }).start();
+    setTimeout(() => {
+      setShowResults(false);
+      setShowSuccess(false);
+      setQ('');
+      setResults([]);
+      setCaptured({});
+      setError('');
+      Keyboard.dismiss();
+    }, 850);
   }
 
   // ── Popup New word ─────────────────────────────────────────────────────────
@@ -229,7 +251,16 @@ export default function AddWordScreen({ onBalanceChanged }) {
             加油
           </Animated.Text>
 
-          <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 16 }}>Add a word</Text>
+          <Text
+            style={{
+              color: '#fff',
+              fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined,
+              fontStyle: fontsLoaded ? 'normal' : 'italic',
+              fontSize: 23, lineHeight: 30, marginBottom: 16, textAlign: 'center', paddingHorizontal: 20,
+            }}
+          >
+            Start capturing
+          </Text>
 
           {Platform.OS === 'web' ? (
             // Web : la barre prend toute la largeur au repos (bouton caché) ; le
@@ -405,6 +436,18 @@ export default function AddWordScreen({ onBalanceChanged }) {
           <Text style={{ color: COLORS.mutedLight, textAlign: 'center', fontSize: 12, marginTop: 2 }}>
             ← swipe to browse →
           </Text>
+        ) : null}
+
+        {/* Overlay de succès : check vert qui pop, avant la fermeture auto. */}
+        {showSuccess ? (
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.97)', alignItems: 'center', justifyContent: 'center' }}>
+            <Animated.View style={{ alignItems: 'center', opacity: successAnim, transform: [{ scale: successAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }}>
+              <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: '#198754', alignItems: 'center', justifyContent: 'center', shadowColor: '#198754', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 6 }}>
+                <Ionicons name="checkmark" size={58} color="#fff" />
+              </View>
+              <Text style={{ color: '#198754', fontWeight: '800', fontSize: 18, marginTop: 14 }}>Captured!</Text>
+            </Animated.View>
+          </View>
         ) : null}
       </Popup>
 

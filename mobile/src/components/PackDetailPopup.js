@@ -13,6 +13,11 @@ export const glyphOf = (k) => HSK_GLYPH[k] || '汉';
 export const COVER_BG = '#e8f0ff';
 export const COVER_FG = '#5b8def';
 
+// Packs réservés au premium (niveaux HSK avancés) — miroir de PREMIUM_PACK_COVERS
+// côté serveur (routes/mobile.js). Repérés par cover_key.
+export const PREMIUM_PACK_COVERS = ['hsk4', 'hsk5', 'hsk6'];
+export const isPremiumPack = (pack) => PREMIUM_PACK_COVERS.includes(pack?.cover_key);
+
 // Jauge « part déjà possédée », posée en bas à droite de la cover bleue :
 // barre remplie à X% + libellé. Rendue seulement si on possède déjà des mots.
 export function OwnedProgress({ owned, total }) {
@@ -50,7 +55,7 @@ export function WordRow({ w, last }) {
 //   balance     : solde de l'utilisateur (pour le bouton d'achat)
 //   onStartQuiz : (pack) => void — affiche "Start a quiz" si possédé
 //   onBought    : (packId, { newBalance, wordsAdded }) => void — après achat
-export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, onBought, onEditPack }) {
+export default function PackDetailPopup({ pack, balance, isPremium = false, onClose, onStartQuiz, onBought, onEditPack, onUpgrade }) {
   const { t } = useT();
   const [detail, setDetail] = useState(null); // { pack, words?, preview? }
   const [loading, setLoading] = useState(false);
@@ -73,6 +78,8 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
   const words = detail?.words;
   const preview = detail?.preview;
   const owned = !!(p.owned || p.isMine);
+  // Pack premium verrouillé pour un utilisateur gratuit → on propose l'upgrade.
+  const premiumLocked = isPremiumPack(p) && !isPremium && !owned && onUpgrade;
   const canBuy = !owned && (p.word_count || 0) > 0 && balance != null && balance >= p.price;
 
   async function buy() {
@@ -93,6 +100,12 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
         <View>
           <View style={{ height: 84, borderRadius: 14, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>
             <Text style={{ fontSize: 40, fontWeight: '700', color: COVER_FG }}>{glyphOf(p.cover_key)}</Text>
+            {isPremiumPack(p) ? (
+              <View style={{ position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f5b301', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+                <Ionicons name="star" size={11} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{t('st_premium_tag')}</Text>
+              </View>
+            ) : null}
             {!owned ? <OwnedProgress owned={p.owned_words} total={p.word_count} /> : null}
           </View>
           <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e' }}>{p.title}</Text>
@@ -157,6 +170,14 @@ export default function PackDetailPopup({ pack, balance, onClose, onStartQuiz, o
             <View style={{ marginTop: 16, backgroundColor: '#e9ecef', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
               <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('st_coming_soon')}</Text>
             </View>
+          ) : premiumLocked ? (
+            <Pressable
+              onPress={() => { onClose?.(); onUpgrade?.(); }}
+              style={{ marginTop: 16, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: '#f5b301' }}
+            >
+              <Ionicons name="star" size={16} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{t('st_upgrade')}</Text>
+            </Pressable>
           ) : (
             <Pressable
               onPress={buy}

@@ -1,42 +1,105 @@
-import { View, Text, Pressable } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import PackMarket from '../components/PackMarket';
 import { useT } from '../i18n';
-import { COLORS } from '../theme';
+import { COLORS, TAB_CLEARANCE } from '../theme';
 
-// JiaStore : hero + marketplace de packs (grille + achat via PackMarket).
-export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack }) {
+// JiaStore : barre recherche/tri en haut + marketplace de packs (PackMarket).
+// Bouton "Sell a pack" en FAB sticky (bas-droite).
+export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack, onUpgrade }) {
   const { t } = useT();
-  const Hero = (
-    <View style={{ paddingTop: 14, paddingBottom: 24 }}>
-      {onBack ? (
-        <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
-          <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
-          <Text style={{ color: COLORS.jiayou, fontWeight: '600' }}>{t('common_back')}</Text>
-        </Pressable>
-      ) : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: '#1a1a2e', fontSize: 22, fontWeight: '800' }}>{t('nav_store')}</Text>
-          <Text style={{ color: COLORS.muted, fontSize: 13, marginTop: 2 }}>{t('st_subtitle')}</Text>
-        </View>
-        {onCreate ? (
-          <Pressable
-            onPress={onCreate}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 }}
-          >
-            <Ionicons name="add" size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{t('st_sell_pack')}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </View>
-  );
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('featured');
+
+  const SORTS = [
+    { value: 'featured', label: t('st_sort_featured') },
+    { value: 'recent', label: t('st_sort_recent') },
+    { value: 'popular', label: t('st_sort_popular') },
+    { value: 'price_asc', label: t('st_sort_price_asc') },
+    { value: 'price_desc', label: t('st_sort_price_desc') },
+  ];
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      {/* Hero = en-tête scrollable de la grille (ne reste plus fixe en haut). */}
-      <PackMarket ListHeaderComponent={Hero} onStartQuiz={onStartQuiz} onEditPack={onEditPack} />
+      {/* ── Barre filtre + recherche ── */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 }}>
+        {onBack ? (
+          <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 }}>
+            <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
+            <Text style={{ color: COLORS.jiayou, fontWeight: '600' }}>{t('common_back')}</Text>
+          </Pressable>
+        ) : null}
+
+        {/* Recherche */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 999, borderWidth: 1, borderColor: COLORS.line, paddingHorizontal: 14 }}>
+          <Ionicons name="search" size={18} color={COLORS.mutedLight} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder={t('st_search')}
+            placeholderTextColor={COLORS.mutedLight}
+            autoCapitalize="none"
+            style={{ flex: 1, paddingVertical: 10, paddingHorizontal: 8, fontSize: 15, color: COLORS.ink }}
+          />
+          {search ? (
+            <Pressable onPress={() => setSearch('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={COLORS.mutedLight} />
+            </Pressable>
+          ) : null}
+        </View>
+
+        {/* Tri (chips) */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ gap: 8, paddingTop: 10, paddingRight: 8 }}
+        >
+          {SORTS.map((s) => {
+            const active = sort === s.value;
+            return (
+              <Pressable
+                key={s.value}
+                onPress={() => setSort(s.value)}
+                style={{
+                  paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
+                  backgroundColor: active ? COLORS.jiayou : '#fff',
+                  borderWidth: 1, borderColor: active ? COLORS.jiayou : COLORS.line,
+                }}
+              >
+                <Text style={{ color: active ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 13 }}>{s.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* ── Grille de packs ── */}
+      <PackMarket
+        search={search}
+        sort={sort}
+        onStartQuiz={onStartQuiz}
+        onEditPack={onEditPack}
+        onUpgrade={onUpgrade}
+        extraBottomPad={72}
+      />
+
+      {/* ── FAB "Sell a pack" sticky bas-droite ── */}
+      {onCreate ? (
+        <Pressable
+          onPress={onCreate}
+          style={{
+            position: 'absolute', right: 18, bottom: TAB_CLEARANCE - 12,
+            flexDirection: 'row', alignItems: 'center', gap: 6,
+            backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 14,
+            shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 12, elevation: 8,
+          }}
+        >
+          <Ionicons name="add" size={20} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>{t('st_sell_pack')}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

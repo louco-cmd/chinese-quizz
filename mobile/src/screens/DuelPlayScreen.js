@@ -237,8 +237,12 @@ export default function DuelPlayScreen({ duelId, onExit }) {
   }
 
   const w = words[idx];
-  const question = direction === 'zh→en' ? null
-    : type === 'pinyin' ? tr('qp_how_pinyin').replace('{w}', w.english) : tr('qp_how_chinese').replace('{w}', w.english);
+  // Question unifiée : consigne (muted) + mot demandé sur sa propre ligne.
+  const promptLine = direction === 'zh→en'
+    ? tr('qp_what_mean_en')
+    : type === 'pinyin' ? tr('qp_how_pinyin_line') : tr('qp_how_chinese_line');
+  const promptWord = direction === 'zh→en' ? w.chinese : w.english;
+  const promptWordSize = direction === 'zh→en' ? 40 : 30;
   const fb = feedback?.kind === 'success' ? { bg: '#e8f5e9', fg: COLORS.success } : { bg: '#fff3cd', fg: '#856404' };
 
   // Champs à jetons (un par mot/syllabe) : pinyin OU anglais. Boîtes structurées
@@ -257,14 +261,8 @@ export default function DuelPlayScreen({ duelId, onExit }) {
       <ScrollView contentContainerStyle={{ padding: 16, alignItems: 'center' }} keyboardShouldPersistTaps="handled">
         <View style={{ width: '100%', maxWidth: 560 }}>
           <View style={{ alignItems: 'center', marginVertical: 22 }}>
-            {direction === 'zh→en' ? (
-              <>
-                <Text style={{ fontSize: 16, color: COLORS.muted }}>{tr('qp_what_mean_en')}</Text>
-                <Text style={{ fontSize: 56, fontWeight: '800', color: '#1a1a2e', marginTop: 8 }}>{w.chinese}</Text>
-              </>
-            ) : (
-              <Text style={{ fontSize: 22, fontWeight: '700', color: '#1a1a2e', textAlign: 'center' }}>{question}</Text>
-            )}
+            <Text style={{ fontSize: 16, color: COLORS.muted, textAlign: 'center' }}>{promptLine}</Text>
+            <Text style={{ fontSize: promptWordSize, fontWeight: '800', color: '#1a1a2e', marginTop: 10, textAlign: 'center' }}>{promptWord}</Text>
           </View>
 
           {feedback && (

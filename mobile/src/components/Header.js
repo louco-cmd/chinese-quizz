@@ -58,7 +58,7 @@ export default function Header({ onAccount, onLogo, onBalance, onPlan, plan: pla
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {!hideLogo && (
             <Pressable onPress={onLogo}>
-              <Text style={{ color: '#fff', fontSize: 26, fontWeight: '800' }}>加油！</Text>
+              <Text style={{ color: '#fff', fontSize: 26, fontWeight: '800' }}>加油!</Text>
             </Pressable>
           )}
           <Pressable onPress={onPlan}>

@@ -755,6 +755,15 @@ app.get('/auth/verify-email', async (req, res) => {
 
     await pool.query(`UPDATE users SET email_verified = true WHERE id = $1`, [user_id]);
 
+    // Récompense de parrainage différée (anti-farming) : le parrain n'est crédité
+    // qu'une fois l'invité vérifié. Idempotent (verrou referral_rewarded).
+    try {
+      const { rewardPendingReferral } = require('./lib/referral');
+      await rewardPendingReferral(user_id);
+    } catch (refErr) {
+      console.error('❌ referral reward on verify:', refErr.message);
+    }
+
     // On NE supprime PAS le token du user tout de suite (sinon un préchargement mail
     // le consomme et le vrai clic échoue). On nettoie seulement les tokens expirés.
     await pool.query(`DELETE FROM email_verification_tokens WHERE expires_at < NOW()`);

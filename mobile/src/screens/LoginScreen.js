@@ -7,6 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import GoogleSignIn from '../components/GoogleSignIn';
 import AppleSignIn from '../components/AppleSignIn';
+import LegalScreen from './LegalScreen';
+import { TERMS_BLOCKS, PRIVACY_BLOCKS } from '../data/legalContent';
 import { login, register, checkEmail, loginWithGoogle, loginWithApple, setToken } from '../api';
 
 // Style explicite (et pas seulement className) : sur natif, NativeWind n'applique
@@ -35,6 +37,7 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
   const [step, setStep] = useState('email'); // 'email' | 'login' | 'signup' | 'google_only'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [legalDoc, setLegalDoc] = useState(null); // 'terms' | 'privacy' | null (overlay pré-login)
 
   async function exchangeGoogle(idToken) {
     setError('');
@@ -95,6 +98,17 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
   }
 
   const onEmailKey = () => { if (step === 'email') continueEmail(); };
+
+  // Overlay CGU / Confidentialité accessible SANS être connecté (requis review Apple).
+  if (legalDoc) {
+    return (
+      <LegalScreen
+        onBack={() => setLegalDoc(null)}
+        title={legalDoc === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
+        blocks={legalDoc === 'terms' ? TERMS_BLOCKS : PRIVACY_BLOCKS}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }}>
@@ -194,6 +208,14 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
 
             {/* Erreur (étape email / google_only) */}
             {(step === 'email' || step === 'google_only') && error ? <Text className="text-red-500 text-sm mt-3">{error}</Text> : null}
+          </View>
+
+          {/* Pied de page légal — accessible avant toute création de compte. */}
+          <View className="flex-row flex-wrap items-center justify-center mt-5" style={{ width: '100%', maxWidth: 400, alignSelf: 'center' }}>
+            <Text className="text-gray-400 text-xs text-center">By continuing you agree to our </Text>
+            <Pressable onPress={() => setLegalDoc('terms')} hitSlop={6}><Text className="text-jiayou text-xs font-semibold">Terms</Text></Pressable>
+            <Text className="text-gray-400 text-xs"> · </Text>
+            <Pressable onPress={() => setLegalDoc('privacy')} hitSlop={6}><Text className="text-jiayou text-xs font-semibold">Privacy Policy</Text></Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

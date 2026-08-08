@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../Popup';
 import { COLORS } from '../../theme';
@@ -112,13 +112,12 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
             autoFocus
             style={{ ...inputStyle, marginBottom: 10 }}
           />
-          <FlatList
-            data={filtered}
-            keyExtractor={(c) => c.code}
-            keyboardShouldPersistTaps="handled"
-            style={{ maxHeight: 280 }}
-            renderItem={({ item }) => (
+          {/* ScrollView + map (pas FlatList) : une VirtualizedList dans un Modal
+              se mesure mal sur web → liste non scrollable/cliquable. */}
+          <ScrollView style={{ maxHeight: 280 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            {filtered.map((item) => (
               <Pressable
+                key={item.code}
                 onPress={() => { setCountry(item.code); setPicking(false); setQuery(''); }}
                 style={{
                   flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11,
@@ -129,8 +128,8 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
                 <Text style={{ fontSize: 15, color: '#1a1a2e', flex: 1 }}>{item.name}</Text>
                 {country === item.code && <Ionicons name="checkmark" size={18} color={COLORS.jiayou} />}
               </Pressable>
-            )}
-          />
+            ))}
+          </ScrollView>
         </View>
       ) : (
         // ── Formulaire ── (pas de scroll : la popup grandit avec son contenu)

@@ -14,7 +14,7 @@ import DuelPlayScreen from './DuelPlayScreen';
 import DuelDetailScreen from './DuelDetailScreen';
 import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
-import { getDuels, getLeaderboard, getReferral } from '../api';
+import { getDuels, getLeaderboard, getReferral, resendVerification } from '../api';
 import { useT } from '../i18n';
 import { COLORS, TAB_CLEARANCE } from '../theme';
 import CatLoader from '../components/CatLoader';
@@ -23,7 +23,7 @@ function Empty({ text }) {
   return <Text style={{ color: '#adb5bd', paddingHorizontal: 18, paddingVertical: 14 }}>{text}</Text>;
 }
 
-export default function DuelsScreen({ onDefeat }) {
+export default function DuelsScreen({ onDefeat, emailVerified }) {
   const { t } = useT();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
@@ -36,6 +36,7 @@ export default function DuelsScreen({ onDefeat }) {
   const [error, setError] = useState('');
   const [duelPopup, setDuelPopup] = useState(null); // null | { opponent }
   const [showInvite, setShowInvite] = useState(false);
+  const [vState, setVState] = useState('idle'); // idle | sending | sent (renvoi email)
   const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -183,31 +184,65 @@ export default function DuelsScreen({ onDefeat }) {
 
       {/* Invite a friend */}
       <Popup visible={showInvite} onClose={() => setShowInvite(false)} maxWidth={380}>
-        <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{t('du_invite')}</Text>
-        <Text style={{ fontSize: 14, color: COLORS.muted, lineHeight: 20, marginBottom: 16 }}>
-          {t('du_invite_body')}
-        </Text>
+        {emailVerified === false ? (
+          /* Compte non vérifié : le parrainage ne rapporterait rien → on montre
+             clairement l'état "vérifie ton email" au lieu du lien (pas d'échec silencieux). */
+          <>
+            <View style={{ alignItems: 'center', marginBottom: 6 }}>
+              <Ionicons name="mail-unread-outline" size={40} color={COLORS.jiayou} />
+            </View>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', textAlign: 'center', marginBottom: 8 }}>{t('du_invite_verify_title')}</Text>
+            <Text style={{ fontSize: 14, color: COLORS.muted, lineHeight: 20, textAlign: 'center', marginBottom: 20 }}>
+              {vState === 'sent' ? t('verify_sent') : t('du_invite_verify_body')}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable onPress={() => setShowInvite(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
+                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_close')}</Text>
+              </Pressable>
+              <Pressable
+                onPress={async () => {
+                  if (vState !== 'idle') return;
+                  setVState('sending');
+                  try { await resendVerification(); setVState('sent'); } catch { setVState('idle'); }
+                }}
+                disabled={vState !== 'idle'}
+                style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: vState === 'idle' ? 1 : 0.7 }}
+              >
+                {vState === 'sending'
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={{ color: '#fff', fontWeight: '700' }}>{vState === 'sent' ? t('du_copied') : t('verify_resend')}</Text>}
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{t('du_invite')}</Text>
+            <Text style={{ fontSize: 14, color: COLORS.muted, lineHeight: 20, marginBottom: 16 }}>
+              {t('du_invite_body')}
+            </Text>
 
-        {/* Aperçu du lien */}
-        <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e3e8f7', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 20 }}>
-          <Text style={{ fontSize: 13, color: inviteLink ? '#1a1a2e' : '#adb5bd' }} numberOfLines={1}>
-            {inviteLink || t('du_generating_link')}
-          </Text>
-        </View>
+            {/* Aperçu du lien */}
+            <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e3e8f7', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 20 }}>
+              <Text style={{ fontSize: 13, color: inviteLink ? '#1a1a2e' : '#adb5bd' }} numberOfLines={1}>
+                {inviteLink || t('du_generating_link')}
+              </Text>
+            </View>
 
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setShowInvite(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_close')}</Text>
-          </Pressable>
-          <Pressable
-            onPress={copyInviteLink}
-            disabled={!inviteLink}
-            style={{ flex: 1, backgroundColor: copied ? COLORS.success : COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: inviteLink ? 1 : 0.6 }}
-          >
-            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700' }}>{copied ? t('du_copied') : t('du_copy_link')}</Text>
-          </Pressable>
-        </View>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Pressable onPress={() => setShowInvite(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
+                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_close')}</Text>
+              </Pressable>
+              <Pressable
+                onPress={copyInviteLink}
+                disabled={!inviteLink}
+                style={{ flex: 1, backgroundColor: copied ? COLORS.success : COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: inviteLink ? 1 : 0.6 }}
+              >
+                <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{copied ? t('du_copied') : t('du_copy_link')}</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </Popup>
     </View>
   );
