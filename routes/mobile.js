@@ -1420,8 +1420,27 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
     await client.query(
       `INSERT INTO word_pack_items (pack_id, mot_id) SELECT $1, UNNEST($2::int[]) ON CONFLICT DO NOTHING`,
       [packId, motIds]);
+
+    // Propagation des mises à jour aux acheteurs : l'achat d'un pack donne droit
+    // à ses évolutions. On ajoute à la collection de chaque acheteur les mots du
+    // pack qu'il ne possède pas encore (les mots retirés du pack lui restent : on
+    // n'enlève jamais un mot déjà étudié). Sur édition uniquement (à la création
+    // il n'y a pas encore d'acheteurs).
+    let propagated = 0;
+    if (editId) {
+      const prop = await client.query(
+        `INSERT INTO user_mots (user_id, mot_id, score, nb_quiz, nb_correct, last_seen)
+         SELECT pp.buyer_id, wpi.mot_id, 0, 0, 0, NULL
+         FROM pack_purchases pp
+         JOIN word_pack_items wpi ON wpi.pack_id = pp.pack_id
+         WHERE pp.pack_id = $1
+           AND NOT EXISTS (SELECT 1 FROM user_mots um WHERE um.user_id = pp.buyer_id AND um.mot_id = wpi.mot_id)`,
+        [editId]);
+      propagated = prop.rowCount;
+    }
+
     await client.query('COMMIT');
-    res.json({ success: true, id: packId, wordCount: motIds.length, acquired: notOwned.length, edited: !!editId });
+    res.json({ success: true, id: packId, wordCount: motIds.length, acquired: notOwned.length, edited: !!editId, propagated });
   } catch (e) {
     await client.query('ROLLBACK');
     console.error('m/market create error:', e);

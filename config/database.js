@@ -402,6 +402,20 @@ const pool = new Pool({
       console.log(`✅ JiaStore réconcilié (packs HSK 1→6) :`, r.counts.join(', '));
     } catch (e) { console.error('JiaStore reconcile failed:', e.message); }
 
+    // Backfill (idempotent) : synchronise les acheteurs avec l'état actuel de
+    // chaque pack acheté. Rattrape les packs édités AVANT l'ajout de la
+    // propagation à l'édition. Le NOT EXISTS rend les boots suivants sans effet.
+    try {
+      const bf = await pool.query(
+        `INSERT INTO user_mots (user_id, mot_id, score, nb_quiz, nb_correct, last_seen)
+         SELECT pp.buyer_id, wpi.mot_id, 0, 0, 0, NULL
+         FROM pack_purchases pp
+         JOIN word_pack_items wpi ON wpi.pack_id = pp.pack_id
+         WHERE NOT EXISTS (SELECT 1 FROM user_mots um WHERE um.user_id = pp.buyer_id AND um.mot_id = wpi.mot_id)`
+      );
+      console.log(`✅ Backfill mises à jour de packs → acheteurs : ${bf.rowCount} mot(s) synchronisé(s).`);
+    } catch (e) { console.error('Pack updates backfill failed:', e.message); }
+
   } catch (err) {
     console.error("❌ Erreur lors de l'initialisation :", err);
   }
