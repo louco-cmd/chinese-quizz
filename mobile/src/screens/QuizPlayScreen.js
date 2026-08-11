@@ -7,6 +7,7 @@ import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
 import { COLORS, SHADOW_CARD } from '../theme';
 import CatLoader from '../components/CatLoader';
+import RevealAnswerCard from '../components/RevealAnswerCard';
 
 // ── Helpers (identiques à quiz-play.ejs) ──
 function normalizePinyin(str) {
@@ -29,7 +30,12 @@ function stripLetters(str) {
 // suffit. Anglais : parseAnswers ; pinyin : découpe sur / uniquement.
 function answerSenses(w, type, direction) {
   if (direction === 'zh→en') return parseAnswers(w?.english);
-  if (type === 'pinyin') return (w?.pinyin || '').split('/').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  // Pinyin : on retire aussi le contenu entre parenthèses (glose/précision), qui
+  // ne fait pas partie de la réponse attendue — comme parseAnswers pour en/zh.
+  if (type === 'pinyin') {
+    return (w?.pinyin || '').replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '')
+      .split('/').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  }
   return parseAnswers(w?.chinese);
 }
 // Jetons (un par mot/syllabe) du 1er sens → structure des boîtes (une par jeton).
@@ -182,12 +188,12 @@ export default function QuizPlayScreen({ config, onExit }) {
       results.current[idx].correct = false;
       setWrongCount((c) => c + 1);
       setSecond(true);
-      setFeedback({ kind: 'reveal', text: `${tr('qp_answer')} ${answer}` });
+      setFeedback({ kind: 'reveal', word: w });
       setInputs((arr) => arr.map(() => ''));
       setTimeout(() => firstRef.current?.focus?.(), 60);
     } else {
       // 2e erreur : on révèle la réponse et on avance
-      setFeedback({ kind: 'reveal', text: `${tr('qp_answer')} ${answer}` });
+      setFeedback({ kind: 'reveal', word: w });
       setLocked(true);
       setTimeout(() => advance(idx + 1, words), 1400);
     }
@@ -279,11 +285,16 @@ export default function QuizPlayScreen({ config, onExit }) {
             <Text style={{ fontSize: promptWordSize, fontWeight: '800', color: '#1a1a2e', marginTop: 10, textAlign: 'center' }}>{promptWord}</Text>
           </View>
 
-          {/* Feedback */}
+          {/* Feedback : carte de réponse (caractère/pinyin/audio) après une erreur,
+              sinon petit bandeau texte (succès). */}
           {feedback && (
-            <View style={{ backgroundColor: fbColor.bg, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16, alignItems: 'center' }}>
-              <Text style={{ color: fbColor.fg, fontWeight: '700' }}>{feedback.text}</Text>
-            </View>
+            feedback.kind === 'reveal'
+              ? <RevealAnswerCard word={feedback.word} direction={direction} />
+              : (
+                <View style={{ backgroundColor: fbColor.bg, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16, alignItems: 'center' }}>
+                  <Text style={{ color: fbColor.fg, fontWeight: '700' }}>{feedback.text}</Text>
+                </View>
+              )
           )}
 
           {/* Champs de réponse */}

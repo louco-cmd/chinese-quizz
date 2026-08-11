@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import PackMarket from '../components/PackMarket';
 import { useT } from '../i18n';
-import { COLORS, TAB_CLEARANCE } from '../theme';
+import { COLORS } from '../theme';
 
 // JiaStore : barre recherche/tri en haut + marketplace de packs (PackMarket).
 // Bouton "Sell a pack" en FAB sticky (bas-droite).
-export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack, onUpgrade }) {
+// `navOverlaps` : true si la nav bar est en position absolute et recouvre le
+// contenu (côté étudiant) → le FAB doit la franchir. False si la nav est un frère
+// flex sous le contenu (côté prof) → le FAB n'a besoin que d'un petit écart.
+export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack, onUpgrade, navOverlaps = true }) {
   const { t } = useT();
+  const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('featured');
 
@@ -90,7 +95,9 @@ export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack,
         <Pressable
           onPress={onCreate}
           style={{
-            position: 'absolute', right: 18, bottom: TAB_CLEARANCE - 12,
+            // Étudiant : nav absolute (~60px + safe-area) à franchir. Prof : nav
+            // sous le contenu → simple petit écart. Même rendu visuel des deux côtés.
+            position: 'absolute', right: 18, bottom: navOverlaps ? insets.bottom + 74 : 16,
             flexDirection: 'row', alignItems: 'center', gap: 6,
             backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 14,
             shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 12, elevation: 8,

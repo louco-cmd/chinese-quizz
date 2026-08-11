@@ -325,6 +325,22 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
           <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 16, ...SHADOW_CARD }}>
             {FAQ.map((tk) => <FaqItem key={tk} tk={tk} />)}
           </View>
+
+          {/* Mention de renouvellement auto + liens légaux — requis App Store 3.1.2. */}
+          <View style={{ marginTop: 20, alignItems: 'center', paddingBottom: 8 }}>
+            <Text style={{ color: COLORS.mutedLight, fontSize: 11.5, textAlign: 'center', lineHeight: 17, paddingHorizontal: 8 }}>
+              {t('pricing_legal_note')}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 }}>
+              <Pressable onPress={() => Linking.openURL('https://app.jiayou.fr/legal')} hitSlop={6}>
+                <Text style={{ color: COLORS.jiayou, fontSize: 12.5, fontWeight: '700' }}>{t('set_terms')}</Text>
+              </Pressable>
+              <Text style={{ color: COLORS.mutedLight, fontSize: 12.5 }}>·</Text>
+              <Pressable onPress={() => Linking.openURL('https://app.jiayou.fr/privacy')} hitSlop={6}>
+                <Text style={{ color: COLORS.jiayou, fontSize: 12.5, fontWeight: '700' }}>{t('set_privacy_policy')}</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
       </ScrollView>
     </View>

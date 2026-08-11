@@ -173,11 +173,14 @@ export default function AddWordScreen({ onBalanceChanged }) {
         : { chinese: '', pinyin: '', englishList: [term], description: '' }
     );
   }
-  // Depuis une carte trouvée : "éditer avant de capturer".
+  // Depuis une carte trouvée : "éditer avant de capturer". `personalize` → on
+  // sauvegarde une entrée PERSONNALISÉE (forceNew) au lieu de réutiliser le mot
+  // du dico, sinon les modifs seraient ignorées.
   function openEdit(w) {
     setEditorError('');
     pinyinTouched.current = !!(w.pinyin || '').trim(); // garde le pinyin existant
     setEditor({
+      personalize: true,
       chinese: w.chinese || '',
       pinyin: w.pinyin || '',
       englishList: (w.english || '').split('/').map((s) => s.trim()).filter(Boolean).length
@@ -214,12 +217,11 @@ export default function AddWordScreen({ onBalanceChanged }) {
     setSaving(true);
     setEditorError('');
     try {
-      const d = await createWord({ chinese, pinyin, english, description });
+      const d = await createWord({ chinese, pinyin, english, description, forceNew: !!editor.personalize });
       if (d.word) setCaptured((c) => ({ ...c, [d.word.id]: true }));
       onBalanceChanged?.(); // création coûte 3 coins → rafraîchir le solde
       setEditor(null);
-      setShowResults(false);
-      setQ('');
+      runCaptureSuccess(); // même animation de succès + fermeture + reset que la capture directe
     } catch (e) {
       setEditorError(e.message || 'Could not add the word.');
     } finally {
@@ -253,10 +255,10 @@ export default function AddWordScreen({ onBalanceChanged }) {
 
           <Text
             style={{
-              color: '#fff',
+              color: '#fff', width: '100%',
               fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined,
               fontStyle: fontsLoaded ? 'normal' : 'italic',
-              fontSize: 23, lineHeight: 30, marginBottom: 16, textAlign: 'center', paddingHorizontal: 20,
+              fontSize: 26, lineHeight: 38, marginBottom: 16, textAlign: 'center', paddingHorizontal: 20,
             }}
           >
             Start capturing

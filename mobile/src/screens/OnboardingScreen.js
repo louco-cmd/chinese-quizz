@@ -73,7 +73,7 @@ function AnimatedTagline({ text, style }) {
   }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Animated.Text
-      style={[style, { opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}
+      style={[{ width: '100%', includeFontPadding: false }, style, { opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}
     >
       {shown}
     </Animated.Text>

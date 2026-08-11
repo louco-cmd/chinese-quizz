@@ -8,6 +8,7 @@ import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
 import { COLORS, SHADOW_CARD } from '../theme';
 import CatLoader from '../components/CatLoader';
+import RevealAnswerCard from '../components/RevealAnswerCard';
 
 // Helpers identiques à quiz-play.ejs
 function normalizePinyin(str) {
@@ -26,7 +27,11 @@ function stripLetters(str) {
 // Sens valides d'une réponse, séparés par / → UN SEUL suffit.
 function answerSenses(w, type, direction) {
   if (direction === 'zh→en') return parseAnswers(w?.english);
-  if (type === 'pinyin') return (w?.pinyin || '').split('/').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  // Pinyin : retire aussi le contenu entre parenthèses (glose), hors réponse.
+  if (type === 'pinyin') {
+    return (w?.pinyin || '').replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '')
+      .split('/').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  }
   return parseAnswers(w?.chinese);
 }
 // Jetons (un par mot/syllabe) du 1er sens → structure des boîtes.
@@ -143,11 +148,11 @@ export default function DuelPlayScreen({ duelId, onExit }) {
       // 1re erreur : on marque faux, on MONTRE la réponse, puis 2e chance (recopie).
       setWrongCount((c) => c + 1);
       setSecond(true);
-      setFeedback({ kind: 'reveal', text: `${tr('qp_answer')} ${answer}` });
+      setFeedback({ kind: 'reveal', word: w });
       setInputs((arr) => arr.map(() => ''));
       setTimeout(() => firstRef.current?.focus?.(), 60);
     } else {
-      setFeedback({ kind: 'reveal', text: `${tr('qp_answer')} ${answer}` });
+      setFeedback({ kind: 'reveal', word: w });
       setLocked(true);
       setTimeout(() => advance(idx + 1), 1300);
     }
@@ -266,9 +271,13 @@ export default function DuelPlayScreen({ duelId, onExit }) {
           </View>
 
           {feedback && (
-            <View style={{ backgroundColor: fb.bg, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16, alignItems: 'center' }}>
-              <Text style={{ color: fb.fg, fontWeight: '700' }}>{feedback.text}</Text>
-            </View>
+            feedback.kind === 'reveal'
+              ? <RevealAnswerCard word={feedback.word} direction={direction} />
+              : (
+                <View style={{ backgroundColor: fb.bg, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16, alignItems: 'center' }}>
+                  <Text style={{ color: fb.fg, fontWeight: '700' }}>{feedback.text}</Text>
+                </View>
+              )
           )}
 
           <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, ...SHADOW_CARD }}>

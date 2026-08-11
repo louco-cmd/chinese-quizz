@@ -638,6 +638,10 @@ router.post('/api/m/words/:motId/capture', requireToken, async (req, res) => {
 // à la collection, débit + transaction. Utilisé par la popup "New word".
 router.post('/api/m/words', requireToken, async (req, res) => {
   const { chinese, pinyin, english, description } = req.body || {};
+  // `forceNew` : "éditer avant de capturer" → on crée une entrée PERSONNALISÉE
+  // (nouvelle ligne mots avec les valeurs éditées) au lieu de réutiliser l'entrée
+  // du dictionnaire par `chinese` (sinon les modifs de l'utilisateur sont ignorées).
+  const forceNew = req.body?.forceNew === true;
   if (!chinese || !english) {
     return res.status(400).json({ error: 'Chinese and English are required' });
   }
@@ -660,12 +664,14 @@ router.post('/api/m/words', requireToken, async (req, res) => {
       return res.status(402).json({ error: 'Insufficient balance (3 coins required)', insufficient: true, cost: COST, balance });
     }
 
-    // Upsert du mot par `chinese`
-    let { rows } = await client.query('SELECT id FROM mots WHERE chinese = $1', [chinese]);
+    // Upsert du mot par `chinese` — sauf `forceNew` (édition personnalisée) qui
+    // insère toujours une nouvelle ligne avec les valeurs éditées.
     let motId;
-    if (rows.length) {
-      motId = rows[0].id;
-    } else {
+    if (!forceNew) {
+      const { rows } = await client.query('SELECT id FROM mots WHERE chinese = $1', [chinese]);
+      if (rows.length) motId = rows[0].id;
+    }
+    if (!motId) {
       // Filet de sécurité : génère le pinyin si absent.
       let py = (pinyin || '').trim();
       if (!py && /[㐀-鿿]/.test(chinese)) {

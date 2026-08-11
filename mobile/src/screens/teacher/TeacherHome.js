@@ -10,31 +10,40 @@ import TeacherProfileScreen from './TeacherProfileScreen';
 import TeacherSettingsScreen from './TeacherSettingsScreen';
 import SupportScreen from '../SupportScreen';
 import LegalScreen from '../LegalScreen';
+import BankScreen from '../BankScreen';
+import StoreScreen from '../StoreScreen';
+import CreatePackScreen from '../CreatePackScreen';
+import QuizScreen from '../QuizScreen';
+import PricingScreen from '../PricingScreen';
 import { COLORS } from '../../theme';
 import useKeyboardOpen from '../../useKeyboardOpen';
 
 const TABS = [
-  { key: 'profile', icon: 'person-circle', label: 'Profile' },
+  { key: 'store', icon: 'storefront', label: 'JiaStore' },
   { key: 'classes', icon: 'easel', label: 'Classes' },
   { key: 'students', icon: 'bar-chart', label: 'Students' },
+  { key: 'profile', icon: 'person-circle', label: 'Profile' },
 ];
 
-function TeacherHeader({ onSettings, onLogo, insetTop, plan }) {
-  const label = plan === 'premium' ? 'PREMIUM' : plan === 'guest' ? 'GUEST' : 'FREE';
-  const badgeColor = plan === 'premium' ? COLORS.jiayou : '#585858';
+// Header prof — mêmes dimensions que le header étudiant (paddingVertical 16,
+// logo 26px). Gauche : 加油 Mentor. Droite : pastille coins (→ Bank) + réglages.
+function TeacherHeader({ onSettings, onLogo, onBank, insetTop, balance }) {
   return (
     <View style={{ paddingTop: insetTop }} className="bg-jiayou">
-      <View className="flex-row items-center justify-between px-4 h-14">
-        <View className="flex-row items-center gap-2.5">
-          <Pressable onPress={onLogo} hitSlop={6} className="flex-row items-center gap-2.5">
-            <Text className="text-white font-extrabold text-[22px]">加油</Text>
-            <Text className="text-white font-bold text-[19px]">Mentor</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16 }}>
+        <Pressable onPress={onLogo} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ color: '#fff', fontSize: 26, fontWeight: '800' }}>加油</Text>
+          <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700' }}>Mentor</Text>
+        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <Pressable
+            onPress={onBank}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 }}
+          >
+            <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>{balance == null ? '…' : `${balance}₵`}</Text>
           </Pressable>
-          <View className="rounded-full px-3 py-1 bg-white" style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' }}>
-            <Text style={{ color: badgeColor, fontSize: 11.5, fontWeight: '700' }}>{label}</Text>
-          </View>
+          <Pressable onPress={onSettings} hitSlop={10}><Ionicons name="settings-outline" size={22} color="#fff" /></Pressable>
         </View>
-        <Pressable onPress={onSettings} hitSlop={10}><Ionicons name="settings-outline" size={22} color="#fff" /></Pressable>
       </View>
     </View>
   );
@@ -102,6 +111,40 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow }) {
     );
   } else if (view?.type === 'task') {
     content = <TeacherTaskScreen lessonId={view.lessonId} onBack={() => setView({ type: 'class', id: view.classId })} />;
+  } else if (view?.type === 'bank') {
+    // Bank DANS le shell → header 加油 Mentor + tab bar conservés.
+    content = <BankScreen onBack={() => setView(null)} />;
+  } else if (view?.type === 'create-pack') {
+    content = (
+      <CreatePackScreen
+        editPack={view.editPack || null}
+        onBack={() => setView(null)}
+        onCreated={() => setView(null)}
+      />
+    );
+  } else if (view?.type === 'quiz') {
+    content = (
+      <QuizScreen
+        initialPack={view.pack}
+        onInitialConsumed={() => {}}
+        onOpenStore={() => setView(null)}
+        onBalanceChanged={() => {}}
+      />
+    );
+  } else if (view?.type === 'pricing') {
+    content = <PricingScreen onBack={() => setView(null)} isPremium={!!profile?.isPremium} onPurchased={() => setView(null)} />;
+  } else if (tab === 'store') {
+    // JiaStore côté prof : mêmes écrans que l'étudiant (parcourir / acheter /
+    // créer-éditer des packs / quiz de pack).
+    content = (
+      <StoreScreen
+        navOverlaps={false}
+        onCreate={() => setView({ type: 'create-pack', editPack: null })}
+        onEditPack={(d) => setView({ type: 'create-pack', editPack: d })}
+        onStartQuiz={(pack) => setView({ type: 'quiz', pack })}
+        onUpgrade={() => setView({ type: 'pricing' })}
+      />
+    );
   } else if (tab === 'students') {
     content = <TeacherStudentsScreen />;
   } else if (tab === 'profile') {
@@ -115,7 +158,13 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow }) {
 
   return (
     <View className="flex-1 bg-surface-page">
-      <TeacherHeader onSettings={() => setView({ type: 'settings' })} onLogo={() => changeTab('classes')} insetTop={insets.top} plan={profile?.plan} />
+      <TeacherHeader
+        onSettings={() => setView({ type: 'settings' })}
+        onLogo={() => changeTab('classes')}
+        onBank={() => setView({ type: 'bank' })}
+        insetTop={insets.top}
+        balance={profile?.balance}
+      />
       <View className="flex-1">{content}</View>
       {kbOpen ? null : <TeacherTabBar active={tab} onChange={changeTab} insetBottom={insets.bottom} maxWidth={tabMaxWidth} />}
     </View>
