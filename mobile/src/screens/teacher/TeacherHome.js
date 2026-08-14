@@ -79,19 +79,8 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow }) {
   const [view, setView] = useState(null);
   const direction = profile?.quiz_direction || 'en→zh';
 
-  // Réglages / support : plein écran (leur propre retour).
-  if (view?.type === 'settings') {
-    return (
-      <TeacherSettingsScreen
-        onBack={() => setView(null)}
-        onLogout={onLogout}
-        onOpenProfile={() => { setTab('profile'); setView(null); }}
-        onOpenSupport={() => setView({ type: 'support' })}
-        onOpenLegal={() => setView({ type: 'legal' })}
-        onReplayFlow={onReplayFlow}
-      />
-    );
-  }
+  // Support / legal : plein écran (leur propre retour). Réglages : dans le shell
+  // (header 加油 Mentor + tab bar conservés) — voir plus bas dans `content`.
   if (view?.type === 'support') {
     return <SupportScreen onBack={() => setView({ type: 'settings' })} />;
   }
@@ -114,6 +103,18 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow }) {
   } else if (view?.type === 'bank') {
     // Bank DANS le shell → header 加油 Mentor + tab bar conservés.
     content = <BankScreen onBack={() => setView(null)} />;
+  } else if (view?.type === 'settings') {
+    // Réglages DANS le shell → header 加油 Mentor + tab bar conservés.
+    content = (
+      <TeacherSettingsScreen
+        onBack={() => setView(null)}
+        onLogout={onLogout}
+        onOpenProfile={() => { setTab('profile'); setView(null); }}
+        onOpenSupport={() => setView({ type: 'support' })}
+        onOpenLegal={() => setView({ type: 'legal' })}
+        onReplayFlow={onReplayFlow}
+      />
+    );
   } else if (view?.type === 'create-pack') {
     content = (
       <CreatePackScreen

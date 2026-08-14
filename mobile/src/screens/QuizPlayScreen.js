@@ -66,6 +66,7 @@ export default function QuizPlayScreen({ config, onExit }) {
   const [words, setWords] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notEnough, setNotEnough] = useState(false); // pas assez de mots → empty state dédié
 
   const [idx, setIdx] = useState(0);
   const [inputs, setInputs] = useState(['']);
@@ -82,17 +83,19 @@ export default function QuizPlayScreen({ config, onExit }) {
   const inputRefs = useRef([]); // un ref par champ syllabe (auto-avance)
 
   const load = useCallback(async () => {
-    setLoading(true); setError('');
+    setLoading(true); setError(''); setNotEnough(false);
     try {
       const [me, d] = await Promise.all([getMe().catch(() => ({})), getQuizPlayWords({ type, count, hsk, levels, ids, packId })]);
       if (me.quiz_direction) setDirection(me.quiz_direction);
       const ws = d.words || [];
-      if (!ws.length) { setError(tr('qp_not_enough')); setWords(null); return; }
+      if (!ws.length) { setNotEnough(true); setWords(null); return; }
       setWords(ws);
       results.current = ws.map((w) => ({ mot_id: w.id, correct: null, bonus: 0, pinyin: w.pinyin }));
       resetQuestion(ws[0]);
     } catch (e) {
-      setError(e.message || tr('qp_could_not_start'));
+      // Le backend renvoie le code brut 'not_enough_words' (400) → empty state dédié.
+      if (e?.message === 'not_enough_words') { setNotEnough(true); setWords(null); }
+      else setError(e.message || tr('qp_could_not_start'));
     } finally {
       setLoading(false);
     }
@@ -205,6 +208,29 @@ export default function QuizPlayScreen({ config, onExit }) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>
         <CatLoader size={110} />
+      </View>
+    );
+  }
+  // Pas assez de mots pour ces réglages → empty state clair + retour (au lieu du
+  // code brut "not_enough_words").
+  if (notEnough) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
+        <TopBar onExit={onExit} />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+          <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: '#e8f0ff', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+            <Ionicons name="book-outline" size={38} color={COLORS.jiayou} />
+          </View>
+          <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e', textAlign: 'center' }}>{tr('qp_not_enough_title')}</Text>
+          <Text style={{ fontSize: 14.5, color: COLORS.muted, textAlign: 'center', marginTop: 8, lineHeight: 21, maxWidth: 320 }}>{tr('qp_not_enough')}</Text>
+          <Pressable
+            onPress={onExit}
+            style={{ marginTop: 26, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, paddingHorizontal: 40, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+          >
+            <Ionicons name="arrow-back" size={17} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{tr('qp_not_enough_back')}</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }

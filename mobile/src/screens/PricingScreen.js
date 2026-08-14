@@ -212,7 +212,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
         <View style={{ width: '100%', maxWidth: isDesktop ? 940 : 460, alignSelf: 'center', paddingHorizontal: 16, marginTop: 18 }}>
           {/* Cartes de prix : empilées sur mobile (Premium en haut), côte à côte
               sur desktop avec `row-reverse` → Premium à DROITE, Free à gauche. */}
-          <View style={{ flexDirection: isDesktop ? 'row-reverse' : 'column', alignItems: 'flex-start', gap: isDesktop ? 20 : 0, marginBottom: 20 }}>
+          <View style={{ flexDirection: isDesktop ? 'row-reverse' : 'column', alignItems: isDesktop ? 'stretch' : 'flex-start', gap: isDesktop ? 20 : 0, marginBottom: 20 }}>
           {/* ── Premium (featured) ── */}
           <View style={{ flex: isDesktop ? 1 : undefined, width: isDesktop ? undefined : '100%', backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', marginBottom: isDesktop ? 0 : 16, ...SHADOW_CARD }}>
             <LinearGradient colors={['#0d6efd', '#0a58ca']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 18 }}>
@@ -319,9 +319,11 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                 ) : null}
               </View>
             </View>
-            <View style={{ padding: 18 }}>
+            {/* flex:1 en desktop → le corps remplit la hauteur (cartes égales) et
+                le bouton est poussé en bas via marginTop:auto. */}
+            <View style={{ padding: 18, flex: isDesktop ? 1 : undefined }}>
               {FREE_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === FREE_FEATURES.length - 1} />)}
-              <View style={{ marginTop: 18, borderRadius: 999, paddingVertical: 13, alignItems: 'center', backgroundColor: '#f1f3f5' }}>
+              <View style={{ marginTop: isDesktop ? 'auto' : 18, borderRadius: 999, paddingVertical: 13, alignItems: 'center', backgroundColor: '#f1f3f5' }}>
                 <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{isPremium ? t('pricing_free_plan') : t('pricing_your_current_plan')}</Text>
               </View>
             </View>

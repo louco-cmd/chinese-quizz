@@ -157,7 +157,9 @@ export const TRANSLATIONS = {
     kn_new: 'New', kn_weak: 'Weak', kn_okay: 'Okay', kn_strong: 'Strong',
     wc_fast: 'fast', wc_standard: 'standard', wc_serious: 'serious', wc_crazy: 'crazy',
     // ── Quiz (play) ──
-    qp_not_enough: 'Not enough words in your collection for these settings.',
+    qp_not_enough: 'Not enough words in your collection for these settings. Add more words or widen your filters, then try again.',
+    qp_not_enough_title: 'Not enough words yet',
+    qp_not_enough_back: 'Back to quiz',
     qp_could_not_start: 'Could not start the quiz.',
     qp_correct: 'Correct!',
     qp_answer: 'Answer:',
@@ -472,7 +474,9 @@ export const TRANSLATIONS = {
     kn_new: '入门', kn_weak: '薄弱', kn_okay: '一般', kn_strong: '良好',
     wc_fast: '快速', wc_standard: '标准', wc_serious: '认真', wc_crazy: '疯狂',
     // ── 测验（进行中）──
-    qp_not_enough: '按这些设置，你词库里的词不够。',
+    qp_not_enough: '按这些设置，你词库里的词不够。请添加更多词或放宽筛选后再试。',
+    qp_not_enough_title: '词还不够',
+    qp_not_enough_back: '返回测验',
     qp_could_not_start: '无法开始测验。',
     qp_correct: '正确！',
     qp_answer: '答案：',
