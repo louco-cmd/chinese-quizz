@@ -17,6 +17,14 @@ export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack,
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('featured');
 
+  // Écart du FAB « Sell a pack » : toujours 16px AU-DESSUS de la nav bar, quel
+  // que soit le contexte. Étudiant : la nav (absolute) recouvre le contenu → on
+  // ajoute sa hauteur = 8 (paddingTop) + 52 (items) + bottomPad. Prof : la nav est
+  // sous le contenu → 16 suffit.
+  const FAB_GAP = 16;
+  const studentNavHeight = 8 + 52 + (insets.bottom > 0 ? insets.bottom + 6 : 12);
+  const fabBottom = navOverlaps ? studentNavHeight + FAB_GAP : FAB_GAP;
+
   const SORTS = [
     { value: 'featured', label: t('st_sort_featured') },
     { value: 'recent', label: t('st_sort_recent') },
@@ -95,9 +103,8 @@ export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack,
         <Pressable
           onPress={onCreate}
           style={{
-            // Étudiant : nav absolute (~60px + safe-area) à franchir. Prof : nav
-            // sous le contenu → simple petit écart. Même rendu visuel des deux côtés.
-            position: 'absolute', right: 18, bottom: navOverlaps ? insets.bottom + 74 : 16,
+            // Même écart (16px) au-dessus de la nav partout (cf. fabBottom).
+            position: 'absolute', right: 18, bottom: fabBottom,
             flexDirection: 'row', alignItems: 'center', gap: 6,
             backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 14,
             shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 12, elevation: 8,

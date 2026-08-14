@@ -81,7 +81,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
   const { t } = useT();
   const [fontsLoaded] = useFonts({ LaBelleAurore_400Regular });
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 900; // tuiles côte à côte (Free à gauche, Premium à droite)
+  const isDesktop = width >= 760; // tuiles côte à côte (Free à gauche, Premium à droite) — desktop + iPad
   const [portalBusy, setPortalBusy] = useState(false);
   const [portalError, setPortalError] = useState('');
   const [sub, setSub] = useState({ cancelAtPeriodEnd: false, currentPeriodEnd: null });
@@ -283,6 +283,16 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
               <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 11.5, marginTop: 10 }}>
                 <Ionicons name={native ? (Platform.OS === 'ios' ? 'logo-apple' : 'logo-google-playstore') : 'lock-closed'} size={11} color={COLORS.muted} />  {native ? (Platform.OS === 'ios' ? t('pricing_billed_apple') : t('pricing_billed_google')) : t('pricing_billed_web')}
               </Text>
+              {/* Liens Terms/Privacy DANS le flux d'achat — requis App Store 3.1.2(c). */}
+              <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <Pressable onPress={() => Linking.openURL('https://app.jiayou.fr/legal')} hitSlop={6}>
+                  <Text style={{ color: COLORS.jiayou, fontSize: 11.5, fontWeight: '700', textDecorationLine: 'underline' }}>{t('set_terms')}</Text>
+                </Pressable>
+                <Text style={{ color: COLORS.mutedLight, fontSize: 11.5 }}>·</Text>
+                <Pressable onPress={() => Linking.openURL('https://app.jiayou.fr/privacy')} hitSlop={6}>
+                  <Text style={{ color: COLORS.jiayou, fontSize: 11.5, fontWeight: '700', textDecorationLine: 'underline' }}>{t('set_privacy_policy')}</Text>
+                </Pressable>
+              </View>
               {/* Clé RevenueCat de test : aucun paiement réel n'a lieu. */}
               {native && isTestStore() ? (
                 <Text style={{ textAlign: 'center', color: '#b8860b', fontSize: 11, marginTop: 6, fontWeight: '700' }}>

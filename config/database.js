@@ -104,6 +104,37 @@ const pool = new Pool({
     `);
     console.log("✅ Colonne 'description_zh' vérifiée ou créée sur 'mots'.");
 
+    // ── Migration: retirer toute contrainte/index UNIQUE sur mots(chinese) ────
+    // "Éditer avant de capturer" (forceNew) crée une entrée PERSONNALISÉE même si
+    // le chinois existe déjà → un unique(chinese) hérité du schéma d'origine faisait
+    // échouer l'insert (500). Tout le code tolère déjà les doublons (DISTINCT ON).
+    await pool.query(`
+      DO $$
+      DECLARE r record;
+      BEGIN
+        FOR r IN
+          SELECT con.conname
+          FROM pg_constraint con
+          JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = ANY(con.conkey)
+          WHERE con.conrelid = 'mots'::regclass AND con.contype = 'u'
+            AND a.attname = 'chinese' AND array_length(con.conkey, 1) = 1
+        LOOP
+          EXECUTE format('ALTER TABLE mots DROP CONSTRAINT %I', r.conname);
+        END LOOP;
+        FOR r IN
+          SELECT c.relname AS iname
+          FROM pg_index i
+          JOIN pg_class c ON c.oid = i.indexrelid
+          JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+          WHERE i.indrelid = 'mots'::regclass AND i.indisunique
+            AND a.attname = 'chinese' AND array_length(i.indkey, 1) = 1
+        LOOP
+          EXECUTE format('DROP INDEX IF EXISTS %I', r.iname);
+        END LOOP;
+      END $$;
+    `);
+    console.log("✅ Contrainte UNIQUE sur mots(chinese) retirée (autorise les copies personnalisées).");
+
     // ── Migration: ghost_mode sur users ──────────────────────────────────────
     await pool.query(`
       ALTER TABLE users
