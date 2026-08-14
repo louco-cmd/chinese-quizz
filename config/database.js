@@ -135,6 +135,10 @@ const pool = new Pool({
     `);
     console.log("✅ Contrainte UNIQUE sur mots(chinese) retirée (autorise les copies personnalisées).");
 
+    // ── Migration: score_reading sur user_mots (mode quiz "lecture" char→pinyin) ──
+    await pool.query(`ALTER TABLE user_mots ADD COLUMN IF NOT EXISTS score_reading INTEGER DEFAULT 0`);
+    console.log("✅ Colonne 'score_reading' vérifiée ou créée sur 'user_mots'.");
+
     // ── Migration: ghost_mode sur users ──────────────────────────────────────
     await pool.query(`
       ALTER TABLE users

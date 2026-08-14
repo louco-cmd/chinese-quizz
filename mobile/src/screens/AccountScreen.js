@@ -107,8 +107,10 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   const total = data.mastery?.total || 0;
   const pinyinDist = data.mastery?.pinyin || {};
   const charDist = data.mastery?.character || {};
+  const readingDist = data.mastery?.reading || {};
   const pinyinPct = total > 0 ? Math.round(((pinyinDist.mastered || 0) / total) * 100) : 0;
   const charPct = total > 0 ? Math.round(((charDist.mastered || 0) / total) * 100) : 0;
+  const readingPct = total > 0 ? Math.round(((readingDist.mastered || 0) / total) * 100) : 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }} {...pan.panHandlers}>
@@ -164,6 +166,9 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
                   />
                   {learningChinese && (
                     <MasteryBar dist={charDist} total={total} caption={`${charPct}% ${t('ac_chars_mastered')}`} />
+                  )}
+                  {learningChinese && (
+                    <MasteryBar dist={readingDist} total={total} caption={`${readingPct}% ${t('ac_reading_mastered')}`} />
                   )}
                 </View>
               </AccountCard>

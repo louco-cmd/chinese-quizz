@@ -307,8 +307,11 @@ async function updateWordScore(userId, motId, isCorrect, quizType = 'pinyin') {
   try {
     console.log(`🎯 updateWordScore - User:${userId}, Mot:${motId}, Correct:${isCorrect}, Type:${quizType}`);
 
-    // Déterminer la colonne à mettre à jour
-    const scoreColumn = quizType === 'character' ? 'score_character' : 'score';
+    // Déterminer la colonne à mettre à jour : pinyin='score', caractères=
+    // 'score_character', lecture (caractères→pinyin)='score_reading'.
+    const scoreColumn = quizType === 'character' ? 'score_character'
+      : quizType === 'reading' ? 'score_reading'
+      : 'score';
 
     // Vérifier si le mot existe dans user_mots
     const existing = await pool.query(
@@ -321,8 +324,8 @@ async function updateWordScore(userId, motId, isCorrect, quizType = 'pinyin') {
       console.log(`➕ Nouveau mot ${motId} - Initialisation`);
 
       await pool.query(
-        `INSERT INTO user_mots (user_id, mot_id, score, score_character, nb_quiz, nb_correct) 
-         VALUES ($1, $2, 0, 0, 0, 0)`,
+        `INSERT INTO user_mots (user_id, mot_id, score, score_character, score_reading, nb_quiz, nb_correct)
+         VALUES ($1, $2, 0, 0, 0, 0, 0)`,
         [userId, motId]
       );
 

@@ -1915,7 +1915,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
     const [me, wordRows, quizzes, duels, contrib, recent, duelRank] = await Promise.all([
       pool.query('SELECT name, balance, tagline, country, quiz_direction, avatar_icon, avatar_color FROM users WHERE id = $1', [uid]),
       pool.query(
-        `SELECT um.score, um.score_character, m.hsk
+        `SELECT um.score, um.score_character, um.score_reading, m.hsk
          FROM user_mots um JOIN mots m ON m.id = um.mot_id
          WHERE um.user_id = $1`, [uid]),
       pool.query('SELECT COUNT(*)::int AS n FROM quiz_history WHERE user_id = $1', [uid]),
@@ -1956,6 +1956,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
     });
     const pinyinDist = bucket(words.map((w) => w.score || 0));
     const charDist   = bucket(words.map((w) => w.score_character || 0));
+    const readingDist = bucket(words.map((w) => w.score_reading || 0));
 
     // Stats HSK : nombre + % maîtrisé par niveau
     const HSK_ORDER = ['HSK1', 'HSK2', 'HSK3', 'HSK4', 'HSK5', 'HSK6', 'Street'];
@@ -1990,7 +1991,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
       duels: duels.rows[0].n,
       duelRank: duelRank.rows[0]?.rank || null,
       duelRankTotal: duelRank.rows[0]?.total || 0,
-      mastery: { pinyin: pinyinDist, character: charDist, total: words.length },
+      mastery: { pinyin: pinyinDist, character: charDist, reading: readingDist, total: words.length },
       hsk,
       recentQuizzes: recent.rows.map((r) => ({
         score: r.score, total: r.total_questions,
@@ -2050,7 +2051,7 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
     const [me, wordRows, quizzes, duels] = await Promise.all([
       pool.query('SELECT id, name, tagline, country, avatar_icon, avatar_color, created_at FROM users WHERE id = $1', [targetId]),
       pool.query(
-        `SELECT um.score, um.score_character, m.hsk
+        `SELECT um.score, um.score_character, um.score_reading, m.hsk
          FROM user_mots um JOIN mots m ON m.id = um.mot_id
          WHERE um.user_id = $1`, [targetId]),
       pool.query('SELECT COUNT(*)::int AS n FROM quiz_history WHERE user_id = $1', [targetId]),
@@ -2074,6 +2075,7 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
     });
     const pinyinDist = bucket(words.map((w) => w.score || 0));
     const charDist   = bucket(words.map((w) => w.score_character || 0));
+    const readingDist = bucket(words.map((w) => w.score_reading || 0));
 
     // Répartition HSK (nombre de mots par niveau)
     const HSK_ORDER = ['HSK1', 'HSK2', 'HSK3', 'HSK4', 'HSK5', 'HSK6', 'Street'];
@@ -2102,7 +2104,7 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
       losses: duels.rows[0].losses,
       ratio: (duels.rows[0].wins + duels.rows[0].losses) > 0
         ? Math.round((duels.rows[0].wins / (duels.rows[0].wins + duels.rows[0].losses)) * 100) : 0,
-      mastery: { pinyin: pinyinDist, character: charDist, total: words.length },
+      mastery: { pinyin: pinyinDist, character: charDist, reading: readingDist, total: words.length },
       hsk,
     });
   } catch (e) {

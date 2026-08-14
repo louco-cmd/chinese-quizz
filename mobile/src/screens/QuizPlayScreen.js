@@ -30,9 +30,9 @@ function stripLetters(str) {
 // suffit. Anglais : parseAnswers ; pinyin : découpe sur / uniquement.
 function answerSenses(w, type, direction) {
   if (direction === 'zh→en') return parseAnswers(w?.english);
-  // Pinyin : on retire aussi le contenu entre parenthèses (glose/précision), qui
-  // ne fait pas partie de la réponse attendue — comme parseAnswers pour en/zh.
-  if (type === 'pinyin') {
+  // Pinyin ET reading (caractères→pinyin) : réponse = pinyin. On retire le contenu
+  // entre parenthèses (glose), hors réponse attendue — comme parseAnswers pour en/zh.
+  if (type === 'pinyin' || type === 'reading') {
     return (w?.pinyin || '').replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '')
       .split('/').map((s) => s.trim().toLowerCase()).filter(Boolean);
   }
@@ -42,7 +42,7 @@ function answerSenses(w, type, direction) {
 // On écarte les jetons qui n'ont AUCUN caractère comparable (ponctuation seule :
 // « ! », « ? »…) : ils ne comptent pas dans la solution, donc pas de boîte vide.
 function firstSenseTokens(w, type, direction) {
-  const hasContent = (tok) => (type === 'pinyin' && direction !== 'zh→en'
+  const hasContent = (tok) => ((type === 'pinyin' || type === 'reading') && direction !== 'zh→en'
     ? normalizePinyin(tok).length > 0
     : stripLetters(tok).length > 0);
   return (answerSenses(w, type, direction)[0] || '').split(/\s+/).filter((t) => t && hasContent(t));
@@ -112,7 +112,8 @@ export default function QuizPlayScreen({ config, onExit }) {
     load();
   }
 
-  const isPinyin = type === 'pinyin' && direction !== 'zh→en';
+  // Reading (caractères→pinyin) se saisit/valide comme le pinyin.
+  const isPinyin = (type === 'pinyin' || type === 'reading') && direction !== 'zh→en';
 
   function resetQuestion(w) {
     setSecond(false);
@@ -161,7 +162,7 @@ export default function QuizPlayScreen({ config, onExit }) {
       const got = stripLetters(inputs.join(''));
       return got.length > 0 && senses.some((s) => stripLetters(s) === got);
     }
-    if (type === 'pinyin') {
+    if (type === 'pinyin' || type === 'reading') {
       // Syllabes concaténées vs chaque sens pinyin → UN sens suffit.
       const got = normalizePinyin(inputs.join(' '));
       return got.length > 0 && senses.some((s) => normalizePinyin(s) === got);
@@ -173,7 +174,7 @@ export default function QuizPlayScreen({ config, onExit }) {
     if (locked) return;
     const w = words[idx];
     const ok = checkAnswer(w);
-    const answer = direction === 'zh→en' ? w.english : type === 'pinyin' ? w.pinyin : w.chinese;
+    const answer = direction === 'zh→en' ? w.english : (type === 'pinyin' || type === 'reading') ? w.pinyin : w.chinese;
     const bonus = 0; // saisie structurée (un mot par champ) → une seule réponse.
 
     if (ok) {
@@ -256,11 +257,14 @@ export default function QuizPlayScreen({ config, onExit }) {
   // Question unifiée : une consigne (muted) + le mot demandé sur sa propre ligne.
   // zh→en → mot chinois (plus gros, glyphes) ; en→zh → mot anglais.
   const isZhEn = direction === 'zh→en';
+  const isReading = type === 'reading' && !isZhEn; // caractères → pinyin
   const promptLine = isZhEn
     ? tr('qp_what_mean_en')
+    : isReading ? tr('qp_how_reading_line')
     : type === 'pinyin' ? tr('qp_how_pinyin_line') : tr('qp_how_chinese_line');
-  const promptWord = isZhEn ? w.chinese : w.english;
-  const promptWordSize = isZhEn ? 40 : 30;
+  // Reading : on montre les CARACTÈRES (comme zh→en), et la réponse est le pinyin.
+  const promptWord = (isZhEn || isReading) ? w.chinese : w.english;
+  const promptWordSize = (isZhEn || isReading) ? 40 : 30;
 
   const fbColor = feedback?.kind === 'success' ? { bg: '#e8f5e9', fg: COLORS.success } : { bg: '#fff3cd', fg: '#856404' };
 

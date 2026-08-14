@@ -100,13 +100,14 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
             {[
               { value: 'pinyin', title: t('qz_pinyin'), icon: 'text' },
               { value: 'character', title: t('qz_characters'), icon: 'language' },
+              { value: 'reading', title: t('qz_reading'), icon: 'book' },
             ].map((m) => {
               const active = type === m.value;
               return (
                 <Pressable key={m.value} onPress={() => setType(m.value)}
-                  style={{ flex: 1, borderRadius: 999, borderWidth: 2, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
-                  <Ionicons name={m.icon} size={16} color={active ? COLORS.jiayou : '#888'} />
-                  <Text style={{ fontWeight: '700', fontSize: 15, color: active ? COLORS.jiayou : '#1a1a2e' }}>{m.title}</Text>
+                  style={{ flex: 1, borderRadius: 999, borderWidth: 2, paddingVertical: 12, paddingHorizontal: 4, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 5, borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
+                  <Ionicons name={m.icon} size={15} color={active ? COLORS.jiayou : '#888'} />
+                  <Text numberOfLines={1} style={{ fontWeight: '700', fontSize: 13.5, color: active ? COLORS.jiayou : '#1a1a2e' }}>{m.title}</Text>
                 </Pressable>
               );
             })}
