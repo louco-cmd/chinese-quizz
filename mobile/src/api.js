@@ -84,6 +84,15 @@ export function setUpgradeHandler(fn) { upgradeHandler = fn; }
 let coinsHandler = null;
 export function setCoinsHandler(fn) { coinsHandler = fn; }
 
+// Token mort : une requête AUTHENTIFIÉE qui renvoie 401 = token expiré (TTL 30 j)
+// ou invalide (secret serveur changé). On purge le token et on notifie App.js pour
+// forcer le retour à l'écran de login — sinon "session fantôme" : `authed` reste
+// vrai (un token existe en storage) mais tous les appels échouent, sans issue.
+// N.B. : un échec RÉSEAU fait throw `fetch` AVANT ce bloc → la session est
+// préservée (app hors-ligne reste utilisable). Seul un vrai 401 déconnecte.
+let unauthorizedHandler = null;
+export function setUnauthorizedHandler(fn) { unauthorizedHandler = fn; }
+
 async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {
@@ -97,6 +106,13 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    // Token mort sur une requête authentifiée → purge + logout global. Les
+    // endpoints de login/register passent `auth:false` : leurs 401 (mauvais
+    // identifiants) ne déclenchent donc PAS de déconnexion.
+    if (res.status === 401 && auth) {
+      try { await setToken(null); } catch { /* noop */ }
+      if (unauthorizedHandler) { try { unauthorizedHandler(); } catch { /* noop */ } }
+    }
     // Limite du plan gratuit → paywall global (avant de throw, pour qu'il
     // s'affiche même si l'appelant avale l'erreur silencieusement).
     if (data && data.upgradeRequired && upgradeHandler) {

@@ -340,13 +340,32 @@ export default function AddWordScreen({ onBalanceChanged }) {
         </DismissArea>
       </KeyboardAvoidingView>
 
-      {/* ── Popup résultats : carrousel ancré (snap + fondu au blanc) ── */}
+      {/* ── Popup résultats : carrousel ancré (snap + fondu au blanc) ──
+          L'éditeur "New word" est rendu DANS cette même popup (il remplace le
+          carrousel) : un seul <Modal> à la fois, sinon iOS plante en empilant
+          deux modals transparents. Tap dehors : ferme l'éditeur → retour au
+          carrousel ; sinon ferme la popup. */}
       <Popup
         visible={showResults}
-        onClose={() => setShowResults(false)}
+        onClose={() => (editor ? setEditor(null) : setShowResults(false))}
         maxWidth={560}
         contentStyle={{ paddingHorizontal: 0, paddingVertical: 18, overflow: 'hidden' }}
       >
+        {editor ? (
+          <WordEditor
+            editor={editor}
+            saving={saving}
+            editorError={editorError}
+            onClose={() => setEditor(null)}
+            setField={setField}
+            setEnglishAt={setEnglishAt}
+            addEnglish={addEnglish}
+            removeEnglish={removeEnglish}
+            onPinyinEdit={(v) => { pinyinTouched.current = true; setField('pinyin', v); }}
+            onSave={saveNewWord}
+          />
+        ) : (
+        <>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 4 }}>
           <Text style={{ color: '#1a1a2e', fontSize: 16, fontWeight: '700' }}>
             {results.length ? `${results.length} result${results.length > 1 ? 's' : ''}` : '😢'}
@@ -439,6 +458,8 @@ export default function AddWordScreen({ onBalanceChanged }) {
             ← swipe to browse →
           </Text>
         ) : null}
+        </>
+        )}
 
         {/* Overlay de succès : check vert qui pop, avant la fermeture auto. */}
         {showSuccess ? (
@@ -452,84 +473,91 @@ export default function AddWordScreen({ onBalanceChanged }) {
           </View>
         ) : null}
       </Popup>
-
-      {/* ── Popup New word (création / édition avant capture) ── */}
-      <Popup visible={!!editor} onClose={() => setEditor(null)} maxWidth={440}>
-        {editor && (
-          <>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="add-circle" size={20} color={COLORS.jiayou} />
-                <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e' }}>New word</Text>
-              </View>
-              <Pressable onPress={() => setEditor(null)} hitSlop={10}>
-                <Ionicons name="close" size={22} color={COLORS.muted} />
-              </Pressable>
-            </View>
-
-            <FieldLabel>Chinese characters</FieldLabel>
-            <ModalInput value={editor.chinese} onChangeText={(v) => setField('chinese', v)} placeholder="汉字…" />
-
-            <FieldLabel>Pinyin</FieldLabel>
-            <ModalInput
-              value={editor.pinyin}
-              onChangeText={(v) => { pinyinTouched.current = true; setField('pinyin', v); }}
-              placeholder="Auto-generated…"
-              autoCapitalize="none"
-            />
-
-            <FieldLabel>English</FieldLabel>
-            {editor.englishList.map((val, i) => (
-              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <ModalInput value={val} onChangeText={(v) => setEnglishAt(i, v)} placeholder="English translation…" noMargin />
-                </View>
-                {editor.englishList.length > 1 && (
-                  <Pressable onPress={() => removeEnglish(i)} hitSlop={8}>
-                    <Ionicons name="close-circle" size={22} color={COLORS.danger} />
-                  </Pressable>
-                )}
-              </View>
-            ))}
-            <Pressable onPress={addEnglish} style={{ marginBottom: 16 }}>
-              <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }}>
-                <Ionicons name="add-circle-outline" size={13} color={COLORS.jiayou} />  Add another translation
-              </Text>
-            </Pressable>
-
-            <FieldLabel>Description (optional)</FieldLabel>
-            <ModalInput
-              value={editor.description}
-              onChangeText={(v) => setField('description', v)}
-              placeholder="Add a short description…"
-              multiline
-            />
-
-            {editorError ? (
-              <Text style={{ color: COLORS.danger, fontSize: 13, marginBottom: 10, fontWeight: '600' }}>{editorError}</Text>
-            ) : null}
-
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
-              <Pressable
-                onPress={() => setEditor(null)}
-                style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}
-              >
-                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={saveNewWord}
-                disabled={saving}
-                style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}
-              >
-                {saving
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={{ color: '#fff', fontWeight: '700' }}>Capture (3 ₵)</Text>}
-              </Pressable>
-            </View>
-          </>
-        )}
-      </Popup>
     </View>
+  );
+}
+
+// Éditeur "New word" — rendu DANS la popup résultats (pas un Modal séparé, pour
+// éviter le crash iOS des modals empilés). Scrollable : le formulaire peut
+// dépasser la hauteur d'écran avec le clavier ouvert sur iPhone.
+function WordEditor({ editor, saving, editorError, onClose, setField, setEnglishAt, addEnglish, removeEnglish, onPinyinEdit, onSave }) {
+  return (
+    <ScrollView
+      style={{ maxHeight: 520 }}
+      contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 6 }}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Ionicons name="add-circle" size={20} color={COLORS.jiayou} />
+          <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e' }}>New word</Text>
+        </View>
+        <Pressable onPress={onClose} hitSlop={10}>
+          <Ionicons name="close" size={22} color={COLORS.muted} />
+        </Pressable>
+      </View>
+
+      <FieldLabel>Chinese characters</FieldLabel>
+      <ModalInput value={editor.chinese} onChangeText={(v) => setField('chinese', v)} placeholder="汉字…" />
+
+      <FieldLabel>Pinyin</FieldLabel>
+      <ModalInput
+        value={editor.pinyin}
+        onChangeText={onPinyinEdit}
+        placeholder="Auto-generated…"
+        autoCapitalize="none"
+      />
+
+      <FieldLabel>English</FieldLabel>
+      {editor.englishList.map((val, i) => (
+        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <View style={{ flex: 1 }}>
+            <ModalInput value={val} onChangeText={(v) => setEnglishAt(i, v)} placeholder="English translation…" noMargin />
+          </View>
+          {editor.englishList.length > 1 && (
+            <Pressable onPress={() => removeEnglish(i)} hitSlop={8}>
+              <Ionicons name="close-circle" size={22} color={COLORS.danger} />
+            </Pressable>
+          )}
+        </View>
+      ))}
+      <Pressable onPress={addEnglish} style={{ marginBottom: 16 }}>
+        <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }}>
+          <Ionicons name="add-circle-outline" size={13} color={COLORS.jiayou} />  Add another translation
+        </Text>
+      </Pressable>
+
+      <FieldLabel>Description (optional)</FieldLabel>
+      <ModalInput
+        value={editor.description}
+        onChangeText={(v) => setField('description', v)}
+        placeholder="Add a short description…"
+        multiline
+      />
+
+      {editorError ? (
+        <Text style={{ color: COLORS.danger, fontSize: 13, marginBottom: 10, fontWeight: '600' }}>{editorError}</Text>
+      ) : null}
+
+      <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+        <Pressable
+          onPress={onClose}
+          style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}
+        >
+          <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
+        </Pressable>
+        <Pressable
+          onPress={onSave}
+          disabled={saving}
+          style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}
+        >
+          {saving
+            ? <ActivityIndicator color="#fff" size="small" />
+            : <Text style={{ color: '#fff', fontWeight: '700' }}>Capture (3 ₵)</Text>}
+        </Pressable>
+      </View>
+    </ScrollView>
   );
 }
 

@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator, AppState, BackHandler, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef, setUpgradeHandler, setCoinsHandler } from './src/api';
+import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef, setUpgradeHandler, setCoinsHandler, setUnauthorizedHandler } from './src/api';
 import { configurePurchases } from './src/purchases';
 import { registerForPush, configureNotificationHandler } from './src/push';
 import { LangContext, makeT } from './src/i18n';
@@ -87,7 +87,10 @@ function App() {
   useEffect(() => {
     setUpgradeHandler((feature) => setPaywall(feature || 'default'));
     setCoinsHandler(() => setNeedCoins(true));
-    return () => { setUpgradeHandler(null); setCoinsHandler(null); };
+    // Token expiré/invalide sur un appel authentifié → déconnexion propre (retour
+    // au login) au lieu d'une session fantôme. `logout` est hoisté (function decl).
+    setUnauthorizedHandler(() => { logout(); });
+    return () => { setUpgradeHandler(null); setCoinsHandler(null); setUnauthorizedHandler(null); };
   }, []);
 
   // Une fois par lancement : si un build store plus récent existe, on propose la
