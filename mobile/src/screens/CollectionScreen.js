@@ -10,7 +10,7 @@ import Popup from '../components/Popup';
 import { COLORS, SHADOW_CARD_FLAT, TAB_CLEARANCE } from '../theme';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
-import { getCollection, updateWord, deleteWord, getCharacter, getMe, getPurchasedPacks, getMyPacks } from '../api';
+import { getCollection, updateWord, deleteWord, bulkDeleteWords, notifyUpgrade, getCharacter, getMe, getPurchasedPacks, getMyPacks } from '../api';
 import CatLoader from '../components/CatLoader';
 
 // Sélection de la meilleure voix par langue (qualité "Enhanced" en priorité).
@@ -107,6 +107,12 @@ export default function CollectionScreen({ onNavigate }) {
   const [ef, setEf] = useState({ chinese: '', pinyin: '', englishList: [''], description: '' });
   const [confirmDel, setConfirmDel] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Multi-sélection (vue liste, PREMIUM) : suppression en masse.
+  const [isPremium, setIsPremium] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState([]); // ids sélectionnés
+  const [confirmBulk, setConfirmBulk] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   // Nb de lignes du titre / de la description sur la carte → aligné à GAUCHE
   // au-delà de 2 lignes (plus lisible), centré sinon.
   const [titleLines, setTitleLines] = useState(1);
@@ -315,7 +321,7 @@ export default function CollectionScreen({ onNavigate }) {
 
   // Sens d'apprentissage : zh→en → on inverse l'affichage de la carte.
   useEffect(() => {
-    getMe().then((u) => { if (u?.quiz_direction) setDirection(u.quiz_direction); }).catch(() => {});
+    getMe().then((u) => { if (u?.quiz_direction) setDirection(u.quiz_direction); setIsPremium(!!u?.isPremium); }).catch(() => {});
   }, []);
 
   // Bascule carte ↔ liste avec fondu (disparition puis apparition)
@@ -405,6 +411,26 @@ export default function CollectionScreen({ onNavigate }) {
     } catch { /* garde la popup */ } finally { setBusy(false); }
   }
 
+  // ── Multi-sélection (premium) ──
+  function enterSelect() {
+    if (!isPremium) { notifyUpgrade('bulk_delete'); return; } // paywall si non premium
+    setSelectMode(true); setSelected([]);
+  }
+  function exitSelect() { setSelectMode(false); setSelected([]); }
+  function toggleSelect(id) {
+    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  }
+  async function doBulkDelete() {
+    if (!selected.length) return;
+    setBulkBusy(true);
+    try {
+      await bulkDeleteWords(selected);
+      const gone = new Set(selected);
+      setWords((ws) => ws.filter((x) => !gone.has(x.id)));
+      setConfirmBulk(false); setSelectMode(false); setSelected([]);
+    } catch { /* garde la popup */ } finally { setBulkBusy(false); }
+  }
+
   const cardPan = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 14 || Math.abs(g.dy) > 14,
@@ -478,44 +504,96 @@ export default function CollectionScreen({ onNavigate }) {
     return (
       <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, opacity: screenFade, transform: [{ scale: screenScale }] }}>
         <View style={{ flex: 1, width: '100%', maxWidth: 600, alignSelf: 'center' }}>
-        <View {...listPan.panHandlers} style={{ paddingTop: 8 }}>
+        <View {...(selectMode ? {} : listPan.panHandlers)} style={{ paddingTop: 8 }}>
           <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.line, marginBottom: 8 }} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 }}>
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder={tr('co_search')}
-              placeholderTextColor={COLORS.mutedLight}
-              autoCapitalize="none"
-              style={{ flex: 1, backgroundColor: '#fff', borderRadius: 999, borderWidth: 1, borderColor: COLORS.line, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15 }}
-            />
-            <Pressable onPress={() => switchView('card')} hitSlop={10} style={{ marginLeft: 14 }}>
-              <Ionicons name="grid" size={24} color={COLORS.jiayou} />
-            </Pressable>
-          </View>
+          {selectMode ? (
+            // Barre de sélection : Annuler · N sélectionnés · Tout sélectionner.
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 8, height: 42 }}>
+              <Pressable onPress={exitSelect} hitSlop={10}><Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>{tr('co_cancel')}</Text></Pressable>
+              <Text style={{ fontWeight: '800', color: '#1a1a2e', fontSize: 15 }}>{tr('co_selected').replace('{n}', selected.length)}</Text>
+              <Pressable onPress={() => setSelected(selected.length === filtered.length ? [] : filtered.map((x) => x.id))} hitSlop={10}>
+                <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>{tr('co_select_all')}</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 }}>
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder={tr('co_search')}
+                placeholderTextColor={COLORS.mutedLight}
+                autoCapitalize="none"
+                style={{ flex: 1, backgroundColor: '#fff', borderRadius: 999, borderWidth: 1, borderColor: COLORS.line, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15 }}
+              />
+              {/* Entrer en multi-sélection (premium). */}
+              <Pressable onPress={enterSelect} hitSlop={10} style={{ marginLeft: 14 }}>
+                <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.jiayou} />
+              </Pressable>
+              <Pressable onPress={() => switchView('card')} hitSlop={10} style={{ marginLeft: 14 }}>
+                <Ionicons name="grid" size={24} color={COLORS.jiayou} />
+              </Pressable>
+            </View>
+          )}
         </View>
 
         {filterPopup}
         <FlatList
           data={filtered}
           keyExtractor={(x) => String(x.id)}
-          // +80 : marge pour que le FAB filtre + la TabBar ne masquent pas les
-          // dernières lignes (elles restent atteignables et lisibles au scroll).
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: TAB_CLEARANCE + 80 }}
-          renderItem={({ item, index }) => (
-            <Pressable
-              onPress={() => { setIdx(Math.max(0, deck.indexOf(item))); switchView('card'); }}
-              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: index % 2 ? '#fff' : '#fbfcfe', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lineSoft }}
-            >
-              <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e', width: 80 }}>{item.chinese}</Text>
-              <Text style={{ color: COLORS.muted, flex: 1 }} numberOfLines={1}>{item.pinyin}</Text>
-              <Text style={{ color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{cap(item.english)}</Text>
-            </Pressable>
-          )}
+          // marge basse : FAB filtre / TabBar / barre de suppression ne masquent
+          // pas les dernières lignes.
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: TAB_CLEARANCE + (selectMode ? 96 : 80) }}
+          renderItem={({ item, index }) => {
+            const sel = selected.includes(item.id);
+            return (
+              <Pressable
+                onPress={() => (selectMode
+                  ? toggleSelect(item.id)
+                  : (setIdx(Math.max(0, deck.indexOf(item))), switchView('card')))}
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: sel ? '#eaf1ff' : (index % 2 ? '#fff' : '#fbfcfe'), paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.lineSoft }}
+              >
+                {selectMode ? (
+                  <Ionicons name={sel ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={sel ? COLORS.jiayou : COLORS.mutedLight} style={{ marginRight: 10 }} />
+                ) : null}
+                <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e', width: 80 }}>{item.chinese}</Text>
+                <Text style={{ color: COLORS.muted, flex: 1 }} numberOfLines={1}>{item.pinyin}</Text>
+                <Text style={{ color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{cap(item.english)}</Text>
+              </Pressable>
+            );
+          }}
           ListEmptyComponent={<Text style={{ textAlign: 'center', color: COLORS.mutedLight, padding: 20 }}>{tr('co_no_match')}</Text>}
         />
         </View>
-        {filterFab}
+
+        {/* Barre de suppression (mode sélection) ou FAB filtre sinon. */}
+        {selectMode && selected.length ? (
+          // bottom = TAB_CLEARANCE : passe AU-DESSUS de la TabBar (absolue), comme le FAB.
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: TAB_CLEARANCE, paddingHorizontal: 16, zIndex: 20 }}>
+            <View style={{ width: '100%', maxWidth: 600, alignSelf: 'center' }}>
+              <Pressable onPress={() => setConfirmBulk(true)}
+                style={{ backgroundColor: COLORS.danger, borderRadius: 999, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, ...SHADOW_CARD_FLAT }}>
+                <Ionicons name="trash" size={17} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{tr('co_bulk_delete')} · {selected.length}</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (!selectMode ? filterFab : null)}
+
+        {/* Confirm suppression en masse (aucun autre modal ouvert en vue liste). */}
+        <Popup visible={confirmBulk} onClose={() => { if (!bulkBusy) setConfirmBulk(false); }} maxWidth={360}>
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#1a1a2e', marginBottom: 10, textAlign: 'center' }}>{tr('co_bulk_delete')}</Text>
+          <Text style={{ fontSize: 14, color: COLORS.muted, textAlign: 'center', lineHeight: 20, marginBottom: 18 }}>
+            {tr('co_bulk_confirm').replace('{n}', selected.length)}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable onPress={() => setConfirmBulk(false)} disabled={bulkBusy} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
+              <Text style={{ color: '#444', fontWeight: '700' }}>{tr('co_cancel')}</Text>
+            </Pressable>
+            <Pressable onPress={doBulkDelete} disabled={bulkBusy} style={{ flex: 1.3, paddingVertical: 13, borderRadius: 999, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: COLORS.danger }}>
+              {bulkBusy ? <ActivityIndicator color="#fff" size="small" /> : (<><Ionicons name="trash" size={15} color="#fff" /><Text style={{ color: '#fff', fontWeight: '800' }}>{tr('co_bulk_delete')}</Text></>)}
+            </Pressable>
+          </View>
+        </Popup>
       </Animated.View>
     );
   }

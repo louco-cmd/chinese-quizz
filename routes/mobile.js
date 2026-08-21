@@ -1089,6 +1089,44 @@ router.delete('/api/m/words/:motId', requireToken, async (req, res) => {
   }
 });
 
+// ── POST /api/m/words/bulk-delete : suppression EN MASSE (PREMIUM) ────────────
+// body: { ids:[motId…] } et/ou { packId }. Réservé au premium (403 upgradeRequired
+// sinon). `packId` → retire tous les mots possédés qui appartiennent à ce pack ;
+// `ids` → retire exactement ces mots. On ne touche QUE user_mots (la base globale
+// `mots` et les packs restent intacts).
+router.post('/api/m/words/bulk-delete', requireToken, async (req, res) => {
+  const uid = req.tokenUser.id;
+  if (!(await isUserPremium(uid))) {
+    return res.status(403).json({ error: 'Premium required', upgradeRequired: true, feature: 'bulk_delete' });
+  }
+  try {
+    const packId = parseInt(req.body?.packId, 10) || null;
+    const ids = Array.isArray(req.body?.ids)
+      ? req.body.ids.map((n) => parseInt(n, 10)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 5000)
+      : [];
+    if (!packId && !ids.length) return res.status(400).json({ error: 'Nothing to delete' });
+
+    let deleted = 0;
+    if (packId) {
+      const r = await pool.query(
+        `DELETE FROM user_mots WHERE user_id = $1
+           AND mot_id IN (SELECT mot_id FROM word_pack_items WHERE pack_id = $2)`, [uid, packId]);
+      deleted += r.rowCount || 0;
+      // « Forget » = oublier complètement le pack : on retire aussi l'achat pour
+      // qu'il redevienne « non acheté » (re-téléchargeable) dans le store.
+      await pool.query('DELETE FROM pack_purchases WHERE pack_id = $1 AND buyer_id = $2', [packId, uid]);
+    }
+    if (ids.length) {
+      const r = await pool.query('DELETE FROM user_mots WHERE user_id = $1 AND mot_id = ANY($2)', [uid, ids]);
+      deleted += r.rowCount || 0;
+    }
+    res.json({ success: true, deleted });
+  } catch (e) {
+    console.error('m/words bulk-delete error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ── GET /api/m/character/:char : sens d'un caractère seul (tap sur la carte) ──
 router.get('/api/m/character/:char', requireToken, async (req, res) => {
   try {

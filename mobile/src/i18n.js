@@ -381,6 +381,17 @@ export const TRANSLATIONS = {
     tut_t_s3_title: 'Find new students with the Jiayou teacher market',
     tut_t_s3_body: 'List your profile in the mentor directory so new learners can discover you, see your stats and reach out.',
     tut_t_start: 'Get started',
+    // ── Suppression en masse (premium) ──
+    pw_bulk_delete: 'Bulk delete is a Premium feature. Go Premium to clean up your collection in one tap.',
+    co_select: 'Select',
+    co_cancel: 'Cancel',
+    co_selected: '{n} selected',
+    co_select_all: 'Select all',
+    co_bulk_delete: 'Delete',
+    co_bulk_confirm: 'Remove {n} word(s) from your collection? This cannot be undone.',
+    st_forget_pack: 'Forget this pack',
+    st_forget_confirm: "Remove this pack's words from your collection? The pack stays available — you can train or re-add it later.",
+    st_forgotten: '{n} word(s) removed from your collection.',
   },
   zh: {
     nav_teachers: '老师',
@@ -758,6 +769,17 @@ export const TRANSLATIONS = {
     tut_t_s3_title: '通过加油老师市场找到新学生',
     tut_t_s3_body: '在导师目录中展示你的资料，让新学习者发现你、查看你的数据并联系你。',
     tut_t_start: '开始使用',
+    // ── 批量删除（高级会员）──
+    pw_bulk_delete: '批量删除是高级会员功能。升级后即可一键整理你的词库。',
+    co_select: '选择',
+    co_cancel: '取消',
+    co_selected: '已选 {n} 个',
+    co_select_all: '全选',
+    co_bulk_delete: '删除',
+    co_bulk_confirm: '从你的词库中移除 {n} 个词？此操作无法撤销。',
+    st_forget_pack: '忘记此词包',
+    st_forget_confirm: '从你的词库中移除此词包的所有词？词包本身仍然可用——之后可再次训练或重新添加。',
+    st_forgotten: '已从你的词库中移除 {n} 个词。',
   },
 };
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from './Popup';
-import { getMarketPack, buyMarketPack, notifyNeedCoins } from '../api';
+import { getMarketPack, buyMarketPack, notifyNeedCoins, forgetPack, notifyUpgrade } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 import CatLoader from './CatLoader';
@@ -55,18 +55,20 @@ export function WordRow({ w, last }) {
 //   balance     : solde de l'utilisateur (pour le bouton d'achat)
 //   onStartQuiz : (pack) => void — affiche "Start a quiz" si possédé
 //   onBought    : (packId, { newBalance, wordsAdded }) => void — après achat
-export default function PackDetailPopup({ pack, balance, isPremium = false, onClose, onStartQuiz, onBought, onEditPack, onUpgrade }) {
+export default function PackDetailPopup({ pack, balance, isPremium = false, onClose, onStartQuiz, onBought, onEditPack, onUpgrade, onForgotten }) {
   const { t } = useT();
   const [detail, setDetail] = useState(null); // { pack, words?, preview? }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [buying, setBuying] = useState(false);
   const [msg, setMsg] = useState('');
+  const [confirmForget, setConfirmForget] = useState(false); // « Forget this pack » (premium)
+  const [forgetting, setForgetting] = useState(false);
 
   useEffect(() => {
     if (!pack) return;
     let alive = true;
-    setLoading(true); setDetail(null); setError(''); setMsg('');
+    setLoading(true); setDetail(null); setError(''); setMsg(''); setConfirmForget(false);
     getMarketPack(pack.id)
       .then((d) => { if (alive) setDetail(d); })
       .catch((e) => { if (alive) setError(e.message); })
@@ -101,6 +103,24 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
       try { setDetail(await getMarketPack(pack.id)); } catch { /* noop */ }
       onBought?.(pack.id, d);
     } catch (e) { setError(e.message); } finally { setBuying(false); }
+  }
+
+  // « Forget this pack » (premium) : retire de la collection tous les mots du pack.
+  // Non premium → paywall (swap propre : on ferme la popup puis on ouvre le paywall).
+  function onForgetPress() {
+    if (!isPremium) { onClose?.(); notifyUpgrade('bulk_delete'); return; }
+    setConfirmForget(true);
+  }
+  async function doForget() {
+    setForgetting(true); setError('');
+    try {
+      const d = await forgetPack(pack.id);
+      onForgotten?.(pack.id, d?.deleted || 0);
+      onClose?.();
+    } catch (e) {
+      setError(e.message || 'Could not remove the words.');
+      setForgetting(false);
+    }
   }
 
   return (
@@ -153,7 +173,28 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
           {error ? <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '600', marginTop: 12 }}>{error}</Text> : null}
 
           {/* ── Actions ── */}
-          {owned ? (
+          {confirmForget ? (
+            <View style={{ marginTop: 16 }}>
+              <Text style={{ fontSize: 14, color: '#1a1a2e', lineHeight: 20, marginBottom: 14, textAlign: 'center' }}>
+                {t('st_forget_confirm')}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable onPress={() => setConfirmForget(false)} disabled={forgetting}
+                  style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
+                  <Text style={{ color: '#444', fontWeight: '700' }}>{t('co_cancel')}</Text>
+                </Pressable>
+                <Pressable onPress={doForget} disabled={forgetting}
+                  style={{ flex: 1.3, paddingVertical: 13, borderRadius: 999, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: COLORS.danger }}>
+                  {forgetting ? <ActivityIndicator color="#fff" size="small" /> : (
+                    <>
+                      <Ionicons name="trash" size={15} color="#fff" />
+                      <Text style={{ color: '#fff', fontWeight: '800' }}>{t('st_forget_pack')}</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          ) : owned ? (
             <View style={{ marginTop: 16, gap: 10 }}>
               {onStartQuiz ? (
                 <Pressable
@@ -176,6 +217,14 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
               <Text style={{ textAlign: 'center', color: COLORS.muted, fontWeight: '700', fontSize: 13 }}>
                 {p.isMine ? t('st_your_pack') : t('st_in_collection')}
               </Text>
+              {/* Forget this pack : retire ses mots de la collection (premium). Réservé
+                  aux packs ACHETÉS (pas les tiens : tu gardes tes propres mots). */}
+              {!p.isMine ? (
+                <Pressable onPress={onForgetPress} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 6 }}>
+                  <Ionicons name="trash-outline" size={15} color={COLORS.danger} />
+                  <Text style={{ color: COLORS.danger, fontWeight: '700', fontSize: 13.5 }}>{t('st_forget_pack')}</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : (p.word_count || 0) === 0 ? (
             <View style={{ marginTop: 16, backgroundColor: '#e9ecef', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>

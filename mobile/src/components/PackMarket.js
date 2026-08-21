@@ -176,6 +176,7 @@ export default function PackMarket({
         onUpgrade={onUpgrade}
         onClose={() => setSelected(null)}
         onBought={onBought}
+        onForgotten={() => fetchPacks()}
         onStartQuiz={onStartQuiz ? (p) => { setSelected(null); onStartQuiz(p); } : undefined}
         onEditPack={onEditPack ? (d) => { setSelected(null); onEditPack(d); } : undefined}
       />

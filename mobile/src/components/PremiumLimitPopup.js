@@ -14,6 +14,7 @@ const FEATURE_KEYS = {
   pack_limit: 'pw_pack_limit',
   hsk_pack: 'pw_hsk_pack',
   ghost: 'pw_ghost',
+  bulk_delete: 'pw_bulk_delete',
 };
 
 export default function PremiumLimitPopup({ feature, onClose, onGoPremium }) {

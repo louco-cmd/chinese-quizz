@@ -3,7 +3,7 @@ import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AccountCard from './AccountCard';
 import PackDetailPopup from '../PackDetailPopup';
-import { getPurchasedPacks } from '../../api';
+import { getPurchasedPacks, getMe } from '../../api';
 import { useT } from '../../i18n';
 import { COLORS } from '../../theme';
 import CatLoader from '../CatLoader';
@@ -14,11 +14,13 @@ export default function PurchasedPacksCard({ onStartQuiz }) {
   const { t } = useT();
   const [packs, setPacks] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [isPremium, setIsPremium] = useState(false); // « Forget this pack » = premium
 
   const load = useCallback(async () => {
     try { const d = await getPurchasedPacks(); setPacks(d.packs || []); } catch { setPacks([]); }
   }, []);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { getMe().then((u) => setIsPremium(!!u?.isPremium)).catch(() => {}); }, []);
 
   // Aucun achat → on masque la section.
   if (packs !== null && packs.length === 0) return null;
@@ -47,7 +49,9 @@ export default function PurchasedPacksCard({ onStartQuiz }) {
 
       <PackDetailPopup
         pack={selected}
+        isPremium={isPremium}
         onClose={() => setSelected(null)}
+        onForgotten={() => load()}
         onStartQuiz={onStartQuiz ? (p) => { setSelected(null); onStartQuiz(p); } : undefined}
       />
     </AccountCard>

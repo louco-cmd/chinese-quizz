@@ -78,6 +78,11 @@ export async function clearPendingRef() {
 // les autres popups (le message d'erreur inline était sinon caché derrière elles).
 let upgradeHandler = null;
 export function setUpgradeHandler(fn) { upgradeHandler = fn; }
+// Ouvre le paywall à la demande (fonctionnalité premium touchée côté client, sans
+// même appeler l'API — ex. entrer en mode multi-sélection sans être premium).
+export function notifyUpgrade(feature = 'default', data = {}) {
+  if (upgradeHandler) { try { upgradeHandler(feature, data); } catch { /* noop */ } }
+}
 
 // Solde insuffisant (402 `insufficient`) : il n'existe pas d'achat de pièces →
 // on affiche une popup « comment gagner des pièces » (mêmes raisons que le paywall).
@@ -325,6 +330,14 @@ export function updateWord(id, fields) {
 
 export function deleteWord(id) {
   return request(`/api/m/words/${id}`, { method: 'DELETE' });
+}
+
+// Suppression en masse (premium). Par liste d'ids OU par pack (« forget pack »).
+export function bulkDeleteWords(ids) {
+  return request('/api/m/words/bulk-delete', { method: 'POST', body: { ids } });
+}
+export function forgetPack(packId) {
+  return request('/api/m/words/bulk-delete', { method: 'POST', body: { packId } });
 }
 
 export function getCharacter(ch) {
