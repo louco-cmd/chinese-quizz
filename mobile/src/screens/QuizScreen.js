@@ -142,16 +142,31 @@ export default function QuizScreen({ onOpenStore, initialPack, onInitialConsumed
         </View>
       </ScrollView>
 
-      {/* Popup "Train on a pack" : liste des packs + lien vers le store */}
-      <Popup visible={packsOpen} onClose={() => setPacksOpen(false)} maxWidth={440}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Ionicons name="albums" size={20} color="#7828a7" />
-            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>{t('qz_train_pack')}</Text>
+      {/* Popup "Train on a pack" : en-tête fixe + liste scrollable + bouton store
+          collé en bas (hauteur plafonnée par le composant Popup). */}
+      <Popup
+        visible={packsOpen}
+        onClose={() => setPacksOpen(false)}
+        maxWidth={440}
+        header={(
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="albums" size={20} color="#7828a7" />
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>{t('qz_train_pack')}</Text>
+            </View>
+            <Pressable onPress={() => setPacksOpen(false)} hitSlop={10}><Ionicons name="close" size={22} color={COLORS.muted} /></Pressable>
           </View>
-          <Pressable onPress={() => setPacksOpen(false)} hitSlop={10}><Ionicons name="close" size={22} color={COLORS.muted} /></Pressable>
-        </View>
-
+        )}
+        footer={(
+          <Pressable
+            onPress={() => { setPacksOpen(false); onOpenStore?.(); }}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12, paddingVertical: 13, borderRadius: 999, borderWidth: 1.5, borderColor: '#e0d3f2', backgroundColor: '#faf7ff' }}
+          >
+            <Ionicons name="storefront" size={16} color="#7828a7" />
+            <Text style={{ color: '#7828a7', fontWeight: '700' }}>{t('qz_get_packs')}</Text>
+          </Pressable>
+        )}
+      >
         {packs.length ? (
           <View style={{ marginTop: 6 }}>
             {packs.map((p, i) => (
@@ -169,15 +184,6 @@ export default function QuizScreen({ onOpenStore, initialPack, onInitialConsumed
             <Text style={{ color: COLORS.muted, marginTop: 10, textAlign: 'center' }}>{t('qz_no_pack')}</Text>
           </View>
         )}
-
-        {/* Lien vers le store */}
-        <Pressable
-          onPress={() => { setPacksOpen(false); onOpenStore?.(); }}
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16, paddingVertical: 13, borderRadius: 999, borderWidth: 1.5, borderColor: '#e0d3f2', backgroundColor: '#faf7ff' }}
-        >
-          <Ionicons name="storefront" size={16} color="#7828a7" />
-          <Text style={{ color: '#7828a7', fontWeight: '700' }}>{t('qz_get_packs')}</Text>
-        </Pressable>
       </Popup>
 
       <QuizSettingsPopup

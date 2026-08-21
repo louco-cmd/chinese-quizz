@@ -141,7 +141,10 @@ export default function AddWordScreen({ onBalanceChanged }) {
       runCaptureSuccess();
     } catch (e) {
       setCaptured((c) => ({ ...c, [id]: false }));
-      // Solde insuffisant ou plafond free → on le dit clairement.
+      // Solde insuffisant : la popup « gagner des pièces » est déjà déclenchée par
+      // api.js → on ferme la popup résultats pour qu'elle s'affiche proprement
+      // (un seul modal à la fois, sinon iOS n'affiche pas la 2e).
+      if (e?.status === 402 || e?.data?.insufficient) { setShowResults(false); return; }
       setError(e.message || 'Could not capture this word.');
     }
   }
@@ -223,6 +226,9 @@ export default function AddWordScreen({ onBalanceChanged }) {
       setEditor(null);
       runCaptureSuccess(); // même animation de succès + fermeture + reset que la capture directe
     } catch (e) {
+      // Solde insuffisant : popup « gagner des pièces » déjà déclenchée par api.js
+      // → on ferme l'éditeur + la popup résultats (un seul modal à la fois).
+      if (e?.status === 402 || e?.data?.insufficient) { setEditor(null); setShowResults(false); return; }
       setEditorError(e.message || 'Could not add the word.');
     } finally {
       setSaving(false);
@@ -349,6 +355,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
         visible={showResults}
         onClose={() => (editor ? setEditor(null) : setShowResults(false))}
         maxWidth={560}
+        scroll={false}
         contentStyle={{ paddingHorizontal: 0, paddingVertical: 18, overflow: 'hidden' }}
       >
         {editor ? (

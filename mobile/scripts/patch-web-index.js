@@ -20,13 +20,19 @@ if (html.includes('rel="manifest"')) {
 // Clavier mobile : `interactive-widget=resizes-content` fait redimensionner la
 // zone visible quand le clavier s'ouvre (Chrome Android) → le contenu centré
 // remonte au lieu d'être couvert par le clavier.
+// Zoom désactivé (iOS PWA) : `maximum-scale=1, user-scalable=no` empêche le
+// pincement en mode standalone (écran d'accueil). En onglet Safari, ces valeurs
+// sont ignorées → un garde JS (plus bas) bloque le pincement dans tous les cas.
 if (/<meta name="viewport"[^>]*>/.test(html)) {
   html = html.replace(/<meta name="viewport"([^>]*?)content="([^"]*)"([^>]*)>/, (m, pre, content, post) => {
-    const c = /interactive-widget/.test(content) ? content : `${content.trim()}, interactive-widget=resizes-content`;
+    let c = content.trim();
+    if (!/interactive-widget/.test(c)) c += ', interactive-widget=resizes-content';
+    if (!/maximum-scale/.test(c)) c += ', maximum-scale=1';
+    if (!/user-scalable/.test(c)) c += ', user-scalable=no';
     return `<meta name="viewport"${pre}content="${c}"${post}>`;
   });
 } else {
-  html = html.replace('</head>', '    <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content" />\n  </head>');
+  html = html.replace('</head>', '    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content" />\n  </head>');
 }
 
 const tags = [
@@ -41,5 +47,18 @@ const tags = [
 ].join('\n    ');
 
 html = html.replace('</head>', `    ${tags}\n  </head>`);
+
+// Anti-zoom : `touch-action: manipulation` supprime le double-tap zoom (sans
+// casser les clics) ; le garde JS bloque le pincement (événements `gesture*`
+// propres à Safari) — utile en onglet où `user-scalable=no` est ignoré.
+const noZoom = [
+  '<style>html,body{touch-action:manipulation;-webkit-text-size-adjust:100%}</style>',
+  '<script>(function(){var p=function(e){e.preventDefault();};'
+    + "document.addEventListener('gesturestart',p,{passive:false});"
+    + "document.addEventListener('gesturechange',p,{passive:false});"
+    + "document.addEventListener('gestureend',p,{passive:false});})();</script>",
+].join('\n    ');
+html = html.replace('</head>', `    ${noZoom}\n  </head>`);
+
 fs.writeFileSync(file, html);
-console.log('patch-web-index: balises PWA injectées.');
+console.log('patch-web-index: balises PWA + anti-zoom injectées.');

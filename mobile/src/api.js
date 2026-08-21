@@ -83,6 +83,11 @@ export function setUpgradeHandler(fn) { upgradeHandler = fn; }
 // on affiche une popup « comment gagner des pièces » (mêmes raisons que le paywall).
 let coinsHandler = null;
 export function setCoinsHandler(fn) { coinsHandler = fn; }
+// Déclenche la popup « comment gagner des pièces » à la demande (ex. bouton
+// d'achat pressé sans fonds suffisants, sans même appeler l'API).
+export function notifyNeedCoins(data = {}) {
+  if (coinsHandler) { try { coinsHandler(data); } catch { /* noop */ } }
+}
 
 // Token mort : une requête AUTHENTIFIÉE qui renvoie 401 = token expiré (TTL 30 j)
 // ou invalide (secret serveur changé). On purge le token et on notifie App.js pour

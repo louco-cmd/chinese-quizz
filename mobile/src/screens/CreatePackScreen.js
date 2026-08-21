@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, ActivityIndicator,
   KeyboardAvoidingView,
@@ -34,8 +34,33 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');
   // Checkout d'acquisition des mots manquants.
-  const [checkout, setCheckout] = useState(null); // { toBuy, needs:[{chinese,english}], cost, balance }
+  const [checkout, setCheckout] = useState(null); // { toBuy, needs:[{chinese,english}], owned, cost, balance }
   const [buying, setBuying] = useState(false);
+  // Estimation de coût affichée sous la section Words. `null` tant que le débounce
+  // n'a pas répondu → on retombe sur `lignes × 3` (borne haute) en attendant.
+  const [estimate, setEstimate] = useState(null); // { cost, ownedCount, acquireCount }
+  const estTimer = useRef(null);
+
+  // Nombre de mots (lignes non vides) → estimation immédiate max (3 ₵/mot).
+  const lineCount = text.split('\n').map((s) => s.trim()).filter(Boolean).length;
+
+  // Coût réel = 3 ₵ par mot NON possédé. On interroge planPack en débounce (le
+  // même endpoint que la publication) pour affiner l'estimation ligne×3.
+  useEffect(() => {
+    clearTimeout(estTimer.current);
+    if (!lineCount) { setEstimate({ cost: 0, ownedCount: 0, acquireCount: 0 }); return undefined; }
+    estTimer.current = setTimeout(async () => {
+      try {
+        const plan = await planPack(text);
+        const acquireCount = (plan.toBuy?.length || 0) + (plan.needsTranslation?.length || 0);
+        setEstimate({ cost: plan.cost || 0, ownedCount: plan.owned?.length || 0, acquireCount });
+      } catch { /* on garde l'estimation ligne×3 */ }
+    }, 600);
+    return () => clearTimeout(estTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
+
+  const estimatedCost = estimate ? estimate.cost : lineCount * 3;
 
   const scrollRef = useRef(null);
   // Au focus d'un champ : sur WEB mobile le viewport se réduit sous le clavier mais
@@ -77,6 +102,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
       setCheckout({
         toBuy: plan.toBuy || [],
         needs: (plan.needsTranslation || []).map((w) => ({ chinese: w.chinese, pinyin: w.pinyin, english: '' })),
+        owned: plan.owned || [], // affichés « already own » (gratuits, déjà en collection)
         cost: plan.cost || 0,
         balance: plan.balance ?? 0,
       });
@@ -154,6 +180,19 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
         </Field>
 
         <Field label="Words" hint="one per line">
+          {/* Coût estimé du pass : 3 ₵ par mot NON possédé (affiné en débounce). */}
+          {lineCount > 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Ionicons name="cash-outline" size={14} color={COLORS.muted} />
+              <Text style={{ fontSize: 12.5, color: COLORS.muted }}>
+                Estimated cost of the pack:{' '}
+                <Text style={{ fontWeight: '800', color: '#1a1a2e' }}>{estimatedCost} ₵</Text>
+                {estimate && estimate.ownedCount > 0 ? (
+                  <Text style={{ color: COLORS.mutedLight }}>{`  ·  ${estimate.ownedCount} already owned`}</Text>
+                ) : null}
+              </Text>
+            </View>
+          ) : null}
           <TextInput value={text} onChangeText={setText} multiline autoCapitalize="none" onFocus={focusScroll}
             placeholder={'你好\n谢谢\n再见'} placeholderTextColor={COLORS.mutedLight}
             style={{ ...inputStyle, minHeight: 150, textAlignVertical: 'top', lineHeight: 22 }} />
@@ -173,7 +212,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
       </ScrollView>
 
       {/* ── Checkout : acquérir les mots manquants ── */}
-      <Popup visible={!!checkout} onClose={() => { if (!buying) setCheckout(null); }} maxWidth={440}>
+      <Popup visible={!!checkout} onClose={() => { if (!buying) setCheckout(null); }} maxWidth={440} scroll={false}>
         {checkout ? (
           <View>
             <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginBottom: 6 }}>Buy the missing words</Text>
@@ -208,6 +247,29 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
                   <Text style={{ flex: 1, fontSize: 13.5, color: COLORS.muted }} numberOfLines={2}>{w.english}</Text>
                 </View>
               ))}
+
+              {/* Déjà possédés : inclus gratuitement, montrés pour que l'user voie
+                  la composition complète du pack (pas seulement ce qu'il paie). */}
+              {checkout.owned?.length ? (
+                <>
+                  <Text style={{ fontSize: 11.5, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 12, marginBottom: 2 }}>
+                    Already in your collection
+                  </Text>
+                  {checkout.owned.map((w, i) => (
+                    <View key={`own-${w.chinese}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, opacity: 0.7 }}>
+                      <View style={{ width: 92 }}>
+                        <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e' }}>{w.chinese}</Text>
+                        {w.pinyin ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 1 }}>{w.pinyin}</Text> : null}
+                      </View>
+                      <Text style={{ flex: 1, fontSize: 13.5, color: COLORS.muted }} numberOfLines={2}>{w.english}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                        <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
+                        <Text style={{ fontSize: 11, color: COLORS.success, fontWeight: '700' }}>Already own</Text>
+                      </View>
+                    </View>
+                  ))}
+                </>
+              ) : null}
             </ScrollView>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 4 }}>

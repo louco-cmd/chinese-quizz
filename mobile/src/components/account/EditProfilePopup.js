@@ -90,7 +90,7 @@ export default function EditProfilePopup({ visible, initial, onClose, onSaved })
   const currentCountry = COUNTRIES.find((c) => c.code === country);
 
   return (
-    <Popup visible={visible} onClose={onClose} maxWidth={420}>
+    <Popup visible={visible} onClose={onClose} maxWidth={420} scroll={false}>
       {/* En-tête */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e' }}>

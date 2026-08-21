@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from './Popup';
-import { getMarketPack, buyMarketPack } from '../api';
+import { getMarketPack, buyMarketPack, notifyNeedCoins } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 import CatLoader from './CatLoader';
@@ -80,7 +80,18 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
   const owned = !!(p.owned || p.isMine);
   // Pack premium verrouillé pour un utilisateur gratuit → on propose l'upgrade.
   const premiumLocked = isPremiumPack(p) && !isPremium && !owned && onUpgrade;
-  const canBuy = !owned && (p.word_count || 0) > 0 && balance != null && balance >= p.price;
+  const hasWords = (p.word_count || 0) > 0;
+  // Solde inconnu (profil pas encore chargé) → optimiste : on tente l'achat, le
+  // backend tranchera (402 → handler global). Solde connu & insuffisant → on
+  // ouvrira la popup « gagner des pièces ».
+  const affordable = balance == null || balance >= p.price;
+  // Bouton cliquable même sans fonds → on ferme la popup pack et on ouvre la
+  // popup « comment gagner des pièces » (même commit = swap propre, pas de
+  // stacking de modals sur iOS). Sinon le bouton grisé n'apprend rien à l'user.
+  const canBuy = !owned && hasWords;
+  const buyPress = affordable
+    ? buy
+    : () => { onClose?.(); notifyNeedCoins({ cost: p.price, balance }); };
 
   async function buy() {
     setBuying(true); setError('');
@@ -93,7 +104,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
   }
 
   return (
-    <Popup visible={!!pack} onClose={onClose} maxWidth={420}>
+    <Popup visible={!!pack} onClose={onClose} maxWidth={420} scroll={false}>
       {loading && !detail ? (
         <View style={{ marginVertical: 30, alignItems: 'center' }}><CatLoader size={90} /></View>
       ) : (
@@ -180,15 +191,15 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
             </Pressable>
           ) : (
             <Pressable
-              onPress={buy}
+              onPress={buyPress}
               disabled={buying || !canBuy}
-              style={{ marginTop: 16, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: canBuy ? COLORS.jiayou : '#e9ecef' }}
+              style={{ marginTop: 16, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: affordable ? COLORS.jiayou : '#e9ecef' }}
             >
               {buying ? <ActivityIndicator color="#fff" size="small" /> : (
                 <>
-                  <Ionicons name="cart" size={16} color={canBuy ? '#fff' : COLORS.muted} />
-                  <Text style={{ color: canBuy ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>
-                    {canBuy ? t('st_buy_for').replace('{price}', p.price) : t('st_not_enough')}
+                  <Ionicons name={affordable ? 'cart' : 'wallet-outline'} size={16} color={affordable ? '#fff' : COLORS.muted} />
+                  <Text style={{ color: affordable ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>
+                    {affordable ? t('st_buy_for').replace('{price}', p.price) : t('st_not_enough')}
                   </Text>
                 </>
               )}

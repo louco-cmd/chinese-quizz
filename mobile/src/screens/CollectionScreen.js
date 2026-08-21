@@ -157,7 +157,7 @@ export default function CollectionScreen({ onNavigate }) {
 
   // Popup de filtres — partagée entre les deux vues.
   const filterPopup = (
-    <Popup visible={filterOpen} onClose={() => setFilterOpen(false)} maxWidth={420}>
+    <Popup visible={filterOpen} onClose={() => setFilterOpen(false)} maxWidth={420} scroll={false}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>{tr('co_filters')}</Text>
         <Pressable onPress={() => setFilterOpen(false)} hitSlop={10}><Ionicons name="close" size={22} color={COLORS.muted} /></Pressable>

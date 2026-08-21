@@ -24,7 +24,7 @@ function timeAgo(iso) {
 
 export default function NotificationsPopup({ visible, notifications = [], onClose }) {
   return (
-    <Popup visible={visible} onClose={onClose} maxWidth={420}>
+    <Popup visible={visible} onClose={onClose} maxWidth={420} scroll={false}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Ionicons name="notifications" size={20} color={COLORS.jiayou} />

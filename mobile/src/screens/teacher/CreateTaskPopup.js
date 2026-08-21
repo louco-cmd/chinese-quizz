@@ -86,7 +86,7 @@ export default function CreateTaskPopup({ visible, classId, direction, onClose, 
   }
 
   return (
-    <Popup visible={visible} onClose={close} maxWidth={460}>
+    <Popup visible={visible} onClose={close} maxWidth={460} scroll={false}>
       {/* En-tête + points d'étape */}
       <View className="flex-row items-center justify-between mb-3">
         <Text className="text-[17px] font-bold text-ink">New task</Text>

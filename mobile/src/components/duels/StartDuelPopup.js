@@ -87,7 +87,7 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
   }
 
   return (
-    <Popup visible={visible} onClose={onClose} maxWidth={420}>
+    <Popup visible={visible} onClose={onClose} maxWidth={420} scroll={false}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e' }}>
           {t('du_challenge')} {opponent ? opponent.name : t('du_a_player')}

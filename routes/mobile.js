@@ -2665,15 +2665,21 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
       }
     }
 
-    // Mode pack : mots du pack que l'utilisateur possède, mots faibles d'abord.
+    // Mode pack : mots du pack que l'utilisateur possède. On mélange à chaque
+    // partie tout en priorisant les mots les MOINS maîtrisés : tri aléatoire
+    // pondéré par le score `RANDOM() * (score + K)` — un score bas tend à sortir
+    // en premier (0 → intervalle [0..K]) mais avec de la variété (pas d'ordre figé,
+    // pas toujours le même sous-ensemble). Score sur la bonne colonne selon le type.
     if (packId) {
+      const type = String(req.query.type || 'pinyin');
+      const scoreCol = type === 'character' ? 'score_character' : type === 'reading' ? 'score_reading' : 'score';
       const { rows } = await pool.query(
-        `SELECT m.id, m.chinese, m.pinyin, m.english, m.hsk, COALESCE(um.score, 0) AS score
+        `SELECT m.id, m.chinese, m.pinyin, m.english, m.hsk, COALESCE(um.${scoreCol}, 0) AS score
          FROM word_pack_items i
          JOIN user_mots um ON um.mot_id = i.mot_id AND um.user_id = $1
          JOIN mots m ON m.id = i.mot_id
          WHERE i.pack_id = $2
-         ORDER BY um.score ASC, RANDOM()
+         ORDER BY RANDOM() * (COALESCE(um.${scoreCol}, 0) + 15)
          LIMIT $3`, [userId, packId, requestedCount]);
       if (!rows.length) return res.status(400).json({ error: 'not_enough_words' });
       await pool.query('UPDATE user_mots SET last_seen = NOW() WHERE user_id = $1 AND mot_id = ANY($2)', [userId, rows.map((r) => r.id)]);
