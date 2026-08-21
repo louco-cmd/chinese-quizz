@@ -6,41 +6,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import { completeTutorial } from '../api';
 import { COLORS } from '../theme';
+import { useT } from '../i18n';
 
 // Tutoriel élève — carrousel. Chaque slide a `icon`, `title`, `body` et une
 // `image` (300×400, ratio 3:4) qui contient déjà le titre manuscrit. Quand une
 // image est présente on masque le titre texte (évite le doublon) ; `icon` sert
 // de repli si l'image manque.
 const SLIDES = [
-  {
-    icon: 'bookmarks',
-    title: 'Capture words',
-    body: 'Save every word you meet — Chinese, pinyin or English — and build your own collection.',
-    image: require('../../assets/tutorial/01-capture.png'),
-  },
-  {
-    icon: 'trophy',
-    title: 'Challenge your friends',
-    body: 'Duel your friends in real time, bet coins and climb the leaderboard.',
-    image: require('../../assets/tutorial/02-challenge.png'),
-  },
-  {
-    icon: 'storefront',
-    title: 'Join the community',
-    body: 'Buy, sell and create vocabulary packs with other learners on the JiaStore.',
-    image: require('../../assets/tutorial/03-community.png'),
-  },
-  {
-    icon: 'school',
-    title: 'Learn, train, quiz',
-    body: 'Train with personalized quizzes and track your progress by HSK level.',
-    image: require('../../assets/tutorial/04-learn.png'),
-  },
+  { icon: 'bookmarks', titleKey: 'tut_s1_title', bodyKey: 'tut_s1_body', image: require('../../assets/tutorial/01-capture.png') },
+  { icon: 'trophy', titleKey: 'tut_s2_title', bodyKey: 'tut_s2_body', image: require('../../assets/tutorial/02-challenge.png') },
+  { icon: 'storefront', titleKey: 'tut_s3_title', bodyKey: 'tut_s3_body', image: require('../../assets/tutorial/03-community.png') },
+  { icon: 'school', titleKey: 'tut_s4_title', bodyKey: 'tut_s4_body', image: require('../../assets/tutorial/04-learn.png') },
 ];
 
 // `onDone` appelé après avoir marqué le tutoriel vu ; `onClose` (optionnel)
 // pour un simple retour sans re-marquer (rejoué depuis les réglages).
 export default function TutorialScreen({ onDone, onClose }) {
+  const { t } = useT();
   const [fontsLoaded] = useFonts({ LaBelleAurore_400Regular });
   const [index, setIndex] = useState(0);
   const [finishing, setFinishing] = useState(false);
@@ -80,7 +62,7 @@ export default function TutorialScreen({ onDone, onClose }) {
               fontSize: 34, lineHeight: 44, color: COLORS.jiayou, textAlign: 'center', marginBottom: 12,
             }}
           >
-            {slide.title}
+            {t(slide.titleKey)}
           </Text>
 
           {/* Zone visuelle : mockups (carré, fond transparent) ou icône en repli. */}
@@ -97,7 +79,7 @@ export default function TutorialScreen({ onDone, onClose }) {
             </LinearGradient>
           )}
 
-          <Text style={{ fontSize: 16.5, color: '#4b5565', lineHeight: 25, marginTop: 14, textAlign: 'center' }}>{slide.body}</Text>
+          <Text style={{ fontSize: 16.5, color: '#4b5565', lineHeight: 25, marginTop: 14, textAlign: 'center' }}>{t(slide.bodyKey)}</Text>
         </View>
       </View>
 
@@ -141,7 +123,7 @@ export default function TutorialScreen({ onDone, onClose }) {
             {finishing ? <ActivityIndicator color="#fff" size="small" /> : (
               <>
                 <Ionicons name="play-circle" size={18} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Start playing</Text>
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{t('tut_start')}</Text>
               </>
             )}
           </Pressable>

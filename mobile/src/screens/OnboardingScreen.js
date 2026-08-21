@@ -15,6 +15,24 @@ import PackMarket from '../components/PackMarket';
 import ImportWordsScreen from './ImportWordsScreen';
 import { completeOnboarding, teacherGetProfile, teacherSaveProfile } from '../api';
 import { COLORS } from '../theme';
+import { useT, makeT } from '../i18n';
+
+// Toggle de langue compact (EN / 中) pour la barre du haut de l'onboarding.
+function LangToggle({ lang, onChange }) {
+  const opts = [{ v: 'en', l: 'EN' }, { v: 'zh', l: '中' }];
+  return (
+    <View style={{ flexDirection: 'row', backgroundColor: '#eef1f5', borderRadius: 999, padding: 3 }}>
+      {opts.map((o) => {
+        const on = lang === o.v;
+        return (
+          <Pressable key={o.v} onPress={() => onChange(o.v)} style={{ paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, backgroundColor: on ? '#fff' : 'transparent' }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: on ? COLORS.jiayou : '#8a94a3' }}>{o.l}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 // Langues proposées en sélection pour les profs (le champ reste stocké en CSV).
 const LANGUAGE_OPTIONS = ['English', 'Chinese', 'French', 'Spanish', 'German', 'Japanese', 'Korean', 'Cantonese', 'Russian', 'Arabic', 'Portuguese', 'Italian', 'Vietnamese', 'Thai'];
@@ -126,14 +144,14 @@ function Stepper({ index, total }) {
 
 // Barre du haut : retour à gauche, stepper au centre, slot à droite (balance).
 // Slots latéraux en flex:1 pour centrer le stepper sans contraindre la balance.
-function TopBar({ onBack, index, total, right }) {
+function TopBar({ onBack, index, total, right, backLabel = 'Back' }) {
   return (
     <View className="flex-row items-center mb-4" style={{ minHeight: 34 }}>
       <View style={{ flex: 1 }}>
         {onBack ? (
           <Pressable onPress={onBack} hitSlop={10} className="flex-row items-center gap-1 self-start">
             <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
-            <Text className="text-jiayou font-semibold text-[14px]">Back</Text>
+            <Text className="text-jiayou font-semibold text-[14px]">{backLabel}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -145,7 +163,7 @@ function TopBar({ onBack, index, total, right }) {
 
 // Pastille de solde — même composant que le Header (label « balance : » + montant),
 // décliné en bleu pour le fond clair de l'onboarding.
-function BalanceChip({ balance }) {
+function BalanceChip({ balance, label = 'balance :' }) {
   return (
     <View
       style={{
@@ -153,7 +171,7 @@ function BalanceChip({ balance }) {
         backgroundColor: '#eef4ff', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
       }}
     >
-      <Text style={{ color: COLORS.jiayou, fontSize: 12, opacity: 0.9 }}>balance :</Text>
+      <Text style={{ color: COLORS.jiayou, fontSize: 12, opacity: 0.9 }}>{label}</Text>
       <Text numberOfLines={1} style={{ color: COLORS.jiayou, fontSize: 15, fontWeight: '800' }}>
         {balance == null ? '…' : `${balance}₵`}
       </Text>
@@ -172,11 +190,18 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   const [picking, setPicking] = useState(false);
   const [query, setQuery] = useState('');
 
+  // Langue de l'interface : état local (bascule LIVE via le toggle du haut) ; on
+  // l'initialise depuis le contexte global et on le répercute au global à chaque
+  // changement pour que le reste de l'app (et le tutoriel) suive immédiatement.
+  const { lang: globalLang, setLang: setGlobalLang } = useT();
+  const [lang, setLang] = useState(globalLang || 'en');
+  const t = makeT(lang);
+  const changeLang = (l) => { setLang(l); setGlobalLang?.(l); };
+
   const [name, setName] = useState(initial?.name || '');
   const [country, setCountry] = useState(null);
   const [tagline, setTagline] = useState('');
   const [dir, setDir] = useState('en→zh');
-  const [lang, setLang] = useState('en');
 
   // Champs du profil prof (étape 'teacher').
   const [bio, setBio] = useState('');
@@ -204,14 +229,14 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   const fixedTopBar = ({ onBack, index, total, right = null }) => (
     <View style={{ paddingHorizontal: isDesktop ? 24 : 20, paddingTop: isDesktop ? 18 : 12, paddingBottom: 4 }}>
       <View style={{ width: '100%', maxWidth: 1120, alignSelf: 'center' }}>
-        <TopBar onBack={onBack} index={index} total={total} right={right} />
+        <TopBar onBack={onBack} index={index} total={total} right={right} backLabel={t('ob_back')} />
       </View>
     </View>
   );
 
   // Enregistre le profil. Renvoie true en cas de succès (sans naviguer).
   async function saveProfile(role) {
-    if (!name.trim()) { setError('Name is required.'); return false; }
+    if (!name.trim()) { setError(t('ob_name_required')); return false; }
     setSaving(true); setError('');
     try {
       await completeOnboarding({
@@ -220,13 +245,13 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
         tagline: role === 'teacher' ? '' : tagline.trim(),
         country: role === 'teacher' ? null : country,
         quiz_direction: role === 'teacher' ? undefined : dir,
-        interface_lang: role === 'teacher' ? undefined : lang,
+        interface_lang: lang, // langue choisie au picker, persistée pour les 2 rôles
         ref: refCode || undefined,
       });
       setSaving(false);
       return true;
     } catch (e) {
-      setError(e.message || 'Something went wrong. Please try again.');
+      setError(e.message || t('ob_error_generic'));
       setSaving(false);
       return false;
     }
@@ -279,7 +304,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   // Élève → on NE sauvegarde PAS ici : on valide juste le nom et on passe au
   // dernier chapitre. Tout est enregistré d'un coup à la fin (finishLearner).
   function submitLearner() {
-    if (!name.trim()) { setError('Name is required.'); return; }
+    if (!name.trim()) { setError(t('ob_name_required')); return; }
     setError('');
     setStep('words');
   }
@@ -301,8 +326,8 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
           fill
           colors={['#0d6efd', '#0a4fcf']}
           icon="cloud-upload"
-          title="Manual bulk upload"
-          text="Upload up to 600 words from your personal base"
+          title={t('ob_upload_title')}
+          text={t('ob_upload_text')}
           onPress={() => setImporting(true)}
         />
       </View>
@@ -315,16 +340,16 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
           text={taglineText}
           style={{ fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined, fontStyle: fontsLoaded ? 'normal' : 'italic', fontSize: isDesktop ? 36 : 27, lineHeight: isDesktop ? 46 : 36, color: COLORS.jiayou, marginTop: 6, textAlign: 'center' }}
         />
-        <Text className="text-[20px] font-bold text-ink mt-4 text-center">Get a good start</Text>
-        <Text className="text-muted text-[14px] mt-1 text-center">buy a pack or upload your words</Text>
+        <Text className="text-[20px] font-bold text-ink mt-4 text-center">{t('ob_words_title')}</Text>
+        <Text className="text-muted text-[14px] mt-1 text-center">{t('ob_words_sub')}</Text>
       </>
     );
     const stickyBar = (
       <View style={{ borderTopWidth: 1, borderTopColor: COLORS.line, backgroundColor: '#f8f9fa', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12 }}>
         <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center' }}>
           {error ? <Text className="text-danger text-[13px] font-semibold mb-2 text-center">{error}</Text> : null}
-          <PrimaryButton label="Let's start" onPress={finishLearner} saving={saving} />
-          <Text className="text-muted text-[14px] text-center mt-2.5">You can always buy more packs later.</Text>
+          <PrimaryButton label={t('ob_lets_start')} onPress={finishLearner} saving={saving} />
+          <Text className="text-muted text-[14px] text-center mt-2.5">{t('ob_buy_later')}</Text>
         </View>
       </View>
     );
@@ -333,7 +358,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     if (isDesktop) {
       return (
         <SafeAreaView className="flex-1 bg-surface-page">
-          {fixedTopBar({ onBack: () => setStep('learner'), index: 2, total: 3, right: <BalanceChip balance={balance} /> })}
+          {fixedTopBar({ onBack: () => setStep('learner'), index: 2, total: 3, right: <BalanceChip balance={balance} label={t('ob_balance')} /> })}
           <View style={{ flex: 1, width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 24 }}>
             <View style={{ flex: 1, flexDirection: 'row', gap: 40 }}>
               <View style={{ width: 300, alignItems: 'center', justifyContent: 'center' }}>
@@ -362,7 +387,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     );
     return (
       <SafeAreaView className="flex-1 bg-surface-page">
-        {fixedTopBar({ onBack: () => setStep('learner'), index: 2, total: 3, right: <BalanceChip balance={balance} /> })}
+        {fixedTopBar({ onBack: () => setStep('learner'), index: 2, total: 3, right: <BalanceChip balance={balance} label={t('ob_balance')} /> })}
         <PackMarket
           extraTile={uploadTile}
           extraTileAt={1}
@@ -391,10 +416,10 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                 <Pressable onPress={() => { setPicking(false); setQuery(''); }} hitSlop={10}>
                   <Ionicons name="arrow-back" size={22} color={COLORS.ink} />
                 </Pressable>
-                <Text className="text-[17px] font-bold text-ink">Select your country</Text>
+                <Text className="text-[17px] font-bold text-ink">{t('ob_select_country')}</Text>
               </View>
               <TextInput
-                value={query} onChangeText={setQuery} placeholder="Search a country…"
+                value={query} onChangeText={setQuery} placeholder={t('ob_search_country')}
                 placeholderTextColor={COLORS.mutedLight} autoFocus className={`${inputClass} mb-2.5`}
               />
             </View>
@@ -440,15 +465,16 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
         text={taglineText}
         style={{ fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined, fontStyle: fontsLoaded ? 'normal' : 'italic', fontSize: twoCol ? 36 : 27, lineHeight: twoCol ? 46 : 36, color: COLORS.jiayou, marginTop: 6, textAlign: 'center' }}
       />
-      <Text className="text-[20px] font-bold text-ink mt-4">Welcome, {firstName}!</Text>
-      <Text className="text-muted text-[14px] mt-1 text-center">Let's set up your profile before you start.</Text>
+      <Text className="text-[20px] font-bold text-ink mt-4">{t('ob_welcome').replace('{name}', firstName)}</Text>
+      <Text className="text-muted text-[14px] mt-1 text-center">{t('ob_welcome_sub')}</Text>
     </>
   );
 
   return (
     <SafeAreaView className="flex-1 bg-surface-page">
-      {/* Header figé en haut (identique sur toutes les étapes) */}
-      {fixedTopBar({ onBack: stepMeta.back, index: stepMeta.index, total: stepMeta.total })}
+      {/* Header figé en haut (identique sur toutes les étapes) — toggle de langue
+          à droite, dispo dès l'écran de choix du rôle. */}
+      {fixedTopBar({ onBack: stepMeta.back, index: stepMeta.index, total: stepMeta.total, right: <LangToggle lang={lang} onChange={changeLang} /> })}
       <ScrollView
         contentContainerStyle={twoCol ? { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 28 } : { padding: 20, paddingBottom: 60 }}
         keyboardShouldPersistTaps="handled"
@@ -473,15 +499,15 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
               <RoleTile
                 colors={['#0d6efd', '#0a4fcf']}
                 icon="school"
-                title="I'm a learner"
-                sub="Build vocabulary & practice with quizzes"
+                title={t('ob_role_learner_title')}
+                sub={t('ob_role_learner_sub')}
                 onPress={() => setStep('learner')}
               />
               <RoleTile
                 colors={['#7c3aed', '#5b21b6']}
                 icon="easel"
-                title="I'm a teacher"
-                sub="Create classes & follow students"
+                title={t('ob_role_teacher_title')}
+                sub={t('ob_role_teacher_sub')}
                 onPress={enterTeacher}
               />
             </View>
@@ -493,31 +519,31 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
 
             {step === 'teacher' && (
               <>
-                <StepLabel icon="person">Your teacher profile</StepLabel>
+                <StepLabel icon="person">{t('ob_teacher_profile')}</StepLabel>
 
-                <FieldLabel>Your name *</FieldLabel>
+                <FieldLabel>{t('ob_your_name')}</FieldLabel>
                 <TextInput
                   value={name} onChangeText={setName} maxLength={50}
-                  placeholder="How should your students see you?" placeholderTextColor={COLORS.mutedLight}
+                  placeholder={t('ob_name_ph_teacher')} placeholderTextColor={COLORS.mutedLight}
                   className={`${inputClass} mb-4`}
                 />
 
-                <FieldLabel hint="(optional)">Intro</FieldLabel>
+                <FieldLabel hint={t('ob_optional')}>{t('ob_intro')}</FieldLabel>
                 <TextInput
                   value={bio} onChangeText={setBio} maxLength={500} multiline
-                  placeholder="Tell students about your teaching style…" placeholderTextColor={COLORS.mutedLight}
+                  placeholder={t('ob_intro_ph')} placeholderTextColor={COLORS.mutedLight}
                   className="bg-white border-[1.5px] border-line rounded-xl px-3.5 py-3 text-[15px] text-ink mb-4"
                   style={{ minHeight: 88, textAlignVertical: 'top' }}
                 />
 
-                <FieldLabel hint="(optional)">Years of experience</FieldLabel>
+                <FieldLabel hint={t('ob_optional')}>{t('ob_years')}</FieldLabel>
                 <TextInput
-                  value={years} onChangeText={(t) => setYears(t.replace(/[^0-9]/g, ''))} keyboardType="number-pad"
-                  placeholder="e.g. 5" placeholderTextColor={COLORS.mutedLight}
+                  value={years} onChangeText={(v) => setYears(v.replace(/[^0-9]/g, ''))} keyboardType="number-pad"
+                  placeholder={t('ob_years_ph')} placeholderTextColor={COLORS.mutedLight}
                   className={`${inputClass} mb-4`}
                 />
 
-                <FieldLabel>Languages you speak</FieldLabel>
+                <FieldLabel>{t('ob_langs_spoken')}</FieldLabel>
                 <View className="flex-row flex-wrap gap-2 mb-4">
                   {[...new Set([...LANGUAGE_OPTIONS, ...spoken])].map((l) => {
                     const on = spoken.includes(l);
@@ -529,73 +555,73 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                   })}
                 </View>
 
-                <FieldLabel hint="(optional)">Where to find me</FieldLabel>
+                <FieldLabel hint={t('ob_optional')}>{t('ob_links')}</FieldLabel>
                 {links.map((l, i) => (
                   <View key={i} className="flex-row gap-2 mb-2">
-                    <TextInput value={l.label} onChangeText={(t) => setLink(i, { label: t })} maxLength={30} placeholder="Label" placeholderTextColor={COLORS.mutedLight} className="bg-white border-[1.5px] border-line rounded-lg px-2.5 h-11 text-[14px] text-ink" style={{ width: 92 }} />
-                    <TextInput value={l.url} onChangeText={(t) => setLink(i, { url: t })} autoCapitalize="none" placeholder="https://…" placeholderTextColor={COLORS.mutedLight} className="flex-1 bg-white border-[1.5px] border-line rounded-lg px-2.5 h-11 text-[14px] text-ink" />
+                    <TextInput value={l.label} onChangeText={(v) => setLink(i, { label: v })} maxLength={30} placeholder={t('ob_link_label')} placeholderTextColor={COLORS.mutedLight} className="bg-white border-[1.5px] border-line rounded-lg px-2.5 h-11 text-[14px] text-ink" style={{ width: 92 }} />
+                    <TextInput value={l.url} onChangeText={(v) => setLink(i, { url: v })} autoCapitalize="none" placeholder="https://…" placeholderTextColor={COLORS.mutedLight} className="flex-1 bg-white border-[1.5px] border-line rounded-lg px-2.5 h-11 text-[14px] text-ink" />
                     <Pressable onPress={() => setLinks((ls) => ls.filter((_, j) => j !== i))} hitSlop={6} className="w-11 h-11 items-center justify-center"><Ionicons name="close" size={18} color={COLORS.danger} /></Pressable>
                   </View>
                 ))}
                 <Pressable onPress={() => setLinks((ls) => [...ls, { label: '', url: '' }])} className="flex-row items-center gap-1.5 self-start border border-line rounded-lg px-3 py-2 mt-1 mb-5">
-                  <Ionicons name="add" size={15} color={COLORS.muted} /><Text className="text-muted text-[13px] font-semibold">Add a link</Text>
+                  <Ionicons name="add" size={15} color={COLORS.muted} /><Text className="text-muted text-[13px] font-semibold">{t('ob_add_link')}</Text>
                 </Pressable>
 
                 <View className="flex-row items-center justify-between bg-surface-page rounded-xl px-3.5 py-3">
                   <View className="flex-1 pr-3">
-                    <Text className="text-jiayou font-semibold text-[14px]">List me in the mentor directory</Text>
-                    <Text className="text-muted text-[12px] mt-0.5">Students can discover you and your stats</Text>
+                    <Text className="text-jiayou font-semibold text-[14px]">{t('ob_list_me')}</Text>
+                    <Text className="text-muted text-[12px] mt-0.5">{t('ob_list_me_sub')}</Text>
                   </View>
                   <Toggle value={listed} onValueChange={setListed} />
                 </View>
 
                 {error ? <Text className="text-danger text-[13px] font-semibold mt-2">{error}</Text> : null}
-                <PrimaryButton label="Open my teacher space 🧑‍🏫" onPress={submitTeacher} saving={saving} />
+                <PrimaryButton label={t('ob_open_teacher')} onPress={submitTeacher} saving={saving} />
               </>
             )}
 
             {step === 'learner' && (
               <>
                 {/* Name */}
-                <FieldLabel>Your name *</FieldLabel>
+                <FieldLabel>{t('ob_your_name')}</FieldLabel>
                 <TextInput
                   value={name} onChangeText={setName} maxLength={50}
-                  placeholder="How should we call you?" placeholderTextColor={COLORS.mutedLight}
+                  placeholder={t('ob_name_ph_learner')} placeholderTextColor={COLORS.mutedLight}
                   className={`${inputClass} mb-4`}
                 />
 
                 {/* Country */}
-                <FieldLabel>Your country</FieldLabel>
+                <FieldLabel>{t('ob_your_country')}</FieldLabel>
                 <Pressable onPress={() => setPicking(true)} className={`${inputClass} mb-4 flex-row items-center justify-between`}>
                   <View className="flex-row items-center gap-2.5">
                     <Text className="text-[20px]">{flagEmoji(country)}</Text>
                     <Text className={`text-[15px] ${currentCountry ? 'text-ink' : 'text-muted-light'}`}>
-                      {currentCountry ? currentCountry.name : 'Select your country'}
+                      {currentCountry ? currentCountry.name : t('ob_select_country')}
                     </Text>
                   </View>
                   <Ionicons name="chevron-down" size={18} color={COLORS.muted} />
                 </Pressable>
 
                 {/* Tagline */}
-                <FieldLabel hint="(optional)">Your tagline</FieldLabel>
-                <Text className="text-[12px] text-muted mb-2">A short line about you, shown on your profile and the leaderboard.</Text>
+                <FieldLabel hint={t('ob_optional')}>{t('ob_tagline')}</FieldLabel>
+                <Text className="text-[12px] text-muted mb-2">{t('ob_tagline_hint')}</Text>
                 <TextInput
                   value={tagline} onChangeText={setTagline} maxLength={100}
-                  placeholder="e.g. Learning Chinese for work!" placeholderTextColor={COLORS.mutedLight}
+                  placeholder={t('ob_tagline_ph')} placeholderTextColor={COLORS.mutedLight}
                   className={`${inputClass} mb-5`}
                 />
 
                 <View className="h-px bg-line-soft mb-4" />
 
                 {/* Quiz direction */}
-                <StepLabel icon="swap-horizontal">What are you learning?</StepLabel>
+                <StepLabel icon="swap-horizontal">{t('ob_learning_q')}</StepLabel>
                 <View className="mb-5">
                   <SegmentedPicker
                     value={dir}
                     onChange={setDir}
                     options={[
-                      { value: 'en→zh', label: 'I learn Chinese' },
-                      { value: 'zh→en', label: 'I learn English' },
+                      { value: 'en→zh', label: t('set_dir_learn_zh') },
+                      { value: 'zh→en', label: t('set_dir_learn_en') },
                     ]}
                   />
                 </View>
@@ -603,11 +629,11 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                 <View className="h-px bg-line-soft mb-4" />
 
                 {/* Interface language */}
-                <StepLabel icon="language">Interface language</StepLabel>
+                <StepLabel icon="language">{t('ob_interface_lang')}</StepLabel>
                 <View className="mb-2">
                   <SegmentedPicker
                     value={lang}
-                    onChange={setLang}
+                    onChange={changeLang}
                     options={[
                       { value: 'en', label: 'English' },
                       { value: 'zh', label: '中文' },
@@ -616,7 +642,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                 </View>
 
                 {error ? <Text className="text-danger text-[13px] font-semibold mt-2">{error}</Text> : null}
-                <PrimaryButton label="Continue 加油!🚀" onPress={submitLearner} saving={saving} />
+                <PrimaryButton label={t('ob_continue')} onPress={submitLearner} saving={saving} />
               </>
             )}
           </View>

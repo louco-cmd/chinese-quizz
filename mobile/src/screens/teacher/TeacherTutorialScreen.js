@@ -4,30 +4,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../../theme';
+import { useT } from '../../i18n';
 
 // Tutoriel professeur — même design que le tutoriel élève. Pas d'images pour
 // l'instant : un idéogramme/icône occupe la zone visuelle (à remplacer par des
 // captures plus tard). Chaque slide a `icon`, `title`, `body`.
 const SLIDES = [
-  {
-    icon: 'people',
-    title: 'Create a class, invite your students',
-    body: 'Set up a class in seconds and share a join code. Your students land straight in their own learning space.',
-  },
-  {
-    icon: 'clipboard',
-    title: 'Send tasks and follow their progress',
-    body: 'Assign word lists as tasks and track each student’s mastery in real time — see who’s ahead and who needs a nudge.',
-  },
-  {
-    icon: 'storefront',
-    title: 'Find new students with the Jiayou teacher market',
-    body: 'List your profile in the mentor directory so new learners can discover you, see your stats and reach out.',
-  },
+  { icon: 'people', titleKey: 'tut_t_s1_title', bodyKey: 'tut_t_s1_body' },
+  { icon: 'clipboard', titleKey: 'tut_t_s2_title', bodyKey: 'tut_t_s2_body' },
+  { icon: 'storefront', titleKey: 'tut_t_s3_title', bodyKey: 'tut_t_s3_body' },
 ];
 
 // `onDone` termine le tutoriel ; `onClose` (optionnel) ferme sans terminer.
 export default function TeacherTutorialScreen({ onDone, onClose }) {
+  const { t } = useT();
   const [index, setIndex] = useState(0);
   const total = SLIDES.length;
   const isLast = index === total - 1;
@@ -58,8 +48,8 @@ export default function TeacherTutorialScreen({ onDone, onClose }) {
           >
             <Ionicons name={slide.icon} size={96} color="rgba(255,255,255,0.95)" />
           </LinearGradient>
-          <Text style={{ fontSize: 26, fontWeight: '700', color: COLORS.jiayou, marginTop: 18, letterSpacing: -0.4 }}>{slide.title}</Text>
-          <Text style={{ fontSize: 15, color: '#4b5565', lineHeight: 24, marginTop: 10 }}>{slide.body}</Text>
+          <Text style={{ fontSize: 26, fontWeight: '700', color: COLORS.jiayou, marginTop: 18, letterSpacing: -0.4 }}>{t(slide.titleKey)}</Text>
+          <Text style={{ fontSize: 15, color: '#4b5565', lineHeight: 24, marginTop: 10 }}>{t(slide.bodyKey)}</Text>
         </View>
       </View>
 
@@ -101,7 +91,7 @@ export default function TeacherTutorialScreen({ onDone, onClose }) {
             style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.jiayou, borderRadius: 60, paddingVertical: 12, paddingHorizontal: 22 }}
           >
             <Ionicons name="checkmark-circle" size={18} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Get started</Text>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{t('tut_t_start')}</Text>
           </Pressable>
         ) : (
           <Pressable
