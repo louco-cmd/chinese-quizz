@@ -86,12 +86,13 @@ export default function QuizPlayScreen({ config, onExit }) {
     setLoading(true); setError(''); setNotEnough(false);
     try {
       const [me, d] = await Promise.all([getMe().catch(() => ({})), getQuizPlayWords({ type, count, hsk, levels, ids, packId })]);
+      const dir = me.quiz_direction || direction;
       if (me.quiz_direction) setDirection(me.quiz_direction);
       const ws = d.words || [];
       if (!ws.length) { setNotEnough(true); setWords(null); return; }
       setWords(ws);
       results.current = ws.map((w) => ({ mot_id: w.id, correct: null, bonus: 0, pinyin: w.pinyin }));
-      resetQuestion(ws[0]);
+      resetQuestion(ws[0], dir); // dir frais : setDirection ci-dessus pas encore appliqué
     } catch (e) {
       // Le backend renvoie le code brut 'not_enough_words' (400) → empty state dédié.
       if (e?.message === 'not_enough_words') { setNotEnough(true); setWords(null); }
@@ -118,13 +119,21 @@ export default function QuizPlayScreen({ config, onExit }) {
   // Reading (caractères→pinyin) se saisit/valide comme le pinyin.
   const isPinyin = (type === 'pinyin' || type === 'reading') && direction !== 'zh→en';
 
-  function resetQuestion(w) {
+  // `dir` explicite : au tout premier chargement, `setDirection(me.quiz_direction)`
+  // n'a pas encore été appliqué (setState async), donc l'état `direction` est
+  // périmé ici. On passe la direction fraîche pour dimensionner correctement les
+  // cases (sinon on comptait les syllabes du pinyin au lieu des mots anglais →
+  // cases fantômes « 0 »).
+  function resetQuestion(w, dir = direction) {
     setSecond(false);
     setFeedback(null);
     setLocked(false);
-    if (direction === 'zh→en' || type === 'pinyin') {
+    // Cases à jetons : mêmes conditions que `tokenFields` au rendu (anglais, ou
+    // pinyin/reading en apprentissage du chinois) — sinon décompte incohérent.
+    const tokenFields = dir === 'zh→en' || ((type === 'pinyin' || type === 'reading') && dir !== 'zh→en');
+    if (tokenFields) {
       // Un champ par jeton (mot anglais / syllabe pinyin) du 1er sens ; au moins 1.
-      const toks = firstSenseTokens(w, type, direction);
+      const toks = firstSenseTokens(w, type, dir);
       setInputs((toks.length ? toks : ['']).map(() => ''));
     } else {
       setInputs(['']);
