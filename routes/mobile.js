@@ -576,6 +576,25 @@ router.get('/api/m/pinyin', requireToken, async (req, res) => {
   }
 });
 
+// ── GET /api/m/translate?cn= : suggestion anglaise pour un mot chinois ────────
+// Aide la saisie dans « New word » (même principe que /api/m/pinyin). Base `mots`
+// curée d'abord, sinon fallback CC-CEDICT (~120k entrées). Chinois → anglais.
+router.get('/api/m/translate', requireToken, async (req, res) => {
+  try {
+    const cn = (req.query.cn || '').trim();
+    if (!cn || !/[㐀-鿿]/.test(cn)) return res.json({ english: '' });
+    const { rows } = await pool.query(
+      "SELECT english FROM mots WHERE chinese = $1 AND english IS NOT NULL AND english <> '' ORDER BY id LIMIT 1",
+      [cn]
+    );
+    const english = rows[0]?.english || cedict.translate(cn) || '';
+    res.json({ english });
+  } catch (e) {
+    console.error('m/translate error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ── POST /api/m/words/:motId/capture : ajoute un mot existant à sa collection ──
 // Capturer un mot du dico dans sa collection COÛTE 3 coins (même tarif que la
 // création d'un mot). Transaction : solde verrouillé, débit + ledger + insert.

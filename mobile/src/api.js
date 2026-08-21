@@ -315,6 +315,11 @@ export function getPinyin(cn) {
   return request(`/api/m/pinyin?cn=${encodeURIComponent(cn)}`);
 }
 
+// Suggestion de traduction anglaise d'un mot chinois (base curée + CC-CEDICT).
+export function getTranslation(cn) {
+  return request(`/api/m/translate?cn=${encodeURIComponent(cn)}`);
+}
+
 export function captureWord(id) {
   return request(`/api/m/words/${id}/capture`, { method: 'POST' });
 }

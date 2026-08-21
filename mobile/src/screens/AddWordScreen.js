@@ -8,7 +8,7 @@ import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
 import { COLORS } from '../theme';
-import { searchWords, captureWord, createWord, getPinyin, getMe } from '../api';
+import { searchWords, captureWord, createWord, getPinyin, getTranslation, getMe } from '../api';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 const BAR_H = 62; // hauteur de la barre = diamètre du bouton rond
@@ -64,6 +64,8 @@ export default function AddWordScreen({ onBalanceChanged }) {
   const [editorError, setEditorError] = useState('');
   const pinyinTouched = useRef(false); // l'utilisateur a-t-il édité le pinyin à la main ?
   const pinyinTimer = useRef(null);
+  const translateTimer = useRef(null);
+  const [suggested, setSuggested] = useState([]); // sens anglais proposés (gélules)
 
   // Auto-génère le pinyin quand le chinois change (sauf si édité manuellement).
   useEffect(() => {
@@ -79,6 +81,39 @@ export default function AddWordScreen({ onBalanceChanged }) {
     return () => clearTimeout(pinyinTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor?.chinese]);
+
+  // Suggestions de traduction (chinois→anglais via base curée + CC-CEDICT) quand
+  // le chinois change → proposées en GÉLULES cliquables (pas d'auto-remplissage).
+  // On découpe les sens (« ; » ou « / ») en propositions distinctes.
+  useEffect(() => {
+    const cn = (editor?.chinese || '').trim();
+    clearTimeout(translateTimer.current);
+    if (!editor || !isChinese(cn)) { setSuggested([]); return undefined; }
+    translateTimer.current = setTimeout(async () => {
+      try {
+        const d = await getTranslation(cn);
+        const senses = (d.english || '').split(/[;/]/).map((s) => s.trim()).filter(Boolean);
+        setSuggested([...new Set(senses)].slice(0, 6));
+      } catch { setSuggested([]); }
+    }, 450);
+    return () => clearTimeout(translateTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor?.chinese]);
+
+  // Propositions restantes = celles pas déjà dans la liste anglaise (insensible casse).
+  const englishSet = new Set((editor?.englishList || []).map((s) => s.trim().toLowerCase()).filter(Boolean));
+  const availableSuggestions = suggested.filter((s) => !englishSet.has(s.toLowerCase()));
+
+  // Ajoute une proposition : remplit le 1er champ vide, sinon ajoute un champ.
+  function addSuggestion(sense) {
+    setEditor((e) => {
+      if (!e) return e;
+      const list = [...(e.englishList || [''])];
+      const emptyIdx = list.findIndex((x) => !x.trim());
+      if (emptyIdx >= 0) list[emptyIdx] = sense; else list.push(sense);
+      return { ...e, englishList: list };
+    });
+  }
 
   // Carrousel ancré
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -368,6 +403,8 @@ export default function AddWordScreen({ onBalanceChanged }) {
             setEnglishAt={setEnglishAt}
             addEnglish={addEnglish}
             removeEnglish={removeEnglish}
+            suggestions={availableSuggestions}
+            onAddSuggestion={addSuggestion}
             onPinyinEdit={(v) => { pinyinTouched.current = true; setField('pinyin', v); }}
             onSave={saveNewWord}
           />
@@ -487,7 +524,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
 // Éditeur "New word" — rendu DANS la popup résultats (pas un Modal séparé, pour
 // éviter le crash iOS des modals empilés). Scrollable : le formulaire peut
 // dépasser la hauteur d'écran avec le clavier ouvert sur iPhone.
-function WordEditor({ editor, saving, editorError, onClose, setField, setEnglishAt, addEnglish, removeEnglish, onPinyinEdit, onSave }) {
+function WordEditor({ editor, saving, editorError, onClose, setField, setEnglishAt, addEnglish, removeEnglish, suggestions = [], onAddSuggestion, onPinyinEdit, onSave }) {
   return (
     <ScrollView
       style={{ maxHeight: 520 }}
@@ -529,11 +566,29 @@ function WordEditor({ editor, saving, editorError, onClose, setField, setEnglish
           )}
         </View>
       ))}
-      <Pressable onPress={addEnglish} style={{ marginBottom: 16 }}>
-        <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }}>
-          <Ionicons name="add-circle-outline" size={13} color={COLORS.jiayou} />  Add another translation
-        </Text>
-      </Pressable>
+      {/* Suggestions de traduction en gélules cliquables (chinois→anglais). Tant
+          qu'il en reste, elles remplacent le bouton « Add another translation » ;
+          une fois toutes ajoutées, le bouton réapparaît. */}
+      {suggestions.length ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          {suggestions.map((s, i) => (
+            <Pressable
+              key={`${s}-${i}`}
+              onPress={() => onAddSuggestion?.(s)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: COLORS.jiayou, backgroundColor: '#eef4ff', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, maxWidth: '100%' }}
+            >
+              <Ionicons name="add" size={13} color={COLORS.jiayou} />
+              <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }} numberOfLines={1}>{s}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : (
+        <Pressable onPress={addEnglish} style={{ marginBottom: 16 }}>
+          <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }}>
+            <Ionicons name="add-circle-outline" size={13} color={COLORS.jiayou} />  Add another translation
+          </Text>
+        </Pressable>
+      )}
 
       <FieldLabel>Description (optional)</FieldLabel>
       <ModalInput

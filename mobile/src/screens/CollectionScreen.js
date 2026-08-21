@@ -10,7 +10,7 @@ import Popup from '../components/Popup';
 import { COLORS, SHADOW_CARD_FLAT, TAB_CLEARANCE } from '../theme';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
-import { getCollection, updateWord, deleteWord, bulkDeleteWords, notifyUpgrade, getCharacter, getMe, getPurchasedPacks, getMyPacks } from '../api';
+import { getCollection, updateWord, deleteWord, bulkDeleteWords, notifyUpgrade, getCharacter, getMe, getPurchasedPacks, getMyPacks, getPinyin } from '../api';
 import CatLoader from '../components/CatLoader';
 
 // Sélection de la meilleure voix par langue (qualité "Enhanced" en priorité).
@@ -55,6 +55,8 @@ async function speak(t, lang = 'zh-CN', cbs = {}) {
 
 // Majuscule sur la 1re lettre de l'anglais (cosmétique).
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+// Contient au moins un caractère chinois (pour l'auto-génération du pinyin).
+const isChinese = (s) => /[一-鿿]/.test(s || '');
 
 function scorePicto(s) {
   if (s >= 90) return '🏆';
@@ -104,7 +106,12 @@ export default function CollectionScreen({ onNavigate }) {
   const [packMenuOpen, setPackMenuOpen] = useState(false); // menu déroulant packs
   const [purchasedPacks, setPurchasedPacks] = useState([]); // packs achetés (pour le menu)
   const [editing, setEditing] = useState(null);
-  const [ef, setEf] = useState({ chinese: '', pinyin: '', englishList: [''], description: '' });
+  // chineseList : traductions chinoises multiples (stockées slash-séparées, comme
+  // l'anglais). pinyin auto-généré par entrée, joint par ' / '.
+  const [ef, setEf] = useState({ chineseList: [''], pinyin: '', englishList: [''], description: '' });
+  const pinyinTouched = useRef(false); // l'user a édité le pinyin à la main → stop auto
+  const pinyinTimer = useRef(null);
+  const skipPinyinGen = useRef(true);  // ne pas régénérer au 1er rendu (garde le pinyin chargé)
   const [confirmDel, setConfirmDel] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   // Multi-sélection (vue liste, PREMIUM) : suppression en masse.
@@ -374,23 +381,54 @@ export default function CollectionScreen({ onNavigate }) {
   }
 
   function openEdit(word) {
-    // Les sens multiples sont stockés séparés par '/' en base → liste de champs.
-    const list = (word.english || '').split('/').map((s) => s.trim()).filter(Boolean);
-    setEf({ chinese: word.chinese || '', pinyin: word.pinyin || '', englishList: list.length ? list : [''], description: word.description || '' });
+    // Sens multiples (chinois ET anglais) stockés séparés par '/' en base → listes.
+    const enList = (word.english || '').split('/').map((s) => s.trim()).filter(Boolean);
+    const cnList = (word.chinese || '').split('/').map((s) => s.trim()).filter(Boolean);
+    pinyinTouched.current = false;
+    skipPinyinGen.current = true; // garde le pinyin existant au 1er rendu
+    setEf({
+      chineseList: cnList.length ? cnList : [''],
+      pinyin: word.pinyin || '',
+      englishList: enList.length ? enList : [''],
+      description: word.description || '',
+    });
     setEditing(word);
   }
-  // Handlers de la liste de traductions (comme l'écran Add Word).
+  // Handlers des listes de traductions (comme l'écran Add Word).
   const setEnglishAt = (i, v) => setEf((s) => { const l = [...s.englishList]; l[i] = v; return { ...s, englishList: l }; });
   const addEnglish = () => setEf((s) => ({ ...s, englishList: [...s.englishList, ''] }));
   const removeEnglish = (i) => setEf((s) => ({ ...s, englishList: s.englishList.filter((_, idx) => idx !== i) }));
+  const setChineseAt = (i, v) => setEf((s) => { const l = [...s.chineseList]; l[i] = v; return { ...s, chineseList: l }; });
+  const addChinese = () => setEf((s) => ({ ...s, chineseList: [...s.chineseList, ''] }));
+  const removeChinese = (i) => setEf((s) => ({ ...s, chineseList: s.chineseList.filter((_, idx) => idx !== i) }));
+
+  // Auto-génère le pinyin (une entrée par traduction chinoise, jointes par ' / ')
+  // quand les traductions chinoises changent — sauf si l'user a édité le pinyin.
+  useEffect(() => {
+    if (!editing) return undefined;
+    if (skipPinyinGen.current) { skipPinyinGen.current = false; return undefined; }
+    if (pinyinTouched.current) return undefined;
+    clearTimeout(pinyinTimer.current);
+    pinyinTimer.current = setTimeout(async () => {
+      const entries = ef.chineseList.map((s) => s.trim());
+      const pys = await Promise.all(entries.map(async (cn) => {
+        if (!isChinese(cn)) return '';
+        try { const d = await getPinyin(cn); return d.pinyin || ''; } catch { return ''; }
+      }));
+      const joined = pys.filter(Boolean).join(' / ');
+      if (joined) setEf((s) => (pinyinTouched.current ? s : { ...s, pinyin: joined }));
+    }, 400);
+    return () => clearTimeout(pinyinTimer.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ef.chineseList]);
 
   async function saveEdit() {
     if (!editing) return;
     setBusy(true);
     try {
       const payload = {
-        chinese: ef.chinese,
-        pinyin: ef.pinyin,
+        chinese: ef.chineseList.map((s) => s.trim()).filter(Boolean).join(' / '),
+        pinyin: ef.pinyin.trim(),
         english: ef.englishList.map((s) => s.trim()).filter(Boolean).join(' / '),
         description: ef.description,
       };
@@ -811,21 +849,43 @@ export default function CollectionScreen({ onNavigate }) {
       {/* ── Popup édition ── */}
       <Popup visible={!!editing} onClose={() => setEditing(null)} maxWidth={440}>
         <Text style={{ fontSize: 18, fontWeight: '700', color: '#1d1d1f', marginBottom: 16 }}>{tr('co_edit_word')}</Text>
-        {[
-          { key: 'chinese', label: tr('co_chinese') },
-          { key: 'pinyin', label: tr('co_pinyin') },
-        ].map((f) => (
-          <View key={f.key} style={{ marginBottom: 12 }}>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{f.label}</Text>
-            <TextInput
-              value={ef[f.key]}
-              onChangeText={(t) => setEf((s) => ({ ...s, [f.key]: t }))}
-              autoCapitalize="none"
-              placeholderTextColor={COLORS.mutedLight}
-              style={{ borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16 }}
-            />
-          </View>
-        ))}
+
+        {/* Chinois : traductions multiples, disposées sur 2 colonnes × N lignes. */}
+        <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{tr('co_chinese')}</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+          {ef.chineseList.map((val, i) => (
+            <View key={i} style={{ width: '47.5%', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <TextInput
+                value={val}
+                onChangeText={(t) => setChineseAt(i, t)}
+                autoCapitalize="none"
+                placeholder="汉字…"
+                placeholderTextColor={COLORS.mutedLight}
+                style={{ flex: 1, minWidth: 0, borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 }}
+              />
+              {ef.chineseList.length > 1 ? (
+                <Pressable onPress={() => removeChinese(i)} hitSlop={6}>
+                  <Ionicons name="close-circle" size={20} color={COLORS.danger} />
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
+        </View>
+        <Pressable onPress={addChinese} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+          <Ionicons name="add-circle-outline" size={16} color={COLORS.jiayou} />
+          <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }}>{tr('co_add_translation')}</Text>
+        </Pressable>
+
+        {/* Pinyin : auto-généré par entrée chinoise (joint par ' / '), éditable. */}
+        <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{tr('co_pinyin')}</Text>
+        <TextInput
+          value={ef.pinyin}
+          onChangeText={(t) => { pinyinTouched.current = true; setEf((s) => ({ ...s, pinyin: t })); }}
+          autoCapitalize="none"
+          placeholder={tr('co_pinyin')}
+          placeholderTextColor={COLORS.mutedLight}
+          style={{ borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, marginBottom: 12 }}
+        />
 
         {/* English : sens multiples (stockés séparés par '/' en base). */}
         <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{tr('co_english')}</Text>
