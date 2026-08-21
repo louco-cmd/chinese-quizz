@@ -101,7 +101,8 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
       // Ouvre le checkout d'acquisition.
       setCheckout({
         toBuy: plan.toBuy || [],
-        needs: (plan.needsTranslation || []).map((w) => ({ chinese: w.chinese, pinyin: w.pinyin, english: '' })),
+        // Pré-remplit l'anglais avec la suggestion CC-CEDICT (éditable).
+        needs: (plan.needsTranslation || []).map((w) => ({ chinese: w.chinese, pinyin: w.pinyin, english: w.suggested || '' })),
         owned: plan.owned || [], // affichés « already own » (gratuits, déjà en collection)
         cost: plan.cost || 0,
         balance: plan.balance ?? 0,

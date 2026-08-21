@@ -316,7 +316,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   // position (haut de la colonne droite). Optionnel → "Start playing" termine.
   if (step === 'words') {
     if (importing) {
-      return <ImportWordsScreen direction={dir} onBack={() => setImporting(false)} onDone={finishLearner} />;
+      return <ImportWordsScreen direction={dir} embedded={false} onBack={() => setImporting(false)} onDone={finishLearner} />;
     }
     // Tuile upload : même design que les tuiles d'action (CtaCard bleue) et
     // `fill` pour épouser la hauteur des cartes du store dans la même rangée.

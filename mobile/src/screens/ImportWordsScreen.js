@@ -20,7 +20,9 @@ const PLACEHOLDER = `你好
 再见
 学习`;
 
-export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir }) {
+// `embedded` (défaut) : rendu SOUS le header de l'app → pas de safe-area top ici.
+// `embedded={false}` (onboarding, plein écran) → on ajoute l'inset haut.
+export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir, embedded = true }) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState('paste'); // paste | preview | done
   const [text, setText] = useState('');
@@ -71,9 +73,10 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
   }
 
   const Hero = (
-    <View style={{ paddingTop: insets.top + 10, paddingHorizontal: 16, paddingBottom: 6 }}>
-      {onBack ? (
-        <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+    <View style={{ paddingTop: embedded ? 10 : insets.top + 10, paddingHorizontal: 16, paddingBottom: 6 }}>
+      {/* En preview, « Back » revient à l'étape « coller » (pas aux réglages). */}
+      {(onBack || step === 'preview') ? (
+        <Pressable onPress={step === 'preview' ? () => setStep('paste') : onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
           <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
           <Text style={{ color: COLORS.jiayou, fontWeight: '600' }}>Back</Text>
         </Pressable>
@@ -228,11 +231,8 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
         }}
       />
 
-      {/* Barre d'action fixe : bouton Importer centré + lien Edit à gauche */}
+      {/* Barre d'action fixe : bouton Importer centré (retour à l'édition via « Back »). */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: COLORS.line, paddingTop: 12, paddingBottom: 12 + insets.bottom, justifyContent: 'center', alignItems: 'center' }}>
-        <Pressable onPress={() => setStep('paste')} hitSlop={8} style={{ position: 'absolute', left: 16, top: 0, bottom: insets.bottom, justifyContent: 'center' }}>
-          <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Edit</Text>
-        </Pressable>
         <Pressable
           onPress={runCommit}
           disabled={busy || !importable.length}

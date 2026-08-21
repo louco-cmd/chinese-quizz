@@ -1385,6 +1385,8 @@ router.post('/api/m/market/packs/plan', requireToken, async (req, res) => {
     const needsTranslation = notOwned.filter((w) => !dictMap.has(w)).map((w) => ({
       chinese: w,
       pinyin: toPinyin ? toPinyin(w, { toneType: 'symbol' }) : '',
+      // Suggestion de traduction (CC-CEDICT) pour pré-remplir le champ — éditable.
+      suggested: cedict.translate(w) || '',
     }));
     const cost = ACQUIRE_COST * (toBuy.length + needsTranslation.length);
     res.json({ owned, toBuy, needsTranslation, cost, balance });

@@ -133,7 +133,11 @@ export default function PackMarket({
   // spacers pour compléter la dernière rangée (multiple de numColumns).
   const visiblePacks = maxPrice == null ? packs : packs.filter((p) => (p.price || 0) < maxPrice);
   const items = [...visiblePacks];
-  if (extraTile) items.splice(Math.min(extraTileAt ?? items.length, items.length), 0, { id: '__extra__', _extra: true });
+  // La tuile injectée (ex. « import manuel » de l'onboarding) n'apparaît qu'une
+  // fois les packs chargés → sinon elle s'affichait seule avant le reste (et des
+  // users impatients cliquaient dessus). Pendant `loading`, la grille reste vide
+  // → le CatLoader du ListEmptyComponent s'affiche.
+  if (extraTile && !loading) items.splice(Math.min(extraTileAt ?? items.length, items.length), 0, { id: '__extra__', _extra: true });
   const remainder = items.length % numColumns;
   const gridData = remainder === 0
     ? items
