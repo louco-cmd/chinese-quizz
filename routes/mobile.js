@@ -18,7 +18,13 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
+// Secret JWT : JAMAIS de fallback en dur (un secret prévisible = tokens forgeables
+// → prise de contrôle de n'importe quel compte). En prod on refuse de démarrer s'il
+// manque (fail-fast) ; en dev on tolère un secret local éphémère pour le confort.
+const JWT_SECRET = process.env.JWT_SECRET
+  || (process.env.NODE_ENV === 'production'
+    ? (() => { throw new Error('JWT_SECRET manquant en production — refus de démarrer'); })()
+    : 'dev-only-insecure-secret');
 const TOKEN_TTL = '30d';
 
 // Limites du plan gratuit (le premium lève tout). maxWords appliqué ailleurs (600).
