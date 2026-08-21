@@ -35,11 +35,21 @@ if (/<meta name="viewport"[^>]*>/.test(html)) {
   html = html.replace('</head>', '    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content" />\n  </head>');
 }
 
+// Favicon déterministe : on retire le lien Expo par défaut (/favicon.ico) pour
+// éviter deux <link rel="icon"> concurrents, puis on injecte nos icônes de marque
+// (加油!) en PNG dimensionnés. `?v=` = cache-bust → force les navigateurs à
+// reprendre le bon logo si un ancien favicon est en cache. Monter ce numéro à
+// chaque changement d'icône.
+const ICON_V = '3';
+html = html.replace(/\s*<link[^>]*rel="(?:shortcut )?icon"[^>]*>/gi, '');
+
 const tags = [
   '<link rel="manifest" href="/manifest.json" />',
   '<meta name="theme-color" content="#0d6efd" />',
-  '<link rel="apple-touch-icon" href="/icons/icon-192.png" />',
-  '<link rel="icon" href="/icons/icon-192.png" />',
+  `<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=${ICON_V}" />`,
+  `<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png?v=${ICON_V}" />`,
+  `<link rel="icon" href="/favicon.ico?v=${ICON_V}" />`,
+  `<link rel="apple-touch-icon" href="/icons/icon-192.png?v=${ICON_V}" />`,
   '<meta name="apple-mobile-web-app-capable" content="yes" />',
   '<meta name="apple-mobile-web-app-status-bar-style" content="default" />',
   '<meta name="apple-mobile-web-app-title" content="Jiayou" />',
