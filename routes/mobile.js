@@ -86,6 +86,130 @@ function requireToken(req, res, next) {
   }
 }
 
+// Résout les langues d'un user : `learning` (langue apprise → filtre les lexèmes
+// `mots.lang`) et `native` (langue connue → langue de la traduction). Valeurs par
+// défaut sûres (zh/en) pour tout compte antérieur au multilingue.
+async function getUserLangs(userId) {
+  try {
+    const { rows } = await pool.query(
+      'SELECT learning_lang, native_lang FROM users WHERE id = $1', [userId]);
+    const u = rows[0] || {};
+    return { learning: u.learning_lang || 'zh', native: u.native_lang || 'en' };
+  } catch {
+    return { learning: 'zh', native: 'en' };
+  }
+}
+
+// Langues du cours autorisées (celles qui ont du contenu). `native` peut être
+// n'importe laquelle de cet ensemble (la traduction n'existe que pour elles).
+const LEARNABLE_LANGS = ['zh', 'en', 'fr'];
+// Normalise (learning, native) et dérive le binaire quiz_direction de compat
+// (legacy duel/teacher) : learning=zh → on apprend le chinois ('en→zh'), sinon
+// on n'apprend pas le chinois ('zh→en'). Garde-fous : valeurs sûres par défaut,
+// et native ≠ learning.
+function resolveCourseLangs(learningIn, nativeIn) {
+  let learning = LEARNABLE_LANGS.includes(learningIn) ? learningIn : 'zh';
+  let native = LEARNABLE_LANGS.includes(nativeIn) ? nativeIn : 'en';
+  if (native === learning) native = learning === 'en' ? 'zh' : 'en';
+  const quizDir = learning === 'zh' ? 'en→zh' : 'zh→en';
+  return { learning, native, quizDir };
+}
+
+// Modèle concept MANY-TO-MANY (lexeme_senses) : garantit que le lexème appris
+// (motId) a un sens M et qu'un lexème natif CANONIQUE existe pour CHAQUE sens de
+// `gloss`, relié à M. Les lexèmes sont dédupliqués (un seul « can »), un lexème
+// peut appartenir à plusieurs sens.
+//   • replace=true (édition) : délie de M les lexèmes natifs non possédés, puis relie.
+//   • MERGE-ON-SAVE prudent : si le lexème appris n'a pas encore de sens et qu'un
+//     sens de glose correspond à un lexème natif NON AMBIGU (un seul sens), on
+//     rejoint ce sens (lien multilingue réel) ; si le natif est un homonyme
+//     (plusieurs sens, ex. « can »), on crée un sens neuf plutôt que sur-lier.
+// À exécuter DANS la transaction de l'appelant (client).
+async function syncConceptSiblings(client, motId, gloss, nativeLang, { replace = false, meaningId: explicitMeaning = null } = {}) {
+  const senses = String(gloss || '').split('/').map((s) => s.trim()).filter(Boolean);
+  const seen = new Set();
+  const uniq = [];
+  for (const s of senses) { const k = s.toLowerCase(); if (!seen.has(k)) { seen.add(k); uniq.push(s); } }
+
+  const self = await client.query('SELECT lang, meaning_id FROM mots WHERE id = $1', [motId]);
+  if (!self.rows.length) return null;
+  const selfLang = self.rows[0].lang || 'zh';
+  if (!nativeLang || nativeLang === selfLang) return null; // rien à dériver
+  // Glose vide → ne PAS fabriquer de sens orphelin ; on garde le sens courant.
+  if (!explicitMeaning && uniq.length === 0) return self.rows[0].meaning_id || null;
+
+  // Détermine le SENS à alimenter :
+  //   (0) sens explicite (édition d'une entrée précise) ;
+  //   (1) un sens de CE lexème qui contient déjà une des gloses (ré-enrichissement) ;
+  //   (2) merge-on-save : le lexème natif de la glose existe déjà → on rejoint son
+  //       sens PRIMAIRE (concept canonique), sinon son unique sens s'il n'en a qu'un ;
+  //   (3) sinon un SENS NEUF (même si le lexème a déjà d'autres sens → homonyme).
+  let meaningId = explicitMeaning;
+  if (!meaningId) {
+    for (const sense of uniq) {
+      const r = await client.query(
+        `SELECT ls_self.meaning_id
+         FROM lexeme_senses ls_self
+         JOIN lexeme_senses ls_n ON ls_n.meaning_id = ls_self.meaning_id
+         JOIN mots n ON n.id = ls_n.mot_id
+         WHERE ls_self.mot_id = $1 AND n.lang = $2 AND lower(n.chinese) = lower($3)
+         LIMIT 1`, [motId, nativeLang, sense]);
+      if (r.rows.length) { meaningId = r.rows[0].meaning_id; break; }
+    }
+  }
+  if (!meaningId) {
+    for (const sense of uniq) {
+      const nat = await client.query(
+        'SELECT id, meaning_id FROM mots WHERE lang = $1 AND lower(chinese) = lower($2) ORDER BY id LIMIT 1',
+        [nativeLang, sense]);
+      if (!nat.rows.length) continue;
+      const n = nat.rows[0];
+      // (2a) rejoint le concept PRIMAIRE (canonique) du lexème natif s'il en a un.
+      if (n.meaning_id) { meaningId = n.meaning_id; break; }
+      // (2b) sinon, s'il n'a qu'un seul sens non ambigu, on le rejoint.
+      const one = await client.query(
+        'SELECT min(meaning_id) AS meaning_id FROM lexeme_senses WHERE mot_id = $1 HAVING count(*) = 1',
+        [n.id]);
+      if (one.rows.length) { meaningId = one.rows[0].meaning_id; break; }
+    }
+  }
+  if (!meaningId) {
+    const m = await client.query('INSERT INTO meanings(note) VALUES ($1) RETURNING id', ['word:' + motId]);
+    meaningId = m.rows[0].id;
+  }
+  await client.query('INSERT INTO lexeme_senses(mot_id, meaning_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [motId, meaningId]);
+  await client.query('UPDATE mots SET meaning_id = COALESCE(meaning_id, $1) WHERE id = $2', [meaningId, motId]);
+
+  // 2) édition : délie de M les lexèmes natifs non possédés / hors pack.
+  if (replace) {
+    await client.query(
+      `DELETE FROM lexeme_senses ls USING mots e
+       WHERE ls.meaning_id = $1 AND ls.mot_id = e.id AND e.lang = $2 AND e.id <> $3
+         AND NOT EXISTS (SELECT 1 FROM user_mots um WHERE um.mot_id = e.id)
+         AND NOT EXISTS (SELECT 1 FROM word_pack_items w WHERE w.mot_id = e.id)`,
+      [meaningId, nativeLang, motId]);
+  }
+
+  // 3) Pour chaque sens : lexème natif CANONIQUE (réutilisé si existant), relié à M.
+  for (const sense of uniq) {
+    let nid;
+    const ex = await client.query(
+      'SELECT id FROM mots WHERE lang = $1 AND lower(chinese) = lower($2) ORDER BY id LIMIT 1',
+      [nativeLang, sense]);
+    if (ex.rows.length) {
+      nid = ex.rows[0].id;
+    } else {
+      const ins = await client.query(
+        `INSERT INTO mots (chinese, pinyin, lang, meaning_id)
+         VALUES ($1, NULL, $2, $3) RETURNING id`,
+        [sense, nativeLang, meaningId]);
+      nid = ins.rows[0].id;
+    }
+    await client.query('INSERT INTO lexeme_senses(mot_id, meaning_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [nid, meaningId]);
+  }
+  return meaningId; // sens utilisé (créé/rejoint) → l'appelant capture ce sens
+}
+
 // ── POST /api/auth/token : login email/mot de passe → JWT ────────────────────
 router.post('/api/auth/token', loginLimiter, async (req, res) => {
   try {
@@ -325,7 +449,7 @@ router.get('/api/m/me', requireToken, async (req, res) => {
 
     const { rows } = await pool.query(
       `SELECT u.id, u.email, u.name, u.balance, u.role,
-              u.quiz_direction, u.interface_lang, u.special_guest,
+              u.quiz_direction, u.interface_lang, u.learning_lang, u.native_lang, u.special_guest,
               u.onboarding_done, u.has_seen_tutorial, u.email_verified, u.provider,
               u.avatar_icon, u.avatar_color,
               u.rc_expires_at, u.rc_will_renew,
@@ -358,6 +482,8 @@ router.get('/api/m/me', requireToken, async (req, res) => {
       role: row.role,
       quiz_direction: row.quiz_direction,
       interface_lang: row.interface_lang,
+      learning_lang: row.learning_lang || 'zh',
+      native_lang: row.native_lang || 'en',
       onboarding_done: row.onboarding_done,
       has_seen_tutorial: row.has_seen_tutorial,
       // Vérification email : les comptes OAuth (Google/Apple) sont vérifiés d'office.
@@ -445,12 +571,11 @@ async function creditReferralByCode(userId, code) {
 
 router.post('/api/m/onboarding', requireToken, async (req, res) => {
   const uid = req.tokenUser.id;
-  const { role, name, tagline, country, quiz_direction, interface_lang, ref } = req.body || {};
+  const { role, name, tagline, country, learning_lang, native_lang, interface_lang, ref } = req.body || {};
 
   const VALID_ROLES = ['student', 'teacher'];
-  const VALID_DIRECTIONS = ['zh→en', 'en→zh'];
   const chosenRole = VALID_ROLES.includes(role) ? role : 'student';
-  const uiLang = ['en', 'zh'].includes(interface_lang) ? interface_lang : null;
+  const uiLang = ['en', 'zh', 'fr'].includes(interface_lang) ? interface_lang : null;
 
   if (!name || String(name).trim().length === 0 || String(name).length > 50) {
     return res.status(400).json({ error: 'Name is required (max 50 characters)' });
@@ -458,20 +583,20 @@ router.post('/api/m/onboarding', requireToken, async (req, res) => {
   if (tagline && String(tagline).length > 100) {
     return res.status(400).json({ error: 'Tagline must be under 100 characters' });
   }
-  if (quiz_direction && !VALID_DIRECTIONS.includes(quiz_direction)) {
-    return res.status(400).json({ error: 'Invalid quiz direction' });
-  }
+  // Langues du cours. On dérive quiz_direction (binaire legacy) pour compat duel/teacher.
+  const { learning, native, quizDir } = resolveCourseLangs(learning_lang, native_lang);
   const code = country ? String(country).toUpperCase().slice(0, 2) : null;
 
   try {
     await pool.query(
       `UPDATE users
        SET role = $1, name = $2, tagline = $3, country = $4,
-           quiz_direction = $5, interface_lang = COALESCE($6, interface_lang),
+           learning_lang = $5, native_lang = $6, quiz_direction = $7,
+           interface_lang = COALESCE($8, interface_lang),
            onboarding_done = TRUE
-       WHERE id = $7`,
+       WHERE id = $9`,
       [chosenRole, String(name).trim(), tagline ? String(tagline).trim() : null, code,
-        quiz_direction || 'en→zh', uiLang, uid]
+        learning, native, quizDir, uiLang, uid]
     );
 
     // Parrainage : montant selon le rôle réel choisi ici.
@@ -500,9 +625,15 @@ router.post('/api/m/tutorial-complete', requireToken, async (req, res) => {
 // ── GET /api/m/collection : les mots de l'utilisateur (tranche verticale) ─────
 router.get('/api/m/collection', requireToken, async (req, res) => {
   try {
+    const langs = await getUserLangs(req.tokenUser.id);
     const { rows } = await pool.query(
-      `SELECT mots.id, mots.chinese, mots.pinyin, mots.english, mots.hsk,
-              mots.description, mots.description_zh,
+      // `english` = la traduction dans la langue CONNUE (native_lang), dérivée du
+      // concept (meaning_id) via mot_tr() : agrège les lexèmes frères natifs en
+      // « a / b / c » (l'alias reste `english` pour le contrat frontend).
+      `SELECT mots.id, mots.chinese, mots.pinyin,
+              mot_tr_sense(mots.id, user_mots.meaning_id, $3) AS english,
+              user_mots.meaning_id,
+              mots.hsk, user_mots.description,
               user_mots.score,
               ARRAY(
                 SELECT wpi.pack_id FROM word_pack_items wpi
@@ -513,9 +644,9 @@ router.get('/api/m/collection', requireToken, async (req, res) => {
               ) AS pack_ids
        FROM mots
        JOIN user_mots ON mots.id = user_mots.mot_id
-       WHERE user_mots.user_id = $1
+       WHERE user_mots.user_id = $1 AND mots.lang = $2
        ORDER BY user_mots.score ASC, mots.id ASC`,
-      [req.tokenUser.id]
+      [req.tokenUser.id, langs.learning, langs.native]
     );
     res.json({ words: rows });
   } catch (e) {
@@ -535,23 +666,52 @@ router.get('/api/m/search', requireToken, async (req, res) => {
     const pinyinNorm = raw.normalize('NFD').replace(/[̀-ͯ]/g, '')
       .toLowerCase().replace(/[^a-z]/g, '');
 
-    const clauses = [`m.chinese ILIKE $1 ESCAPE '\\'`, `m.english ILIKE $1 ESCAPE '\\'`];
-    const params = [like, req.tokenUser.id, raw];
+    // $1=like  $2=uid  $3=raw  $4=native  $5=learning  ($6=pinyin like, optionnel)
+    const langs = await getUserLangs(req.tokenUser.id);
+    const params = [like, req.tokenUser.id, raw, langs.native, langs.learning];
     const pinyinColNorm =
       `regexp_replace(translate(lower(m.pinyin),'üāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ','uaaaaeeeeiiiioooouuuuuuuu'),'[^a-z]','','g')`;
+    // Match : terme appris (m.chinese), OU sa traduction native (lexème frère du
+    // concept), OU le pinyin (chinois). La traduction se matche via EXISTS sur un
+    // frère (rapide) plutôt que mot_tr sur toutes les lignes.
+    const clauses = [
+      `m.chinese ILIKE $1 ESCAPE '\\'`,
+      `EXISTS (SELECT 1 FROM lexeme_senses a JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
+               JOIN mots s ON s.id = b.mot_id
+               WHERE a.mot_id = m.id AND s.lang = $4 AND s.chinese ILIKE $1 ESCAPE '\\')`,
+    ];
     if (pinyinNorm) {
       params.push(`%${pinyinNorm}%`);
       clauses.push(`${pinyinColNorm} LIKE $${params.length}`);
     }
 
+    // Une carte PAR SENS (lexème × meaning). On ne garde QUE les sens ayant une
+    // traduction native (`english IS NOT NULL`) : un mot sans traduction dans la
+    // langue de base n'est jamais remonté, quelle que soit la direction (en↔fr).
+    // L'unification/complétion des termes manquants se fait en back-office.
+    // Dédup par CONTENU affiché (chinese + english).
     const { rows } = await pool.query(
-      `SELECT m.id, m.chinese, m.pinyin, m.english, m.hsk,
-              BOOL_OR(um.user_id = $2) AS owned
-       FROM mots m
-       LEFT JOIN user_mots um ON um.mot_id = m.id
-       WHERE ${clauses.join(' OR ')}
-       GROUP BY m.id
-       ORDER BY (m.chinese = $3 OR LOWER(m.english) = LOWER($3)) DESC, m.id ASC
+      `WITH matched AS (
+         SELECT DISTINCT m.id, m.chinese, m.pinyin, m.hsk
+         FROM mots m
+         WHERE m.lang = $5 AND (${clauses.join(' OR ')})
+       ),
+       pairs AS (
+         SELECT mm.id, mm.chinese, mm.pinyin, mm.hsk, ls.meaning_id,
+                mot_tr_sense(mm.id, ls.meaning_id, $4) AS english,
+                EXISTS (SELECT 1 FROM user_mots um WHERE um.user_id = $2 AND um.mot_id = mm.id AND um.meaning_id = ls.meaning_id) AS owned
+         FROM matched mm JOIN lexeme_senses ls ON ls.mot_id = mm.id
+       ),
+       deduped AS (
+         SELECT DISTINCT ON (lower(chinese), lower(coalesce(english,'')))
+                id, chinese, pinyin, hsk, meaning_id, english, owned
+         FROM pairs
+         WHERE english IS NOT NULL
+         ORDER BY lower(chinese), lower(coalesce(english,'')), owned DESC, meaning_id ASC
+       )
+       SELECT id, chinese, pinyin, hsk, meaning_id, english, owned
+       FROM deduped
+       ORDER BY (chinese = $3 OR lower(english) = lower($3)) DESC, (english IS NOT NULL) DESC, id ASC
        LIMIT 8`,
       params
     );
@@ -583,9 +743,10 @@ router.get('/api/m/translate', requireToken, async (req, res) => {
   try {
     const cn = (req.query.cn || '').trim();
     if (!cn || !/[㐀-鿿]/.test(cn)) return res.json({ english: '' });
+    const nat = (await getUserLangs(req.tokenUser.id)).native;
     const { rows } = await pool.query(
-      "SELECT english FROM mots WHERE chinese = $1 AND english IS NOT NULL AND english <> '' ORDER BY id LIMIT 1",
-      [cn]
+      "SELECT mot_tr(id, $2) AS english FROM mots WHERE chinese = $1 AND lang = 'zh' ORDER BY id LIMIT 1",
+      [cn, nat]
     );
     const english = rows[0]?.english || cedict.translate(cn) || '';
     res.json({ english });
@@ -608,19 +769,27 @@ router.post('/api/m/words/:motId/capture', requireToken, async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Déjà possédé → no-op idempotent, aucun débit.
+    // Le mot doit exister dans le dictionnaire.
+    const { rows: motRows } = await client.query('SELECT id, chinese FROM mots WHERE id = $1', [motId]);
+    if (!motRows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Word not found' }); }
+
+    // Sens capturé : celui demandé (s'il appartient bien au mot), sinon le primaire.
+    let meaningId = parseInt(req.body?.meaning_id, 10) || null;
+    const { rows: senseRows } = await client.query(
+      `SELECT meaning_id FROM lexeme_senses WHERE mot_id = $1
+       ORDER BY (meaning_id = $2) DESC, meaning_id ASC LIMIT 1`, [motId, meaningId]);
+    meaningId = senseRows[0]?.meaning_id || null;
+    if (!meaningId) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Word has no sense' }); }
+
+    // Déjà possédé (ce SENS) → no-op idempotent, aucun débit.
     const { rows: owned } = await client.query(
-      'SELECT 1 FROM user_mots WHERE user_id = $1 AND mot_id = $2', [userId, motId]
+      'SELECT 1 FROM user_mots WHERE user_id = $1 AND mot_id = $2 AND meaning_id = $3', [userId, motId, meaningId]
     );
     if (owned.length) {
       await client.query('ROLLBACK');
       const { rows: b } = await pool.query('SELECT balance FROM users WHERE id = $1', [userId]);
       return res.json({ success: true, alreadyOwned: true, newBalance: b[0]?.balance ?? null });
     }
-
-    // Le mot doit exister dans le dictionnaire.
-    const { rows: motRows } = await client.query('SELECT id, chinese FROM mots WHERE id = $1', [motId]);
-    if (!motRows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Word not found' }); }
 
     // Solde verrouillé + vérification du coût.
     const { rows: userRows } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [userId]);
@@ -645,7 +814,7 @@ router.post('/api/m/words/:motId/capture', requireToken, async (req, res) => {
       `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, $3, $4)`,
       [userId, -COST, 'capture_word', `Captured word ${motRows[0].chinese}`]
     );
-    await client.query('INSERT INTO user_mots (user_id, mot_id, score) VALUES ($1, $2, 0)', [userId, motId]);
+    await client.query('INSERT INTO user_mots (user_id, mot_id, meaning_id, score) VALUES ($1, $2, $3, 0)', [userId, motId, meaningId]);
 
     await client.query('COMMIT');
     res.json({ success: true, newBalance: balance - COST });
@@ -663,14 +832,11 @@ router.post('/api/m/words/:motId/capture', requireToken, async (req, res) => {
 // à la collection, débit + transaction. Utilisé par la popup "New word".
 router.post('/api/m/words', requireToken, async (req, res) => {
   const { chinese, pinyin, english, description } = req.body || {};
-  // `forceNew` : "éditer avant de capturer" → on crée une entrée PERSONNALISÉE
-  // (nouvelle ligne mots avec les valeurs éditées) au lieu de réutiliser l'entrée
-  // du dictionnaire par `chinese` (sinon les modifs de l'utilisateur sont ignorées).
-  const forceNew = req.body?.forceNew === true;
   if (!chinese || !english) {
     return res.status(400).json({ error: 'Chinese and English are required' });
   }
   const userId = req.tokenUser.id;
+  const langs = await getUserLangs(userId);
   const COST = 3;
   const client = await pool.connect();
   try {
@@ -689,13 +855,14 @@ router.post('/api/m/words', requireToken, async (req, res) => {
       return res.status(402).json({ error: 'Insufficient balance (3 coins required)', insufficient: true, cost: COST, balance });
     }
 
-    // Upsert du mot par `chinese` — sauf `forceNew` (édition personnalisée) qui
-    // insère toujours une nouvelle ligne avec les valeurs éditées.
+    // Réutilise un lexème existant du MÊME terme (insensible à la casse) dans la
+    // langue apprise → jamais de doublon (« frame »/« Frame », spoon×2…). L'ancien
+    // `forceNew` ne duplique plus : « éditer avant de capturer » enrichit le concept.
     let motId;
-    if (!forceNew) {
-      const { rows } = await client.query('SELECT id FROM mots WHERE chinese = $1', [chinese]);
-      if (rows.length) motId = rows[0].id;
-    }
+    const { rows: ex } = await client.query(
+      'SELECT id, meaning_id FROM mots WHERE lower(chinese) = lower($1) AND lang = $2 ORDER BY id LIMIT 1',
+      [chinese, langs.learning]);
+    if (ex.length) motId = ex[0].id;
     if (!motId) {
       // Filet de sécurité : génère le pinyin si absent.
       let py = (pinyin || '').trim();
@@ -703,20 +870,40 @@ router.post('/api/m/words', requireToken, async (req, res) => {
         try { py = require('pinyin-pro').pinyin(chinese, { toneType: 'symbol' }); } catch { /* lib absente */ }
       }
       const ins = await client.query(
-        `INSERT INTO mots (chinese, pinyin, english, description)
-         VALUES ($1, $2, $3, $4) RETURNING id`,
-        [chinese, py || null, english, description || null]
+        `INSERT INTO mots (chinese, pinyin, lang)
+         VALUES ($1, $2, $3) RETURNING id`,
+        [chinese, py || null, langs.learning]
       );
       motId = ins.rows[0].id;
     }
+    // Modèle concept : rattache/merge la glose saisie → renvoie le SENS utilisé,
+    // qu'on capturera (possession par-sens). Si le lexème appris EXISTAIT déjà avec
+    // un concept primaire, la glose ENRICHIT ce concept (frame + cadre + 框架 réunis)
+    // au lieu de créer un sens détaché. Un lexème neuf laisse sync décider.
+    const targetMeaning = ex.length ? (ex[0].meaning_id || null) : null;
+    const meaningId = await syncConceptSiblings(client, motId, english, langs.native, { meaningId: targetMeaning });
 
-    // Déjà possédé ?
+    // Déjà possédé — par SENS (on peut posséder un autre sens du même terme).
     const { rows: owned } = await client.query(
-      'SELECT 1 FROM user_mots WHERE user_id = $1 AND mot_id = $2', [userId, motId]
+      'SELECT 1 FROM user_mots WHERE user_id = $1 AND mot_id = $2 AND meaning_id = $3', [userId, motId, meaningId]
     );
     if (owned.length) {
-      await client.query('ROLLBACK');
-      return res.status(409).json({ error: 'You already captured this word' });
+      // Le user possède déjà ce concept → la création servait à AJOUTER une
+      // traduction : le concept vient d'être enrichi ci-dessus. On valide sans
+      // recharger de pièces ni dupliquer la possession. Une description saisie
+      // met à jour la note perso (user_mots) de CE sens.
+      if (description != null && String(description).trim()) {
+        await client.query(
+          'UPDATE user_mots SET description = $4 WHERE user_id = $1 AND mot_id = $2 AND meaning_id = $3',
+          [userId, motId, meaningId, String(description).trim()]);
+      }
+      await client.query('COMMIT');
+      const { rows: w } = await pool.query(
+        `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, $2, $3) AS english, m.hsk,
+                (SELECT description FROM user_mots WHERE user_id = $4 AND mot_id = m.id AND meaning_id = $2) AS description
+         FROM mots m WHERE m.id = $1`,
+        [motId, meaningId, langs.native, userId]);
+      return res.json({ success: true, enriched: true, word: w[0] });
     }
 
     // Plafond du plan free (600 mots). Ne concerne que l'ajout d'un mot nouveau.
@@ -737,12 +924,17 @@ router.post('/api/m/words', requireToken, async (req, res) => {
        VALUES ($1, $2, $3, $4)`,
       [userId, -COST, 'capture_word', `Captured word ${chinese}`]
     );
-    await client.query('INSERT INTO user_mots (user_id, mot_id, score) VALUES ($1, $2, 0)', [userId, motId]);
+    // Description = note PERSO du user (portée par user_mots, plus par mots).
+    await client.query(
+      'INSERT INTO user_mots (user_id, mot_id, meaning_id, score, description) VALUES ($1, $2, $3, 0, $4)',
+      [userId, motId, meaningId, (description && String(description).trim()) || null]);
 
     await client.query('COMMIT');
     const word = await pool.query(
-      'SELECT id, chinese, pinyin, english, hsk FROM mots WHERE id = $1', [motId]
-    );
+      `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, $2, $3) AS english, m.hsk,
+              (SELECT description FROM user_mots WHERE user_id = $4 AND mot_id = m.id AND meaning_id = $2) AS description
+       FROM mots m WHERE m.id = $1`,
+      [motId, meaningId, langs.native, userId]);
     res.json({ success: true, word: word.rows[0], newBalance: balance - COST });
   } catch (e) {
     await client.query('ROLLBACK');
@@ -893,15 +1085,18 @@ router.post('/api/m/import/preview', requireToken, async (req, res) => {
       // GROUP BY chinese : robuste aux doublons de `mots` (pas de contrainte
       // unique). owned = true si AU MOINS un doublon est possédé ; english/pinyin
       // privilégient la ligne possédée.
+      const nat = (await getUserLangs(uid)).native;
       const { rows: dict } = await pool.query(
-        `SELECT m.chinese,
-                (array_agg(m.english ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS english,
-                (array_agg(m.pinyin  ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS pinyin,
-                bool_or(um.user_id IS NOT NULL) AS owned
-         FROM mots m
-         LEFT JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
-         WHERE m.chinese = ANY($2::text[])
-         GROUP BY m.chinese`, [uid, unique.map((r) => r.chinese)]);
+        `SELECT chinese, mot_tr(mid, $3) AS english, pinyin, owned FROM (
+           SELECT m.chinese,
+                  (array_agg(m.id     ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS mid,
+                  (array_agg(m.pinyin ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS pinyin,
+                  bool_or(um.user_id IS NOT NULL) AS owned
+           FROM mots m
+           LEFT JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
+           WHERE m.chinese = ANY($2::text[]) AND m.lang = 'zh'
+           GROUP BY m.chinese
+         ) t`, [uid, unique.map((r) => r.chinese), nat]);
       const dictMap = new Map(dict.map((d) => [d.chinese, d]));
 
       const rows = unique.map((r) => {
@@ -932,18 +1127,22 @@ router.post('/api/m/import/preview', requireToken, async (req, res) => {
     const duplicates = withEn.length - unique.length;
     if (!unique.length) return res.json({ rows: [], stats: emptyStats, direction: 'zh→en' });
 
-    // GROUP BY lower(english) : owned = true si un mot d'anglais équivalent est
-    // possédé (robuste aux doublons) ; chinois/pinyin privilégient la ligne possédée.
+    // Apprend l'anglais : les lexèmes appris sont 'en' (leur terme = colonne
+    // chinese). On matche par terme et la « traduction » (champ chinese renvoyé)
+    // se dérive du concept dans la langue native (drop-safe, plus de m.english).
+    const nat = (await getUserLangs(uid)).native;
     const { rows: dict } = await pool.query(
-      `SELECT lower(m.english) AS key,
-              (array_agg(m.chinese ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS chinese,
-              (array_agg(m.pinyin  ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS pinyin,
-              bool_or(um.user_id IS NOT NULL) AS owned
-       FROM mots m
-       LEFT JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
-       WHERE lower(m.english) = ANY($2::text[])
-       GROUP BY lower(m.english)`,
-      [uid, unique.map((r) => r.latin.toLowerCase())]);
+      `SELECT key, mot_tr(mid, $3) AS chinese, pinyin, owned FROM (
+         SELECT lower(m.chinese) AS key,
+                (array_agg(m.id     ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS mid,
+                (array_agg(m.pinyin ORDER BY (um.user_id IS NOT NULL) DESC, m.id))[1] AS pinyin,
+                bool_or(um.user_id IS NOT NULL) AS owned
+         FROM mots m
+         LEFT JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
+         WHERE m.lang = 'en' AND lower(m.chinese) = ANY($2::text[])
+         GROUP BY lower(m.chinese)
+       ) t`,
+      [uid, unique.map((r) => r.latin.toLowerCase()), nat]);
     const dictMap = new Map(dict.map((d) => [d.key, d]));
 
     const rows = unique.map((r) => {
@@ -976,6 +1175,7 @@ function buildStats(rows, duplicates) {
 // ── POST /api/m/import/commit : insère les mots confirmés (gratuit) ───────────
 router.post('/api/m/import/commit', requireToken, async (req, res) => {
   const uid = req.tokenUser.id;
+  const langs = await getUserLangs(uid);
   const words = Array.isArray(req.body?.words) ? req.body.words : [];
   // On ne garde que les lignes valides (chinois + anglais).
   const clean = [];
@@ -1010,10 +1210,15 @@ router.post('/api/m/import/commit', requireToken, async (req, res) => {
     const missing = clean.filter((w) => !idByChinese.has(w.chinese));
     if (missing.length) {
       const { rows: ins } = await client.query(
-        `INSERT INTO mots (chinese, pinyin, english)
-         SELECT * FROM unnest($1::text[], $2::text[], $3::text[]) RETURNING chinese, id`,
-        [missing.map((w) => w.chinese), missing.map((w) => w.pinyin || null), missing.map((w) => w.english)]);
+        `INSERT INTO mots (chinese, pinyin, lang)
+         SELECT c, p, $3 FROM unnest($1::text[], $2::text[]) AS t(c, p) RETURNING chinese, id`,
+        [missing.map((w) => w.chinese), missing.map((w) => w.pinyin || null), langs.learning]);
       ins.forEach((r) => idByChinese.set(r.chinese, r.id));
+      // Modèle concept : concept + frère(s) natif(s) par sens pour chaque mot créé.
+      const glossByChinese = new Map(missing.map((w) => [w.chinese, w.english]));
+      for (const r of ins) {
+        await syncConceptSiblings(client, r.id, glossByChinese.get(r.chinese), langs.native);
+      }
     }
 
     // 3. Mots déjà dans la collection (pour ne pas les recompter).
@@ -1042,8 +1247,11 @@ router.post('/api/m/import/commit', requireToken, async (req, res) => {
     const toAdd = candidates.slice(0, remaining);
     if (toAdd.length) {
       await client.query(
-        `INSERT INTO user_mots (user_id, mot_id, score)
-         SELECT $1, x, 0 FROM unnest($2::int[]) AS x`, [uid, toAdd]);
+        `INSERT INTO user_mots (user_id, mot_id, meaning_id, score)
+         SELECT $1, x, (SELECT min(meaning_id) FROM lexeme_senses WHERE mot_id = x), 0
+         FROM unnest($2::int[]) AS x
+         WHERE EXISTS (SELECT 1 FROM lexeme_senses WHERE mot_id = x)
+         ON CONFLICT DO NOTHING`, [uid, toAdd]);
     }
     const added = toAdd.length;
     const limitReached = candidates.length > added;
@@ -1068,24 +1276,50 @@ router.put('/api/m/words/:motId', requireToken, async (req, res) => {
     if (!motId) return res.status(400).json({ error: 'Invalid word' });
     const { chinese, pinyin, english, description } = req.body || {};
 
-    // On n'édite que si l'utilisateur possède le mot dans sa collection
+    // Édite le SENS possédé (meaning_id du body, sinon un sens possédé du mot).
+    const reqMeaning = parseInt(req.body?.meaning_id, 10) || null;
     const owns = await pool.query(
-      'SELECT 1 FROM user_mots WHERE user_id = $1 AND mot_id = $2',
-      [req.tokenUser.id, motId]
+      `SELECT meaning_id FROM user_mots WHERE user_id = $1 AND mot_id = $2
+       ORDER BY (meaning_id = $3) DESC, meaning_id ASC LIMIT 1`,
+      [req.tokenUser.id, motId, reqMeaning]
     );
     if (!owns.rows.length) return res.status(403).json({ error: 'Not your word' });
+    const meaningId = owns.rows[0].meaning_id;
 
-    const { rows } = await pool.query(
-      `UPDATE mots
-       SET chinese     = COALESCE($2, chinese),
-           pinyin      = COALESCE($3, pinyin),
-           english     = COALESCE($4, english),
-           description = COALESCE($5, description)
-       WHERE id = $1
-       RETURNING id, chinese, pinyin, english, description, hsk`,
-      [motId, chinese ?? null, pinyin ?? null, english ?? null, description ?? null]
-    );
-    res.json({ word: rows[0] });
+    const langs = await getUserLangs(req.tokenUser.id);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // chinese/pinyin = base partagée (mots) ; description = note PERSO (user_mots).
+      await client.query(
+        `UPDATE mots
+         SET chinese = COALESCE($2, chinese),
+             pinyin  = COALESCE($3, pinyin)
+         WHERE id = $1`,
+        [motId, chinese ?? null, pinyin ?? null]
+      );
+      if (description != null) {
+        await client.query(
+          'UPDATE user_mots SET description = $4 WHERE user_id = $1 AND mot_id = $2 AND meaning_id = $3',
+          [req.tokenUser.id, motId, meaningId, String(description).trim() || null]);
+      }
+      // Glose modifiée → réécrit les frères natifs de CE sens (replace, ciblé).
+      if (english != null && String(english).trim()) {
+        await syncConceptSiblings(client, motId, english, langs.native, { replace: true, meaningId });
+      }
+      const { rows: out } = await client.query(
+        `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, $2, $3) AS english, m.hsk,
+                (SELECT description FROM user_mots WHERE user_id = $4 AND mot_id = m.id AND meaning_id = $2) AS description
+         FROM mots m WHERE m.id = $1`,
+        [motId, meaningId, langs.native, req.tokenUser.id]);
+      await client.query('COMMIT');
+      res.json({ word: { ...out[0], meaning_id: meaningId } });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
   } catch (e) {
     console.error('m/word update error:', e);
     res.status(500).json({ error: 'Server error' });
@@ -1097,10 +1331,13 @@ router.delete('/api/m/words/:motId', requireToken, async (req, res) => {
   try {
     const motId = parseInt(req.params.motId, 10);
     if (!motId) return res.status(400).json({ error: 'Invalid word' });
-    await pool.query(
-      'DELETE FROM user_mots WHERE user_id = $1 AND mot_id = $2',
-      [req.tokenUser.id, motId]
-    );
+    // Suppression du SENS précis si fourni (?meaning_id=), sinon tous les sens du mot.
+    const meaningId = parseInt(req.query.meaning_id, 10) || null;
+    if (meaningId) {
+      await pool.query('DELETE FROM user_mots WHERE user_id = $1 AND mot_id = $2 AND meaning_id = $3', [req.tokenUser.id, motId, meaningId]);
+    } else {
+      await pool.query('DELETE FROM user_mots WHERE user_id = $1 AND mot_id = $2', [req.tokenUser.id, motId]);
+    }
     res.json({ success: true });
   } catch (e) {
     console.error('m/word delete error:', e);
@@ -1152,9 +1389,10 @@ router.get('/api/m/character/:char', requireToken, async (req, res) => {
     const ch = decodeURIComponent(req.params.char || '').trim();
     if (!ch) return res.status(400).json({ error: 'Missing character' });
     // Correspondance exacte d'un mot d'un seul caractère dans le dictionnaire
+    const nat = (await getUserLangs(req.tokenUser.id)).native;
     const { rows } = await pool.query(
-      'SELECT chinese, pinyin, english, hsk FROM mots WHERE chinese = $1 ORDER BY id ASC LIMIT 1',
-      [ch]
+      "SELECT chinese, pinyin, mot_tr(id, $2) AS english, hsk FROM mots WHERE chinese = $1 AND lang = 'zh' ORDER BY id ASC LIMIT 1",
+      [ch, nat]
     );
     res.json({ character: rows[0] || null });
   } catch (e) {
@@ -1183,8 +1421,32 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     };
     const orderBy = sortMap[req.query.sort] || sortMap.featured;
 
-    const params = [uid, min, max];
-    let where = 'wp.published = TRUE AND wp.price >= $2 AND wp.price <= $3';
+    // Un pack couvre une PAIRE de langues (ex. concepts zh↔en) : il est utilisable
+    // dans les DEUX sens (apprendre zh depuis en ET apprendre en depuis zh). On le
+    // montre donc si sa langue de contenu (wp.lang) fait partie de la paire de
+    // l'apprenant {learning, native} ET si CHAQUE mot est atteignable à la fois dans
+    // la langue apprise ($4) et dans la langue de base ($5) — sinon on ne pourrait
+    // ni l'ajouter à la collection (mot appris) ni afficher sa traduction (base).
+    // En onboarding les langues ne sont pas encore persistées → le front peut les
+    // passer en query pour prévisualiser la bonne paire.
+    const stored = await getUserLangs(uid);
+    const qLearn = LEARNABLE_LANGS.includes(req.query.learning) ? req.query.learning : null;
+    const qNative = LEARNABLE_LANGS.includes(req.query.native) ? req.query.native : null;
+    const langs = { learning: qLearn || stored.learning, native: qNative || stored.native };
+    const params = [uid, min, max, langs.learning, langs.native];
+    let where = `wp.published = TRUE AND wp.price >= $2 AND wp.price <= $3 AND wp.lang IN ($4, $5)
+      AND NOT EXISTS (
+        SELECT 1 FROM word_pack_items i2 JOIN mots pm ON pm.id = i2.mot_id
+        WHERE i2.pack_id = wp.id
+          AND (NOT EXISTS (
+                SELECT 1 FROM lexeme_senses a JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
+                JOIN mots sib ON sib.id = b.mot_id
+                WHERE a.mot_id = pm.id AND sib.lang = $4)
+            OR NOT EXISTS (
+                SELECT 1 FROM lexeme_senses a JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
+                JOIN mots sib ON sib.id = b.mot_id
+                WHERE a.mot_id = pm.id AND sib.lang = $5))
+      )`;
     if (q) {
       params.push(`%${q}%`);
       where += ` AND (wp.title ILIKE $${params.length} OR wp.description ILIKE $${params.length} OR COALESCE(u.name, wp.creator_name, '') ILIKE $${params.length})`;
@@ -1239,9 +1501,10 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
     delete pack.creator_id;
     // Propriétaire (acheteur ou créateur) → liste complète des mots ; sinon aperçu de 3.
     const full = pack.owned || pack.isMine;
+    const nat = (await getUserLangs(uid)).native;
     const { rows: words } = await pool.query(
-      `SELECT m.id, m.chinese, m.pinyin, m.english FROM word_pack_items i
-       JOIN mots m ON m.id = i.mot_id WHERE i.pack_id = $1 ORDER BY m.id${full ? '' : ' LIMIT 3'}`, [id]);
+      `SELECT m.id, m.chinese, m.pinyin, mot_tr(m.id, $2) AS english FROM word_pack_items i
+       JOIN mots m ON m.id = i.mot_id WHERE i.pack_id = $1 ORDER BY m.id${full ? '' : ' LIMIT 3'}`, [id, nat]);
     if (full) res.json({ pack, words });
     else res.json({ pack, preview: words });
   } catch (e) {
@@ -1255,6 +1518,33 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
   const uid = req.tokenUser.id;
   const id = parseInt(req.params.id, 10);
   if (!id) return res.status(400).json({ error: 'Invalid pack' });
+  // Langue apprise : ce qu'on ajoute à la collection est le lexème du concept DANS
+  // cette langue (un pack zh↔en acheté par un apprenant d'anglais ajoute les mots
+  // ANGLAIS des concepts, pas les mots chinois). CTE partagée pour compter/insérer.
+  const langs = await getUserLangs(uid);
+  // Pour chaque item du pack → son sens primaire → le(s) lexème(s) de la langue
+  // apprise reliés à ce sens. C'est ce qui atterrit dans user_mots.
+  const targetsCTE = `
+    items AS (
+      SELECT i.mot_id,
+             (SELECT min(meaning_id) FROM lexeme_senses WHERE mot_id = i.mot_id) AS meaning_id,
+             (SELECT lang FROM mots WHERE id = i.mot_id) AS item_lang
+      FROM word_pack_items i WHERE i.pack_id = $2
+    ),
+    -- Un target par item du pack : si le mot du pack est DÉJÀ dans la langue apprise
+    -- (cas normal), on le garde tel quel (curation du pack préservée) ; sinon (sens
+    -- réciproque) on prend un lexème de la langue apprise du même concept.
+    targets AS (
+      SELECT DISTINCT ON (it.mot_id)
+             CASE WHEN it.item_lang = $3 THEN it.mot_id ELSE learn.id END AS mot_id,
+             it.meaning_id
+      FROM items it
+      LEFT JOIN lexeme_senses ls ON ls.meaning_id = it.meaning_id
+      LEFT JOIN mots learn ON learn.id = ls.mot_id AND learn.lang = $3
+      WHERE it.meaning_id IS NOT NULL
+        AND (it.item_lang = $3 OR learn.id IS NOT NULL)
+      ORDER BY it.mot_id, learn.id
+    )`;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -1283,9 +1573,11 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
       // On compte les mots du pack pas encore possédés (ceux qui seraient ajoutés).
       const { rows: wc } = await client.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1', [uid]);
       const { rows: newW } = await client.query(
-        `SELECT COUNT(*)::int AS n FROM word_pack_items i
-         WHERE i.pack_id = $1 AND NOT EXISTS (SELECT 1 FROM user_mots um WHERE um.user_id = $2 AND um.mot_id = i.mot_id)`,
-        [id, uid]);
+        `WITH ${targetsCTE}
+         SELECT COUNT(*)::int AS n FROM targets t
+         WHERE NOT EXISTS (SELECT 1 FROM user_mots um
+                           WHERE um.user_id = $1 AND um.mot_id = t.mot_id AND um.meaning_id = t.meaning_id)`,
+        [uid, id, langs.learning]);
       if (wc[0].n + newW[0].n > 600) {
         await client.query('ROLLBACK');
         return res.status(403).json({ error: 'Free limit reached (600 words). This pack would exceed it. Go Premium for unlimited.', upgradeRequired: true, feature: 'words', max: 600 });
@@ -1299,12 +1591,16 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
     if (!bal.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'User not found' }); }
     if (bal[0].balance < pack.price) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Not enough coins', insufficient: true, cost: pack.price, balance: bal[0].balance }); }
 
-    // Ajoute les mots du pack non déjà possédés
+    // Ajoute à la collection le lexème de la langue APPRISE de chaque concept du
+    // pack (pas forcément le lexème stocké dans le pack — cf. sens zh↔en réciproque).
     const ins = await client.query(
-      `INSERT INTO user_mots (user_id, mot_id, score, nb_quiz, nb_correct, last_seen)
-       SELECT $1, i.mot_id, 0, 0, 0, NULL FROM word_pack_items i
-       WHERE i.pack_id = $2 AND NOT EXISTS (SELECT 1 FROM user_mots um WHERE um.user_id = $1 AND um.mot_id = i.mot_id)
-       RETURNING mot_id`, [uid, id]);
+      `WITH ${targetsCTE}
+       INSERT INTO user_mots (user_id, mot_id, meaning_id, score, nb_quiz, nb_correct, last_seen)
+       SELECT $1, t.mot_id, t.meaning_id, 0, 0, 0, NULL FROM targets t
+       WHERE NOT EXISTS (SELECT 1 FROM user_mots um
+                         WHERE um.user_id = $1 AND um.mot_id = t.mot_id AND um.meaning_id = t.meaning_id)
+       ON CONFLICT DO NOTHING
+       RETURNING mot_id`, [uid, id, langs.learning]);
     const added = ins.rowCount;
 
     // Débit acheteur
@@ -1362,11 +1658,12 @@ router.post('/api/m/market/packs/plan', requireToken, async (req, res) => {
     const { rows: bal } = await pool.query('SELECT balance FROM users WHERE id = $1', [uid]);
     const balance = bal[0]?.balance ?? 0;
     if (!words.length) return res.json({ owned: [], toBuy: [], needsTranslation: [], cost: 0, balance });
+    const nat = (await getUserLangs(uid)).native;
 
     const { rows: ownedRows } = await pool.query(
-      `SELECT DISTINCT ON (m.chinese) m.id, m.chinese, m.pinyin, m.english
+      `SELECT DISTINCT ON (m.chinese) m.id, m.chinese, m.pinyin, mot_tr(m.id, $3) AS english
        FROM mots m JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
-       WHERE m.chinese = ANY($2::text[]) ORDER BY m.chinese, m.id`, [uid, words]);
+       WHERE m.chinese = ANY($2::text[]) ORDER BY m.chinese, m.id`, [uid, words, nat]);
     const ownedSet = new Set(ownedRows.map((r) => r.chinese));
     const owned = words.filter((w) => ownedSet.has(w)).map((w) => ownedRows.find((r) => r.chinese === w));
 
@@ -1374,8 +1671,8 @@ router.post('/api/m/market/packs/plan', requireToken, async (req, res) => {
     let dictMap = new Map();
     if (notOwned.length) {
       const { rows: dictRows } = await pool.query(
-        `SELECT DISTINCT ON (m.chinese) m.chinese, m.pinyin, m.english
-         FROM mots m WHERE m.chinese = ANY($1::text[]) ORDER BY m.chinese, m.id`, [notOwned]);
+        `SELECT DISTINCT ON (m.chinese) m.chinese, m.pinyin, mot_tr(m.id, $2) AS english
+         FROM mots m WHERE m.chinese = ANY($1::text[]) ORDER BY m.chinese, m.id`, [notOwned, nat]);
       dictMap = new Map(dictRows.map((d) => [d.chinese, d]));
     }
     const toBuy = notOwned.filter((w) => dictMap.has(w)).map((w) => dictMap.get(w));
@@ -1448,6 +1745,7 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       }
       let toPinyin = null;
       try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente */ }
+      const langs = await getUserLangs(uid);
       for (const w of notOwned) {
         const found = await client.query('SELECT id FROM mots WHERE chinese = $1 LIMIT 1', [w]);
         let motId;
@@ -1460,10 +1758,14 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
             return res.status(400).json({ error: `Add a translation for ${w}.`, needsTranslation: [w] });
           }
           const pinyin = toPinyin ? toPinyin(w, { toneType: 'symbol' }) : null;
-          const ins = await client.query('INSERT INTO mots (chinese, pinyin, english) VALUES ($1, $2, $3) RETURNING id', [w, pinyin, english]);
+          const ins = await client.query('INSERT INTO mots (chinese, pinyin, lang) VALUES ($1, $2, $3) RETURNING id', [w, pinyin, langs.learning]);
           motId = ins.rows[0].id;
+          await syncConceptSiblings(client, motId, english, langs.native);
         }
-        await client.query('INSERT INTO user_mots (user_id, mot_id, score) VALUES ($1, $2, 0)', [uid, motId]);
+        await client.query(
+          `INSERT INTO user_mots (user_id, mot_id, meaning_id, score)
+           VALUES ($1, $2, (SELECT min(meaning_id) FROM lexeme_senses WHERE mot_id = $2), 0)
+           ON CONFLICT DO NOTHING`, [uid, motId]);
         ownedMap.set(w, motId);
       }
       await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [cost, uid]);
@@ -1481,10 +1783,12 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       await client.query('DELETE FROM word_pack_items WHERE pack_id = $1', [editId]);
       packId = editId;
     } else {
+      // Langue du pack = langue apprise par le créateur (le store filtre dessus).
+      const packLang = (await getUserLangs(uid)).learning;
       const { rows: pk } = await client.query(
-        `INSERT INTO word_packs (creator_id, title, description, price, cover_key, is_official, published)
-         VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE) RETURNING id`,
-        [uid, title, description || null, price]);
+        `INSERT INTO word_packs (creator_id, title, description, price, cover_key, is_official, published, lang)
+         VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE, $5) RETURNING id`,
+        [uid, title, description || null, price, packLang]);
       packId = pk[0].id;
     }
     const motIds = words.map((w) => ownedMap.get(w));
@@ -1500,12 +1804,14 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
     let propagated = 0;
     if (editId) {
       const prop = await client.query(
-        `INSERT INTO user_mots (user_id, mot_id, score, nb_quiz, nb_correct, last_seen)
-         SELECT pp.buyer_id, wpi.mot_id, 0, 0, 0, NULL
+        `INSERT INTO user_mots (user_id, mot_id, meaning_id, score, nb_quiz, nb_correct, last_seen)
+         SELECT pp.buyer_id, wpi.mot_id, (SELECT min(meaning_id) FROM lexeme_senses WHERE mot_id = wpi.mot_id), 0, 0, 0, NULL
          FROM pack_purchases pp
          JOIN word_pack_items wpi ON wpi.pack_id = pp.pack_id
          WHERE pp.pack_id = $1
-           AND NOT EXISTS (SELECT 1 FROM user_mots um WHERE um.user_id = pp.buyer_id AND um.mot_id = wpi.mot_id)`,
+           AND EXISTS (SELECT 1 FROM lexeme_senses WHERE mot_id = wpi.mot_id)
+           AND NOT EXISTS (SELECT 1 FROM user_mots um WHERE um.user_id = pp.buyer_id AND um.mot_id = wpi.mot_id)
+         ON CONFLICT DO NOTHING`,
         [editId]);
       propagated = prop.rowCount;
     }
@@ -1858,15 +2164,16 @@ router.get('/api/m/student/lessons/:id', requireToken, async (req, res) => {
        JOIN classroom_students cs ON cs.classroom_id = l.classroom_id
        WHERE l.id = $1 AND cs.student_id = $2 AND cs.status = 'active'`, [lessonId, uid]);
     if (!access.rows.length) return res.status(404).json({ error: 'Course not found' });
+    const nat = (await getUserLangs(uid)).native;
 
     const [lrows, words] = await Promise.all([
       pool.query(
         `SELECT l.id, l.title, l.summary, l.created_at, c.name AS class_name
          FROM lessons l JOIN classrooms c ON c.id = l.classroom_id WHERE l.id = $1`, [lessonId]),
       pool.query(
-        `SELECT m.id, m.chinese, m.pinyin, m.english
+        `SELECT m.id, m.chinese, m.pinyin, mot_tr(m.id, $2) AS english
          FROM lesson_words lw JOIN mots m ON m.id = lw.mot_id
-         WHERE lw.lesson_id = $1 ORDER BY lw.id ASC`, [lessonId]),
+         WHERE lw.lesson_id = $1 ORDER BY lw.id ASC`, [lessonId, nat]),
     ]);
     res.json({ lesson: lrows.rows[0], words: words.rows });
   } catch (e) {
@@ -1909,9 +2216,12 @@ router.post('/api/m/student/tasks/:id/start', requireToken, async (req, res) => 
 
     // Ajoute les mots manquants à la collection de l'élève
     await pool.query(
-      `INSERT INTO user_mots (user_id, mot_id)
-       SELECT $1, m FROM unnest($2::int[]) AS m
-       WHERE NOT EXISTS (SELECT 1 FROM user_mots WHERE user_id = $1 AND mot_id = m)`,
+      `INSERT INTO user_mots (user_id, mot_id, meaning_id)
+       SELECT $1, m, (SELECT min(meaning_id) FROM lexeme_senses WHERE mot_id = m)
+       FROM unnest($2::int[]) AS m
+       WHERE EXISTS (SELECT 1 FROM lexeme_senses WHERE mot_id = m)
+         AND NOT EXISTS (SELECT 1 FROM user_mots WHERE user_id = $1 AND mot_id = m)
+       ON CONFLICT DO NOTHING`,
       [uid, ids]);
 
     res.json({ success: true, ids, type: 'pinyin' });
@@ -2182,7 +2492,7 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
 router.get('/api/m/settings', requireToken, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT quiz_direction, interface_lang, ghost_mode,
+      `SELECT quiz_direction, interface_lang, learning_lang, native_lang, ghost_mode,
               notifications_enabled, word_review_enabled
        FROM users WHERE id = $1`, [req.tokenUser.id]
     );
@@ -2190,6 +2500,8 @@ router.get('/api/m/settings', requireToken, async (req, res) => {
     const u = rows[0];
     res.json({
       quiz_direction: u.quiz_direction || 'en→zh',
+      learning_lang: u.learning_lang || 'zh',
+      native_lang: u.native_lang || 'en',
       interface_lang: u.interface_lang || 'en',
       ghost_mode: !!u.ghost_mode,
       notifications_enabled: !!u.notifications_enabled,
@@ -2209,14 +2521,27 @@ router.patch('/api/m/settings', requireToken, async (req, res) => {
     const params = [];
     const push = (col, val) => { params.push(val); sets.push(`${col} = $${params.length}`); };
 
-    if (body.quiz_direction !== undefined) {
+    // Langues du cours : si l'une change, on ré-résout la paire + le quiz_direction
+    // dérivé (compat). On complète la valeur manquante depuis la base.
+    if (body.learning_lang !== undefined || body.native_lang !== undefined) {
+      const cur = await pool.query('SELECT learning_lang, native_lang FROM users WHERE id = $1', [req.tokenUser.id]);
+      const c = cur.rows[0] || {};
+      const { learning, native, quizDir } = resolveCourseLangs(
+        body.learning_lang !== undefined ? body.learning_lang : c.learning_lang,
+        body.native_lang !== undefined ? body.native_lang : c.native_lang,
+      );
+      push('learning_lang', learning);
+      push('native_lang', native);
+      push('quiz_direction', quizDir);
+    } else if (body.quiz_direction !== undefined) {
+      // Chemin legacy (toggle binaire) encore toléré.
       if (!['en→zh', 'zh→en'].includes(body.quiz_direction)) {
         return res.status(400).json({ error: 'Invalid direction' });
       }
       push('quiz_direction', body.quiz_direction);
     }
     if (body.interface_lang !== undefined) {
-      if (!['en', 'zh'].includes(body.interface_lang)) {
+      if (!['en', 'zh', 'fr'].includes(body.interface_lang)) {
         return res.status(400).json({ error: 'Invalid language' });
       }
       push('interface_lang', body.interface_lang);
@@ -2363,7 +2688,7 @@ router.get('/api/m/leaderboard', requireToken, async (req, res) => {
          (u.last_login IS NOT NULL AND u.last_login >= NOW() - INTERVAL '14 days') AS active
        FROM users u
        LEFT JOIN duels d ON (d.challenger_id = u.id OR d.opponent_id = u.id) AND d.status = 'completed'
-       WHERE u.quiz_direction = (SELECT quiz_direction FROM users WHERE id = $1)
+       WHERE u.learning_lang = (SELECT learning_lang FROM users WHERE id = $1)
          AND u.ghost_mode = FALSE AND u.role <> 'teacher'
          AND u.name IS NOT NULL AND TRIM(u.name) <> ''
        GROUP BY u.id, u.name, u.tagline, u.country, u.avatar_icon, u.avatar_color, u.last_login
@@ -2426,7 +2751,7 @@ router.get('/api/m/duels/players', requireToken, async (req, res) => {
     const { rows } = await pool.query(
       `SELECT id, name FROM users
        WHERE name ILIKE $1 AND id <> $2 AND ghost_mode = FALSE
-         AND quiz_direction = (SELECT quiz_direction FROM users WHERE id = $2)
+         AND learning_lang = (SELECT learning_lang FROM users WHERE id = $2)
        ORDER BY name ASC LIMIT 8`,
       [`%${q}%`, req.tokenUser.id]
     );
@@ -2449,7 +2774,7 @@ router.get('/api/m/duels/recent-opponents', requireToken, async (req, res) => {
        JOIN users o ON o.id = CASE WHEN d.challenger_id = $1 THEN d.opponent_id ELSE d.challenger_id END
        WHERE (d.challenger_id = $1 OR d.opponent_id = $1)
          AND o.id <> $1 AND o.ghost_mode = FALSE
-         AND o.quiz_direction = (SELECT quiz_direction FROM users WHERE id = $1)
+         AND o.learning_lang = (SELECT learning_lang FROM users WHERE id = $1)
        GROUP BY o.id, o.name
        ORDER BY last_at DESC
        LIMIT 5`,
@@ -2713,6 +3038,8 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
   const packId = parseInt(req.query.packId, 10) || null; // entraînement sur un pack
 
   try {
+    // Langue native → traduction dérivée du concept (mot_tr) dans les 3 requêtes.
+    const langs = await getUserLangs(userId);
     // Limite gratuite : N quiz par jour (le premium lève la limite).
     if (!(await isUserPremium(userId))) {
       const today = await countToday('quiz_history', 'user_id', 'date_completed', userId);
@@ -2733,13 +3060,13 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
       const type = String(req.query.type || 'pinyin');
       const scoreCol = type === 'character' ? 'score_character' : type === 'reading' ? 'score_reading' : 'score';
       const { rows } = await pool.query(
-        `SELECT m.id, m.chinese, m.pinyin, m.english, m.hsk, COALESCE(um.${scoreCol}, 0) AS score
+        `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $4) AS english, m.hsk, COALESCE(um.${scoreCol}, 0) AS score
          FROM word_pack_items i
          JOIN user_mots um ON um.mot_id = i.mot_id AND um.user_id = $1
          JOIN mots m ON m.id = i.mot_id
-         WHERE i.pack_id = $2
+         WHERE i.pack_id = $2 AND m.lang = $5
          ORDER BY RANDOM() * (COALESCE(um.${scoreCol}, 0) + 15)
-         LIMIT $3`, [userId, packId, requestedCount]);
+         LIMIT $3`, [userId, packId, requestedCount, langs.native, langs.learning]);
       if (!rows.length) return res.status(400).json({ error: 'not_enough_words' });
       await pool.query('UPDATE user_mots SET last_seen = NOW() WHERE user_id = $1 AND mot_id = ANY($2)', [userId, rows.map((r) => r.id)]);
       return res.json({ words: rows, count: rows.length });
@@ -2750,9 +3077,9 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
       const ids = String(idsParam).split(',').map((s) => parseInt(s, 10)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
       if (!ids.length) return res.status(400).json({ error: 'invalid_ids' });
       const { rows } = await pool.query(
-        `SELECT m.id, m.chinese, m.pinyin, m.english, m.hsk, COALESCE(um.score, 0) AS score
+        `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $3) AS english, m.hsk, COALESCE(um.score, 0) AS score
          FROM user_mots um INNER JOIN mots m ON um.mot_id = m.id
-         WHERE um.user_id = $1 AND m.id = ANY($2)`, [userId, ids]);
+         WHERE um.user_id = $1 AND m.id = ANY($2) AND m.lang = $4`, [userId, ids, langs.native, langs.learning]);
       if (!rows.length) return res.status(400).json({ error: 'not_enough_words' });
       rows.sort(() => Math.random() - 0.5);
       await pool.query('UPDATE user_mots SET last_seen = NOW() WHERE user_id = $1 AND mot_id = ANY($2)', [userId, rows.map((r) => r.id)]);
@@ -2780,15 +3107,17 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
     const ranges = selectedLevels.length ? selectedLevels.map((k) => LEVEL_RANGES[k]) : [[0, 100]];
 
     // 3. Une seule requête : mots dans l'union des plages de score + filtre HSK.
-    const params = [userId];
+    const params = [userId, langs.native, langs.learning];
+    const natIdx = 2;  // $2 : native pour mot_tr
+    const learnIdx = 3; // $3 : langue apprise (filtre le cours)
     const scoreParts = ranges.map(([a, b]) => {
       params.push(a, b);
       return `COALESCE(um.score, 0) BETWEEN $${params.length - 1} AND $${params.length}`;
     });
     let q = `
-      SELECT m.id, m.chinese, m.pinyin, m.english, m.hsk, COALESCE(um.score, 0) AS score
+      SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $${natIdx}) AS english, m.hsk, COALESCE(um.score, 0) AS score
       FROM user_mots um INNER JOIN mots m ON um.mot_id = m.id
-      WHERE um.user_id = $1 AND (${scoreParts.join(' OR ')})`;
+      WHERE um.user_id = $1 AND m.lang = $${learnIdx} AND (${scoreParts.join(' OR ')})`;
     const hskConds = [];
     if (hskMin !== null && hskMax !== null) { params.push(hskMin, hskMax); hskConds.push(`m.hsk BETWEEN $${params.length - 1} AND $${params.length}`); }
     if (includeStreet) hskConds.push('m.hsk IS NULL');
@@ -2814,17 +3143,18 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
 // Version allégée de /api/difficult-words : mots les plus ratés / score bas.
 router.get('/api/m/difficult-words', requireToken, async (req, res) => {
   try {
+    const langs = await getUserLangs(req.tokenUser.id);
     const { rows } = await pool.query(
-      `SELECT m.id, m.chinese, m.pinyin, m.english,
+      `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $2) AS english,
          CASE WHEN COALESCE(um.nb_quiz, 0) >= 2
               THEN (1.0 - (COALESCE(um.nb_correct, 0)::float / NULLIF(um.nb_quiz, 0)))
               ELSE 0.5 END AS error_rate
        FROM user_mots um JOIN mots m ON um.mot_id = m.id
-       WHERE um.user_id = $1 AND um.nb_quiz > 0
+       WHERE um.user_id = $1 AND m.lang = $3 AND um.nb_quiz > 0
          AND ((um.nb_quiz >= 2 AND (um.nb_correct::float / um.nb_quiz) < 0.6) OR COALESCE(um.score,0) < 50)
        ORDER BY error_rate DESC, COALESCE(um.score,0) ASC, um.last_seen ASC NULLS FIRST
        LIMIT 12`,
-      [req.tokenUser.id]
+      [req.tokenUser.id, langs.native, langs.learning]
     );
     res.json({ words: rows.map((r) => ({ id: r.id, chinese: r.chinese, pinyin: r.pinyin, english: r.english })) });
   } catch (e) {
@@ -2838,6 +3168,7 @@ router.get('/api/m/difficult-words', requireToken, async (req, res) => {
 router.get('/api/m/quiz/stats', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
+    const langs = await getUserLangs(uid);
     const [hist, words, me] = await Promise.all([
       pool.query(
         `SELECT COUNT(*)::int AS quizzes,
@@ -2846,8 +3177,9 @@ router.get('/api/m/quiz/stats', requireToken, async (req, res) => {
          FROM quiz_history WHERE user_id = $1`, [uid]),
       pool.query(
         `SELECT COUNT(*)::int AS words,
-                COUNT(*) FILTER (WHERE COALESCE(score, 0) >= 90)::int AS mastered
-         FROM user_mots WHERE user_id = $1`, [uid]),
+                COUNT(*) FILTER (WHERE COALESCE(um.score, 0) >= 90)::int AS mastered
+         FROM user_mots um JOIN mots m ON m.id = um.mot_id
+         WHERE um.user_id = $1 AND m.lang = $2`, [uid, langs.learning]),
       pool.query('SELECT quiz_direction FROM users WHERE id = $1', [uid]),
     ]);
     res.json({
@@ -2857,6 +3189,8 @@ router.get('/api/m/quiz/stats', requireToken, async (req, res) => {
       words: words.rows[0].words,
       mastered: words.rows[0].mastered,
       direction: me.rows[0]?.quiz_direction || 'en→zh',
+      learning_lang: langs.learning,
+      native_lang: langs.native,
     });
   } catch (e) {
     console.error('m/quiz stats error:', e);
@@ -2942,12 +3276,13 @@ router.post('/api/m/quiz/save', requireToken, async (req, res) => {
 router.get('/api/m/quiz', requireToken, async (req, res) => {
   try {
     const count = Math.min(parseInt(req.query.count, 10) || 10, 30);
+    const langs = await getUserLangs(req.tokenUser.id);
     const { rows } = await pool.query(
-      `SELECT mots.id, mots.chinese, mots.pinyin, mots.english, user_mots.score
+      `SELECT mots.id, mots.chinese, mots.pinyin, mot_tr_sense(mots.id, user_mots.meaning_id, $3) AS english, user_mots.score
        FROM mots JOIN user_mots ON mots.id = user_mots.mot_id
-       WHERE user_mots.user_id = $1
+       WHERE user_mots.user_id = $1 AND mots.lang = $4
        ORDER BY user_mots.score ASC, RANDOM()
-       LIMIT $2`, [req.tokenUser.id, count]);
+       LIMIT $2`, [req.tokenUser.id, count, langs.native, langs.learning]);
     res.json({ words: rows });
   } catch (e) {
     console.error('m/quiz error:', e);
@@ -3143,6 +3478,7 @@ router.post('/api/m/teacher/classes/:id/lessons', requireToken, requireTeacher, 
       [classId, title, summary]
     );
     const lessonId = lrows[0].id;
+    const langs = await getUserLangs(req.tokenUser.id);
     const motIds = [];
     for (const w of words) {
       const chinese = String(w.chinese || '').trim();
@@ -3154,15 +3490,17 @@ router.post('/api/m/teacher/classes/:id/lessons', requireToken, requireTeacher, 
       if (existing.rows.length) {
         motId = existing.rows[0].id;
         if (existing.rows[0].hsk == null && english) {
-          await client.query('UPDATE mots SET pinyin = $1, english = $2 WHERE id = $3', [pinyin, english, motId]);
+          await client.query('UPDATE mots SET pinyin = $1 WHERE id = $2', [pinyin, motId]);
+          await syncConceptSiblings(client, motId, english, langs.native, { replace: true });
         }
       } else {
         if (!english) continue;
         const ins = await client.query(
-          `INSERT INTO mots (chinese, pinyin, english) VALUES ($1, $2, $3) RETURNING id`,
-          [chinese.slice(0, 50), pinyin, english]
+          `INSERT INTO mots (chinese, pinyin, lang) VALUES ($1, $2, $3) RETURNING id`,
+          [chinese.slice(0, 50), pinyin, langs.learning]
         );
         motId = ins.rows[0].id;
+        await syncConceptSiblings(client, motId, english, langs.native);
       }
       motIds.push(motId);
     }
@@ -3192,10 +3530,11 @@ router.get('/api/m/teacher/lessons/:lessonId/progress', requireToken, requireTea
     );
     if (!lrows.length) return res.status(404).json({ error: 'Task not found' });
     const lesson = lrows[0];
+    const nat = (await getUserLangs(req.tokenUser.id)).native;
     const { rows: words } = await pool.query(
-      `SELECT m.id, m.chinese, m.pinyin, m.english
+      `SELECT m.id, m.chinese, m.pinyin, mot_tr(m.id, $2) AS english
        FROM lesson_words lw JOIN mots m ON m.id = lw.mot_id
-       WHERE lw.lesson_id = $1 ORDER BY lw.id ASC`, [lesson.id]);
+       WHERE lw.lesson_id = $1 ORDER BY lw.id ASC`, [lesson.id, nat]);
     const { rows: students } = await pool.query(
       `SELECT cs.student_id, u.name,
               ROUND(AVG(COALESCE(um.score, 0)))::int AS knowledge,
@@ -3235,17 +3574,25 @@ router.post('/api/m/teacher/mots/lookup', requireToken, requireTeacher, async (r
     const cleaned = [...new Set(words.map((w) => String(w || '').trim()).filter(Boolean))].slice(0, 50);
     if (!cleaned.length) return res.json({ results: [] });
     const isZhEn = req.teacher.quiz_direction === 'zh→en';
+    const nat = (await getUserLangs(req.tokenUser.id)).native;
     const byKey = {};
     if (isZhEn) {
+      // Le prof colle des termes anglais → on retrouve le mot zh via son lexème
+      // frère 'en' partageant le concept (drop-safe, plus de colonne english).
       const { rows } = await pool.query(
-        `SELECT id, chinese, pinyin, english FROM mots WHERE LOWER(english) = ANY($1::text[])`,
+        `SELECT z.id, z.chinese, z.pinyin, mot_tr(z.id, 'en') AS english, lower(e.chinese) AS matchkey
+         FROM mots z
+         JOIN lexeme_senses zs ON zs.mot_id = z.id
+         JOIN lexeme_senses es ON es.meaning_id = zs.meaning_id
+         JOIN mots e ON e.id = es.mot_id AND e.lang = 'en'
+         WHERE z.lang = 'zh' AND lower(e.chinese) = ANY($1::text[])`,
         [cleaned.map((w) => w.toLowerCase())]
       );
-      rows.forEach((r) => { byKey[(r.english || '').toLowerCase()] = r; });
+      rows.forEach((r) => { byKey[r.matchkey] = r; });
       return res.json({ results: cleaned.map((w) => ({ input: w, mot: byKey[w.toLowerCase()] || null })) });
     }
     const { rows } = await pool.query(
-      `SELECT id, chinese, pinyin, english FROM mots WHERE chinese = ANY($1::text[])`, [cleaned]
+      `SELECT id, chinese, pinyin, mot_tr(id, $2) AS english FROM mots WHERE chinese = ANY($1::text[])`, [cleaned, nat]
     );
     rows.forEach((r) => { byKey[r.chinese] = r; });
     // Mot introuvable dans le dico → on génère le pinyin (pinyin-pro), comme le web.

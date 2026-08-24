@@ -258,12 +258,15 @@ export function importCommit(words) {
 }
 
 // ── JiaStore (marketplace) ──
-export function getMarketPacks({ q = '', min = '', max = '', sort = 'recent' } = {}) {
+export function getMarketPacks({ q = '', min = '', max = '', sort = 'recent', learning = '', native = '' } = {}) {
   const qs = new URLSearchParams();
   if (q) qs.set('q', q);
   if (min !== '' && min != null) qs.set('min', String(min));
   if (max !== '' && max != null) qs.set('max', String(max));
   if (sort) qs.set('sort', sort);
+  // Onboarding : langues encore non persistées → prévisualiser la paire choisie.
+  if (learning) qs.set('learning', learning);
+  if (native) qs.set('native', native);
   const s = qs.toString();
   return request(`/api/m/market/packs${s ? `?${s}` : ''}`);
 }
@@ -320,8 +323,8 @@ export function getTranslation(cn) {
   return request(`/api/m/translate?cn=${encodeURIComponent(cn)}`);
 }
 
-export function captureWord(id) {
-  return request(`/api/m/words/${id}/capture`, { method: 'POST' });
+export function captureWord(id, meaningId) {
+  return request(`/api/m/words/${id}/capture`, { method: 'POST', body: meaningId != null ? { meaning_id: meaningId } : {} });
 }
 
 // Crée un nouveau mot (chinese + english requis) et le capture (coûte 3 coins).
@@ -333,8 +336,9 @@ export function updateWord(id, fields) {
   return request(`/api/m/words/${id}`, { method: 'PUT', body: fields });
 }
 
-export function deleteWord(id) {
-  return request(`/api/m/words/${id}`, { method: 'DELETE' });
+export function deleteWord(id, meaningId) {
+  const q = meaningId != null ? `?meaning_id=${meaningId}` : '';
+  return request(`/api/m/words/${id}${q}`, { method: 'DELETE' });
 }
 
 // Suppression en masse (premium). Par liste d'ids OU par pack (« forget pack »).

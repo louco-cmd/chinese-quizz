@@ -248,12 +248,16 @@ async function generateDuelQuiz(transaction, user1Id, user2Id, duelType, quizTyp
     // Mélanger les mots pour éviter un ordre prévisible
     wordIds = shuffleArray(wordIds);
 
-    // Récupérer les informations complètes des mots
+    // Récupérer les informations complètes des mots. La traduction (`english`)
+    // est dérivée du concept via mot_tr() dans la langue native de l'initiateur
+    // (drop-safe : plus de dépendance à la colonne mots.english).
     const wordsResult = await transaction.query(`
-      SELECT id, chinese, pinyin, english, description, hsk
-      FROM mots 
+      SELECT id, chinese, pinyin,
+             mot_tr(id, (SELECT COALESCE(native_lang, 'en') FROM users WHERE id = $2)) AS english,
+             hsk
+      FROM mots
       WHERE id = ANY($1)
-    `, [wordIds]);
+    `, [wordIds, user1Id]);
 
     const quizData = {
       words: wordsResult.rows,
@@ -273,9 +277,12 @@ async function generateDuelQuiz(transaction, user1Id, user2Id, duelType, quizTyp
 }
 
 async function getRandomUserWords(transaction, userId, count) {
+  // Cours multilingue : ne tire que des mots de la langue apprise par le joueur.
   const result = await transaction.query(`
-    SELECT mot_id FROM user_mots
-    WHERE user_id = $1
+    SELECT um.mot_id
+    FROM user_mots um JOIN mots m ON m.id = um.mot_id
+    WHERE um.user_id = $1
+      AND m.lang = (SELECT COALESCE(learning_lang, 'zh') FROM users WHERE id = $1)
     ORDER BY RANDOM()
     LIMIT $2
   `, [userId, count]);
@@ -283,11 +290,14 @@ async function getRandomUserWords(transaction, userId, count) {
 }
 
 async function getCommonWords(transaction, user1Id, user2Id, count) {
+  // Mots communs DANS la langue apprise par l'initiateur (cours multilingue).
   const result = await transaction.query(`
     SELECT um1.mot_id
     FROM user_mots um1
     JOIN user_mots um2 ON um1.mot_id = um2.mot_id
+    JOIN mots m ON m.id = um1.mot_id
     WHERE um1.user_id = $1 AND um2.user_id = $2
+      AND m.lang = (SELECT COALESCE(learning_lang, 'zh') FROM users WHERE id = $1)
     ORDER BY RANDOM()
     LIMIT $3
   `, [user1Id, user2Id, count]);

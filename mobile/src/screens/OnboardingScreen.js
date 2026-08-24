@@ -16,6 +16,7 @@ import ImportWordsScreen from './ImportWordsScreen';
 import { completeOnboarding, teacherGetProfile, teacherSaveProfile } from '../api';
 import { COLORS } from '../theme';
 import { useT, makeT } from '../i18n';
+import { LANG_META, LEARNABLE } from '../langs';
 
 // Toggle de langue compact (EN / 中) pour la barre du haut de l'onboarding.
 function LangToggle({ lang, onChange }) {
@@ -201,7 +202,8 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   const [name, setName] = useState(initial?.name || '');
   const [country, setCountry] = useState(null);
   const [tagline, setTagline] = useState('');
-  const [dir, setDir] = useState('en→zh');
+  // Langue apprise ; la langue de base (native) = la langue d'interface (`lang`).
+  const [learnLang, setLearnLang] = useState('zh');
 
   // Champs du profil prof (étape 'teacher').
   const [bio, setBio] = useState('');
@@ -221,8 +223,8 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
 
   // Prénom live : suit le champ "name" (candy : "Welcome, learner!" → "Welcome, John!").
   const firstName = (name || '').trim().split(' ')[0] || 'learner';
-  // Tagline selon la direction d'apprentissage (zh→en = j'apprends l'anglais).
-  const taglineText = dir === 'zh→en' ? 'Unlock your English' : 'Unlock your Chinese';
+  // Tagline selon la langue apprise.
+  const taglineText = `Unlock your ${LANG_META[learnLang]?.label || 'Chinese'}`;
 
   // Header figé, identique sur les 3 étapes : même padding + même conteneur
   // (maxWidth 1120) → Back, stepper et balance restent toujours à la même place.
@@ -244,7 +246,8 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
         name: name.trim(),
         tagline: role === 'teacher' ? '' : tagline.trim(),
         country: role === 'teacher' ? null : country,
-        quiz_direction: role === 'teacher' ? undefined : dir,
+        learning_lang: role === 'teacher' ? undefined : learnLang,
+        native_lang: role === 'teacher' ? undefined : lang, // langue de base = interface
         interface_lang: lang, // langue choisie au picker, persistée pour les 2 rôles
         ref: refCode || undefined,
       });
@@ -316,8 +319,24 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   // position (haut de la colonne droite). Optionnel → "Start playing" termine.
   if (step === 'words') {
     if (importing) {
-      return <ImportWordsScreen direction={dir} embedded={false} onBack={() => setImporting(false)} onDone={finishLearner} />;
+      return <ImportWordsScreen direction={learnLang === 'zh' ? 'en→zh' : 'zh→en'} embedded={false} onBack={() => setImporting(false)} onDone={finishLearner} />;
     }
+    // Les packs couvrent la paire zh↔en dans les DEUX sens (apprendre le chinois
+    // depuis l'anglais ET l'anglais depuis le chinois). Toute paire impliquant une
+    // langue sans traductions complètes (fr pour l'instant) → pas encore de packs :
+    // on masque la grille du store ET l'import en masse, remplacés par « bientôt ».
+    const noPacks = !(['zh', 'en'].includes(learnLang) && ['zh', 'en'].includes(lang));
+    const comingSoon = (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+        <Text style={{ fontSize: 46, marginBottom: 16 }}>🚀</Text>
+        <Text style={{ textAlign: 'center', color: COLORS.ink, fontSize: 19, fontWeight: '700', marginBottom: 8, paddingHorizontal: 24 }}>
+          {t('st_packs_soon_title')}
+        </Text>
+        <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 14, lineHeight: 20, paddingHorizontal: 28, maxWidth: 400 }}>
+          {t('st_packs_soon_sub')}
+        </Text>
+      </View>
+    );
     // Tuile upload : même design que les tuiles d'action (CtaCard bleue) et
     // `fill` pour épouser la hauteur des cartes du store dans la même rangée.
     const uploadTile = (
@@ -341,7 +360,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
           style={{ fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined, fontStyle: fontsLoaded ? 'normal' : 'italic', fontSize: isDesktop ? 36 : 27, lineHeight: isDesktop ? 46 : 36, color: COLORS.jiayou, marginTop: 6, textAlign: 'center' }}
         />
         <Text className="text-[20px] font-bold text-ink mt-4 text-center">{t('ob_words_title')}</Text>
-        <Text className="text-muted text-[14px] mt-1 text-center">{t('ob_words_sub')}</Text>
+        <Text className="text-muted text-[14px] mt-1 text-center">{t(noPacks ? 'ob_words_sub_soon' : 'ob_words_sub')}</Text>
       </>
     );
     const stickyBar = (
@@ -365,14 +384,18 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                 {wordsBranding}
               </View>
               <View style={{ flex: 1 }}>
-                <PackMarket
-                  extraTile={uploadTile}
-                  extraTileAt={1}
-                  maxPrice={200}
-                  columns={2}
-                  onBalance={setBalance}
-                  contentContainerStyle={{ width: '100%', paddingVertical: 12, paddingBottom: 20 }}
-                />
+                {noPacks ? comingSoon : (
+                  <PackMarket
+                    extraTile={uploadTile}
+                    extraTileAt={1}
+                    maxPrice={200}
+                    columns={2}
+                    learningLang={learnLang}
+                    baseLang={lang}
+                    onBalance={setBalance}
+                    contentContainerStyle={{ width: '100%', paddingVertical: 12, paddingBottom: 20 }}
+                  />
+                )}
                 {stickyBar}
               </View>
             </View>
@@ -388,14 +411,23 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     return (
       <SafeAreaView className="flex-1 bg-surface-page">
         {fixedTopBar({ onBack: () => setStep('learner'), index: 2, total: 3, right: <BalanceChip balance={balance} label={t('ob_balance')} /> })}
-        <PackMarket
-          extraTile={uploadTile}
-          extraTileAt={1}
-          maxPrice={200}
-          onBalance={setBalance}
-          ListHeaderComponent={header}
-          contentContainerStyle={{ width: '100%', maxWidth: 520, alignSelf: 'center', padding: 20, paddingBottom: 24 }}
-        />
+        {noPacks ? (
+          <ScrollView contentContainerStyle={{ flexGrow: 1, width: '100%', maxWidth: 520, alignSelf: 'center', padding: 20 }}>
+            {header}
+            {comingSoon}
+          </ScrollView>
+        ) : (
+          <PackMarket
+            extraTile={uploadTile}
+            extraTileAt={1}
+            maxPrice={200}
+            learningLang={learnLang}
+            baseLang={lang}
+            onBalance={setBalance}
+            ListHeaderComponent={header}
+            contentContainerStyle={{ width: '100%', maxWidth: 520, alignSelf: 'center', padding: 20, paddingBottom: 24 }}
+          />
+        )}
         {stickyBar}
       </SafeAreaView>
     );
@@ -613,31 +645,31 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
 
                 <View className="h-px bg-line-soft mb-4" />
 
-                {/* Quiz direction */}
-                <StepLabel icon="swap-horizontal">{t('ob_learning_q')}</StepLabel>
+                {/* Langue de l'interface = langue de BASE (native = depuis quoi on
+                    apprend). On la choisit EN PREMIER : elle définit native_lang et
+                    filtre la langue apprise juste en dessous. */}
+                <StepLabel icon="language">{t('ob_interface_lang')}</StepLabel>
                 <View className="mb-5">
                   <SegmentedPicker
-                    value={dir}
-                    onChange={setDir}
+                    value={lang}
+                    onChange={(v) => { changeLang(v); if (v === learnLang) setLearnLang(LEARNABLE.find((c) => c !== v)); }}
                     options={[
-                      { value: 'en→zh', label: t('set_dir_learn_zh') },
-                      { value: 'zh→en', label: t('set_dir_learn_en') },
+                      { value: 'en', label: 'English' },
+                      { value: 'zh', label: '中文' },
+                      { value: 'fr', label: 'Français' },
                     ]}
                   />
                 </View>
 
                 <View className="h-px bg-line-soft mb-4" />
 
-                {/* Interface language */}
-                <StepLabel icon="language">{t('ob_interface_lang')}</StepLabel>
+                {/* Langue apprise (exclut la langue de base = interface) */}
+                <StepLabel icon="school">{t('ob_learn_lang_q')}</StepLabel>
                 <View className="mb-2">
                   <SegmentedPicker
-                    value={lang}
-                    onChange={changeLang}
-                    options={[
-                      { value: 'en', label: 'English' },
-                      { value: 'zh', label: '中文' },
-                    ]}
+                    value={learnLang}
+                    onChange={setLearnLang}
+                    options={LEARNABLE.filter((c) => c !== lang).map((c) => ({ value: c, label: LANG_META[c].endonym }))}
                   />
                 </View>
 

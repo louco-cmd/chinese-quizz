@@ -8,6 +8,7 @@ import useAndroidBack from '../useAndroidBack';
 import { COLORS, SHADOW_CARD } from '../theme';
 import CatLoader from '../components/CatLoader';
 import RevealAnswerCard from '../components/RevealAnswerCard';
+import { isZhLearning } from '../langs';
 
 // ── Helpers (identiques à quiz-play.ejs) ──
 function normalizePinyin(str) {
@@ -28,24 +29,21 @@ function stripLetters(str) {
 }
 // Sens valides d'une réponse, séparés par / (et , 、 … pour l'anglais) → UN SEUL
 // suffit. Anglais : parseAnswers ; pinyin : découpe sur / uniquement.
-function answerSenses(w, type, direction) {
-  if (direction === 'zh→en') return parseAnswers(w?.english);
-  // Pinyin ET reading (caractères→pinyin) : réponse = pinyin. On retire le contenu
-  // entre parenthèses (glose), hors réponse attendue — comme parseAnswers pour en/zh.
-  if (type === 'pinyin' || type === 'reading') {
+// Réponse attendue. `isPinyin` (apprentissage du chinois, type pinyin/reading) →
+// on saisit le pinyin. Sinon la réponse est TOUJOURS le terme appris (w.chinese)
+// — hanzi pour un cours de chinois (type caractère), mot latin sinon.
+function answerSenses(w, isPinyin) {
+  if (isPinyin) {
     return (w?.pinyin || '').replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '')
       .split('/').map((s) => s.trim().toLowerCase()).filter(Boolean);
   }
   return parseAnswers(w?.chinese);
 }
 // Jetons (un par mot/syllabe) du 1er sens → structure des boîtes (une par jeton).
-// On écarte les jetons qui n'ont AUCUN caractère comparable (ponctuation seule :
-// « ! », « ? »…) : ils ne comptent pas dans la solution, donc pas de boîte vide.
-function firstSenseTokens(w, type, direction) {
-  const hasContent = (tok) => ((type === 'pinyin' || type === 'reading') && direction !== 'zh→en'
-    ? normalizePinyin(tok).length > 0
-    : stripLetters(tok).length > 0);
-  return (answerSenses(w, type, direction)[0] || '').split(/\s+/).filter((t) => t && hasContent(t));
+// On écarte les jetons sans caractère comparable (ponctuation seule).
+function firstSenseTokens(w, isPinyin) {
+  const hasContent = (tok) => (isPinyin ? normalizePinyin(tok).length > 0 : stripLetters(tok).length > 0);
+  return (answerSenses(w, isPinyin)[0] || '').split(/\s+/).filter((t) => t && hasContent(t));
 }
 
 const infoLabel = (hsk, levels) => {
@@ -62,7 +60,7 @@ export default function QuizPlayScreen({ config, onExit }) {
   // Retour Android → quitter le quiz (revenir à la liste), pas fermer l'app.
   useAndroidBack(() => { onExit(); return true; }, true, [onExit]);
   const { type, count, hsk, levels, ids, packId, lessonId, title } = config;
-  const [direction, setDirection] = useState('en→zh');
+  const [learningLang, setLearningLang] = useState('zh');
   const [words, setWords] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -86,13 +84,13 @@ export default function QuizPlayScreen({ config, onExit }) {
     setLoading(true); setError(''); setNotEnough(false);
     try {
       const [me, d] = await Promise.all([getMe().catch(() => ({})), getQuizPlayWords({ type, count, hsk, levels, ids, packId })]);
-      const dir = me.quiz_direction || direction;
-      if (me.quiz_direction) setDirection(me.quiz_direction);
+      const lp = me.learning_lang || learningLang;
+      if (me.learning_lang) setLearningLang(me.learning_lang);
       const ws = d.words || [];
       if (!ws.length) { setNotEnough(true); setWords(null); return; }
       setWords(ws);
       results.current = ws.map((w) => ({ mot_id: w.id, correct: null, bonus: 0, pinyin: w.pinyin }));
-      resetQuestion(ws[0], dir); // dir frais : setDirection ci-dessus pas encore appliqué
+      resetQuestion(ws[0], lp); // lp frais : setLearningLang ci-dessus pas encore appliqué
     } catch (e) {
       // Le backend renvoie le code brut 'not_enough_words' (400) → empty state dédié.
       if (e?.message === 'not_enough_words') { setNotEnough(true); setWords(null); }
@@ -116,27 +114,27 @@ export default function QuizPlayScreen({ config, onExit }) {
     load();
   }
 
-  // Reading (caractères→pinyin) se saisit/valide comme le pinyin.
-  const isPinyin = (type === 'pinyin' || type === 'reading') && direction !== 'zh→en';
+  const isZh = isZhLearning(learningLang);
+  // Pinyin/reading (réponse = pinyin) uniquement pour un cours de chinois.
+  const isPinyin = isZh && (type === 'pinyin' || type === 'reading');
+  // Réponse en LETTRES (jetons) : soit le pinyin, soit un terme latin (cours non-zh).
+  const isLatin = !isZh; // terme appris = mot latin → saisie par jetons de lettres
 
-  // `dir` explicite : au tout premier chargement, `setDirection(me.quiz_direction)`
-  // n'a pas encore été appliqué (setState async), donc l'état `direction` est
-  // périmé ici. On passe la direction fraîche pour dimensionner correctement les
-  // cases (sinon on comptait les syllabes du pinyin au lieu des mots anglais →
-  // cases fantômes « 0 »).
-  function resetQuestion(w, dir = direction) {
+  // `lp` explicite : au tout premier chargement, `setLearningLang(me.learning_lang)`
+  // n'est pas encore appliqué (setState async) → on passe la langue fraîche pour
+  // dimensionner correctement les cases.
+  function resetQuestion(w, lp = learningLang) {
     setSecond(false);
     setFeedback(null);
     setLocked(false);
-    // Cases à jetons : mêmes conditions que `tokenFields` au rendu (anglais, ou
-    // pinyin/reading en apprentissage du chinois) — sinon décompte incohérent.
-    const tokenFields = dir === 'zh→en' || ((type === 'pinyin' || type === 'reading') && dir !== 'zh→en');
+    const zh = isZhLearning(lp);
+    const pin = zh && (type === 'pinyin' || type === 'reading');
+    const tokenFields = pin || !zh; // pinyin (syllabes) ou terme latin (mots)
     if (tokenFields) {
-      // Un champ par jeton (mot anglais / syllabe pinyin) du 1er sens ; au moins 1.
-      const toks = firstSenseTokens(w, type, dir);
+      const toks = firstSenseTokens(w, pin);
       setInputs((toks.length ? toks : ['']).map(() => ''));
     } else {
-      setInputs(['']);
+      setInputs(['']); // hanzi : un seul champ
     }
     setTimeout(() => firstRef.current?.focus?.(), 60);
   }
@@ -167,18 +165,19 @@ export default function QuizPlayScreen({ config, onExit }) {
   useEffect(() => { correctCountRef.current = correctCount; }, [correctCount]);
 
   function checkAnswer(w) {
-    const senses = answerSenses(w, type, direction);
-    if (direction === 'zh→en') {
-      // Lettres concaténées des champs vs lettres de chaque sens (ponctuation/espaces
-      // ignorés) → UN sens suffit.
-      const got = stripLetters(inputs.join(''));
-      return got.length > 0 && senses.some((s) => stripLetters(s) === got);
-    }
-    if (type === 'pinyin' || type === 'reading') {
+    const senses = answerSenses(w, isPinyin);
+    if (isPinyin) {
       // Syllabes concaténées vs chaque sens pinyin → UN sens suffit.
       const got = normalizePinyin(inputs.join(' '));
       return got.length > 0 && senses.some((s) => normalizePinyin(s) === got);
     }
+    if (isLatin) {
+      // Terme latin : lettres concaténées vs lettres de chaque sens (ponctuation
+      // /espaces ignorés) → UN sens suffit.
+      const got = stripLetters(inputs.join(''));
+      return got.length > 0 && senses.some((s) => stripLetters(s) === got);
+    }
+    // Hanzi : champ unique, correspondance exacte.
     return senses.some((a) => a === inputs[0].trim().toLowerCase());
   }
 
@@ -186,7 +185,7 @@ export default function QuizPlayScreen({ config, onExit }) {
     if (locked) return;
     const w = words[idx];
     const ok = checkAnswer(w);
-    const answer = direction === 'zh→en' ? w.english : (type === 'pinyin' || type === 'reading') ? w.pinyin : w.chinese;
+    const answer = isPinyin ? w.pinyin : w.chinese;
     const bonus = 0; // saisie structurée (un mot par champ) → une seule réponse.
 
     if (ok) {
@@ -290,28 +289,28 @@ export default function QuizPlayScreen({ config, onExit }) {
 
   const w = words[idx];
   // Question unifiée : une consigne (muted) + le mot demandé sur sa propre ligne.
-  // zh→en → mot chinois (plus gros, glyphes) ; en→zh → mot anglais.
-  const isZhEn = direction === 'zh→en';
-  const isReading = type === 'reading' && !isZhEn; // caractères → pinyin
-  const promptLine = isZhEn
-    ? tr('qp_what_mean_en')
-    : isReading ? tr('qp_how_reading_line')
-    : type === 'pinyin' ? tr('qp_how_pinyin_line') : tr('qp_how_chinese_line');
-  // Reading : on montre les CARACTÈRES (comme zh→en), et la réponse est le pinyin.
-  const promptWord = (isZhEn || isReading) ? w.chinese : w.english;
-  const promptWordSize = (isZhEn || isReading) ? 40 : 30;
+  // Réponse = pinyin pour les modes `reading` ET `pinyin` ; ce qui les distingue
+  // est le MOT MONTRÉ : `reading` affiche le hanzi (lire un caractère → pinyin),
+  // `pinyin` affiche la traduction native (dire un sens → pinyin). Les modes
+  // `character` (traduction → hanzi) et non-zh (traduction → terme) montrent aussi
+  // la traduction. Donc seul `reading` montre le hanzi.
+  const isReading = isPinyin && type === 'reading';
+  const promptLine = isPinyin
+    ? (isReading ? tr('qp_how_reading_line') : tr('qp_how_pinyin_line'))
+    : isZh ? tr('qp_how_chinese_line') : tr('qp_how_word_line');
+  const promptWord = isReading ? w.chinese : w.english;
+  const promptWordSize = isReading ? 40 : 30;
 
   const fbColor = feedback?.kind === 'success' ? { bg: '#e8f5e9', fg: COLORS.success } : { bg: '#fff3cd', fg: '#856404' };
 
-  // Champs à jetons (un par mot/syllabe) : pinyin OU anglais. Les boîtes sont
-  // structurées sur le 1er sens ; n'importe quel sens (séparé par /) est accepté.
-  const isEn = direction === 'zh→en';
-  const tokenFields = isPinyin || isEn;
-  const senses = answerSenses(w, type, direction);
-  const primary = tokenFields ? firstSenseTokens(w, type, direction) : [];
+  // Champs à jetons (un par mot/syllabe) : pinyin (syllabes) OU terme latin (mots).
+  // Le hanzi (cours de chinois, type caractère) reste un champ unique.
+  const tokenFields = isPinyin || isLatin;
+  const senses = answerSenses(w, isPinyin);
+  const primary = tokenFields ? firstSenseTokens(w, isPinyin) : [];
   const multiHint = senses.length > 1;
-  const tokenTarget = (i) => (isEn ? stripLetters(primary[i] || '').length : normalizePinyin(primary[i] || '').length);
-  const typedLen = (tt) => (isEn ? stripLetters(tt).length : (tt || '').length);
+  const tokenTarget = (i) => (isLatin ? stripLetters(primary[i] || '').length : normalizePinyin(primary[i] || '').length);
+  const typedLen = (tt) => (isLatin ? stripLetters(tt).length : (tt || '').length);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
@@ -328,7 +327,7 @@ export default function QuizPlayScreen({ config, onExit }) {
               sinon petit bandeau texte (succès). */}
           {feedback && (
             feedback.kind === 'reveal'
-              ? <RevealAnswerCard word={feedback.word} direction={direction} />
+              ? <RevealAnswerCard word={feedback.word} learningLang={learningLang} />
               : (
                 <View style={{ backgroundColor: fbColor.bg, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16, alignItems: 'center' }}>
                   <Text style={{ color: fbColor.fg, fontWeight: '700' }}>{feedback.text}</Text>
@@ -360,7 +359,7 @@ export default function QuizPlayScreen({ config, onExit }) {
                       autoCorrect={false}
                       placeholder={`${target}`}
                       placeholderTextColor="#c4c4c4"
-                      style={[syllableStyle(second), isEn ? { minWidth: Math.max(64, target * 14 + 22) } : null]}
+                      style={[syllableStyle(second), isLatin ? { minWidth: Math.max(64, target * 14 + 22) } : null]}
                     />
                   );
                 })

@@ -15,6 +15,7 @@ import { getSettings, getCachedSettings, updateSettings, deleteAccount } from '.
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 import CatLoader from '../components/CatLoader';
+import { LANG_META, LEARNABLE } from '../langs';
 
 // Petit badge PREMIUM pour les fonctions verrouillées au plan gratuit.
 function PremiumPill() {
@@ -142,24 +143,30 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
 
           {/* ── Learning ── */}
           <SettingsGroup title={t('set_grp_learning')}>
-            <SettingsRow icon="swap-horizontal" label={t('set_direction')} sub={t('set_direction_sub')} column>
-              <SegmentedPicker
-                value={s.quiz_direction}
-                onChange={(v) => patch({ quiz_direction: v })}
-                options={[
-                  { value: 'en→zh', label: t('set_dir_learn_zh') },
-                  { value: 'zh→en', label: t('set_dir_learn_en') },
-                ]}
-              />
-            </SettingsRow>
+            {/* Langue de l'interface = langue de BASE (native). On la choisit EN
+                PREMIER : elle définit native_lang et filtre la langue apprise juste
+                en dessous. Si elle égale la langue apprise, on décale celle-ci. */}
             <SettingsRow icon="globe-outline" label={t('set_interface')} sub={t('set_interface_sub')} column>
               <SegmentedPicker
                 value={s.interface_lang}
-                onChange={(v) => { patch({ interface_lang: v }); setLang(v); }}
+                onChange={(v) => {
+                  const fields = { interface_lang: v, native_lang: v };
+                  if ((s.learning_lang || 'zh') === v) fields.learning_lang = LEARNABLE.find((c) => c !== v);
+                  patch(fields);
+                  setLang(v);
+                }}
                 options={[
                   { value: 'en', label: 'English' },
                   { value: 'zh', label: '中文' },
+                  { value: 'fr', label: 'Français' },
                 ]}
+              />
+            </SettingsRow>
+            <SettingsRow icon="school" label={t('ob_learn_lang_q')} sub={t('set_direction_sub')} column>
+              <SegmentedPicker
+                value={s.learning_lang || 'zh'}
+                onChange={(v) => patch({ learning_lang: v })}
+                options={LEARNABLE.filter((c) => c !== (s.native_lang || 'en')).map((c) => ({ value: c, label: LANG_META[c].endonym }))}
               />
             </SettingsRow>
             <SettingsRow icon="cloud-upload" iconColor="#0d6efd" iconBg="#e8f0ff" label={t('set_import')} sub={t('set_import_sub')} onPress={() => onOpen?.('import')} />

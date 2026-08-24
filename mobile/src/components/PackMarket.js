@@ -88,6 +88,8 @@ export default function PackMarket({
   columns = null,  // force le nombre de colonnes (sinon auto selon la largeur fenêtre)
   search = '',     // recherche texte (q)
   sort = 'featured', // tri : featured | recent | popular | price_asc | price_desc
+  learningLang = null, // langue apprise (override du profil, ex. onboarding)
+  baseLang = null,     // langue de base / native (override du profil)
 }) {
   const { t } = useT();
   const [me, setMe] = useState(null);
@@ -99,10 +101,10 @@ export default function PackMarket({
   const fetchPacks = useCallback(async () => {
     setError('');
     try {
-      const d = await getMarketPacks({ q: search, sort });
+      const d = await getMarketPacks({ q: search, sort, learning: learningLang || '', native: baseLang || '' });
       setPacks(d.packs || []);
     } catch (e) { setError(e.message); } finally { setLoading(false); }
-  }, [search, sort]);
+  }, [search, sort, learningLang, baseLang]);
 
   // Solde : une seule fois au montage.
   useEffect(() => {
@@ -166,8 +168,17 @@ export default function PackMarket({
               <CatLoader size={110} />
             ) : error ? (
               <Text style={{ textAlign: 'center', color: COLORS.danger }}>{error}</Text>
+            ) : (['zh', 'en'].includes(learningLang || me?.learning_lang || 'zh') && ['zh', 'en'].includes(baseLang || me?.native_lang || 'en')) ? (
+              <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 15, paddingHorizontal: 24 }}>{t('st_no_packs')}</Text>
             ) : (
-              <Text style={{ textAlign: 'center', color: COLORS.muted }}>{t('st_no_packs')}</Text>
+              // Les packs n'existent (traductions complètes) que pour la paire
+              // chinois-depuis-anglais. Toute autre combinaison → titre + sous-titre
+              // « bientôt » (le « aucun pack » reste pour zh/en + recherche vide).
+              <View style={{ alignItems: 'center', paddingHorizontal: 28, maxWidth: 420 }}>
+                <Text style={{ fontSize: 44, marginBottom: 14 }}>🚀</Text>
+                <Text style={{ textAlign: 'center', color: COLORS.ink, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>{t('st_packs_soon_title')}</Text>
+                <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 14, lineHeight: 20 }}>{t('st_packs_soon_sub')}</Text>
+              </View>
             )}
           </View>
         }

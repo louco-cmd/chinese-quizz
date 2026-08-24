@@ -68,7 +68,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
   useEffect(() => {
     if (!pack) return;
     let alive = true;
-    setLoading(true); setDetail(null); setError(''); setMsg(''); setConfirmForget(false);
+    setLoading(true); setDetail(null); setError(''); setMsg(''); setConfirmForget(false); setForgetting(false);
     getMarketPack(pack.id)
       .then((d) => { if (alive) setDetail(d); })
       .catch((e) => { if (alive) setError(e.message); })
@@ -116,6 +116,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
     try {
       const d = await forgetPack(pack.id);
       onForgotten?.(pack.id, d?.deleted || 0);
+      setForgetting(false);
       onClose?.();
     } catch (e) {
       setError(e.message || 'Could not remove the words.');

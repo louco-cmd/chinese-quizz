@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import PackMarket from '../components/PackMarket';
@@ -14,8 +14,12 @@ import { COLORS } from '../theme';
 export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack, onUpgrade, navOverlaps = true }) {
   const { t } = useT();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState('featured');
+  // Même largeur de colonne que la grille (PackMarket) → en-tête + FAB centrés
+  // sur le contenu au lieu de s'étirer à toute la fenêtre en desktop.
+  const contentMaxWidth = width >= 992 ? 980 : 720;
 
   // Écart du FAB « Sell a pack » : toujours 16px AU-DESSUS de la nav bar, quel
   // que soit le contexte. Étudiant : la nav (absolute) recouvre le contenu → on
@@ -35,8 +39,8 @@ export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack,
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      {/* ── Barre filtre + recherche ── */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 }}>
+      {/* ── Barre filtre + recherche (centrée sur la colonne de contenu) ── */}
+      <View style={{ width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 }}>
         {onBack ? (
           <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 }}>
             <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
@@ -98,21 +102,30 @@ export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack,
         extraBottomPad={72}
       />
 
-      {/* ── FAB "Sell a pack" sticky bas-droite ── */}
+      {/* ── FAB "Sell a pack" sticky : aligné sur le BORD DROIT de la colonne de
+          contenu (pas le bord de la fenêtre) via une bande centrée max-width. ── */}
       {onCreate ? (
-        <Pressable
-          onPress={onCreate}
-          style={{
-            // Même écart (16px) au-dessus de la nav partout (cf. fabBottom).
-            position: 'absolute', right: 18, bottom: fabBottom,
-            flexDirection: 'row', alignItems: 'center', gap: 6,
-            backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 14,
-            shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 12, elevation: 8,
-          }}
+        <View
+          pointerEvents="box-none"
+          style={{ position: 'absolute', left: 0, right: 0, bottom: fabBottom, alignItems: 'center' }}
         >
-          <Ionicons name="add" size={20} color="#fff" />
-          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>{t('st_sell_pack')}</Text>
-        </Pressable>
+          <View
+            pointerEvents="box-none"
+            style={{ width: '100%', maxWidth: contentMaxWidth, paddingHorizontal: 16, alignItems: 'flex-end' }}
+          >
+            <Pressable
+              onPress={onCreate}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 14,
+                shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 12, elevation: 8,
+              }}
+            >
+              <Ionicons name="add" size={20} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>{t('st_sell_pack')}</Text>
+            </Pressable>
+          </View>
+        </View>
       ) : null}
     </View>
   );

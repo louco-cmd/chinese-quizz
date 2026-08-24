@@ -9,6 +9,7 @@ import useAndroidBack from '../useAndroidBack';
 import { COLORS, SHADOW_CARD } from '../theme';
 import CatLoader from '../components/CatLoader';
 import RevealAnswerCard from '../components/RevealAnswerCard';
+import { isZhLearning } from '../langs';
 
 // Helpers identiques à quiz-play.ejs
 function normalizePinyin(str) {
@@ -25,23 +26,17 @@ function stripLetters(str) {
   return (str || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 }
 // Sens valides d'une réponse, séparés par / → UN SEUL suffit.
-function answerSenses(w, type, direction) {
-  if (direction === 'zh→en') return parseAnswers(w?.english);
-  // Pinyin : retire aussi le contenu entre parenthèses (glose), hors réponse.
-  if (type === 'pinyin') {
+function answerSenses(w, isPinyin) {
+  if (isPinyin) {
     return (w?.pinyin || '').replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '')
       .split('/').map((s) => s.trim().toLowerCase()).filter(Boolean);
   }
-  return parseAnswers(w?.chinese);
+  return parseAnswers(w?.chinese); // terme appris (hanzi ou mot latin)
 }
 // Jetons (un par mot/syllabe) du 1er sens → structure des boîtes.
-function firstSenseTokens(w, type, direction) {
-  // Écarte les jetons sans caractère comparable (ponctuation seule : « ! », « ? »…)
-  // → ils ne comptent pas dans la solution, donc pas de boîte vide.
-  const hasContent = (tok) => (type === 'pinyin' && direction !== 'zh→en'
-    ? normalizePinyin(tok).length > 0
-    : stripLetters(tok).length > 0);
-  return (answerSenses(w, type, direction)[0] || '').split(/\s+/).filter((t) => t && hasContent(t));
+function firstSenseTokens(w, isPinyin) {
+  const hasContent = (tok) => (isPinyin ? normalizePinyin(tok).length > 0 : stripLetters(tok).length > 0);
+  return (answerSenses(w, isPinyin)[0] || '').split(/\s+/).filter((t) => t && hasContent(t));
 }
 function shuffle(a) { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
 
@@ -49,7 +44,7 @@ function shuffle(a) { const b = [...a]; for (let i = b.length - 1; i > 0; i--) {
 // (le score courant est soumis comme score final — anti-triche, comme l'EJS).
 export default function DuelPlayScreen({ duelId, onExit }) {
   const { t: tr } = useT();
-  const [direction, setDirection] = useState('en→zh');
+  const [learningLang, setLearningLang] = useState('zh');
   const [duel, setDuel] = useState(null);
   const [words, setWords] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -72,19 +67,21 @@ export default function DuelPlayScreen({ duelId, onExit }) {
   useEffect(() => { correctRef.current = correctCount; }, [correctCount]);
 
   const type = duel?.quiz_type || 'pinyin';
-  const isPinyin = type === 'pinyin' && direction !== 'zh→en';
+  const isZh = isZhLearning(learningLang);
+  const isPinyin = isZh && type === 'pinyin';
+  const isLatin = !isZh; // terme appris latin → saisie par jetons de lettres
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
       const [me, d] = await Promise.all([getMe().catch(() => ({})), getDuel(duelId)]);
-      if (me.quiz_direction) setDirection(me.quiz_direction);
+      if (me.learning_lang) setLearningLang(me.learning_lang);
       setDuel(d);
       if (d.already_played) { setWords([]); return; } // déjà joué → écran d'attente
       const ws = shuffle(d.words || []);
       if (!ws.length) { setError(tr('dp_no_words')); return; }
       setWords(ws);
-      resetQuestion(ws[0], d.quiz_type, me.quiz_direction || direction);
+      resetQuestion(ws[0], d.quiz_type, me.learning_lang || learningLang);
     } catch (e) {
       setError(e.message || 'Could not load the duel.');
     } finally {
@@ -94,24 +91,26 @@ export default function DuelPlayScreen({ duelId, onExit }) {
 
   useEffect(() => { load(); }, [load]);
 
-  function resetQuestion(w, t = type, dir = direction) {
+  function resetQuestion(w, t = type, lp = learningLang) {
     setSecond(false); setFeedback(null); setLocked(false);
-    if (dir === 'zh→en' || t === 'pinyin') {
-      const toks = firstSenseTokens(w, t, dir);
+    const zh = isZhLearning(lp);
+    const pin = zh && t === 'pinyin';
+    if (pin || !zh) {
+      const toks = firstSenseTokens(w, pin);
       setInputs((toks.length ? toks : ['']).map(() => ''));
     } else setInputs(['']);
     setTimeout(() => firstRef.current?.focus?.(), 60);
   }
 
   function checkAnswer(w) {
-    const senses = answerSenses(w, type, direction);
-    if (direction === 'zh→en') {
-      const got = stripLetters(inputs.join(''));
-      return got.length > 0 && senses.some((s) => stripLetters(s) === got);
-    }
-    if (type === 'pinyin') {
+    const senses = answerSenses(w, isPinyin);
+    if (isPinyin) {
       const got = normalizePinyin(inputs.join(' '));
       return got.length > 0 && senses.some((s) => normalizePinyin(s) === got);
+    }
+    if (isLatin) {
+      const got = stripLetters(inputs.join(''));
+      return got.length > 0 && senses.some((s) => stripLetters(s) === got);
     }
     return senses.some((a) => a === inputs[0].trim().toLowerCase());
   }
@@ -137,7 +136,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
     if (locked) return;
     const w = words[idx];
     const ok = checkAnswer(w);
-    const answer = direction === 'zh→en' ? w.english : type === 'pinyin' ? w.pinyin : w.chinese;
+    const answer = isPinyin ? w.pinyin : w.chinese;
     const bonus = 0; // saisie structurée (un mot par champ) → une seule réponse.
     if (ok) {
       if (!second) setCorrectCount((c) => c + 1 + bonus);
@@ -243,22 +242,23 @@ export default function DuelPlayScreen({ duelId, onExit }) {
 
   const w = words[idx];
   // Question unifiée : consigne (muted) + mot demandé sur sa propre ligne.
-  const promptLine = direction === 'zh→en'
-    ? tr('qp_what_mean_en')
-    : type === 'pinyin' ? tr('qp_how_pinyin_line') : tr('qp_how_chinese_line');
-  const promptWord = direction === 'zh→en' ? w.chinese : w.english;
-  const promptWordSize = direction === 'zh→en' ? 40 : 30;
+  const promptLine = isPinyin
+    ? tr('qp_how_pinyin_line')
+    : isZh ? tr('qp_how_chinese_line') : tr('qp_how_word_line');
+  // Duel pinyin (zh) : on montre la TRADUCTION (langue de base) et on saisit le
+  // pinyin — comme le mode pinyin du quiz (jamais le hanzi). Non-zh : traduction
+  // → terme appris. Dans les deux cas on affiche donc la traduction (w.english).
+  const promptWord = w.english;
+  const promptWordSize = 30;
   const fb = feedback?.kind === 'success' ? { bg: '#e8f5e9', fg: COLORS.success } : { bg: '#fff3cd', fg: '#856404' };
 
-  // Champs à jetons (un par mot/syllabe) : pinyin OU anglais. Boîtes structurées
-  // sur le 1er sens ; n'importe quel sens (séparé par /) est accepté.
-  const isEn = direction === 'zh→en';
-  const tokenFields = isPinyin || isEn;
-  const senses = answerSenses(w, type, direction);
-  const primary = tokenFields ? firstSenseTokens(w, type, direction) : [];
+  // Champs à jetons : pinyin (syllabes) OU terme latin (mots). Hanzi = champ unique.
+  const tokenFields = isPinyin || isLatin;
+  const senses = answerSenses(w, isPinyin);
+  const primary = tokenFields ? firstSenseTokens(w, isPinyin) : [];
   const multiHint = senses.length > 1;
-  const tokenTarget = (i) => (isEn ? stripLetters(primary[i] || '').length : normalizePinyin(primary[i] || '').length);
-  const typedLen = (tt) => (isEn ? stripLetters(tt).length : (tt || '').length);
+  const tokenTarget = (i) => (isLatin ? stripLetters(primary[i] || '').length : normalizePinyin(primary[i] || '').length);
+  const typedLen = (tt) => (isLatin ? stripLetters(tt).length : (tt || '').length);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
@@ -272,7 +272,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
 
           {feedback && (
             feedback.kind === 'reveal'
-              ? <RevealAnswerCard word={feedback.word} direction={direction} />
+              ? <RevealAnswerCard word={feedback.word} learningLang={learningLang} />
               : (
                 <View style={{ backgroundColor: fb.bg, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16, alignItems: 'center' }}>
                   <Text style={{ color: fb.fg, fontWeight: '700' }}>{feedback.text}</Text>
@@ -299,7 +299,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
                       }}
                       onSubmitEditing={submit} editable={!locked} autoCapitalize="none" autoCorrect={false}
                       placeholder={`${target}`} placeholderTextColor="#c4c4c4"
-                      style={[syllableStyle(second), isEn ? { minWidth: Math.max(64, target * 14 + 22) } : null]}
+                      style={[syllableStyle(second), isLatin ? { minWidth: Math.max(64, target * 14 + 22) } : null]}
                     />
                   );
                 })

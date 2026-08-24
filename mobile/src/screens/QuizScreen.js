@@ -81,7 +81,9 @@ export default function QuizScreen({ onOpenStore, initialPack, onInitialConsumed
     );
   }
 
-  const learningEnglish = stats?.direction === 'zh→en';
+  // Cours de chinois → modes pinyin/caractère dispo ; sinon quiz de mot simple.
+  const isZh = (stats?.learning_lang || 'zh') === 'zh';
+  const learningEnglish = !isZh;
 
   const statsCard = (
     <DuelSectionCard icon="stats-chart" title={t('quiz_mystats')}>

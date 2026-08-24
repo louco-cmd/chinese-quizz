@@ -11,7 +11,9 @@ import { COLORS, SHADOW_CARD_FLAT, TAB_CLEARANCE } from '../theme';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
 import { getCollection, updateWord, deleteWord, bulkDeleteWords, notifyUpgrade, getCharacter, getMe, getPurchasedPacks, getMyPacks, getPinyin } from '../api';
+import { langMeta } from '../langs';
 import CatLoader from '../components/CatLoader';
+import { ttsFor } from '../langs';
 
 // Sélection de la meilleure voix par langue (qualité "Enhanced" en priorité).
 // Gratuit : utilise les voix du moteur TTS du système (Google TTS sur Android,
@@ -116,6 +118,8 @@ export default function CollectionScreen({ onNavigate }) {
   const [menuOpen, setMenuOpen] = useState(false);
   // Multi-sélection (vue liste, PREMIUM) : suppression en masse.
   const [isPremium, setIsPremium] = useState(false);
+  const [learningLang, setLearningLang] = useState('zh'); // langue apprise (masque HSK/pinyin hors zh)
+  const [nativeLang, setNativeLang] = useState('en'); // langue de la traduction (labels)
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState([]); // ids sélectionnés
   const [confirmBulk, setConfirmBulk] = useState(false);
@@ -126,7 +130,6 @@ export default function CollectionScreen({ onNavigate }) {
   const [descLines, setDescLines] = useState(1);
   const [charInfo, setCharInfo] = useState(null); // { char, loading, data }
   const [busy, setBusy] = useState(false);
-  const [direction, setDirection] = useState('en→zh'); // sens d'apprentissage
   const [speakingKey, setSpeakingKey] = useState(null); // bouton audio en cours ('card'|'char')
 
   // Lance la lecture vocale avec loader : `key` identifie le bouton qui montre le
@@ -328,7 +331,7 @@ export default function CollectionScreen({ onNavigate }) {
 
   // Sens d'apprentissage : zh→en → on inverse l'affichage de la carte.
   useEffect(() => {
-    getMe().then((u) => { if (u?.quiz_direction) setDirection(u.quiz_direction); setIsPremium(!!u?.isPremium); }).catch(() => {});
+    getMe().then((u) => { setIsPremium(!!u?.isPremium); if (u?.learning_lang) setLearningLang(u.learning_lang); if (u?.native_lang) setNativeLang(u.native_lang); }).catch(() => {});
   }, []);
 
   // Bascule carte ↔ liste avec fondu (disparition puis apparition)
@@ -431,19 +434,22 @@ export default function CollectionScreen({ onNavigate }) {
         pinyin: ef.pinyin.trim(),
         english: ef.englishList.map((s) => s.trim()).filter(Boolean).join(' / '),
         description: ef.description,
+        meaning_id: editing.meaning_id, // édite CE sens précis
       };
       const { word } = await updateWord(editing.id, payload);
-      setWords((ws) => ws.map((x) => (x.id === editing.id ? { ...x, ...word } : x)));
+      // Un id peut avoir plusieurs sens en collection → on cible (id, meaning_id).
+      setWords((ws) => ws.map((x) => (x.id === editing.id && x.meaning_id === editing.meaning_id ? { ...x, ...word } : x)));
       setEditing(null);
     } catch { /* garde la popup */ } finally { setBusy(false); }
   }
   async function doDelete() {
     if (!confirmDel) return;
     const id = confirmDel.id;
+    const mid = confirmDel.meaning_id;
     setBusy(true);
     try {
-      await deleteWord(id);
-      setWords((ws) => ws.filter((x) => x.id !== id));
+      await deleteWord(id, mid);
+      setWords((ws) => ws.filter((x) => !(x.id === id && x.meaning_id === mid)));
       setIdx((i) => { const nl = Math.max(words.length - 1, 1); return i >= nl ? nl - 1 : i; });
       setConfirmDel(null);
     } catch { /* garde la popup */ } finally { setBusy(false); }
@@ -577,7 +583,7 @@ export default function CollectionScreen({ onNavigate }) {
         {filterPopup}
         <FlatList
           data={filtered}
-          keyExtractor={(x) => String(x.id)}
+          keyExtractor={(x) => `${x.id}:${x.meaning_id}`}
           // marge basse : FAB filtre / TabBar / barre de suppression ne masquent
           // pas les dernières lignes.
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: TAB_CLEARANCE + (selectMode ? 96 : 80) }}
@@ -593,9 +599,20 @@ export default function CollectionScreen({ onNavigate }) {
                 {selectMode ? (
                   <Ionicons name={sel ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={sel ? COLORS.jiayou : COLORS.mutedLight} style={{ marginRight: 10 }} />
                 ) : null}
-                <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e', width: 80 }}>{item.chinese}</Text>
-                <Text style={{ color: COLORS.muted, flex: 1 }} numberOfLines={1}>{item.pinyin}</Text>
-                <Text style={{ color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{cap(item.english)}</Text>
+                {learningLang === 'zh' ? (
+                  <>
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e', width: 80 }}>{item.chinese}</Text>
+                    <Text style={{ color: COLORS.muted, flex: 1 }} numberOfLines={1}>{item.pinyin}</Text>
+                    <Text style={{ color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{cap(item.english)}</Text>
+                  </>
+                ) : (
+                  // Pas de pinyin hors chinois → le mot appris récupère toute la
+                  // colonne de gauche (plus de crop « sauciss/e »).
+                  <>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e', flex: 1.4, marginRight: 12 }} numberOfLines={1}>{item.chinese}</Text>
+                    <Text style={{ color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{cap(item.english)}</Text>
+                  </>
+                )}
               </Pressable>
             );
           }}
@@ -658,7 +675,9 @@ export default function CollectionScreen({ onNavigate }) {
   // ── Vue CARTE ──
   const chars = Array.from(w.chinese || '');
   const isSingle = chars.length === 1;
-  const learningEnglish = direction === 'zh→en';
+  // Le terme appris est toujours w.chinese ; sa traduction native est w.english.
+  // isZh pilote hanzi+pinyin+HSK+tap-caractère ; sinon on affiche un mot latin.
+  const isZh = learningLang === 'zh';
 
   // Encadré du "mot à apprendre" : hauteur FIXE, identique sur toutes les cartes.
   const glyphBoxH = Math.round(cardH * 0.34);
@@ -689,7 +708,7 @@ export default function CollectionScreen({ onNavigate }) {
     </View>
   );
 
-  const descriptionText = learningEnglish ? (w.description_zh || w.description) : w.description;
+  const descriptionText = w.description;
 
   return (
     <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 16, opacity: screenFade, transform: [{ scale: screenScale }] }}>
@@ -703,20 +722,19 @@ export default function CollectionScreen({ onNavigate }) {
           {/* haut : picto score + HSK */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Text style={{ fontSize: 22 }}>{scorePicto(w.score || 0)}</Text>
-            <View style={{ borderWidth: 1, borderColor: COLORS.line, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-              <Text style={{ fontSize: 11, color: COLORS.muted, fontWeight: '600' }}>HSK : {w.hsk || tr('qz_street')}</Text>
-            </View>
+            {/* Badge HSK : spécifique au chinois → masqué pour les autres langues apprises. */}
+            {learningLang === 'zh' ? (
+              <View style={{ borderWidth: 1, borderColor: COLORS.line, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                <Text style={{ fontSize: 11, color: COLORS.muted, fontWeight: '600' }}>HSK : {w.hsk || tr('qz_street')}</Text>
+              </View>
+            ) : null}
           </View>
 
           {/* Encadré "mot à apprendre" — hauteur FIXE, wrap, police adaptative.
-              en→zh : chinois en haut. zh→en : anglais en haut. */}
+              Toujours le terme appris (w.chinese) : hanzi+pinyin si chinois, sinon
+              mot dans la langue apprise. */}
           <View style={{ height: glyphBoxH, borderWidth: 1, borderColor: COLORS.lineSoft, borderRadius: 16, paddingHorizontal: 10, marginTop: 12, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-            {learningEnglish ? (
-              <Text style={{ fontSize: enSize, fontWeight: '800', color: COLORS.jiayou, textAlign: 'center' }}>
-                {w.english ? cap(w.english) : tr('co_no_translation')}
-              </Text>
-            ) : (
-              // Chinois + pinyin ensemble dans l'encart du haut.
+            {isZh ? (
               <View style={{ alignItems: 'center' }}>
                 {renderGlyphs(zhSize, true)}
                 {w.pinyin ? (
@@ -725,24 +743,18 @@ export default function CollectionScreen({ onNavigate }) {
                   </Text>
                 ) : null}
               </View>
+            ) : (
+              <Text style={{ fontSize: enSize, fontWeight: '800', color: '#1a1a2e', textAlign: 'center' }}>
+                {w.chinese}
+              </Text>
             )}
           </View>
 
-          {/* Réponse (masquable), rapprochée de l'encart. en→zh : anglais. zh→en : chinois + pinyin. */}
+          {/* Réponse (masquable) = la traduction native (w.english) + description.
+              Identique quelle que soit la langue apprise. */}
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 6, paddingTop: 16 }}>
             {hideTranslation ? (
               <Text style={{ color: COLORS.mutedLight, fontStyle: 'italic' }}>{tr('co_translation_hidden')}</Text>
-            ) : learningEnglish ? (
-              <>
-                {renderGlyphs(Math.min(zhSize, 40), true)}
-                <Text style={{ fontSize: 20, fontWeight: '700', color: COLORS.muted, marginTop: 6 }}>{w.pinyin}</Text>
-                <Text
-                  onTextLayout={(e) => setDescLines(e.nativeEvent.lines.length)}
-                  style={{ fontSize: 12.5, color: descriptionText ? COLORS.mutedLight : '#d3d7de', fontStyle: 'italic', alignSelf: 'stretch', textAlign: descLines > 2 ? 'left' : 'center', marginTop: 8 }}
-                >
-                  {descriptionText || tr('co_no_description')}
-                </Text>
-              </>
             ) : (
               <>
                 <Text
@@ -764,9 +776,7 @@ export default function CollectionScreen({ onNavigate }) {
           {/* contrôles ronds : écoute · masquer la traduction · réglages */}
           <View style={{ position: 'absolute', bottom: 14, left: 16, right: 16, flexDirection: 'row', justifyContent: 'space-between' }}>
             <Pressable
-              onPress={() => (learningEnglish
-                ? play(w.english, 'en-US', 'card')
-                : play(w.chinese, 'zh-CN', 'card'))}
+              onPress={() => play(w.chinese, ttsFor(learningLang), 'card')}
               style={circleBtn}
             >
               {speakingKey === 'card'
@@ -850,8 +860,8 @@ export default function CollectionScreen({ onNavigate }) {
       <Popup visible={!!editing} onClose={() => setEditing(null)} maxWidth={440}>
         <Text style={{ fontSize: 18, fontWeight: '700', color: '#1d1d1f', marginBottom: 16 }}>{tr('co_edit_word')}</Text>
 
-        {/* Chinois : traductions multiples, disposées sur 2 colonnes × N lignes. */}
-        <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{tr('co_chinese')}</Text>
+        {/* Terme appris : label selon la langue apprise (Chinese/English/French…). */}
+        <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{learningLang === 'zh' ? tr('co_chinese') : langMeta(learningLang).label}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
           {ef.chineseList.map((val, i) => (
             <View key={i} style={{ width: '47.5%', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -859,7 +869,7 @@ export default function CollectionScreen({ onNavigate }) {
                 value={val}
                 onChangeText={(t) => setChineseAt(i, t)}
                 autoCapitalize="none"
-                placeholder="汉字…"
+                placeholder={learningLang === 'zh' ? '汉字…' : `${langMeta(learningLang).label}…`}
                 placeholderTextColor={COLORS.mutedLight}
                 style={{ flex: 1, minWidth: 0, borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 }}
               />
@@ -876,19 +886,23 @@ export default function CollectionScreen({ onNavigate }) {
           <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }}>{tr('co_add_translation')}</Text>
         </Pressable>
 
-        {/* Pinyin : auto-généré par entrée chinoise (joint par ' / '), éditable. */}
-        <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{tr('co_pinyin')}</Text>
-        <TextInput
-          value={ef.pinyin}
-          onChangeText={(t) => { pinyinTouched.current = true; setEf((s) => ({ ...s, pinyin: t })); }}
-          autoCapitalize="none"
-          placeholder={tr('co_pinyin')}
-          placeholderTextColor={COLORS.mutedLight}
-          style={{ borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, marginBottom: 12 }}
-        />
+        {/* Pinyin : uniquement pour un cours de chinois. */}
+        {learningLang === 'zh' ? (
+          <>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{tr('co_pinyin')}</Text>
+            <TextInput
+              value={ef.pinyin}
+              onChangeText={(t) => { pinyinTouched.current = true; setEf((s) => ({ ...s, pinyin: t })); }}
+              autoCapitalize="none"
+              placeholder={tr('co_pinyin')}
+              placeholderTextColor={COLORS.mutedLight}
+              style={{ borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 16, marginBottom: 12 }}
+            />
+          </>
+        ) : null}
 
-        {/* English : sens multiples (stockés séparés par '/' en base). */}
-        <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{tr('co_english')}</Text>
+        {/* Traduction : label selon la langue de base (native). */}
+        <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.muted, marginBottom: 4 }}>{nativeLang === 'en' ? tr('co_english') : langMeta(nativeLang).label}</Text>
         {ef.englishList.map((val, i) => (
           <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <TextInput

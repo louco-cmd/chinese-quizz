@@ -46,7 +46,7 @@ export default function DifficultWords({ onQuickQuiz }) {
   const { t } = useT();
   const { width } = useWindowDimensions();
   const [words, setWords] = useState(null);
-  const [direction, setDirection] = useState('en→zh');
+  const [learningLang, setLearningLang] = useState('zh');
   const [showPinyin, setShowPinyin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -55,12 +55,13 @@ export default function DifficultWords({ onQuickQuiz }) {
     Promise.all([getDifficultWords(), getMe().catch(() => ({}))]).then(([d, me]) => {
       if (!alive) return;
       setWords(d.words || []);
-      if (me.quiz_direction) setDirection(me.quiz_direction);
+      if (me.learning_lang) setLearningLang(me.learning_lang);
     }).catch(() => setWords([])).finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, []);
 
-  const learningChinese = direction !== 'zh→en';
+  // Terme appris = toujours w.chinese ; traduction = w.english. Pinyin si chinois.
+  const learningChinese = learningLang === 'zh';
   // Colonnes selon la largeur ; largeur en % (robuste quelle que soit la marge parent).
   const cols = width >= 900 ? 4 : width >= 560 ? 3 : 2;
   const cardWidth = cols === 4 ? '23.5%' : cols === 3 ? '31.5%' : '48%';
@@ -91,9 +92,9 @@ export default function DifficultWords({ onQuickQuiz }) {
               <FlipCard
                 key={w.id}
                 width={cardWidth}
-                front={learningChinese ? w.chinese : w.english}
+                front={w.chinese}
                 sub={learningChinese && showPinyin ? w.pinyin : null}
-                back={learningChinese ? w.english : w.chinese}
+                back={w.english}
               />
             ))}
           </View>

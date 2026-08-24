@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
 import { COLORS } from '../theme';
 import { searchWords, captureWord, createWord, getPinyin, getTranslation, getMe } from '../api';
+import { langMeta, isZhLearning } from '../langs';
 
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 const BAR_H = 62; // hauteur de la barre = diamètre du bouton rond
@@ -44,9 +45,19 @@ export default function AddWordScreen({ onBalanceChanged }) {
   const [captured, setCaptured] = useState({}); // id -> true | 'loading'
   const [error, setError] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
-  // Langue apprise : zh→en = on apprend l'anglais → l'anglais devient le mot principal.
-  const [learningEnglish, setLearningEnglish] = useState(false);
-  useEffect(() => { getMe().then((me) => setLearningEnglish(me?.quiz_direction === 'zh→en')).catch(() => {}); }, []);
+  // Langues du cours : le terme appris est toujours `word.chinese`, la traduction
+  // toujours `word.english`. On ne dépend plus du binaire quiz_direction.
+  const [learningLang, setLearningLang] = useState('zh');
+  const [nativeLang, setNativeLang] = useState('en');
+  useEffect(() => {
+    getMe().then((me) => {
+      if (me?.learning_lang) setLearningLang(me.learning_lang);
+      if (me?.native_lang) setNativeLang(me.native_lang);
+    }).catch(() => {});
+  }, []);
+  const isZh = isZhLearning(learningLang);
+  const learnMeta = langMeta(learningLang);
+  const natMeta = langMeta(nativeLang);
   // Overlay de succès de capture (check vert qui pop) avant fermeture + reset.
   const [showSuccess, setShowSuccess] = useState(false);
   const successAnim = useRef(new Animated.Value(0)).current;
@@ -71,7 +82,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
   useEffect(() => {
     const cn = (editor?.chinese || '').trim();
     clearTimeout(pinyinTimer.current);
-    if (!editor || pinyinTouched.current || !isChinese(cn)) return;
+    if (!editor || !isZh || pinyinTouched.current || !isChinese(cn)) return;
     pinyinTimer.current = setTimeout(async () => {
       try {
         const d = await getPinyin(cn);
@@ -88,7 +99,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
   useEffect(() => {
     const cn = (editor?.chinese || '').trim();
     clearTimeout(translateTimer.current);
-    if (!editor || !isChinese(cn)) { setSuggested([]); return undefined; }
+    if (!editor || !isZh || !isChinese(cn)) { setSuggested([]); return undefined; }
     translateTimer.current = setTimeout(async () => {
       try {
         const d = await getTranslation(cn);
@@ -166,16 +177,17 @@ export default function AddWordScreen({ onBalanceChanged }) {
     }
   }
 
-  async function capture(id) {
+  async function capture(id, meaningId) {
+    const key = `${id}:${meaningId}`;
     setError('');
-    setCaptured((c) => ({ ...c, [id]: 'loading' }));
+    setCaptured((c) => ({ ...c, [key]: 'loading' }));
     try {
-      await captureWord(id);
-      setCaptured((c) => ({ ...c, [id]: true }));
+      await captureWord(id, meaningId);
+      setCaptured((c) => ({ ...c, [key]: true }));
       onBalanceChanged?.(); // capturer coûte 3 coins → rafraîchir le solde du header
       runCaptureSuccess();
     } catch (e) {
-      setCaptured((c) => ({ ...c, [id]: false }));
+      setCaptured((c) => ({ ...c, [key]: false }));
       // Solde insuffisant : la popup « gagner des pièces » est déjà déclenchée par
       // api.js → on ferme la popup résultats pour qu'elle s'affiche proprement
       // (un seul modal à la fois, sinon iOS n'affiche pas la 2e).
@@ -204,16 +216,26 @@ export default function AddWordScreen({ onBalanceChanged }) {
   // Depuis la carte "Create" : préremplit selon que le terme est chinois ou non.
   function openCreate() {
     setEditorError('');
-    pinyinTouched.current = false; // pinyin auto-généré depuis le chinois
-    setEditor(
-      isChinese(term)
-        ? { chinese: term, pinyin: '', englishList: [''], description: '' }
-        : { chinese: '', pinyin: '', englishList: [term], description: '' }
-    );
+    pinyinTouched.current = false; // pinyin auto-généré depuis le chinois (zh)
+    if (isZh) {
+      // Chinois : le terme cherché peut être du hanzi (→ slot terme) ou un sens
+      // anglais (→ slot traduction, l'utilisateur saisira le hanzi).
+      setEditor(
+        isChinese(term)
+          ? { chinese: term, pinyin: '', englishList: [''], description: '' }
+          : { chinese: '', pinyin: '', englishList: [term], description: '' }
+      );
+    } else {
+      // Autre langue apprise (en/fr) : les deux champs sont latins → on ne peut
+      // pas deviner si le terme cherché est le mot APPRIS ou sa TRADUCTION (on
+      // cherche dans les deux langues). On laisse les champs vides et on propose
+      // le terme en gélule sous CHAQUE champ (cf. WordEditor) → le user choisit.
+      setEditor({ chinese: '', pinyin: '', englishList: [''], description: '', term });
+    }
   }
-  // Depuis une carte trouvée : "éditer avant de capturer". `personalize` → on
-  // sauvegarde une entrée PERSONNALISÉE (forceNew) au lieu de réutiliser le mot
-  // du dico, sinon les modifs seraient ignorées.
+  // Depuis une carte trouvée : "éditer avant de capturer". Le backend réutilise
+  // le lexème du dico (par terme) et ENRICHIT son concept avec la glose saisie
+  // (ils rejoint le concept de they), au lieu de créer une ligne orpheline.
   function openEdit(w) {
     setEditorError('');
     pinyinTouched.current = !!(w.pinyin || '').trim(); // garde le pinyin existant
@@ -249,13 +271,13 @@ export default function AddWordScreen({ onBalanceChanged }) {
     const english = editor.englishList.map((s) => s.trim()).filter(Boolean).join(' / ');
     const pinyin = (editor.pinyin || '').trim();
     const description = (editor.description || '').trim();
-    if (!chinese) return setEditorError('Chinese characters are required.');
-    if (!english) return setEditorError('At least one English translation is required.');
+    if (!chinese) return setEditorError(`${learnMeta.label} word is required.`);
+    if (!english) return setEditorError(`At least one ${natMeta.label} translation is required.`);
 
     setSaving(true);
     setEditorError('');
     try {
-      const d = await createWord({ chinese, pinyin, english, description, forceNew: !!editor.personalize });
+      const d = await createWord({ chinese, pinyin, english, description });
       if (d.word) setCaptured((c) => ({ ...c, [d.word.id]: true }));
       onBalanceChanged?.(); // création coûte 3 coins → rafraîchir le solde
       setEditor(null);
@@ -315,7 +337,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
                 onChangeText={setQ}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
-                placeholder={screenW < 420 ? 'Search a word…' : 'Chinese, pinyin or English…'}
+                placeholder={screenW < 420 ? 'Search a word…' : (isZh ? 'Chinese, pinyin or English…' : `${learnMeta.label} or ${natMeta.label}…`)}
                 placeholderTextColor="#adb5bd"
                 autoCapitalize="none" autoCorrect={false} returnKeyType="search" onSubmitEditing={run}
                 style={{
@@ -340,7 +362,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
                 onChangeText={setQ}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
-                placeholder={screenW < 420 ? 'Search a word…' : 'Chinese, pinyin or English…'}
+                placeholder={screenW < 420 ? 'Search a word…' : (isZh ? 'Chinese, pinyin or English…' : `${learnMeta.label} or ${natMeta.label}…`)}
                 placeholderTextColor="#adb5bd"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -398,6 +420,9 @@ export default function AddWordScreen({ onBalanceChanged }) {
             editor={editor}
             saving={saving}
             editorError={editorError}
+            isZh={isZh}
+            termLabel={learnMeta.label}
+            transLabel={natMeta.label}
             onClose={() => setEditor(null)}
             setField={setField}
             setEnglishAt={setEnglishAt}
@@ -441,23 +466,25 @@ export default function AddWordScreen({ onBalanceChanged }) {
             contentContainerStyle={{ paddingHorizontal: sidePad, paddingVertical: 18, gap: CARD_GAP }}
           >
             {results.map((w, i) => {
-              const owned = w.owned || captured[w.id] === true;
-              const st = captured[w.id];
+              // Une carte = un SENS (w.id × w.meaning_id) → clé par sens.
+              const key = `${w.id}:${w.meaning_id}`;
+              const owned = w.owned || captured[key] === true;
+              const st = captured[key];
               // Ancrage : la carte centrée est nette et grande, les voisines rétrécies
               const inputRange = [(i - 1) * ITEM_W, i * ITEM_W, (i + 1) * ITEM_W];
               const scale = scrollX.interpolate({ inputRange, outputRange: [0.9, 1, 0.9], extrapolate: 'clamp' });
               const opacity = scrollX.interpolate({ inputRange, outputRange: [0.55, 1, 0.55], extrapolate: 'clamp' });
               return (
-                <Animated.View key={w.id} style={{ transform: [{ scale }], opacity }}>
+                <Animated.View key={key} style={{ transform: [{ scale }], opacity }}>
                   <BoosterCard
                     w={w}
                     exact={isExact(w, term)}
                     owned={owned}
                     capturing={st === 'loading'}
-                    onCapture={() => capture(w.id)}
+                    onCapture={() => capture(w.id, w.meaning_id)}
                     onEdit={() => openEdit(w)}
                     shine={i === activeIndex ? shine : null}
-                    learningEnglish={learningEnglish}
+                    isZh={isZh}
                   />
                 </Animated.View>
               );
@@ -524,7 +551,14 @@ export default function AddWordScreen({ onBalanceChanged }) {
 // Éditeur "New word" — rendu DANS la popup résultats (pas un Modal séparé, pour
 // éviter le crash iOS des modals empilés). Scrollable : le formulaire peut
 // dépasser la hauteur d'écran avec le clavier ouvert sur iPhone.
-function WordEditor({ editor, saving, editorError, onClose, setField, setEnglishAt, addEnglish, removeEnglish, suggestions = [], onAddSuggestion, onPinyinEdit, onSave }) {
+function WordEditor({ editor, saving, editorError, isZh = true, termLabel = 'Chinese', transLabel = 'English', onClose, setField, setEnglishAt, addEnglish, removeEnglish, suggestions = [], onAddSuggestion, onPinyinEdit, onSave }) {
+  // Terme cherché non trouvé (en/fr) : on ne sait pas dans quelle langue il a été
+  // saisi → on le propose en gélule sous CHAQUE champ tant qu'aucun n'est rempli.
+  // Cliquer une gélule place le terme dans ce champ ; les deux disparaissent alors.
+  const termRaw = (editor.term || '').trim();
+  const termFieldEmpty = !(editor.chinese || '').trim();
+  const transEmpty = !(editor.englishList || []).some((s) => (s || '').trim());
+  const showTermPills = !isZh && !!termRaw && termFieldEmpty && transEmpty;
   return (
     <ScrollView
       style={{ maxHeight: 520 }}
@@ -542,22 +576,31 @@ function WordEditor({ editor, saving, editorError, onClose, setField, setEnglish
         </Pressable>
       </View>
 
-      <FieldLabel>Chinese characters</FieldLabel>
-      <ModalInput value={editor.chinese} onChangeText={(v) => setField('chinese', v)} placeholder="汉字…" />
+      <FieldLabel>{isZh ? 'Chinese characters' : `${termLabel} word`}</FieldLabel>
+      <ModalInput value={editor.chinese} onChangeText={(v) => setField('chinese', v)} placeholder={isZh ? '汉字…' : `${termLabel} word…`} />
+      {showTermPills ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: -8, marginBottom: 16 }}>
+          <AddTermPill label={termRaw} onPress={() => setField('chinese', termRaw)} />
+        </View>
+      ) : null}
 
-      <FieldLabel>Pinyin</FieldLabel>
-      <ModalInput
-        value={editor.pinyin}
-        onChangeText={onPinyinEdit}
-        placeholder="Auto-generated…"
-        autoCapitalize="none"
-      />
+      {isZh ? (
+        <>
+          <FieldLabel>Pinyin</FieldLabel>
+          <ModalInput
+            value={editor.pinyin}
+            onChangeText={onPinyinEdit}
+            placeholder="Auto-generated…"
+            autoCapitalize="none"
+          />
+        </>
+      ) : null}
 
-      <FieldLabel>English</FieldLabel>
+      <FieldLabel>{transLabel}</FieldLabel>
       {editor.englishList.map((val, i) => (
         <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <View style={{ flex: 1 }}>
-            <ModalInput value={val} onChangeText={(v) => setEnglishAt(i, v)} placeholder="English translation…" noMargin />
+            <ModalInput value={val} onChangeText={(v) => setEnglishAt(i, v)} placeholder={`${transLabel} translation…`} noMargin />
           </View>
           {editor.englishList.length > 1 && (
             <Pressable onPress={() => removeEnglish(i)} hitSlop={8}>
@@ -566,6 +609,13 @@ function WordEditor({ editor, saving, editorError, onClose, setField, setEnglish
           )}
         </View>
       ))}
+      {/* Terme cherché proposé aussi comme TRADUCTION (en/fr) : le user décide si
+          « X » est le mot appris ou sa traduction. */}
+      {showTermPills ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+          <AddTermPill label={termRaw} onPress={() => setEnglishAt(0, termRaw)} />
+        </View>
+      ) : null}
       {/* Suggestions de traduction en gélules cliquables (chinois→anglais). Tant
           qu'il en reste, elles remplacent le bouton « Add another translation » ;
           une fois toutes ajoutées, le bouton réapparaît. */}
@@ -623,6 +673,20 @@ function WordEditor({ editor, saving, editorError, onClose, setField, setEnglish
   );
 }
 
+// Gélule « ＋ terme » proposée sous un champ quand le mot cherché n'est pas trouvé
+// (même style que les suggestions de traduction) : le user place le terme ici.
+function AddTermPill({ label, onPress }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: COLORS.jiayou, backgroundColor: '#eef4ff', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, maxWidth: '100%' }}
+    >
+      <Ionicons name="add" size={13} color={COLORS.jiayou} />
+      <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 13 }} numberOfLines={1}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function FieldLabel({ children }) {
   return (
     <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
@@ -648,7 +712,7 @@ function ModalInput({ noMargin, multiline, ...props }) {
   );
 }
 
-function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine, learningEnglish }) {
+function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine, isZh = true }) {
   // Reflet : bande de lumière diagonale qui traverse la carte quand elle se cale.
   const shineTx = shine
     ? shine.interpolate({ inputRange: [0, 1], outputRange: [-90, CARD_W + 90] })
@@ -658,7 +722,8 @@ function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine, lea
     : null;
 
   // Mot principal = langue apprise. Anglais appris → anglais en bleu ; sinon chinois.
-  const primary = learningEnglish ? w.english : w.chinese;
+  // Le terme APPRIS est toujours w.chinese ; w.english est sa traduction native.
+  const primary = w.chinese;
 
   return (
     // Wrapper : porte l'ombre (pas d'overflow, sinon l'ombre iOS serait rognée).
@@ -681,23 +746,20 @@ function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine, lea
         {/* L'anglais est bien plus long que les caractères → plus petit, sur
             plusieurs lignes, et rétréci pour tenir dans la carte étroite. */}
         <Text
-          numberOfLines={learningEnglish ? 3 : 1}
+          numberOfLines={isZh ? 1 : 3}
           adjustsFontSizeToFit
           minimumFontScale={0.5}
-          style={{ fontSize: learningEnglish ? 26 : 40, fontWeight: '800', color: COLORS.jiayou, textAlign: 'center' }}
+          style={{ fontSize: isZh ? 40 : 26, fontWeight: '800', color: COLORS.jiayou, textAlign: 'center' }}
         >
           {primary}
         </Text>
-        {learningEnglish ? (
-          <>
-            <Text style={{ color: '#1a1a2e', fontWeight: '700', fontSize: 20, marginTop: 8, textAlign: 'center' }}>{w.chinese}</Text>
-            <Text style={{ color: '#6c757d', fontSize: 15, marginTop: 4 }}>{w.pinyin}</Text>
-          </>
-        ) : (
+        {isZh ? (
           <>
             <Text style={{ color: '#6c757d', fontSize: 16, marginTop: 8 }}>{w.pinyin}</Text>
             <Text style={{ color: '#1a1a2e', fontWeight: '600', marginTop: 4, textAlign: 'center' }}>{w.english}</Text>
           </>
+        ) : (
+          <Text style={{ color: '#1a1a2e', fontWeight: '700', fontSize: 18, marginTop: 10, textAlign: 'center' }}>{w.english}</Text>
         )}
         <Text style={{ color: '#adb5bd', fontSize: 12, marginTop: 8 }}>
           {(w.owner_count || 0) > 0 ? `${w.owner_count} user${w.owner_count === 1 ? '' : 's'}` : ' '}

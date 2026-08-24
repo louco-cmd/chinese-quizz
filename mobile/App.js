@@ -75,7 +75,7 @@ function App() {
   const [paywall, setPaywall] = useState(null); // feature de la limite atteinte → popup Go Premium
   const [needCoins, setNeedCoins] = useState(false); // solde insuffisant → popup « gagner des pièces »
   const [updateUrl, setUpdateUrl] = useState(null); // build store plus récent → popup incitative
-  const [lang, setLang] = useState('en'); // langue de l'interface (en | zh)
+  const [lang, setLang] = useState('en'); // langue de l'interface (en | zh | fr)
   const [refCode, setRefCode] = useState(null); // code de parrainage capté (?ref=)
   // Web mobile : le clavier réduit la zone visible et la TabBar recouvrirait le
   // bas du contenu (champ de réponse du quiz…) → on la masque le temps de la saisie.
@@ -194,7 +194,7 @@ function App() {
   // profil à chaque changement d'onglet en gardant l'ancienne langue — annulait
   // le choix fait en direct dans les réglages (retour à l'ancienne langue).
   useEffect(() => {
-    if (profile?.interface_lang === 'en' || profile?.interface_lang === 'zh') setLang(profile.interface_lang);
+    if (['en', 'zh', 'fr'].includes(profile?.interface_lang)) setLang(profile.interface_lang);
   }, [profile?.interface_lang]);
 
   async function onLoggedIn() {

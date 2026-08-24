@@ -13,11 +13,13 @@ const pool = new Pool({
       CREATE TABLE IF NOT EXISTS mots (
         id SERIAL PRIMARY KEY,
         chinese TEXT NOT NULL,
-        english TEXT NOT NULL,
         pinyin TEXT,
-        description TEXT,
         hsk TEXT
       )
+      -- NB : plus de colonne english (modele concept : la traduction est un
+      -- lexeme frere, resolue par mot_tr) ni description (note PERSO portee par
+      -- user_mots.description). lang/meaning_id ajoutes par la migration
+      -- multilingue. Voir scripts/refacto-english-*.sql et refacto-description-*.sql.
     `);
 
     await pool.query(`
@@ -97,12 +99,27 @@ const pool = new Pool({
     `);
     console.log("✅ Colonnes 'quiz_direction' et 'onboarding_done' vérifiées ou créées.");
 
-    // ── Migration: description_zh sur mots ───────────────────────────────────
-    await pool.query(`
-      ALTER TABLE mots
-      ADD COLUMN IF NOT EXISTS description_zh TEXT
-    `);
-    console.log("✅ Colonne 'description_zh' vérifiée ou créée sur 'mots'.");
+    // ── Migration: description PAR-USER (user_mots.description) ───────────────
+    // La description devient une note PERSO : on l'ajoute à user_mots, on copie
+    // l'existant de mots.description (hors marqueurs internes) vers chaque
+    // possesseur, puis on retire les colonnes de mots. Idempotent & prod-safe :
+    // la copie ne s'exécute que tant que mots.description existe encore.
+    await pool.query(`ALTER TABLE user_mots ADD COLUMN IF NOT EXISTS description TEXT`);
+    const hasMotsDesc = await pool.query(`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name='mots' AND column_name='description' LIMIT 1`);
+    if (hasMotsDesc.rows.length) {
+      await pool.query(`
+        UPDATE user_mots um
+        SET description = m.description
+        FROM mots m
+        WHERE m.id = um.mot_id
+          AND COALESCE(m.description,'') NOT IN ('','auto:gloss','user:gloss','auto:gloss-promote')
+          AND (um.description IS NULL OR um.description = '')`);
+      await pool.query(`ALTER TABLE mots DROP COLUMN IF EXISTS description`);
+    }
+    await pool.query(`ALTER TABLE mots DROP COLUMN IF EXISTS description_zh`);
+    console.log("✅ description PAR-USER (user_mots.description) migrée ; colonnes mots retirées.");
 
     // ── Migration: retirer toute contrainte/index UNIQUE sur mots(chinese) ────
     // "Éditer avant de capturer" (forceNew) crée une entrée PERSONNALISÉE même si
@@ -375,6 +392,80 @@ const pool = new Pool({
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_pack_items_pack ON word_pack_items(pack_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_pack_purchases_buyer ON pack_purchases(buyer_id)`);
     console.log("✅ Tables JiaStore (word_packs/word_pack_items/pack_purchases) vérifiées.");
+
+    // ── Migration : langue du pack (cours multilingue) ─────────────────────────
+    // Un pack enseigne UNE langue. Le store ne montre à l'apprenant que les packs
+    // de sa learning_lang. Backfill depuis la langue majoritaire des mots du pack.
+    await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS lang VARCHAR(8) NOT NULL DEFAULT 'zh'`);
+    await pool.query(`
+      UPDATE word_packs wp SET lang = sub.lang FROM (
+        SELECT i.pack_id, mode() WITHIN GROUP (ORDER BY m.lang) AS lang
+        FROM word_pack_items i JOIN mots m ON m.id = i.mot_id
+        GROUP BY i.pack_id
+      ) sub
+      WHERE sub.pack_id = wp.id AND sub.lang IS NOT NULL AND wp.lang IS DISTINCT FROM sub.lang
+    `);
+    console.log("✅ Colonne 'lang' sur word_packs vérifiée + backfill.");
+
+    // ── Migration : modèle concept many-to-many (lexeme_senses) + mot_tr ───────
+    // Un lexème peut appartenir à plusieurs sens → dédup des lexèmes tout en
+    // gardant les concepts fidèles. Guardé : ne s'exécute que si `meanings` existe.
+    try {
+      const hasMeanings = await pool.query("SELECT to_regclass('public.meanings') AS t");
+      if (hasMeanings.rows[0].t) {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS lexeme_senses (
+            mot_id     integer NOT NULL REFERENCES mots(id)     ON DELETE CASCADE,
+            meaning_id integer NOT NULL REFERENCES meanings(id) ON DELETE CASCADE,
+            PRIMARY KEY (mot_id, meaning_id)
+          )`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_lexeme_senses_meaning ON lexeme_senses(meaning_id)`);
+        // Backfill une seule fois (si la table est vide) depuis le lien 1:1.
+        await pool.query(`
+          INSERT INTO lexeme_senses (mot_id, meaning_id)
+          SELECT id, meaning_id FROM mots
+          WHERE meaning_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM lexeme_senses)
+          ON CONFLICT DO NOTHING`);
+        await pool.query(`
+          CREATE OR REPLACE FUNCTION mot_tr(p_mot_id int, p_native text) RETURNS text
+          LANGUAGE sql STABLE AS $fn$
+            SELECT string_agg(DISTINCT tr.chinese, ' / ' ORDER BY tr.chinese)
+            FROM lexeme_senses a
+            JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
+            JOIN mots tr ON tr.id = b.mot_id
+            WHERE a.mot_id = p_mot_id AND tr.lang = p_native AND tr.id <> p_mot_id
+          $fn$`);
+        console.log("✅ lexeme_senses (M2M) + mot_tr vérifiés.");
+
+        // Possession PAR-SENS : user_mots.meaning_id + PK à 3 colonnes + mot_tr_sense.
+        await pool.query(`ALTER TABLE user_mots ADD COLUMN IF NOT EXISTS meaning_id integer REFERENCES meanings(id)`);
+        await pool.query(`
+          UPDATE user_mots um
+          SET meaning_id = (SELECT min(ls.meaning_id) FROM lexeme_senses ls WHERE ls.mot_id = um.mot_id)
+          WHERE um.meaning_id IS NULL
+            AND EXISTS (SELECT 1 FROM lexeme_senses ls WHERE ls.mot_id = um.mot_id)`);
+        // Bascule la PK vers (user_id, mot_id, meaning_id) une fois meaning_id peuplé.
+        const pk = await pool.query(`
+          SELECT string_agg(kcu.column_name, ',' ORDER BY kcu.ordinal_position) AS cols
+          FROM information_schema.table_constraints tc
+          JOIN information_schema.key_column_usage kcu ON kcu.constraint_name = tc.constraint_name
+          WHERE tc.table_name = 'user_mots' AND tc.constraint_type = 'PRIMARY KEY'`);
+        if (pk.rows[0].cols === 'user_id,mot_id'
+            && !(await pool.query(`SELECT 1 FROM user_mots WHERE meaning_id IS NULL LIMIT 1`)).rows.length) {
+          await pool.query(`ALTER TABLE user_mots ALTER COLUMN meaning_id SET NOT NULL`);
+          await pool.query(`ALTER TABLE user_mots DROP CONSTRAINT user_mots_pkey`);
+          await pool.query(`ALTER TABLE user_mots ADD PRIMARY KEY (user_id, mot_id, meaning_id)`);
+        }
+        await pool.query(`
+          CREATE OR REPLACE FUNCTION mot_tr_sense(p_mot_id int, p_meaning int, p_native text) RETURNS text
+          LANGUAGE sql STABLE AS $fn$
+            SELECT string_agg(DISTINCT tr.chinese, ' / ' ORDER BY tr.chinese)
+            FROM lexeme_senses b JOIN mots tr ON tr.id = b.mot_id
+            WHERE b.meaning_id = p_meaning AND tr.lang = p_native AND tr.id <> p_mot_id
+          $fn$`);
+        console.log("✅ user_mots.meaning_id (par-sens) + mot_tr_sense vérifiés.");
+      }
+    } catch (e) { console.error('lexeme_senses migration:', e.message); }
 
     // ── Red envelopes (虹包) : virements de coins entre utilisateurs ───────────
     await pool.query(`
