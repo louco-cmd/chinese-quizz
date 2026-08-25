@@ -467,6 +467,34 @@ const pool = new Pool({
       }
     } catch (e) { console.error('lexeme_senses migration:', e.message); }
 
+    // ── Learning paths (parcours d'apprentissage multi-langues) ────────────────
+    // Un user peut avoir plusieurs parcours (apprendre zh ET fr), chacun sa
+    // collection (déjà scindée par mots.lang = learning_lang). Le parcours ACTIF
+    // = celui dont learning_lang == users.learning_lang (dérivé, pas de colonne
+    // active_path_id). UNIQUE(user_id, learning_lang) : un parcours par langue cible.
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS learning_paths (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          learning_lang VARCHAR(8) NOT NULL,
+          native_lang VARCHAR(8) NOT NULL,
+          title TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (user_id, learning_lang)
+        )
+      `);
+      // Backfill : un parcours par défaut depuis la paire courante de chaque user.
+      await pool.query(`
+        INSERT INTO learning_paths (user_id, learning_lang, native_lang)
+        SELECT id, COALESCE(learning_lang, 'zh'), COALESCE(native_lang, 'en')
+        FROM users
+        WHERE learning_lang IS NOT NULL
+        ON CONFLICT (user_id, learning_lang) DO NOTHING
+      `);
+      console.log("✅ Table 'learning_paths' vérifiée + backfill.");
+    } catch (e) { console.error('learning_paths migration:', e.message); }
+
     // ── Red envelopes (虹包) : virements de coins entre utilisateurs ───────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS red_envelopes (

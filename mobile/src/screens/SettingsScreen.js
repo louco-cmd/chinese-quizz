@@ -6,16 +6,16 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import SettingsGroup from '../components/settings/SettingsGroup';
 import SettingsRow from '../components/settings/SettingsRow';
-import SegmentedPicker from '../components/settings/SegmentedPicker';
 import Toggle from '../components/Toggle';
 import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
 import UpdateFooter from '../components/settings/UpdateFooter';
-import { getSettings, getCachedSettings, updateSettings, deleteAccount } from '../api';
+import { getSettings, getCachedSettings, updateSettings, deleteAccount, getLearningPaths, activateLearningPath } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 import CatLoader from '../components/CatLoader';
-import { LANG_META, LEARNABLE } from '../langs';
+import { LANG_META } from '../langs';
+import LearningPathPopup from '../components/settings/LearningPathPopup';
 
 // Petit badge PREMIUM pour les fonctions verrouillées au plan gratuit.
 function PremiumPill() {
@@ -40,6 +40,35 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+
+  // Parcours d'apprentissage (multi-langues).
+  const [paths, setPaths] = useState(null);
+  const [pathPopup, setPathPopup] = useState(null); // { mode:'create'|'edit', path? }
+  const [switchingId, setSwitchingId] = useState(null);
+  const loadPaths = useCallback(() => {
+    getLearningPaths().then((d) => setPaths(d.paths || [])).catch(() => {});
+  }, []);
+  useEffect(() => { loadPaths(); }, [loadPaths]);
+
+  // Bascule sur un parcours : active côté serveur, suit la langue d'interface,
+  // rafraîchit la liste + les réglages (la collection re-scope toute seule).
+  async function switchPath(p) {
+    if (p.is_active) return;
+    setSwitchingId(p.id);
+    try {
+      const d = await activateLearningPath(p.id);
+      if (d?.active?.interface_lang) setLang(d.active.interface_lang);
+      const fresh = await getSettings();
+      setS(fresh);
+      loadPaths();
+    } catch { /* silencieux : la liste reste en l'état */ }
+    finally { setSwitchingId(null); }
+  }
+  // Après création/édition d'un parcours : recharge liste + réglages.
+  async function onPathSaved() {
+    try { const fresh = await getSettings(); setS(fresh); } catch { /* noop */ }
+    loadPaths();
+  }
 
   // Slide-in depuis la droite quand le contenu apparaît (façon navigation "push").
   const slideX = useRef(new Animated.Value(width)).current;
@@ -141,34 +170,61 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
       <ScrollView contentContainerStyle={{ paddingTop: 6, paddingBottom: 32 }}>
         <View style={{ width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: hPad }}>
 
-          {/* ── Learning ── */}
+          {/* ── Learning paths (parcours multi-langues) ──
+              Chaque parcours a sa collection (déjà scindée par mots.lang). La carte
+              active en haut ; tap sur un autre parcours = bascule ; tap sur l'actif
+              = édition (base + titre, direction verrouillée). */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.6, paddingHorizontal: 16, paddingBottom: 8 }}>
+              {t('set_learning_paths')}
+            </Text>
+            {(paths || []).map((p) => {
+              const endo = (c) => (LANG_META[c] || {}).endonym || c;
+              const title = p.title || t('lp_learn_label').replace('{lang}', endo(p.learning_lang));
+              const sub = `${t('lp_from_label').replace('{lang}', endo(p.native_lang))} · ${t('lp_words').replace('{n}', p.word_count)}`;
+              return (
+                <Pressable
+                  key={p.id}
+                  onPress={() => (p.is_active ? setPathPopup({ mode: 'edit', path: p }) : switchPath(p))}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: 14, marginBottom: 10,
+                    borderWidth: 1.5, borderColor: p.is_active ? COLORS.jiayou : '#e2e6ea',
+                    backgroundColor: p.is_active ? '#e8f0ff' : '#fff',
+                  }}
+                >
+                  <View style={{ width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: p.is_active ? COLORS.jiayou : '#f2f4f6' }}>
+                    <Ionicons name="school" size={20} color={p.is_active ? '#fff' : COLORS.muted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ fontSize: 15.5, fontWeight: '800', color: COLORS.ink, flexShrink: 1 }} numberOfLines={1}>{title}</Text>
+                      {p.is_active ? (
+                        <View style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{t('set_path_active')}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={{ fontSize: 12.5, color: COLORS.muted, marginTop: 2 }} numberOfLines={1}>{sub}</Text>
+                  </View>
+                  {switchingId === p.id
+                    ? <ActivityIndicator size="small" color={COLORS.jiayou} />
+                    : <Ionicons name={p.is_active ? 'create-outline' : 'chevron-forward'} size={18} color={COLORS.mutedLight} />}
+                </Pressable>
+              );
+            })}
+            {/* Créer un nouveau parcours = premium ; sinon on ouvre le paywall. */}
+            <Pressable
+              onPress={() => (isPremium ? setPathPopup({ mode: 'create' }) : onOpen?.('pricing'))}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 13, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: COLORS.jiayou, backgroundColor: '#fff' }}
+            >
+              <Ionicons name="add" size={20} color={COLORS.jiayou} />
+              <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 14.5 }}>{t('set_add_path')}</Text>
+              {!isPremium ? <View style={{ marginLeft: 2 }}><PremiumPill /></View> : null}
+            </Pressable>
+          </View>
+
+          {/* ── Learning (outils du cours) ── */}
           <SettingsGroup title={t('set_grp_learning')}>
-            {/* Langue de l'interface = langue de BASE (native). On la choisit EN
-                PREMIER : elle définit native_lang et filtre la langue apprise juste
-                en dessous. Si elle égale la langue apprise, on décale celle-ci. */}
-            <SettingsRow icon="globe-outline" label={t('set_interface')} sub={t('set_interface_sub')} column>
-              <SegmentedPicker
-                value={s.interface_lang}
-                onChange={(v) => {
-                  const fields = { interface_lang: v, native_lang: v };
-                  if ((s.learning_lang || 'zh') === v) fields.learning_lang = LEARNABLE.find((c) => c !== v);
-                  patch(fields);
-                  setLang(v);
-                }}
-                options={[
-                  { value: 'en', label: 'English' },
-                  { value: 'zh', label: '中文' },
-                  { value: 'fr', label: 'Français' },
-                ]}
-              />
-            </SettingsRow>
-            <SettingsRow icon="school" label={t('ob_learn_lang_q')} sub={t('set_direction_sub')} column>
-              <SegmentedPicker
-                value={s.learning_lang || 'zh'}
-                onChange={(v) => patch({ learning_lang: v })}
-                options={LEARNABLE.filter((c) => c !== (s.native_lang || 'en')).map((c) => ({ value: c, label: LANG_META[c].endonym }))}
-              />
-            </SettingsRow>
             <SettingsRow icon="cloud-upload" iconColor="#0d6efd" iconBg="#e8f0ff" label={t('set_import')} sub={t('set_import_sub')} onPress={() => onOpen?.('import')} />
             <SettingsRow
               icon="brush" iconColor="#7c3aed" iconBg="#f3e8ff" label={t('set_writing')} sub={t('set_writing_sub')}
@@ -277,6 +333,15 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
           </Pressable>
         </View>
       </Popup>
+
+      {/* Création / édition d'un parcours d'apprentissage */}
+      <LearningPathPopup
+        visible={!!pathPopup}
+        mode={pathPopup?.mode || 'create'}
+        path={pathPopup?.path || null}
+        onClose={() => setPathPopup(null)}
+        onSaved={onPathSaved}
+      />
     </Animated.View>
   );
 }

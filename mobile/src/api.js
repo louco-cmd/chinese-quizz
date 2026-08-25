@@ -413,6 +413,27 @@ export function deleteAccount() {
   return request('/api/m/account/delete', { method: 'DELETE' });
 }
 
+// ── Learning paths (parcours d'apprentissage multi-langues) ──────────────────
+export function getLearningPaths() {
+  return request('/api/m/learning-paths');
+}
+// Créer un parcours = l'activer aussitôt (renvoie {path, active}).
+export async function createLearningPath({ learning_lang, native_lang, title }) {
+  const d = await request('/api/m/learning-paths', { method: 'POST', body: { learning_lang, native_lang, title } });
+  _settingsCache = null; // la paire active a changé
+  return d;
+}
+export async function updateLearningPath(id, fields) {
+  const d = await request(`/api/m/learning-paths/${id}`, { method: 'PATCH', body: fields });
+  _settingsCache = null;
+  return d;
+}
+export async function activateLearningPath(id) {
+  const d = await request(`/api/m/learning-paths/${id}/activate`, { method: 'POST' });
+  _settingsCache = null;
+  return d;
+}
+
 export function getDuels() {
   return request('/api/m/duels');
 }

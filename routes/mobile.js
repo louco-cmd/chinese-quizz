@@ -115,6 +115,17 @@ function resolveCourseLangs(learningIn, nativeIn) {
   return { learning, native, quizDir };
 }
 
+// Bascule la paire ACTIVE d'un user (learning/native). L'interface suit la base
+// (native), et quiz_direction dérivé (compat). Utilisé par les learning-paths et
+// pourrait remplacer le bloc langues de PATCH /settings. Renvoie la paire posée.
+async function setActiveLangs(userId, learningIn, nativeIn) {
+  const { learning, native, quizDir } = resolveCourseLangs(learningIn, nativeIn);
+  await pool.query(
+    `UPDATE users SET learning_lang = $1, native_lang = $2, interface_lang = $2, quiz_direction = $3 WHERE id = $4`,
+    [learning, native, quizDir, userId]);
+  return { learning_lang: learning, native_lang: native, interface_lang: native };
+}
+
 // Modèle concept MANY-TO-MANY (lexeme_senses) : garantit que le lexème appris
 // (motId) a un sens M et qu'un lexème natif CANONIQUE existe pour CHAQUE sens de
 // `gloss`, relié à M. Les lexèmes sont dédupliqués (un seul « can »), un lexème
@@ -666,19 +677,31 @@ router.get('/api/m/search', requireToken, async (req, res) => {
     const pinyinNorm = raw.normalize('NFD').replace(/[̀-ͯ]/g, '')
       .toLowerCase().replace(/[^a-z]/g, '');
 
-    // $1=like  $2=uid  $3=raw  $4=native  $5=learning  ($6=pinyin like, optionnel)
+    // Recherche par DÉBUT DE MOT pour les langues à mots séparés : « cat » remonte
+    // « cat » / « category » / « green cat », mais PAS « vaCATion » / « loCATed »
+    // (cat au milieu d'un mot). On matche sur une frontière de mot au début du
+    // terme (regex `\ycat`, insensible à la casse via `~*`). Pour le chinois/kana/
+    // hangul (pas de séparation de mots), on garde la sous-chaîne ILIKE.
+    const hasCJK = /[㐀-鿿豈-﫿぀-ヿ가-힯]/.test(raw);
+    const useWordBoundary = !hasCJK && /[a-z]/i.test(raw);
+    // Terme échappé pour la regex, borné par une frontière de mot AU DÉBUT
+    // seulement (`\ycat`) → « hol » remonte « holiday » (saisie progressive).
+    const wbTerm = '\\y' + raw.replace(/[^a-zA-Z0-9]/g, '\\$&');
+    const matchCol = (col) => (useWordBoundary ? `${col} ~* $1` : `${col} ILIKE $1 ESCAPE '\\'`);
+
+    // $1=terme (regex mot-entier OU like)  $2=uid  $3=raw  $4=native  $5=learning
     const langs = await getUserLangs(req.tokenUser.id);
-    const params = [like, req.tokenUser.id, raw, langs.native, langs.learning];
+    const params = [useWordBoundary ? wbTerm : like, req.tokenUser.id, raw, langs.native, langs.learning];
     const pinyinColNorm =
       `regexp_replace(translate(lower(m.pinyin),'üāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜ','uaaaaeeeeiiiioooouuuuuuuu'),'[^a-z]','','g')`;
     // Match : terme appris (m.chinese), OU sa traduction native (lexème frère du
     // concept), OU le pinyin (chinois). La traduction se matche via EXISTS sur un
     // frère (rapide) plutôt que mot_tr sur toutes les lignes.
     const clauses = [
-      `m.chinese ILIKE $1 ESCAPE '\\'`,
+      matchCol('m.chinese'),
       `EXISTS (SELECT 1 FROM lexeme_senses a JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
                JOIN mots s ON s.id = b.mot_id
-               WHERE a.mot_id = m.id AND s.lang = $4 AND s.chinese ILIKE $1 ESCAPE '\\')`,
+               WHERE a.mot_id = m.id AND s.lang = $4 AND ${matchCol('s.chinese')})`,
     ];
     if (pinyinNorm) {
       params.push(`%${pinyinNorm}%`);
@@ -2563,6 +2586,125 @@ router.patch('/api/m/settings', requireToken, async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     console.error('m/settings patch error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ══ Learning paths : parcours d'apprentissage multi-langues ═══════════════════
+// Un parcours = (learning_lang, native_lang, title). Le parcours ACTIF est celui
+// dont learning_lang == users.learning_lang (dérivé). La collection est déjà
+// scindée par mots.lang = learning_lang → basculer un parcours = changer la paire.
+
+// ── GET /api/m/learning-paths : liste les parcours du user ────────────────────
+router.get('/api/m/learning-paths', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const { rows } = await pool.query(
+      `SELECT lp.id, lp.learning_lang, lp.native_lang, lp.title,
+              (lp.learning_lang = u.learning_lang) AS is_active,
+              (SELECT COUNT(*)::int FROM user_mots um JOIN mots m ON m.id = um.mot_id
+                 WHERE um.user_id = $1 AND m.lang = lp.learning_lang) AS word_count
+       FROM learning_paths lp JOIN users u ON u.id = lp.user_id
+       WHERE lp.user_id = $1
+       ORDER BY lp.created_at ASC, lp.id ASC`, [uid]);
+    res.json({ paths: rows });
+  } catch (e) {
+    console.error('learning-paths list error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/m/learning-paths : créer un parcours (et l'activer aussitôt) ─────
+router.post('/api/m/learning-paths', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    // Créer un NOUVEAU parcours = fonctionnalité premium (basculer/éditer les
+    // parcours existants reste gratuit). Le parcours par défaut est créé au boot.
+    if (!(await isUserPremium(uid))) {
+      return res.status(403).json({ error: 'Multiple learning paths are Premium.', upgradeRequired: true, feature: 'learning_path' });
+    }
+    const { learning_lang, native_lang, title } = req.body || {};
+    if (!LEARNABLE_LANGS.includes(learning_lang) || !LEARNABLE_LANGS.includes(native_lang)) {
+      return res.status(400).json({ error: 'Invalid languages' });
+    }
+    const { learning, native } = resolveCourseLangs(learning_lang, native_lang);
+    const cleanTitle = (typeof title === 'string' && title.trim()) ? title.trim().slice(0, 60) : null;
+    // Un seul parcours par langue cible (la collection est scindée par learning_lang).
+    const exists = await pool.query(
+      'SELECT 1 FROM learning_paths WHERE user_id = $1 AND learning_lang = $2', [uid, learning]);
+    if (exists.rows.length) {
+      return res.status(409).json({ error: 'You already have a learning path for this language.' });
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO learning_paths (user_id, learning_lang, native_lang, title)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, learning_lang, native_lang, title`, [uid, learning, native, cleanTitle]);
+    const active = await setActiveLangs(uid, learning, native);
+    res.json({ path: rows[0], active });
+  } catch (e) {
+    console.error('learning-paths create error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── PATCH /api/m/learning-paths/:id : renommer / changer la base (PAS la cible) ─
+router.patch('/api/m/learning-paths/:id', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid path' });
+    const { rows: pr } = await pool.query(
+      'SELECT * FROM learning_paths WHERE id = $1 AND user_id = $2', [id, uid]);
+    if (!pr.length) return res.status(404).json({ error: 'Path not found' });
+    const path = pr[0];
+    const body = req.body || {};
+    const sets = []; const params = [];
+    const push = (col, val) => { params.push(val); sets.push(`${col} = $${params.length}`); };
+
+    if (body.title !== undefined) {
+      push('title', (typeof body.title === 'string' && body.title.trim()) ? body.title.trim().slice(0, 60) : null);
+    }
+    let newNative = null;
+    if (body.native_lang !== undefined) {
+      if (!LEARNABLE_LANGS.includes(body.native_lang)) return res.status(400).json({ error: 'Invalid language' });
+      // La direction (langue apprise) est verrouillée → la base ne peut pas l'égaler.
+      if (body.native_lang === path.learning_lang) {
+        return res.status(400).json({ error: 'Base language cannot equal the learned language.' });
+      }
+      newNative = body.native_lang;
+      push('native_lang', newNative);
+    }
+    // learning_lang volontairement ignoré (direction non modifiable).
+    if (!sets.length) return res.status(400).json({ error: 'No valid fields' });
+    params.push(id);
+    await pool.query(`UPDATE learning_paths SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
+
+    // Si c'est le parcours actif et que la base change → répercute sur users.
+    let active = null;
+    const langs = await getUserLangs(uid);
+    if (newNative && langs.learning === path.learning_lang) {
+      active = await setActiveLangs(uid, path.learning_lang, newNative);
+    }
+    res.json({ success: true, active });
+  } catch (e) {
+    console.error('learning-paths patch error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/m/learning-paths/:id/activate : basculer sur ce parcours ─────────
+router.post('/api/m/learning-paths/:id/activate', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid path' });
+    const { rows } = await pool.query(
+      'SELECT learning_lang, native_lang FROM learning_paths WHERE id = $1 AND user_id = $2', [id, uid]);
+    if (!rows.length) return res.status(404).json({ error: 'Path not found' });
+    const active = await setActiveLangs(uid, rows[0].learning_lang, rows[0].native_lang);
+    res.json({ success: true, active });
+  } catch (e) {
+    console.error('learning-paths activate error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
