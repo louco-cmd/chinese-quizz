@@ -115,15 +115,25 @@ function resolveCourseLangs(learningIn, nativeIn) {
   return { learning, native, quizDir };
 }
 
-// Bascule la paire ACTIVE d'un user (learning/native). L'interface suit la base
-// (native), et quiz_direction dérivé (compat). Utilisé par les learning-paths et
-// pourrait remplacer le bloc langues de PATCH /settings. Renvoie la paire posée.
+// Source de vérité = `learning_paths`. Ce helper est le SEUL point qui définit la
+// paire active d'un user : il garantit un parcours pour (user, langue apprise),
+// met à jour sa base, le désigne comme actif (users.active_path_id) et resynchro-
+// nise le MIROIR users.(learning_lang, native_lang, interface_lang, quiz_direction)
+// — que le reste de l'app lit encore. L'interface suit la base (native) et
+// quiz_direction reste dérivé (compat duel/teacher). Renvoie la paire posée.
 async function setActiveLangs(userId, learningIn, nativeIn) {
   const { learning, native, quizDir } = resolveCourseLangs(learningIn, nativeIn);
+  const up = await pool.query(
+    `INSERT INTO learning_paths (user_id, learning_lang, native_lang)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id, learning_lang) DO UPDATE SET native_lang = EXCLUDED.native_lang
+     RETURNING id`, [userId, learning, native]);
+  const pathId = up.rows[0].id;
   await pool.query(
-    `UPDATE users SET learning_lang = $1, native_lang = $2, interface_lang = $2, quiz_direction = $3 WHERE id = $4`,
-    [learning, native, quizDir, userId]);
-  return { learning_lang: learning, native_lang: native, interface_lang: native };
+    `UPDATE users SET active_path_id = $1, learning_lang = $2, native_lang = $3,
+            interface_lang = $3, quiz_direction = $4 WHERE id = $5`,
+    [pathId, learning, native, quizDir, userId]);
+  return { learning_lang: learning, native_lang: native, interface_lang: native, active_path_id: pathId };
 }
 
 // Modèle concept MANY-TO-MANY (lexeme_senses) : garantit que le lexème appris
@@ -602,13 +612,17 @@ router.post('/api/m/onboarding', requireToken, async (req, res) => {
     await pool.query(
       `UPDATE users
        SET role = $1, name = $2, tagline = $3, country = $4,
-           learning_lang = $5, native_lang = $6, quiz_direction = $7,
-           interface_lang = COALESCE($8, interface_lang),
            onboarding_done = TRUE
-       WHERE id = $9`,
-      [chosenRole, String(name).trim(), tagline ? String(tagline).trim() : null, code,
-        learning, native, quizDir, uiLang, uid]
+       WHERE id = $5`,
+      [chosenRole, String(name).trim(), tagline ? String(tagline).trim() : null, code, uid]
     );
+    // Crée/pointe le parcours initial (learning_paths = vérité) + miroir users.*.
+    // Étudiant uniquement : le prof n'a pas de cours (learning/native ignorés).
+    if (chosenRole !== 'teacher') {
+      await setActiveLangs(uid, learning, native);
+    }
+    // interface_lang (chrome de l'app) : posé séparément si fourni au picker.
+    if (uiLang) await pool.query('UPDATE users SET interface_lang = $1 WHERE id = $2', [uiLang, uid]);
 
     // Parrainage : montant selon le rôle réel choisi ici.
     try {
@@ -2544,24 +2558,20 @@ router.patch('/api/m/settings', requireToken, async (req, res) => {
     const params = [];
     const push = (col, val) => { params.push(val); sets.push(`${col} = $${params.length}`); };
 
-    // Langues du cours : si l'une change, on ré-résout la paire + le quiz_direction
-    // dérivé (compat). On complète la valeur manquante depuis la base.
+    // Langues du cours : la vérité est `learning_paths`. Toute demande de changement
+    // de paire passe par setActiveLangs (parcours + pointeur + miroir), JAMAIS par
+    // une écriture directe de users.* → plus de contradiction possible. On ne
+    // touche pas non plus quiz_direction ici (dérivé). Le reste (toggles) suit.
+    let langsChanged = false;
     if (body.learning_lang !== undefined || body.native_lang !== undefined) {
       const cur = await pool.query('SELECT learning_lang, native_lang FROM users WHERE id = $1', [req.tokenUser.id]);
       const c = cur.rows[0] || {};
-      const { learning, native, quizDir } = resolveCourseLangs(
+      await setActiveLangs(
+        req.tokenUser.id,
         body.learning_lang !== undefined ? body.learning_lang : c.learning_lang,
         body.native_lang !== undefined ? body.native_lang : c.native_lang,
       );
-      push('learning_lang', learning);
-      push('native_lang', native);
-      push('quiz_direction', quizDir);
-    } else if (body.quiz_direction !== undefined) {
-      // Chemin legacy (toggle binaire) encore toléré.
-      if (!['en→zh', 'zh→en'].includes(body.quiz_direction)) {
-        return res.status(400).json({ error: 'Invalid direction' });
-      }
-      push('quiz_direction', body.quiz_direction);
+      langsChanged = true;
     }
     if (body.interface_lang !== undefined) {
       if (!['en', 'zh', 'fr'].includes(body.interface_lang)) {
@@ -2579,7 +2589,10 @@ router.patch('/api/m/settings', requireToken, async (req, res) => {
     if (typeof body.notifications_enabled === 'boolean') push('notifications_enabled', body.notifications_enabled);
     if (typeof body.word_review_enabled === 'boolean') push('word_review_enabled', body.word_review_enabled);
 
-    if (!sets.length) return res.status(400).json({ error: 'No valid fields' });
+    if (!sets.length) {
+      if (langsChanged) return res.json({ success: true });
+      return res.status(400).json({ error: 'No valid fields' });
+    }
 
     params.push(req.tokenUser.id);
     await pool.query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
@@ -2601,7 +2614,7 @@ router.get('/api/m/learning-paths', requireToken, async (req, res) => {
     const uid = req.tokenUser.id;
     const { rows } = await pool.query(
       `SELECT lp.id, lp.learning_lang, lp.native_lang, lp.title,
-              (lp.learning_lang = u.learning_lang) AS is_active,
+              (lp.id = u.active_path_id) AS is_active,
               (SELECT COUNT(*)::int FROM user_mots um JOIN mots m ON m.id = um.mot_id
                  WHERE um.user_id = $1 AND m.lang = lp.learning_lang) AS word_count
        FROM learning_paths lp JOIN users u ON u.id = lp.user_id

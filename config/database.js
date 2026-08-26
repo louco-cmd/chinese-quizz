@@ -492,7 +492,30 @@ const pool = new Pool({
         WHERE learning_lang IS NOT NULL
         ON CONFLICT (user_id, learning_lang) DO NOTHING
       `);
-      console.log("✅ Table 'learning_paths' vérifiée + backfill.");
+      // Pointeur du parcours ACTIF : learning_paths devient la SOURCE DE VÉRITÉ,
+      // users.(learning_lang, native_lang, interface_lang, quiz_direction) = MIROIR.
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS active_path_id INTEGER REFERENCES learning_paths(id)`);
+      // Désigne l'actif : le parcours qui matche la paire courante, sinon le plus
+      // ancien (couvre les users mono-parcours dont users.* était erroné).
+      await pool.query(`
+        UPDATE users u SET active_path_id = COALESCE(
+          (SELECT lp.id FROM learning_paths lp WHERE lp.user_id = u.id AND lp.learning_lang = u.learning_lang ORDER BY lp.id LIMIT 1),
+          (SELECT lp.id FROM learning_paths lp WHERE lp.user_id = u.id ORDER BY lp.id LIMIT 1)
+        ) WHERE u.active_path_id IS NULL
+      `);
+      // Resynchronise le miroir users.* DEPUIS le parcours actif (vérité). Corrige
+      // les contradictions (ex. données learning_paths mises à jour à la main).
+      await pool.query(`
+        UPDATE users u
+        SET learning_lang = lp.learning_lang, native_lang = lp.native_lang,
+            interface_lang = lp.native_lang,
+            quiz_direction = CASE WHEN lp.learning_lang = 'zh' THEN 'en→zh' ELSE 'zh→en' END
+        FROM learning_paths lp
+        WHERE lp.id = u.active_path_id
+          AND (u.learning_lang IS DISTINCT FROM lp.learning_lang
+            OR u.native_lang IS DISTINCT FROM lp.native_lang)
+      `);
+      console.log("✅ Table 'learning_paths' + active_path_id + resync miroir users.* vérifiés.");
     } catch (e) { console.error('learning_paths migration:', e.message); }
 
     // ── Red envelopes (虹包) : virements de coins entre utilisateurs ───────────
