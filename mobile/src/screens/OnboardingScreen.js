@@ -16,7 +16,7 @@ import ImportWordsScreen from './ImportWordsScreen';
 import { completeOnboarding, teacherGetProfile, teacherSaveProfile } from '../api';
 import { COLORS } from '../theme';
 import { useT, makeT } from '../i18n';
-import { LANG_META, LEARNABLE } from '../langs';
+import { LANG_META, useLearnableLangs } from '../langs';
 
 // Toggle de langue compact (EN / 中) pour la barre du haut de l'onboarding.
 function LangToggle({ lang, onChange }) {
@@ -204,6 +204,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   const [tagline, setTagline] = useState('');
   // Langue apprise ; la langue de base (native) = la langue d'interface (`lang`).
   const [learnLang, setLearnLang] = useState('zh');
+  const learnable = useLearnableLangs(); // langues apprenables (réactif au backend)
 
   // Champs du profil prof (étape 'teacher').
   const [bio, setBio] = useState('');
@@ -652,7 +653,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                 <View className="mb-5">
                   <SegmentedPicker
                     value={lang}
-                    onChange={(v) => { changeLang(v); if (v === learnLang) setLearnLang(LEARNABLE.find((c) => c !== v)); }}
+                    onChange={(v) => { changeLang(v); if (v === learnLang) setLearnLang(learnable.find((c) => c !== v) || 'zh'); }}
                     options={[
                       { value: 'en', label: 'English' },
                       { value: 'zh', label: '中文' },
@@ -669,7 +670,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                   <SegmentedPicker
                     value={learnLang}
                     onChange={setLearnLang}
-                    options={LEARNABLE.filter((c) => c !== lang).map((c) => ({ value: c, label: LANG_META[c].endonym }))}
+                    options={learnable.filter((c) => c !== lang).map((c) => ({ value: c, label: (LANG_META[c] || {}).endonym || c }))}
                   />
                 </View>
 

@@ -103,7 +103,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   }
 
   const activeDays = (data.contributions || []).filter((c) => c.count > 0).length;
-  const learningChinese = data.quizDirection !== 'zh→en';
+  const learningChinese = (data.learning_lang || (data.quizDirection !== 'zh→en' ? 'zh' : 'en')) === 'zh';
   const total = data.mastery?.total || 0;
   const pinyinDist = data.mastery?.pinyin || {};
   const charDist = data.mastery?.character || {};
@@ -159,17 +159,16 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
                 <StatTriplet words={data.words} quizzes={data.quizzes} duels={data.duels} />
 
                 <View style={{ marginTop: 16 }}>
+                  {/* zh : Pinyin + Caractères + Lecture. non-zh : Écriture + Lecture. */}
                   <MasteryBar
                     dist={pinyinDist}
                     total={total}
-                    caption={`${pinyinPct}% ${learningChinese ? t('ac_pinyin_mastered') : t('ac_words_mastered')}`}
+                    caption={`${pinyinPct}% ${learningChinese ? t('ac_pinyin_mastered') : t('ac_writing_mastered')}`}
                   />
                   {learningChinese && (
                     <MasteryBar dist={charDist} total={total} caption={`${charPct}% ${t('ac_chars_mastered')}`} />
                   )}
-                  {learningChinese && (
-                    <MasteryBar dist={readingDist} total={total} caption={`${readingPct}% ${t('ac_reading_mastered')}`} />
-                  )}
+                  <MasteryBar dist={readingDist} total={total} caption={`${readingPct}% ${t('ac_reading_mastered')}`} />
                 </View>
               </AccountCard>
             </View>

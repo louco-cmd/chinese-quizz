@@ -413,6 +413,11 @@ export function deleteAccount() {
   return request('/api/m/account/delete', { method: 'DELETE' });
 }
 
+// Langues apprenables (réactif : reflète les langues enregistrées ayant du contenu).
+export function getLanguages() {
+  return request('/api/m/languages');
+}
+
 // ── Learning paths (parcours d'apprentissage multi-langues) ──────────────────
 export function getLearningPaths() {
   return request('/api/m/learning-paths');

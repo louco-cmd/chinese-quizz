@@ -100,9 +100,38 @@ async function getUserLangs(userId) {
   }
 }
 
-// Langues du cours autorisées (celles qui ont du contenu). `native` peut être
-// n'importe laquelle de cet ensemble (la traduction n'existe que pour elles).
-const LEARNABLE_LANGS = ['zh', 'en', 'fr'];
+// Catalogue de métadonnées des langues (nom, endonyme, pinyin, voix TTS). Sert à
+// afficher joliment une langue dès qu'elle apparaît. Pré-rempli pour les langues
+// courantes → ajouter l'espagnol = juste peupler ses mots, aucun code à toucher.
+const LANG_CATALOG = {
+  zh: { name: 'Chinese', endonym: '中文', has_pinyin: true, tts: 'zh-CN' },
+  en: { name: 'English', endonym: 'English', has_pinyin: false, tts: 'en-US' },
+  fr: { name: 'French', endonym: 'Français', has_pinyin: false, tts: 'fr-FR' },
+  es: { name: 'Spanish', endonym: 'Español', has_pinyin: false, tts: 'es-ES' },
+  de: { name: 'German', endonym: 'Deutsch', has_pinyin: false, tts: 'de-DE' },
+  it: { name: 'Italian', endonym: 'Italiano', has_pinyin: false, tts: 'it-IT' },
+  pt: { name: 'Portuguese', endonym: 'Português', has_pinyin: false, tts: 'pt-PT' },
+  ja: { name: 'Japanese', endonym: '日本語', has_pinyin: false, tts: 'ja-JP' },
+  ko: { name: 'Korean', endonym: '한국어', has_pinyin: false, tts: 'ko-KR' },
+  ru: { name: 'Russian', endonym: 'Русский', has_pinyin: false, tts: 'ru-RU' },
+};
+
+// Langues apprenables = celles ENREGISTRÉES (table languages, alimentée par le
+// listener/trigger) ET ayant du contenu. Cache rafraîchi au boot + périodiquement
+// → la validation devient réactive à l'ajout d'une langue, sans redéploiement.
+let LEARNABLE_LANGS = ['zh', 'en', 'fr'];
+async function refreshLearnableLangs() {
+  try {
+    const { rows } = await pool.query(
+      `SELECT l.code FROM languages l
+       WHERE l.learnable = TRUE AND EXISTS (SELECT 1 FROM mots m WHERE m.lang = l.code)
+       ORDER BY l.code`);
+    if (rows.length) LEARNABLE_LANGS = rows.map((r) => r.code);
+  } catch { /* table pas encore prête (premier boot) → garde le fallback */ }
+}
+// Rafraîchit toutes les 5 min (capte une nouvelle langue sans redémarrage).
+setInterval(refreshLearnableLangs, 5 * 60 * 1000).unref?.();
+refreshLearnableLangs();
 // Normalise (learning, native) et dérive le binaire quiz_direction de compat
 // (legacy duel/teacher) : learning=zh → on apprend le chinois ('en→zh'), sinon
 // on n'apprend pas le chinois ('zh→en'). Garde-fous : valeurs sûres par défaut,
@@ -2328,7 +2357,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
     // d'activité (contributions) qui reste GLOBAL (jours travaillés, tous cours).
     const L = (await getUserLangs(uid)).learning;
     const [me, wordRows, quizzes, duels, contrib, recent, duelRank] = await Promise.all([
-      pool.query('SELECT name, balance, tagline, country, quiz_direction, avatar_icon, avatar_color FROM users WHERE id = $1', [uid]),
+      pool.query('SELECT name, balance, tagline, country, quiz_direction, learning_lang, native_lang, avatar_icon, avatar_color FROM users WHERE id = $1', [uid]),
       pool.query(
         `SELECT um.score, um.score_character, um.score_reading, m.hsk
          FROM user_mots um JOIN mots m ON m.id = um.mot_id
@@ -2400,6 +2429,8 @@ router.get('/api/m/account', requireToken, async (req, res) => {
       avatar_icon: me.rows[0]?.avatar_icon || null,
       avatar_color: me.rows[0]?.avatar_color || null,
       quizDirection: me.rows[0]?.quiz_direction || 'en→zh',
+      learning_lang: me.rows[0]?.learning_lang || 'zh',
+      native_lang: me.rows[0]?.native_lang || 'en',
       balance: me.rows[0]?.balance || 0,
       words: words.length,
       wordsKnown: pinyinDist.mastered,
@@ -2523,6 +2554,7 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
       ratio: (duels.rows[0].wins + duels.rows[0].losses) > 0
         ? Math.round((duels.rows[0].wins / (duels.rows[0].wins + duels.rows[0].losses)) * 100) : 0,
       mastery: { pinyin: pinyinDist, character: charDist, reading: readingDist, total: words.length },
+      learning_lang: L,
       hsk,
     });
   } catch (e) {
@@ -2605,6 +2637,35 @@ router.patch('/api/m/settings', requireToken, async (req, res) => {
     res.json({ success: true });
   } catch (e) {
     console.error('m/settings patch error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── GET /api/m/languages : langues apprenables (réactif) ──────────────────────
+// Renvoie les langues ENREGISTRÉES (table languages, alimentée par le trigger dès
+// qu'un mot d'une nouvelle langue est inséré) qui ont du contenu. Métadonnées
+// enrichies depuis LANG_CATALOG (fallback : la ligne DB, puis le code brut). Le
+// front consomme cette liste → une nouvelle langue apparaît sans toucher au code.
+router.get('/api/m/languages', requireToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT l.code, l.name, l.endonym, l.has_pinyin, l.tts
+       FROM languages l
+       WHERE l.learnable = TRUE AND EXISTS (SELECT 1 FROM mots m WHERE m.lang = l.code)
+       ORDER BY (l.code = 'zh') DESC, (l.code = 'en') DESC, l.code`);
+    const languages = rows.map((r) => {
+      const cat = LANG_CATALOG[r.code] || {};
+      return {
+        code: r.code,
+        name: r.name || cat.name || r.code,
+        endonym: r.endonym || cat.endonym || r.code,
+        has_pinyin: r.has_pinyin != null ? r.has_pinyin : !!cat.has_pinyin,
+        tts: r.tts || cat.tts || null,
+      };
+    });
+    res.json({ languages });
+  } catch (e) {
+    console.error('m/languages error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });

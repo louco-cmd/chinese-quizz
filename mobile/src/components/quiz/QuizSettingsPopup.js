@@ -36,18 +36,32 @@ function SectionLabel({ children }) {
 //  scope  : 'collection' (HSK + difficulté) | 'pack' (mots d'un pack)
 //  showMode : afficher le toggle Pinyin/Characters (faux en zh→en)
 //  onStart({ type, count[, hsk, levels] })
-export default function QuizSettingsPopup({ visible, scope = 'collection', packLabel, showMode = true, onClose, onStart }) {
+export default function QuizSettingsPopup({ visible, scope = 'collection', packLabel, showMode = true, learningZh = true, onClose, onStart }) {
   const { t } = useT();
-  const [type, setType] = useState('pinyin');
+  const defaultType = learningZh ? 'pinyin' : 'word';
+  const [type, setType] = useState(defaultType);
   const [hskMin, setHskMin] = useState(1);
   const [hskMax, setHskMax] = useState(7);
   const [count, setCount] = useState(20);
   const [kMin, setKMin] = useState(0);       // plage de niveaux de maîtrise (comme HSK)
   const [kMax, setKMax] = useState(K_MAX);
 
+  // Modes selon la langue apprise : chinois = pinyin/caractères/lecture ; autres =
+  // écrire le mot (montre la trad) / lecture (montre le mot → donne la trad).
+  const MODES = learningZh
+    ? [
+        { value: 'pinyin', title: t('qz_pinyin'), icon: 'text' },
+        { value: 'character', title: t('qz_characters'), icon: 'language' },
+        { value: 'reading', title: t('qz_reading'), icon: 'book' },
+      ]
+    : [
+        { value: 'word', title: t('qz_mode_write'), icon: 'create' },
+        { value: 'reading', title: t('qz_reading'), icon: 'book' },
+      ];
+
   useEffect(() => {
-    if (visible) { setType('pinyin'); setHskMin(1); setHskMax(7); setCount(20); setKMin(0); setKMax(K_MAX); }
-  }, [visible]);
+    if (visible) { setType(defaultType); setHskMin(1); setHskMax(7); setCount(20); setKMin(0); setKMax(K_MAX); }
+  }, [visible, defaultType]);
 
   function tapKnow(i) {
     if (i < kMin) setKMin(i);
@@ -97,11 +111,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
         <>
           <SectionLabel>{t('qz_mode')}</SectionLabel>
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
-            {[
-              { value: 'pinyin', title: t('qz_pinyin'), icon: 'text' },
-              { value: 'character', title: t('qz_characters'), icon: 'language' },
-              { value: 'reading', title: t('qz_reading'), icon: 'book' },
-            ].map((m) => {
+            {MODES.map((m) => {
               const active = type === m.value;
               return (
                 <Pressable key={m.value} onPress={() => setType(m.value)}

@@ -129,9 +129,20 @@ export default function UserProfileScreen({ userId, onBack }) {
                   <Stat value={`${data.ratio ?? 0}%`} label="Win rate" color={COLORS.jiayou} />
                 </View>
 
-                {/* Jauges de maîtrise */}
-                <MasteryGauge label="Pinyin" dist={data.mastery.pinyin} total={data.mastery.total} />
-                <MasteryGauge label="Characters" dist={data.mastery.character} total={data.mastery.total} />
+                {/* Jauges de maîtrise — zh : Pinyin/Characters/Reading ;
+                    autres cours : Writing/Reading. */}
+                {(data.learning_lang || 'zh') === 'zh' ? (
+                  <>
+                    <MasteryGauge label="Pinyin" dist={data.mastery.pinyin} total={data.mastery.total} />
+                    <MasteryGauge label="Characters" dist={data.mastery.character} total={data.mastery.total} />
+                    <MasteryGauge label="Reading" dist={data.mastery.reading} total={data.mastery.total} />
+                  </>
+                ) : (
+                  <>
+                    <MasteryGauge label="Writing" dist={data.mastery.pinyin} total={data.mastery.total} />
+                    <MasteryGauge label="Reading" dist={data.mastery.reading} total={data.mastery.total} />
+                  </>
+                )}
               </Card>
 
               {/* Statistiques des mots (HSK) */}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import Popup from '../Popup';
 import SegmentedPicker from './SegmentedPicker';
-import { LANG_META, LEARNABLE } from '../../langs';
+import { LANG_META, INTERFACE_LANGS, useLearnableLangs } from '../../langs';
 import { useT } from '../../i18n';
 import { COLORS } from '../../theme';
 import { createLearningPath, updateLearningPath } from '../../api';
@@ -15,6 +15,7 @@ import { createLearningPath, updateLearningPath } from '../../api';
 export default function LearningPathPopup({ visible, mode = 'create', path = null, onClose, onSaved }) {
   const { t, setLang } = useT();
   const isEdit = mode === 'edit';
+  const learnable = useLearnableLangs(); // langues apprenables (réactif au backend)
 
   const [base, setBase] = useState('en');      // native_lang = langue de l'interface
   const [learn, setLearn] = useState('zh');    // learning_lang
@@ -36,13 +37,13 @@ export default function LearningPathPopup({ visible, mode = 'create', path = nul
   }, [visible, isEdit, path]);
 
   const endonym = (c) => (LANG_META[c] || {}).endonym || c;
-  // La langue apprise ne peut pas égaler la base ; en création on décale.
-  const learnOptions = LEARNABLE.filter((c) => c !== base).map((c) => ({ value: c, label: endonym(c) }));
-  const baseOptions = LEARNABLE.map((c) => ({ value: c, label: endonym(c) }));
+  // Langue apprise = liste dynamique (≠ base). Base = langues d'interface (i18n).
+  const learnOptions = learnable.filter((c) => c !== base).map((c) => ({ value: c, label: endonym(c) }));
+  const baseOptions = INTERFACE_LANGS.map((c) => ({ value: c, label: endonym(c) }));
 
   function onChangeBase(v) {
     setBase(v);
-    if (!isEdit && v === learn) setLearn(LEARNABLE.find((c) => c !== v));
+    if (!isEdit && v === learn) setLearn(learnable.find((c) => c !== v) || 'zh');
   }
 
   async function onSave() {

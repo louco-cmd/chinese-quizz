@@ -192,7 +192,8 @@ export default function QuizScreen({ onOpenStore, initialPack, onInitialConsumed
         visible={!!pending}
         scope={pending?.scope || 'collection'}
         packLabel={pending?.title}
-        showMode={!learningEnglish}
+        showMode
+        learningZh={isZh}
         onClose={() => setPending(null)}
         onStart={(opts) => {
           const p = pending;

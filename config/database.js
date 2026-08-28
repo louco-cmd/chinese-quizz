@@ -527,6 +527,68 @@ const pool = new Pool({
       console.log("✅ quiz_history.lang + duels.lang (stats par parcours) vérifiés.");
     } catch (e) { console.error('learning_paths migration:', e.message); }
 
+    // ── Registre des langues + LISTENER d'auto-enregistrement ──────────────────
+    // `languages` = source de vérité des langues apprenables (métadonnées + flag).
+    // Un TRIGGER sur `mots` y insère automatiquement tout nouveau code langue dès
+    // qu'un mot de cette langue est inséré (ex. le crawler ajoute l'espagnol) → le
+    // front, qui lit /api/m/languages, devient réactif sans redéploiement.
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS languages (
+          code VARCHAR(8) PRIMARY KEY,
+          name TEXT,
+          endonym TEXT,
+          has_pinyin BOOLEAN DEFAULT FALSE,
+          tts VARCHAR(16),
+          learnable BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      // Métadonnées des langues connues (l'espagnol est prêt : il apparaîtra tout
+      // seul dès qu'il aura du contenu). ON CONFLICT DO NOTHING → ne réécrit pas
+      // d'éventuelles retouches manuelles.
+      await pool.query(`
+        INSERT INTO languages (code, name, endonym, has_pinyin, tts) VALUES
+          ('zh','Chinese','中文',TRUE,'zh-CN'),
+          ('en','English','English',FALSE,'en-US'),
+          ('fr','French','Français',FALSE,'fr-FR'),
+          ('es','Spanish','Español',FALSE,'es-ES'),
+          ('de','German','Deutsch',FALSE,'de-DE'),
+          ('it','Italian','Italiano',FALSE,'it-IT'),
+          ('pt','Portuguese','Português',FALSE,'pt-PT'),
+          ('ja','Japanese','日本語',FALSE,'ja-JP'),
+          ('ko','Korean','한국어',FALSE,'ko-KR'),
+          ('ru','Russian','Русский',FALSE,'ru-RU')
+        ON CONFLICT (code) DO NOTHING
+      `);
+      // Backfill : tout code déjà présent dans mots et pas encore enregistré.
+      await pool.query(`
+        INSERT INTO languages (code) SELECT DISTINCT lang FROM mots WHERE lang IS NOT NULL
+        ON CONFLICT (code) DO NOTHING
+      `);
+      // Le listener : trigger AFTER INSERT (niveau STATEMENT, table de transition →
+      // efficace même sur les inserts en masse du crawler) qui enregistre les
+      // nouveaux codes langue automatiquement.
+      await pool.query(`
+        CREATE OR REPLACE FUNCTION register_languages() RETURNS trigger AS $rl$
+        BEGIN
+          INSERT INTO languages (code)
+          SELECT DISTINCT lang FROM newrows WHERE lang IS NOT NULL
+          ON CONFLICT (code) DO NOTHING;
+          RETURN NULL;
+        END;
+        $rl$ LANGUAGE plpgsql
+      `);
+      await pool.query(`DROP TRIGGER IF EXISTS trg_register_languages ON mots`);
+      await pool.query(`
+        CREATE TRIGGER trg_register_languages
+          AFTER INSERT ON mots
+          REFERENCING NEW TABLE AS newrows
+          FOR EACH STATEMENT EXECUTE FUNCTION register_languages()
+      `);
+      console.log("✅ Table 'languages' + trigger d'auto-enregistrement vérifiés.");
+    } catch (e) { console.error('languages registry migration:', e.message); }
+
     // ── Red envelopes (虹包) : virements de coins entre utilisateurs ───────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS red_envelopes (

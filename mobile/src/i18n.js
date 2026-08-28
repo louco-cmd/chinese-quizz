@@ -159,6 +159,7 @@ export const TRANSLATIONS = {
     qz_pinyin: 'Pinyin',
     qz_characters: 'Characters',
     qz_reading: 'Reading',
+    qz_mode_write: 'Write',
     qz_hsk_range: 'HSK LEVEL RANGE',
     qz_difficulty: 'KNOWLEDGE LEVEL',
     qz_num_words: 'NUMBER OF WORDS',
@@ -199,6 +200,7 @@ export const TRANSLATIONS = {
     qp_how_pinyin_line: 'How do you say this in pinyin?',
     qp_how_chinese_line: 'How do you say this in Chinese?',
     qp_how_word_line: 'What is the word?',
+    qp_how_read_word_line: 'What does this word mean?',
     qp_how_reading_line: 'How do you read this? (pinyin)',
     // ── Duels ──
     du_see_ranking: 'See ranking',
@@ -294,7 +296,7 @@ export const TRANSLATIONS = {
     ep_avatar: 'Avatar', ep_icon: 'Icon', ep_pick_icon: 'Pick an icon', ep_background: 'Background', ep_pick_color: 'Pick a color',
     ep_name: 'Name', ep_your_name: 'Your name', ep_tagline: 'Tagline', ep_your_motto: 'Your learning motto…', ep_country: 'Country',
     // Mastery captions
-    ac_pinyin_mastered: 'pinyin mastered', ac_words_mastered: 'of words mastered', ac_chars_mastered: 'characters mastered', ac_reading_mastered: 'reading mastered',
+    ac_pinyin_mastered: 'pinyin mastered', ac_words_mastered: 'of words mastered', ac_chars_mastered: 'characters mastered', ac_reading_mastered: 'reading mastered', ac_writing_mastered: 'writing mastered',
     // ── Collection ──
     co_filter: 'Filter', co_filters: 'Filters', co_hsk_level: 'HSK level', co_knowledge: 'Knowledge',
     co_pack: 'Pack', co_all_words: 'All words', co_reset: 'Reset', co_show: 'Show',
@@ -572,6 +574,7 @@ export const TRANSLATIONS = {
     qz_pinyin: 'Pinyin',
     qz_characters: 'Caractères',
     qz_reading: 'Lecture',
+    qz_mode_write: 'Écrire',
     qz_hsk_range: 'PLAGE DE NIVEAU HSK',
     qz_difficulty: 'NIVEAU DE CONNAISSANCE',
     qz_num_words: 'NOMBRE DE MOTS',
@@ -612,6 +615,7 @@ export const TRANSLATIONS = {
     qp_how_pinyin_line: 'Comment dit-on ceci en pinyin ?',
     qp_how_chinese_line: 'Comment dit-on ceci en chinois ?',
     qp_how_word_line: 'Quel est le mot ?',
+    qp_how_read_word_line: 'Que veut dire ce mot ?',
     qp_how_reading_line: 'Comment lit-on ceci ? (pinyin)',
     // ── Duels ──
     du_see_ranking: 'Voir le classement',
@@ -707,7 +711,7 @@ export const TRANSLATIONS = {
     ep_avatar: 'Avatar', ep_icon: 'Icône', ep_pick_icon: 'Choisis une icône', ep_background: 'Fond', ep_pick_color: 'Choisis une couleur',
     ep_name: 'Nom', ep_your_name: 'Ton nom', ep_tagline: 'Slogan', ep_your_motto: 'Ta devise d’apprentissage…', ep_country: 'Pays',
     // Mastery captions
-    ac_pinyin_mastered: 'pinyin maîtrisé', ac_words_mastered: 'des mots maîtrisés', ac_chars_mastered: 'caractères maîtrisés', ac_reading_mastered: 'lecture maîtrisée',
+    ac_pinyin_mastered: 'pinyin maîtrisé', ac_words_mastered: 'des mots maîtrisés', ac_chars_mastered: 'caractères maîtrisés', ac_reading_mastered: 'lecture maîtrisée', ac_writing_mastered: 'écriture maîtrisée',
     // ── Collection ──
     co_filter: 'Filtrer', co_filters: 'Filtres', co_hsk_level: 'Niveau HSK', co_knowledge: 'Connaissance',
     co_pack: 'Pack', co_all_words: 'Tous les mots', co_reset: 'Réinitialiser', co_show: 'Afficher',
@@ -983,6 +987,7 @@ export const TRANSLATIONS = {
     qz_pinyin: '拼音',
     qz_characters: '汉字',
     qz_reading: '认读',
+    qz_mode_write: '拼写',
     qz_hsk_range: 'HSK 等级范围',
     qz_difficulty: '掌握程度',
     qz_num_words: '词数',
@@ -1023,6 +1028,7 @@ export const TRANSLATIONS = {
     qp_how_pinyin_line: '这个词的拼音怎么写？',
     qp_how_chinese_line: '这个词用中文怎么写？',
     qp_how_word_line: '这个词怎么说？',
+    qp_how_read_word_line: '这个词是什么意思？',
     qp_how_reading_line: '这个词怎么读？（拼音）',
     // ── 对战 ──
     du_see_ranking: '查看排名',
@@ -1118,7 +1124,7 @@ export const TRANSLATIONS = {
     ep_avatar: '头像', ep_icon: '图标', ep_pick_icon: '选择图标', ep_background: '背景', ep_pick_color: '选择颜色',
     ep_name: '名字', ep_your_name: '你的名字', ep_tagline: '个性签名', ep_your_motto: '你的学习格言…', ep_country: '国家',
     // 掌握度说明
-    ac_pinyin_mastered: '拼音已掌握', ac_words_mastered: '的词已掌握', ac_chars_mastered: '汉字已掌握', ac_reading_mastered: '认读已掌握',
+    ac_pinyin_mastered: '拼音已掌握', ac_words_mastered: '的词已掌握', ac_chars_mastered: '汉字已掌握', ac_reading_mastered: '认读已掌握', ac_writing_mastered: '书写已掌握',
     // ── 词库 ──
     co_filter: '筛选', co_filters: '筛选', co_hsk_level: 'HSK 等级', co_knowledge: '掌握度',
     co_pack: '词包', co_all_words: '全部词汇', co_reset: '重置', co_show: '显示',
