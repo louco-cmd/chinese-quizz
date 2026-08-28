@@ -343,7 +343,7 @@ export default function QuizPlayScreen({ config, onExit }) {
               sinon petit bandeau texte (succès). */}
           {feedback && (
             feedback.kind === 'reveal'
-              ? <RevealAnswerCard word={feedback.word} learningLang={learningLang} />
+              ? <RevealAnswerCard word={feedback.word} learningLang={learningLang} type={type} />
               : (
                 <View style={{ backgroundColor: fbColor.bg, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16, alignItems: 'center' }}>
                   <Text style={{ color: fbColor.fg, fontWeight: '700' }}>{feedback.text}</Text>

@@ -272,7 +272,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
 
           {feedback && (
             feedback.kind === 'reveal'
-              ? <RevealAnswerCard word={feedback.word} learningLang={learningLang} />
+              ? <RevealAnswerCard word={feedback.word} learningLang={learningLang} type={type} />
               : (
                 <View style={{ backgroundColor: fb.bg, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16, alignItems: 'center' }}>
                   <Text style={{ color: fb.fg, fontWeight: '700' }}>{feedback.text}</Text>
