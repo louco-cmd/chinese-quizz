@@ -516,6 +516,15 @@ const pool = new Pool({
             OR u.native_lang IS DISTINCT FROM lp.native_lang)
       `);
       console.log("✅ Table 'learning_paths' + active_path_id + resync miroir users.* vérifiés.");
+
+      // Stats PAR PARCOURS : quiz_history et duels gagnent une langue (celle du
+      // cours au moment de l'activité) pour scoper les compteurs du compte. Tout
+      // l'historique d'avant le multi-cours était du chinois → backfill 'zh'.
+      await pool.query(`ALTER TABLE quiz_history ADD COLUMN IF NOT EXISTS lang varchar(8)`);
+      await pool.query(`ALTER TABLE duels ADD COLUMN IF NOT EXISTS lang varchar(8)`);
+      await pool.query(`UPDATE quiz_history SET lang = 'zh' WHERE lang IS NULL`);
+      await pool.query(`UPDATE duels SET lang = 'zh' WHERE lang IS NULL`);
+      console.log("✅ quiz_history.lang + duels.lang (stats par parcours) vérifiés.");
     } catch (e) { console.error('learning_paths migration:', e.message); }
 
     // ── Red envelopes (虹包) : virements de coins entre utilisateurs ───────────

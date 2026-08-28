@@ -2324,16 +2324,20 @@ router.get('/api/m/account', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
     const year = new Date().getFullYear();
+    // Stats scopées au PARCOURS ACTIF (learning_lang) — sauf le calendrier
+    // d'activité (contributions) qui reste GLOBAL (jours travaillés, tous cours).
+    const L = (await getUserLangs(uid)).learning;
     const [me, wordRows, quizzes, duels, contrib, recent, duelRank] = await Promise.all([
       pool.query('SELECT name, balance, tagline, country, quiz_direction, avatar_icon, avatar_color FROM users WHERE id = $1', [uid]),
       pool.query(
         `SELECT um.score, um.score_character, um.score_reading, m.hsk
          FROM user_mots um JOIN mots m ON m.id = um.mot_id
-         WHERE um.user_id = $1`, [uid]),
-      pool.query('SELECT COUNT(*)::int AS n FROM quiz_history WHERE user_id = $1', [uid]),
+         WHERE um.user_id = $1 AND m.lang = $2`, [uid, L]),
+      pool.query('SELECT COUNT(*)::int AS n FROM quiz_history WHERE user_id = $1 AND lang = $2', [uid, L]),
       pool.query(
         `SELECT COUNT(*)::int AS n FROM duels
-         WHERE (challenger_id = $1 OR opponent_id = $1) AND status = 'completed'`, [uid]),
+         WHERE (challenger_id = $1 OR opponent_id = $1) AND status = 'completed' AND lang = $2`, [uid, L]),
+      // Calendrier d'activité : GLOBAL (tous parcours confondus).
       pool.query(
         `SELECT DATE(date_completed) AS date, COUNT(*) AS count
          FROM quiz_history
@@ -2341,20 +2345,20 @@ router.get('/api/m/account', requireToken, async (req, res) => {
          GROUP BY DATE(date_completed) ORDER BY date ASC`, [uid, year]),
       pool.query(
         `SELECT score, total_questions, ratio, quiz_type, date_completed
-         FROM quiz_history WHERE user_id = $1
-         ORDER BY date_completed DESC LIMIT 5`, [uid]),
-      // Rang au classement des duels = position par nombre de victoires (les
-      // joueurs sans victoire ne sont pas classés → rank null).
+         FROM quiz_history WHERE user_id = $1 AND lang = $2
+         ORDER BY date_completed DESC LIMIT 5`, [uid, L]),
+      // Rang au classement des duels = position par victoires, DANS le même cours
+      // (cohérent avec le leaderboard, lui aussi par learning_lang).
       pool.query(
         `WITH wins AS (
            SELECT winner_id AS uid, COUNT(*)::int AS w
-           FROM duels WHERE status = 'completed' AND winner_id IS NOT NULL
+           FROM duels WHERE status = 'completed' AND winner_id IS NOT NULL AND lang = $2
            GROUP BY winner_id
          ), ranked AS (
            SELECT uid, RANK() OVER (ORDER BY w DESC) AS rank FROM wins
          )
          SELECT r.rank::int AS rank, (SELECT COUNT(*) FROM wins)::int AS total
-         FROM ranked r WHERE r.uid = $1`, [uid]),
+         FROM ranked r WHERE r.uid = $1`, [uid, L]),
     ]);
 
     const words = wordRows.rows;
@@ -2460,19 +2464,21 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
     const targetId = parseInt(req.params.id, 10);
     if (!targetId) return res.status(400).json({ error: 'Invalid user' });
 
+    // Stats scopées au parcours actif du user consulté (cohérent avec /account).
+    const L = (await getUserLangs(targetId)).learning;
     const [me, wordRows, quizzes, duels] = await Promise.all([
       pool.query('SELECT id, name, tagline, country, avatar_icon, avatar_color, created_at FROM users WHERE id = $1', [targetId]),
       pool.query(
         `SELECT um.score, um.score_character, um.score_reading, m.hsk
          FROM user_mots um JOIN mots m ON m.id = um.mot_id
-         WHERE um.user_id = $1`, [targetId]),
-      pool.query('SELECT COUNT(*)::int AS n FROM quiz_history WHERE user_id = $1', [targetId]),
+         WHERE um.user_id = $1 AND m.lang = $2`, [targetId, L]),
+      pool.query('SELECT COUNT(*)::int AS n FROM quiz_history WHERE user_id = $1 AND lang = $2', [targetId, L]),
       pool.query(
         `SELECT COUNT(*)::int AS n,
                 COUNT(*) FILTER (WHERE winner_id = $1)::int AS wins,
                 COUNT(*) FILTER (WHERE winner_id IS NOT NULL AND winner_id <> $1)::int AS losses
          FROM duels
-         WHERE (challenger_id = $1 OR opponent_id = $1) AND status = 'completed'`, [targetId]),
+         WHERE (challenger_id = $1 OR opponent_id = $1) AND status = 'completed' AND lang = $2`, [targetId, L]),
     ]);
     if (!me.rows.length) return res.status(404).json({ error: 'User not found' });
     const u = me.rows[0];
@@ -3009,11 +3015,12 @@ router.post('/api/m/duels/create', requireToken, async (req, res) => {
       return res.status(400).json({ error: 'Not enough shared words to generate the duel.' });
     }
 
+    const duelLang = (await getUserLangs(challengerId)).learning; // cours du défi (2 joueurs même langue)
     const ins = await client.query(
       `INSERT INTO duels
-        (challenger_id, opponent_id, duel_type, word_count, quiz_type, quiz_data, bet_amount, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'pending') RETURNING id`,
-      [challengerId, opponent_id, duel_type, word_count, quiz_type, JSON.stringify(quizData), bet]
+        (challenger_id, opponent_id, duel_type, word_count, quiz_type, quiz_data, bet_amount, status, lang)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8) RETURNING id`,
+      [challengerId, opponent_id, duel_type, word_count, quiz_type, JSON.stringify(quizData), bet, duelLang]
     );
     await client.query('COMMIT');
     const newDuelId = ins.rows[0].id;
@@ -3394,10 +3401,11 @@ router.post('/api/m/quiz/save', requireToken, async (req, res) => {
     }
 
     const wordsForHistory = Array.isArray(results) ? results.map((r) => r.pinyin) : [];
+    const quizLang = (await getUserLangs(userId)).learning; // tag pour stats par parcours
     await client.query(
-      `INSERT INTO quiz_history (user_id, score, total_questions, ratio, quiz_type, words_used)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [userId, scoreNum, totalNum, ratio, quiz_type, JSON.stringify(wordsForHistory)]
+      `INSERT INTO quiz_history (user_id, score, total_questions, ratio, quiz_type, words_used, lang)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [userId, scoreNum, totalNum, ratio, quiz_type, JSON.stringify(wordsForHistory), quizLang]
     );
 
     if (Array.isArray(results)) {
