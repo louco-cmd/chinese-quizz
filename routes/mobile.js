@@ -1887,21 +1887,6 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
           motId = ins.rows[0].id;
           await syncConceptSiblings(client, motId, english, other);
         }
-        // Le PACK garde le mot tapé (contenu). Mais le CRÉATEUR possède le lexème
-        // du concept DANS SA LANGUE APPRISE (visible dans sa collection), comme à
-        // l'achat — sinon un apprenant occidental qui tape du chinois posséderait
-        // des mots zh invisibles dans sa collection (filtrée sur learning_lang).
-        let ownMotId = motId;
-        const lr = await client.query(
-          `SELECT learn.id FROM lexeme_senses a
-             JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
-             JOIN mots learn ON learn.id = b.mot_id AND learn.lang = $2
-           WHERE a.mot_id = $1 ORDER BY learn.id LIMIT 1`, [motId, langs.learning]);
-        if (lr.rows.length) ownMotId = lr.rows[0].id;
-        await client.query(
-          `INSERT INTO user_mots (user_id, mot_id, meaning_id, score)
-           VALUES ($1, $2, (SELECT min(meaning_id) FROM lexeme_senses WHERE mot_id = $2), 0)
-           ON CONFLICT DO NOTHING`, [uid, ownMotId]);
         ownedMap.set(w, motId);
       }
       await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [cost, uid]);
@@ -1938,6 +1923,27 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
         const meaningId = meaningOf.get(motId) || null;
         await syncConceptSiblings(client, motId, gloss, other, { replace: true, meaningId });
       }
+    }
+
+    // Le CRÉATEUR possède chaque concept du pack DANS SA LANGUE APPRISE (visible
+    // dans sa collection), pour TOUS les mots — y compris ceux qu'il "possédait"
+    // déjà en zh. Sinon un apprenant occidental ne voit pas son propre pack
+    // (collection filtrée sur learning_lang) car aucun lexème de sa langue apprise
+    // n'aurait été capturé. Idempotent (ON CONFLICT DO NOTHING).
+    for (const w of words) {
+      const motId = ownedMap.get(w);
+      if (!motId) continue;
+      const lr = await client.query(
+        `SELECT learn.id, ls.meaning_id
+           FROM lexeme_senses a
+           JOIN lexeme_senses ls ON ls.meaning_id = a.meaning_id
+           JOIN mots learn ON learn.id = ls.mot_id AND learn.lang = $2
+         WHERE a.mot_id = $1 ORDER BY learn.id LIMIT 1`, [motId, langs.learning]);
+      if (!lr.rows.length) continue; // pas de lexème dans la langue apprise → rien à capturer
+      await client.query(
+        `INSERT INTO user_mots (user_id, mot_id, meaning_id, score)
+         VALUES ($1, $2, $3, 0) ON CONFLICT DO NOTHING`,
+        [uid, lr.rows[0].id, lr.rows[0].meaning_id]);
     }
 
     let packId;
