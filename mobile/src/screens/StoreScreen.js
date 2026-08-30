@@ -11,7 +11,7 @@ import { COLORS } from '../theme';
 // `navOverlaps` : true si la nav bar est en position absolute et recouvre le
 // contenu (côté étudiant) → le FAB doit la franchir. False si la nav est un frère
 // flex sous le contenu (côté prof) → le FAB n'a besoin que d'un petit écart.
-export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack, onUpgrade, navOverlaps = true }) {
+export default function StoreScreen({ onBack, onCreate, canCreate = true, onStartQuiz, onEditPack, onUpgrade, navOverlaps = true }) {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -103,8 +103,10 @@ export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack,
       />
 
       {/* ── FAB "Sell a pack" sticky : aligné sur le BORD DROIT de la colonne de
-          contenu (pas le bord de la fenêtre) via une bande centrée max-width. ── */}
-      {onCreate ? (
+          contenu (pas le bord de la fenêtre) via une bande centrée max-width.
+          Si le profil n'a pas le chinois (ni direction ni interface), la création
+          est encore en chantier → on masque le FAB et on affiche un bandeau info. ── */}
+      {onCreate && canCreate ? (
         <View
           pointerEvents="box-none"
           style={{ position: 'absolute', left: 0, right: 0, bottom: fabBottom, alignItems: 'center' }}
@@ -124,6 +126,27 @@ export default function StoreScreen({ onBack, onCreate, onStartQuiz, onEditPack,
               <Ionicons name="add" size={20} color="#fff" />
               <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>{t('st_sell_pack')}</Text>
             </Pressable>
+          </View>
+        </View>
+      ) : onCreate && !canCreate ? (
+        <View
+          pointerEvents="box-none"
+          style={{ position: 'absolute', left: 0, right: 0, bottom: fabBottom, alignItems: 'center' }}
+        >
+          <View style={{ width: '100%', maxWidth: contentMaxWidth, paddingHorizontal: 16 }}>
+            <View
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: '#fff', borderRadius: 16, borderWidth: 1, borderColor: COLORS.line,
+                paddingHorizontal: 14, paddingVertical: 12,
+                shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 10, elevation: 5,
+              }}
+            >
+              <Ionicons name="construct-outline" size={18} color={COLORS.muted} />
+              <Text style={{ flex: 1, color: COLORS.muted, fontWeight: '600', fontSize: 13, lineHeight: 18 }}>
+                {t('st_create_locked')}
+              </Text>
+            </View>
           </View>
         </View>
       ) : null}

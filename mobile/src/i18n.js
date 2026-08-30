@@ -257,6 +257,7 @@ export const TRANSLATIONS = {
     // ── Store (JiaStore) ──
     st_subtitle: 'Word packs to grow your vocabulary',
     st_sell_pack: 'Sell a pack',
+    st_create_locked: 'Pack creation is under construction for your profile — come back later.',
     st_search: 'Search packs…',
     st_sort_featured: 'Featured',
     st_sort_recent: 'New',
@@ -680,6 +681,7 @@ export const TRANSLATIONS = {
     // ── Store (JiaStore) ──
     st_subtitle: 'Des packs de mots pour enrichir ton vocabulaire',
     st_sell_pack: 'Vendre un pack',
+    st_create_locked: 'La création de packs est en chantier pour ton profil — reviens plus tard.',
     st_search: 'Rechercher des packs…',
     st_sort_featured: 'À la une',
     st_sort_recent: 'Nouveau',
@@ -1101,6 +1103,7 @@ export const TRANSLATIONS = {
     // ── 商城 ──
     st_subtitle: '扩充词汇的词包',
     st_sell_pack: '出售词包',
+    st_create_locked: '词包创建功能对你的账户仍在建设中，敬请期待。',
     st_search: '搜索词包…',
     st_sort_featured: '精选',
     st_sort_recent: '最新',

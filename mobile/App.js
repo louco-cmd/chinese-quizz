@@ -298,7 +298,7 @@ function App() {
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onBack={() => setTab('account')} isPremium={!!profile?.isPremium} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} onPurchased={() => loadProfile({ route: false })} />;
-      case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} onStartQuiz={startPackQuiz} onEditPack={startEditPack} onUpgrade={() => { setBankReturn('store'); setTab('pricing'); }} />;
+      case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} canCreate={[profile?.learning_lang, profile?.native_lang, profile?.interface_lang].includes('zh')} onStartQuiz={startPackQuiz} onEditPack={startEditPack} onUpgrade={() => { setBankReturn('store'); setTab('pricing'); }} />;
       case 'create-pack': return <CreatePackScreen editPack={editPack} onBack={() => { setEditPack(null); setTab('store'); }} onCreated={() => { setEditPack(null); setTab('store'); }} />;
       case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} onDone={() => setTab('add')} />;
       case 'writing': return <WritingPracticeScreen onBack={() => setTab('settings')} />;
