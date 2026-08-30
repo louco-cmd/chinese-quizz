@@ -80,6 +80,13 @@ const bucketOf = (s) => (s >= 90 ? 'trophy' : s >= 75 ? 'cool' : s >= 50 ? 'ok' 
 const hskKey = (w) => (w.hsk ? String(w.hsk) : 'street');
 const hskLabel = (k) => (k === 'street' ? 'Street' : `HSK ${k}`);
 
+// La police suit la LANGUE du texte, pas la colonne : le chinois (hanzi) reste
+// gros/gras, l'occidental plus léger — où qu'il soit (mot appris ou traduction).
+const CJK_RE = /[㐀-鿿豈-﫿]/;
+const scriptStyle = (s) => (CJK_RE.test(s || '')
+  ? { fontSize: 18, fontWeight: '700' }
+  : { fontSize: 14.5, fontWeight: '500' });
+
 const circleBtn = {
   width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff',
   borderWidth: 1, borderColor: COLORS.line, alignItems: 'center', justifyContent: 'center',
@@ -606,16 +613,17 @@ export default function CollectionScreen({ onNavigate }) {
                 ) : null}
                 {learningLang === 'zh' ? (
                   <>
-                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#1a1a2e', width: 80 }}>{item.chinese}</Text>
+                    <Text style={{ ...scriptStyle(item.chinese), color: '#1a1a2e', width: 80 }}>{item.chinese}</Text>
                     <Text style={{ color: COLORS.muted, flex: 1 }} numberOfLines={1}>{item.pinyin}</Text>
-                    <Text style={{ color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{cap(item.english)}</Text>
+                    <Text style={{ ...scriptStyle(item.english), color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{cap(item.english)}</Text>
                   </>
                 ) : (
                   // Pas de pinyin hors chinois → le mot appris récupère toute la
-                  // colonne de gauche (plus de crop « sauciss/e »).
+                  // colonne de gauche (plus de crop « sauciss/e »). La police suit
+                  // la langue : mot appris occidental = léger, traduction zh = gras.
                   <>
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e', flex: 1.4, marginRight: 12 }} numberOfLines={1}>{item.chinese}</Text>
-                    <Text style={{ color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{cap(item.english)}</Text>
+                    <Text style={{ ...scriptStyle(item.chinese), color: '#1a1a2e', flex: 1.4, marginRight: 12 }} numberOfLines={1}>{item.chinese}</Text>
+                    <Text style={{ ...scriptStyle(item.english), color: '#1a1a2e', flex: 1, textAlign: 'right' }} numberOfLines={1}>{cap(item.english)}</Text>
                   </>
                 )}
               </Pressable>
