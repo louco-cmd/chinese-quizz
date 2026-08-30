@@ -467,6 +467,47 @@ const pool = new Pool({
           REFERENCING NEW TABLE AS newrows FOR EACH STATEMENT
           EXECUTE FUNCTION link_mot_senses()`);
         console.log("✅ Trigger lexeme_senses (auto-lien meaning_id) vérifié.");
+        // Invariant : un créateur possède les concepts de SES packs DANS LES LANGUES
+        // DE LA PAIRE DU PACK (wp.lang / wp.native_lang) — PAS dans sa session
+        // active. Sinon, ouvrir une nouvelle session (ex. fr) ferait fuiter les mots
+        // des packs vers cette session. Les sessions restent hermétiques : un pack
+        // zh↔en ne peuple que les collections zh et en, jamais fr. Idempotent.
+        try {
+          const heal = await pool.query(`
+            INSERT INTO user_mots (user_id, mot_id, meaning_id, score)
+            SELECT DISTINCT wp.creator_id, lx.id, lp.meaning_id, 0
+            FROM word_packs wp
+            JOIN word_pack_items wpi ON wpi.pack_id = wp.id
+            JOIN lexeme_senses lp ON lp.mot_id = wpi.mot_id
+            JOIN lexeme_senses ll ON ll.meaning_id = lp.meaning_id
+            JOIN mots lx ON lx.id = ll.mot_id AND lx.lang IN (wp.lang, wp.native_lang)
+            WHERE wp.creator_id IS NOT NULL
+            ON CONFLICT DO NOTHING`);
+          if (heal.rowCount) console.log(`🔧 collections créateurs : ${heal.rowCount} possession(s) de pack rétablie(s).`);
+        } catch (e) { console.error('creator-pack heal:', e.message); }
+        // Anti-fuite : retire les possessions JAMAIS étudiées (score 0, nb_quiz 0)
+        // d'un concept présent dans un pack de l'utilisateur, mais dans une langue
+        // HORS de la paire de TOUS ses packs contenant ce concept (résidus de
+        // l'ancien backfill qui accordait dans la session active). Sûr : ne touche
+        // aucun mot travaillé ni capturé/appris dans une session légitime.
+        try {
+          const leak = await pool.query(`
+            DELETE FROM user_mots um USING mots m
+            WHERE um.mot_id = m.id
+              AND COALESCE(um.score,0) = 0 AND COALESCE(um.nb_quiz,0) = 0
+              AND EXISTS (
+                SELECT 1 FROM word_packs wp JOIN word_pack_items wpi ON wpi.pack_id = wp.id
+                JOIN lexeme_senses lp ON lp.mot_id = wpi.mot_id
+                WHERE wp.creator_id = um.user_id AND lp.meaning_id = um.meaning_id
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM word_packs wp JOIN word_pack_items wpi ON wpi.pack_id = wp.id
+                JOIN lexeme_senses lp ON lp.mot_id = wpi.mot_id
+                WHERE wp.creator_id = um.user_id AND lp.meaning_id = um.meaning_id
+                  AND m.lang IN (wp.lang, wp.native_lang)
+              )`);
+          if (leak.rowCount) console.log(`🔧 anti-fuite sessions : ${leak.rowCount} possession(s) fuitée(s) retirée(s).`);
+        } catch (e) { console.error('session-leak cleanup:', e.message); }
         await pool.query(`
           CREATE OR REPLACE FUNCTION mot_tr(p_mot_id int, p_native text) RETURNS text
           LANGUAGE sql STABLE AS $fn$

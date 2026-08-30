@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from './Popup';
 import { getMarketPack, buyMarketPack, notifyNeedCoins, forgetPack, notifyUpgrade } from '../api';
@@ -22,8 +22,8 @@ export const isPremiumPack = (pack) => PREMIUM_PACK_COVERS.includes(pack?.cover_
 // barre remplie à X% + libellé. Rendue seulement si on possède déjà des mots.
 export function OwnedProgress({ owned, total }) {
   const { t } = useT();
-  if (!total || !owned) return null;
-  const pct = Math.min(100, Math.round((owned / total) * 100));
+  if (!total) return null; // visible même à 0 % (indicateur de progression, partout)
+  const pct = Math.min(100, Math.round(((owned || 0) / total) * 100));
   return (
     <View style={{ position: 'absolute', right: 8, bottom: 8, alignItems: 'flex-end' }}>
       <Text style={{ fontSize: 10, fontWeight: '800', color: COVER_FG, marginBottom: 3 }}>{pct}% {t('st_owned_gauge')}</Text>
@@ -36,14 +36,39 @@ export function OwnedProgress({ owned, total }) {
 
 // Ligne d'un mot : deux colonnes justifiées — chinois + pinyin ensemble à
 // gauche, anglais aligné à droite.
+// La police suit la LANGUE du texte, pas la colonne : le chinois (hanzi) est
+// toujours gros/gras (dense, lisible ainsi), l'occidental toujours plus léger —
+// sinon un mot anglais en gras à gauche alourdit la popup.
+const CJK_RE = /[㐀-鿿豈-﫿]/;
+const scriptStyle = (s) => (CJK_RE.test(s || '')
+  ? { fontSize: 18, fontWeight: '700', lineHeight: 24 }
+  : { fontSize: 14.5, fontWeight: '500', lineHeight: 20 });
+
 export function WordRow({ w, last }) {
+  // Verrouillé : on montre le mot proposé (gauche) mais la traduction est masquée
+  // (floutée sur web) — teaser avant achat.
+  const locked = !!w.locked || (w.english == null);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 6, borderBottomWidth: last ? 0 : 1, borderColor: '#eceef1' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 11, borderBottomWidth: last ? 0 : 1, borderColor: '#eceef1' }}>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e' }}>{w.chinese}</Text>
-        <Text style={{ fontSize: 11.5, color: COLORS.muted }}>{w.pinyin}</Text>
+        <Text style={{ color: '#1a1a2e', ...scriptStyle(w.chinese) }}>{w.chinese}</Text>
+        {w.pinyin ? <Text style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 1 }}>{w.pinyin}</Text> : null}
       </View>
-      <Text style={{ flex: 1, fontSize: 13, color: '#1a1a2e', textAlign: 'right' }} numberOfLines={2}>{w.english}</Text>
+      {locked ? (
+        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontSize: 14, color: '#b8bec6', letterSpacing: 1,
+              ...(Platform.OS === 'web' ? { filter: 'blur(4px)', userSelect: 'none' } : {}),
+            }}
+          >
+            ▮▮▮▮ ▮▮▮
+          </Text>
+        </View>
+      ) : (
+        <Text style={{ flex: 1, textAlign: 'right', color: '#1a1a2e', ...scriptStyle(w.english) }} numberOfLines={2}>{w.english}</Text>
+      )}
     </View>
   );
 }
@@ -158,10 +183,9 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
           ) : preview?.length ? (
             <View style={{ marginTop: 14, backgroundColor: '#f8f9fa', borderRadius: 12, padding: 10 }}>
               <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{t('st_preview')}</Text>
-              {preview.map((w, i) => <WordRow key={w.id} w={w} last={i === preview.length - 1} />)}
-              {p.word_count > preview.length ? (
-                <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 6 }}>+ {p.word_count - preview.length} {t('st_more_suffix')}</Text>
-              ) : null}
+              <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
+                {preview.map((w, i) => <WordRow key={w.id} w={w} last={i === preview.length - 1} />)}
+              </ScrollView>
             </View>
           ) : null}
 

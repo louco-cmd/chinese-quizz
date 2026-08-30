@@ -704,10 +704,14 @@ router.get('/api/m/collection', requireToken, async (req, res) => {
               user_mots.meaning_id,
               mots.hsk, user_mots.description,
               user_mots.score,
+              -- Appartenance à un pack par CONCEPT (meaning), pas par mot exact :
+              -- un apprenant occidental possède le lexème en/fr alors que le pack
+              -- contient le lexème zh du même concept → il faut matcher le sens.
               ARRAY(
-                SELECT wpi.pack_id FROM word_pack_items wpi
+                SELECT DISTINCT wpi.pack_id FROM word_pack_items wpi
+                JOIN lexeme_senses lp ON lp.mot_id = wpi.mot_id
                 JOIN word_packs wp ON wp.id = wpi.pack_id
-                WHERE wpi.mot_id = mots.id
+                WHERE lp.meaning_id = user_mots.meaning_id
                   AND (wp.creator_id = $1
                        OR EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wpi.pack_id AND pp.buyer_id = $1))
               ) AS pack_ids
@@ -1502,12 +1506,13 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     };
     const orderBy = sortMap[req.query.sort] || sortMap.featured;
 
-    // Un pack n'a PAS de direction : c'est un sac de concepts. On le montre à tout
-    // apprenant dont la paire {learning=$4, native=$5} couvre son contenu, i.e. si
-    // CHAQUE mot est atteignable à la fois dans la langue apprise ($4) ET dans la
-    // langue de base ($5). L'affichage est ensuite orienté selon le viewer (colonne
-    // gauche = langue apprise, droite = traduction). Pas de filtre sur wp.lang/
-    // native_lang → réciprocité automatique (zh↔en montré dans les deux sens).
+    // Un pack couvre UNE PAIRE de langues (celle de son créateur). On le montre
+    // uniquement aux apprenants de CETTE paire, dans un sens OU l'autre (réciprocité
+    // zh↔en : montré à zh→en ET en→zh), mais JAMAIS à une autre paire — un pack
+    // zh↔en est culturellement chinois et n'a pas de sens pour un apprenant fr↔en.
+    // On exige AUSSI que chaque concept soit atteignable dans les deux langues de la
+    // paire du viewer (réachabilité) → un pack incomplet reste caché. L'affichage
+    // est ensuite orienté selon le viewer (gauche = langue apprise, droite = trad).
     // En onboarding les langues ne sont pas encore persistées → le front peut les
     // passer en query pour prévisualiser la bonne paire.
     const stored = await getUserLangs(uid);
@@ -1516,6 +1521,7 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     const langs = { learning: qLearn || stored.learning, native: qNative || stored.native };
     const params = [uid, min, max, langs.learning, langs.native];
     let where = `wp.published = TRUE AND wp.price >= $2 AND wp.price <= $3
+      AND ((wp.lang = $4 AND wp.native_lang = $5) OR (wp.lang = $5 AND wp.native_lang = $4))
       AND NOT EXISTS (
         SELECT 1 FROM word_pack_items i2 JOIN mots pm ON pm.id = i2.mot_id
         WHERE i2.pack_id = wp.id
@@ -1533,15 +1539,15 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
       where += ` AND (wp.title ILIKE $${params.length} OR wp.description ILIKE $${params.length} OR COALESCE(u.name, wp.creator_name, '') ILIKE $${params.length})`;
     }
     const { rows } = await pool.query(
-      `WITH mine AS (
-         SELECT DISTINCT m.chinese FROM user_mots um JOIN mots m ON m.id = um.mot_id WHERE um.user_id = $1
-       )
-       SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
+      `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
-              -- Mots du pack déjà dans la collection (match par caractère chinois).
-              (SELECT COUNT(*) FROM word_pack_items i JOIN mots pm ON pm.id = i.mot_id
-                 WHERE i.pack_id = wp.id AND pm.chinese IN (SELECT chinese FROM mine))::int AS owned_words,
+              -- Mots du pack déjà possédés, par CONCEPT (le viewer peut posséder le
+              -- lexème dans sa langue apprise alors que le pack stocke le zh).
+              (SELECT COUNT(*) FROM word_pack_items i
+                 WHERE i.pack_id = wp.id AND EXISTS (
+                   SELECT 1 FROM lexeme_senses lp JOIN user_mots um ON um.meaning_id = lp.meaning_id AND um.user_id = $1
+                   WHERE lp.mot_id = i.mot_id))::int AS owned_words,
               (wp.created_at > NOW() - INTERVAL '7 days') AS is_new,
               -- Possédé = acheté OU créé par l'utilisateur.
               (wp.creator_id = $1 OR EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1)) AS owned
@@ -1567,11 +1573,12 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
               wp.creator_id,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
-              -- Mots du pack déjà dans la collection (match par caractère chinois).
-              (SELECT COUNT(*) FROM word_pack_items i JOIN mots pm ON pm.id = i.mot_id
+              -- Mots du pack déjà possédés, par CONCEPT (indépendant de la langue
+              -- du lexème possédé — cohérent avec la liste et pack_ids).
+              (SELECT COUNT(*) FROM word_pack_items i
                  WHERE i.pack_id = wp.id AND EXISTS(
-                   SELECT 1 FROM user_mots um JOIN mots m ON m.id = um.mot_id
-                   WHERE um.user_id = $1 AND m.chinese = pm.chinese))::int AS owned_words,
+                   SELECT 1 FROM lexeme_senses lp JOIN user_mots um ON um.meaning_id = lp.meaning_id AND um.user_id = $1
+                   WHERE lp.mot_id = i.mot_id))::int AS owned_words,
               EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1) AS owned
        FROM word_packs wp
        LEFT JOIN users u ON u.id = wp.creator_id
@@ -1607,10 +1614,15 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
                  FROM lexeme_senses a JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
                  JOIN mots lx ON lx.id = b.mot_id
                  WHERE a.mot_id = i.mot_id AND lx.lang = 'zh') AS zh
-       FROM word_pack_items i WHERE i.pack_id = $1 ORDER BY i.mot_id${full ? '' : ' LIMIT 3'}`,
+       FROM word_pack_items i WHERE i.pack_id = $1 ORDER BY i.mot_id`,
       [id, vlangs.learning, vlangs.native]);
-    if (full) res.json({ pack, words });
-    else res.json({ pack, preview: words });
+    if (full) { res.json({ pack, words }); return; }
+    // Aperçu : on montre TOUS les mots proposés, mais la traduction n'est visible
+    // que pour les 3 premiers. Pour les suivants on NE renvoie PAS la traduction
+    // (anti-triche) → le front la floute. `zh` (surface d'édition) aussi masqué.
+    const UNLOCKED = 3;
+    const preview = words.map((w, i) => (i < UNLOCKED ? w : { id: w.id, chinese: w.chinese, pinyin: w.pinyin, english: null, zh: null, locked: true }));
+    res.json({ pack, preview });
   } catch (e) {
     console.error('m/market pack detail error:', e);
     res.status(500).json({ error: 'Server error' });
@@ -1866,10 +1878,21 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
           motId = ins.rows[0].id;
           await syncConceptSiblings(client, motId, english, langs.native);
         }
+        // Le PACK garde le mot tapé (contenu). Mais le CRÉATEUR possède le lexème
+        // du concept DANS SA LANGUE APPRISE (visible dans sa collection), comme à
+        // l'achat — sinon un apprenant occidental qui tape du chinois posséderait
+        // des mots zh invisibles dans sa collection (filtrée sur learning_lang).
+        let ownMotId = motId;
+        const lr = await client.query(
+          `SELECT learn.id FROM lexeme_senses a
+             JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
+             JOIN mots learn ON learn.id = b.mot_id AND learn.lang = $2
+           WHERE a.mot_id = $1 ORDER BY learn.id LIMIT 1`, [motId, langs.learning]);
+        if (lr.rows.length) ownMotId = lr.rows[0].id;
         await client.query(
           `INSERT INTO user_mots (user_id, mot_id, meaning_id, score)
            VALUES ($1, $2, (SELECT min(meaning_id) FROM lexeme_senses WHERE mot_id = $2), 0)
-           ON CONFLICT DO NOTHING`, [uid, motId]);
+           ON CONFLICT DO NOTHING`, [uid, ownMotId]);
         ownedMap.set(w, motId);
       }
       await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [cost, uid]);
@@ -1917,10 +1940,9 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       await client.query('DELETE FROM word_pack_items WHERE pack_id = $1', [editId]);
       packId = editId;
     } else {
-      // lang/native_lang = paire du créateur, gardées à titre indicatif SEULEMENT.
-      // Le store ne filtre PAS dessus : la visibilité vient de la réachabilité des
-      // concepts dans la paire du viewer, et l'affichage est orienté pour lui. Un
-      // pack est un sac de concepts, sans direction propre.
+      // lang/native_lang = la PAIRE du créateur. Le store filtre dessus (dans les
+      // deux sens) → un pack n'apparaît qu'aux apprenants de cette paire ; l'affichage
+      // est ensuite orienté selon le viewer.
       const { rows: pk } = await client.query(
         `INSERT INTO word_packs (creator_id, title, description, price, cover_key, is_official, published, lang, native_lang)
          VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE, $5, $6) RETURNING id`,

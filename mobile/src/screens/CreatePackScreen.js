@@ -190,7 +190,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
           </View>
         </Field>
 
-        <Field label="Words" hint="one per line">
+        <Field label="Words" hint="One per line — only Chinese hanzi supported">
           {/* Coût estimé du pass : 3 ₵ par mot NON possédé (affiné en débounce). */}
           {lineCount > 0 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
