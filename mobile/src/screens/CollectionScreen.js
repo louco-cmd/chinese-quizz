@@ -179,17 +179,22 @@ export default function CollectionScreen({ onNavigate }) {
         <Pressable onPress={() => setFilterOpen(false)} hitSlop={10}><Ionicons name="close" size={22} color={COLORS.muted} /></Pressable>
       </View>
 
-      <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{tr('co_hsk_level')}</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
-        {hskOptions.map((k) => {
-          const on = fHsk.includes(k);
-          return (
-            <Pressable key={k} onPress={() => toggleIn(setFHsk)(k)} style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, backgroundColor: on ? '#e8f0ff' : '#fff', borderColor: on ? COLORS.jiayou : COLORS.line }}>
-              <Text style={{ color: on ? COLORS.jiayou : COLORS.muted, fontWeight: on ? '700' : '500', fontSize: 13.5 }}>{k === 'street' ? tr('qz_street') : hskLabel(k)}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      {/* Filtre HSK : propre au chinois → masqué pour les autres langues apprises. */}
+      {learningLang === 'zh' ? (
+        <>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{tr('co_hsk_level')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>
+            {hskOptions.map((k) => {
+              const on = fHsk.includes(k);
+              return (
+                <Pressable key={k} onPress={() => toggleIn(setFHsk)(k)} style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, backgroundColor: on ? '#e8f0ff' : '#fff', borderColor: on ? COLORS.jiayou : COLORS.line }}>
+                  <Text style={{ color: on ? COLORS.jiayou : COLORS.muted, fontWeight: on ? '700' : '500', fontSize: 13.5 }}>{k === 'street' ? tr('qz_street') : hskLabel(k)}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </>
+      ) : null}
 
       <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{tr('co_knowledge')}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 }}>

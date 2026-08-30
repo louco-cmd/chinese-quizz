@@ -1502,12 +1502,12 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     };
     const orderBy = sortMap[req.query.sort] || sortMap.featured;
 
-    // Un pack couvre une PAIRE de langues (ex. concepts zh↔en) : il est utilisable
-    // dans les DEUX sens (apprendre zh depuis en ET apprendre en depuis zh). On le
-    // montre donc si sa langue de contenu (wp.lang) fait partie de la paire de
-    // l'apprenant {learning, native} ET si CHAQUE mot est atteignable à la fois dans
-    // la langue apprise ($4) et dans la langue de base ($5) — sinon on ne pourrait
-    // ni l'ajouter à la collection (mot appris) ni afficher sa traduction (base).
+    // Un pack n'a PAS de direction : c'est un sac de concepts. On le montre à tout
+    // apprenant dont la paire {learning=$4, native=$5} couvre son contenu, i.e. si
+    // CHAQUE mot est atteignable à la fois dans la langue apprise ($4) ET dans la
+    // langue de base ($5). L'affichage est ensuite orienté selon le viewer (colonne
+    // gauche = langue apprise, droite = traduction). Pas de filtre sur wp.lang/
+    // native_lang → réciprocité automatique (zh↔en montré dans les deux sens).
     // En onboarding les langues ne sont pas encore persistées → le front peut les
     // passer en query pour prévisualiser la bonne paire.
     const stored = await getUserLangs(uid);
@@ -1515,11 +1515,7 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     const qNative = LEARNABLE_LANGS.includes(req.query.native) ? req.query.native : null;
     const langs = { learning: qLearn || stored.learning, native: qNative || stored.native };
     const params = [uid, min, max, langs.learning, langs.native];
-    // Match de la PAIRE de langues du pack (learning=$4, native=$5), dans un sens
-    // OU l'autre (un pack en↔fr sert les apprenants en-from-fr ET fr-from-en, mais
-    // jamais un apprenant zh dont la base est en).
     let where = `wp.published = TRUE AND wp.price >= $2 AND wp.price <= $3
-      AND ((wp.lang = $4 AND wp.native_lang = $5) OR (wp.lang = $5 AND wp.native_lang = $4))
       AND NOT EXISTS (
         SELECT 1 FROM word_pack_items i2 JOIN mots pm ON pm.id = i2.mot_id
         WHERE i2.pack_id = wp.id
@@ -1586,10 +1582,28 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
     delete pack.creator_id;
     // Propriétaire (acheteur ou créateur) → liste complète des mots ; sinon aperçu de 3.
     const full = pack.owned || pack.isMine;
-    const nat = (await getUserLangs(uid)).native;
+    // Affichage ORIENTÉ VIEWER : pour chaque item, on résout le concept vers le
+    // lexème de la langue APPRISE (colonne gauche) et de la langue CONNUE (droite),
+    // peu importe la langue du mot stocké. Un pack de concepts s'affiche donc dans
+    // le sens de CHAQUE apprenant (zh→en le voit zh|en ; en→zh le voit en|zh).
+    const vlangs = await getUserLangs(uid);
     const { rows: words } = await pool.query(
-      `SELECT m.id, m.chinese, m.pinyin, mot_tr(m.id, $2) AS english FROM word_pack_items i
-       JOIN mots m ON m.id = i.mot_id WHERE i.pack_id = $1 ORDER BY m.id${full ? '' : ' LIMIT 3'}`, [id, nat]);
+      `SELECT i.mot_id AS id,
+              (SELECT string_agg(DISTINCT lx.chinese, ' / ' ORDER BY lx.chinese)
+                 FROM lexeme_senses a JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
+                 JOIN mots lx ON lx.id = b.mot_id
+                 WHERE a.mot_id = i.mot_id AND lx.lang = $2) AS chinese,
+              (SELECT lx.pinyin
+                 FROM lexeme_senses a JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
+                 JOIN mots lx ON lx.id = b.mot_id
+                 WHERE a.mot_id = i.mot_id AND lx.lang = $2 AND lx.pinyin IS NOT NULL
+                 ORDER BY lx.id LIMIT 1) AS pinyin,
+              (SELECT string_agg(DISTINCT lx.chinese, ' / ' ORDER BY lx.chinese)
+                 FROM lexeme_senses a JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
+                 JOIN mots lx ON lx.id = b.mot_id
+                 WHERE a.mot_id = i.mot_id AND lx.lang = $3) AS english
+       FROM word_pack_items i WHERE i.pack_id = $1 ORDER BY i.mot_id${full ? '' : ' LIMIT 3'}`,
+      [id, vlangs.learning, vlangs.native]);
     if (full) res.json({ pack, words });
     else res.json({ pack, preview: words });
   } catch (e) {
@@ -1898,9 +1912,10 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       await client.query('DELETE FROM word_pack_items WHERE pack_id = $1', [editId]);
       packId = editId;
     } else {
-      // Le pack couvre la PAIRE de langues du créateur : lang = langue apprise,
-      // native_lang = langue d'interface. Le store filtre sur cette paire (dans
-      // les deux sens) → un pack en↔fr n'apparaît jamais pour un apprenant zh.
+      // lang/native_lang = paire du créateur, gardées à titre indicatif SEULEMENT.
+      // Le store ne filtre PAS dessus : la visibilité vient de la réachabilité des
+      // concepts dans la paire du viewer, et l'affichage est orienté pour lui. Un
+      // pack est un sac de concepts, sans direction propre.
       const { rows: pk } = await client.query(
         `INSERT INTO word_packs (creator_id, title, description, price, cover_key, is_official, published, lang, native_lang)
          VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE, $5, $6) RETURNING id`,

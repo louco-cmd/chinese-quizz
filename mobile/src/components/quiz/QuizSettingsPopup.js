@@ -125,24 +125,29 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
         </>
       ) : null}
 
-      {/* HSK range — collection uniquement */}
+      {/* HSK range + difficulté — collection uniquement */}
       {scope === 'collection' ? (
         <>
-          <SectionLabel>{t('qz_hsk_range')}</SectionLabel>
-          <Text style={{ fontSize: 14, fontWeight: '500', color: COLORS.jiayou, marginBottom: 12 }}>{status}</Text>
-          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 4 }}>
-            {HSK_LEVELS.map((n) => {
-              const active = n >= hskMin && n <= hskMax;
-              const edge = n === hskMin || n === hskMax;
-              return (
-                <Pressable key={n} onPress={() => tapLevel(n)}
-                  style={{ flex: 1, aspectRatio: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? (edge ? COLORS.jiayou : '#cfe2ff') : '#f1f3f5' }}>
-                  <Text style={{ fontWeight: '700', color: active ? (edge ? '#fff' : COLORS.jiayou) : '#888' }}>{label(n)}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <View style={{ height: 20 }} />
+          {/* Plage HSK : notion propre au chinois → masquée pour les autres langues. */}
+          {learningZh ? (
+            <>
+              <SectionLabel>{t('qz_hsk_range')}</SectionLabel>
+              <Text style={{ fontSize: 14, fontWeight: '500', color: COLORS.jiayou, marginBottom: 12 }}>{status}</Text>
+              <View style={{ flexDirection: 'row', gap: 6, marginBottom: 4 }}>
+                {HSK_LEVELS.map((n) => {
+                  const active = n >= hskMin && n <= hskMax;
+                  const edge = n === hskMin || n === hskMax;
+                  return (
+                    <Pressable key={n} onPress={() => tapLevel(n)}
+                      style={{ flex: 1, aspectRatio: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? (edge ? COLORS.jiayou : '#cfe2ff') : '#f1f3f5' }}>
+                      <Text style={{ fontWeight: '700', color: active ? (edge ? '#fff' : COLORS.jiayou) : '#888' }}>{label(n)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <View style={{ height: 20 }} />
+            </>
+          ) : null}
 
           {/* Difficulté — même UI (plage de tuiles) que le HSK, juste dessous. */}
           <SectionLabel>{t('qz_difficulty')}</SectionLabel>

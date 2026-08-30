@@ -184,9 +184,13 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
                 />
               )}
 
-              <AccountCard icon="search-outline" title={t('ac_stats_on_words')}>
-                <HskStatList items={data.hsk} />
-              </AccountCard>
+              {/* Statistiques par niveau HSK : spécifique au chinois → masqué pour
+                  les autres langues apprises (pas de notion de HSK). */}
+              {learningChinese && (
+                <AccountCard icon="search-outline" title={t('ac_stats_on_words')}>
+                  <HskStatList items={data.hsk} />
+                </AccountCard>
+              )}
 
               <AccountCard icon="time-outline" title={t('ac_recent_quizzes')} actionLabel={t('ac_start_new_quiz')} onPress={() => onNavigate?.('quiz')}>
                 <RecentQuizzes quizzes={data.recentQuizzes} />
