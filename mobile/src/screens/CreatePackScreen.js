@@ -28,8 +28,13 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
   const [title, setTitle] = useState(editPack?.title || '');
   const [description, setDescription] = useState(editPack?.description || '');
   const [price, setPrice] = useState(editPack?.price != null ? String(editPack.price) : '');
+  // Édition : on ne pré-remplit QUE les surfaces chinoises (l'édition n'est pas
+  // encore câblée pour les autres langues). `w.zh` vient du détail ; fallback
+  // `w.chinese` pour les anciens clients.
   const [text, setText] = useState(
-    editPack?.words?.length ? editPack.words.map((w) => w.chinese).join('\n') : '');
+    editPack?.words?.length
+      ? editPack.words.map((w) => w.zh || w.chinese).filter(Boolean).join('\n')
+      : '');
 
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');

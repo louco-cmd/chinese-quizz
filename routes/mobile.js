@@ -1601,7 +1601,12 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
               (SELECT string_agg(DISTINCT lx.chinese, ' / ' ORDER BY lx.chinese)
                  FROM lexeme_senses a JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
                  JOIN mots lx ON lx.id = b.mot_id
-                 WHERE a.mot_id = i.mot_id AND lx.lang = $3) AS english
+                 WHERE a.mot_id = i.mot_id AND lx.lang = $3) AS english,
+              -- Surface CHINOISE du concept (pour l'édition, non encore câblée hors zh).
+              (SELECT string_agg(DISTINCT lx.chinese, ' / ' ORDER BY lx.chinese)
+                 FROM lexeme_senses a JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
+                 JOIN mots lx ON lx.id = b.mot_id
+                 WHERE a.mot_id = i.mot_id AND lx.lang = 'zh') AS zh
        FROM word_pack_items i WHERE i.pack_id = $1 ORDER BY i.mot_id${full ? '' : ' LIMIT 3'}`,
       [id, vlangs.learning, vlangs.native]);
     if (full) res.json({ pack, words });
