@@ -55,16 +55,11 @@ export function WordRow({ w, last }) {
         {w.pinyin ? <Text style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 1 }}>{w.pinyin}</Text> : null}
       </View>
       {locked ? (
-        <View style={{ flex: 1, alignItems: 'flex-end' }}>
-          <Text
-            numberOfLines={1}
-            style={{
-              fontSize: 14, color: '#b8bec6', letterSpacing: 1,
-              ...(Platform.OS === 'web' ? { filter: 'blur(4px)', userSelect: 'none' } : {}),
-            }}
-          >
-            ▮▮▮▮ ▮▮▮
-          </Text>
+        // Traduction masquée : barre grise (rendu identique iOS/Android/web) — le
+        // `filter: blur` CSS n'existe pas sur natif, d'où une barre "caviardée".
+        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 6 }}>
+          <View style={{ width: 54, height: 11, borderRadius: 6, backgroundColor: '#e1e5ea' }} />
+          <View style={{ width: 34, height: 11, borderRadius: 6, backgroundColor: '#e1e5ea' }} />
         </View>
       ) : (
         <Text style={{ flex: 1, textAlign: 'right', color: '#1a1a2e', ...scriptStyle(w.english) }} numberOfLines={2}>{w.english}</Text>
@@ -150,7 +145,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
   }
 
   return (
-    <Popup visible={!!pack} onClose={onClose} maxWidth={420} scroll={false}>
+    <Popup visible={!!pack} onClose={onClose} maxWidth={420}>
       {loading && !detail ? (
         <View style={{ marginVertical: 30, alignItems: 'center' }}><CatLoader size={90} /></View>
       ) : (
@@ -176,16 +171,12 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
           {words?.length ? (
             <View style={{ marginTop: 14, backgroundColor: '#f8f9fa', borderRadius: 12, padding: 10 }}>
               <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{t('st_words_head')} · {words.length}</Text>
-              <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
-                {words.map((w, i) => <WordRow key={w.id} w={w} last={i === words.length - 1} />)}
-              </ScrollView>
+              {words.map((w, i) => <WordRow key={w.id} w={w} last={i === words.length - 1} />)}
             </View>
           ) : preview?.length ? (
             <View style={{ marginTop: 14, backgroundColor: '#f8f9fa', borderRadius: 12, padding: 10 }}>
               <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{t('st_preview')}</Text>
-              <ScrollView style={{ maxHeight: 300 }} nestedScrollEnabled>
-                {preview.map((w, i) => <WordRow key={w.id} w={w} last={i === preview.length - 1} />)}
-              </ScrollView>
+              {preview.map((w, i) => <WordRow key={w.id} w={w} last={i === preview.length - 1} />)}
             </View>
           ) : null}
 
