@@ -1,8 +1,10 @@
 // One-time : normalise les langues des packs existants.
-//   1. Supprime les packs dont le contenu n'est PAS du chinois (lang <> 'zh') :
-//      ce sont les paires incomplètes (ex. « English Starter (FR) », base fr) —
-//      leurs mots + achats sont retirés (les mots déjà appris des acheteurs, eux,
-//      restent dans user_mots, on ne les touche pas).
+//   1. Supprime les packs dont le CONTENU n'est PAS du chinois : aucun item ne
+//      contient de caractère CJK (ex. « English Starter (FR) », 100 % anglais).
+//      On se base sur le CONTENU (présence de hanzi) et NON sur le label lang,
+//      car des mots chinois ont pu être mal étiquetés lang='en' (packs de slang) :
+//      ces packs-là contiennent des hanzi → ils sont CONSERVÉS. Les mots déjà
+//      appris des acheteurs restent dans user_mots (on ne les touche pas).
 //   2. Passe tous les packs restants en paire zh↔en (lang='zh', native_lang='en').
 //
 // Usage :
@@ -20,16 +22,31 @@ const pool = new Pool({ connectionString: url });
 (async () => {
   const client = await pool.connect();
   try {
+    // Packs SANS aucun contenu chinois (aucun item avec un hanzi) → non-chinois.
     const toDelete = await client.query(
       `SELECT id, title, lang, native_lang,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS items,
               (SELECT COUNT(*) FROM pack_purchases pp WHERE pp.pack_id = wp.id)::int AS buyers
-       FROM word_packs wp WHERE wp.lang <> 'zh' ORDER BY id`);
-    console.log(`\n=== Packs à SUPPRIMER (lang <> 'zh') : ${toDelete.rows.length} ===`);
+       FROM word_packs wp
+       WHERE NOT EXISTS (
+         SELECT 1 FROM word_pack_items i JOIN mots m ON m.id = i.mot_id
+         WHERE i.pack_id = wp.id AND m.chinese ~ '[一-鿿]'
+       )
+       ORDER BY id`);
+    console.log(`\n=== Packs à SUPPRIMER (aucun contenu chinois) : ${toDelete.rows.length} ===`);
     toDelete.rows.forEach((r) => console.log(`  #${r.id} ${JSON.stringify(r.title)}  lang=${r.lang} native=${r.native_lang}  items=${r.items} buyers=${r.buyers}`));
 
-    const rest = await client.query(`SELECT COUNT(*)::int n FROM word_packs WHERE lang = 'zh'`);
-    console.log(`\n=== Packs à normaliser en zh:en : ${rest.rows[0].n} ===`);
+    const delIds = toDelete.rows.map((r) => r.id);
+    const rest = await client.query(
+      `SELECT COUNT(*)::int n FROM word_packs WHERE NOT (id = ANY($1::int[]))`, [delIds.length ? delIds : [-1]]);
+    console.log(`\n=== Packs à normaliser en zh:en (contenu chinois) : ${rest.rows[0].n} ===`);
+    const preview = await client.query(
+      `SELECT id, title, lang FROM word_packs WHERE NOT (id = ANY($1::int[])) AND lang <> 'zh' ORDER BY id`,
+      [delIds.length ? delIds : [-1]]);
+    if (preview.rows.length) {
+      console.log('  (mal étiquetés à re-labelliser zh, conservés) :');
+      preview.rows.forEach((r) => console.log(`   #${r.id} ${JSON.stringify(r.title)}  lang=${r.lang} → zh`));
+    }
 
     if (!COMMIT) {
       console.log('\n(DRY-RUN — rien écrit. Relance avec --commit pour appliquer.)');
