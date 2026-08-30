@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from './Popup';
 import { getMarketPack, buyMarketPack, notifyNeedCoins, forgetPack, notifyUpgrade } from '../api';
@@ -77,6 +77,7 @@ export function WordRow({ w, last }) {
 //   onBought    : (packId, { newBalance, wordsAdded }) => void — après achat
 export default function PackDetailPopup({ pack, balance, isPremium = false, onClose, onStartQuiz, onBought, onEditPack, onUpgrade, onForgotten }) {
   const { t } = useT();
+  const { height: screenH } = useWindowDimensions();
   const [detail, setDetail] = useState(null); // { pack, words?, preview? }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -144,8 +145,102 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
     }
   }
 
+  const bodyLoading = loading && !detail;
+  // Feedback + actions = FOOTER collé en bas du Popup (bouton d'achat toujours
+  // visible, ne scrolle pas avec la liste de mots).
+  const footerNode = bodyLoading ? null : (
+    <View>
+      {msg ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e8f5e9', borderRadius: 12, padding: 12, marginBottom: 10 }}>
+          <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
+          <Text style={{ flex: 1, fontSize: 13.5, color: '#1b5e20', fontWeight: '600' }}>{msg}</Text>
+        </View>
+      ) : null}
+      {error ? <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '600', marginBottom: 10 }}>{error}</Text> : null}
+      {confirmForget ? (
+        <View>
+          <Text style={{ fontSize: 14, color: '#1a1a2e', lineHeight: 20, marginBottom: 14, textAlign: 'center' }}>
+            {t('st_forget_confirm')}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable onPress={() => setConfirmForget(false)} disabled={forgetting}
+              style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
+              <Text style={{ color: '#444', fontWeight: '700' }}>{t('co_cancel')}</Text>
+            </Pressable>
+            <Pressable onPress={doForget} disabled={forgetting}
+              style={{ flex: 1.3, paddingVertical: 13, borderRadius: 999, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: COLORS.danger }}>
+              {forgetting ? <ActivityIndicator color="#fff" size="small" /> : (
+                <>
+                  <Ionicons name="trash" size={15} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '800' }}>{t('st_forget_pack')}</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      ) : owned ? (
+        <View style={{ gap: 10 }}>
+          {onStartQuiz ? (
+            <Pressable
+              onPress={() => onStartQuiz(p)}
+              style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+            >
+              <Ionicons name="play" size={16} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{t('st_start_quiz')}</Text>
+            </Pressable>
+          ) : null}
+          {p.isMine && onEditPack ? (
+            <Pressable
+              onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [] })}
+              style={{ borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+            >
+              <Ionicons name="create-outline" size={16} color={COLORS.jiayou} />
+              <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>{t('st_edit_pack')}</Text>
+            </Pressable>
+          ) : null}
+          <Text style={{ textAlign: 'center', color: COLORS.muted, fontWeight: '700', fontSize: 13 }}>
+            {p.isMine ? t('st_your_pack') : t('st_in_collection')}
+          </Text>
+          {!p.isMine ? (
+            <Pressable onPress={onForgetPress} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 2 }}>
+              <Ionicons name="trash-outline" size={15} color={COLORS.danger} />
+              <Text style={{ color: COLORS.danger, fontWeight: '700', fontSize: 13.5 }}>{t('st_forget_pack')}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : (p.word_count || 0) === 0 ? (
+        <View style={{ backgroundColor: '#e9ecef', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
+          <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('st_coming_soon')}</Text>
+        </View>
+      ) : premiumLocked ? (
+        <Pressable
+          onPress={() => { onClose?.(); onUpgrade?.(); }}
+          style={{ borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: '#f5b301' }}
+        >
+          <Ionicons name="star" size={16} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{t('st_upgrade')}</Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={buyPress}
+          disabled={buying || !canBuy}
+          style={{ borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: affordable ? COLORS.jiayou : '#e9ecef' }}
+        >
+          {buying ? <ActivityIndicator color="#fff" size="small" /> : (
+            <>
+              <Ionicons name={affordable ? 'cart' : 'wallet-outline'} size={16} color={affordable ? '#fff' : COLORS.muted} />
+              <Text style={{ color: affordable ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>
+                {affordable ? t('st_buy_for').replace('{price}', p.price) : t('st_not_enough')}
+              </Text>
+            </>
+          )}
+        </Pressable>
+      )}
+    </View>
+  );
+
   return (
-    <Popup visible={!!pack} onClose={onClose} maxWidth={420}>
+    <Popup visible={!!pack} onClose={onClose} maxWidth={420} maxHeight={Math.round(screenH * 0.8)} footer={footerNode}>
       {loading && !detail ? (
         <View style={{ marginVertical: 30, alignItems: 'center' }}><CatLoader size={90} /></View>
       ) : (
@@ -180,96 +275,6 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
             </View>
           ) : null}
 
-          {msg ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e8f5e9', borderRadius: 12, padding: 12, marginTop: 14 }}>
-              <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
-              <Text style={{ flex: 1, fontSize: 13.5, color: '#1b5e20', fontWeight: '600' }}>{msg}</Text>
-            </View>
-          ) : null}
-          {error ? <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '600', marginTop: 12 }}>{error}</Text> : null}
-
-          {/* ── Actions ── */}
-          {confirmForget ? (
-            <View style={{ marginTop: 16 }}>
-              <Text style={{ fontSize: 14, color: '#1a1a2e', lineHeight: 20, marginBottom: 14, textAlign: 'center' }}>
-                {t('st_forget_confirm')}
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Pressable onPress={() => setConfirmForget(false)} disabled={forgetting}
-                  style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
-                  <Text style={{ color: '#444', fontWeight: '700' }}>{t('co_cancel')}</Text>
-                </Pressable>
-                <Pressable onPress={doForget} disabled={forgetting}
-                  style={{ flex: 1.3, paddingVertical: 13, borderRadius: 999, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: COLORS.danger }}>
-                  {forgetting ? <ActivityIndicator color="#fff" size="small" /> : (
-                    <>
-                      <Ionicons name="trash" size={15} color="#fff" />
-                      <Text style={{ color: '#fff', fontWeight: '800' }}>{t('st_forget_pack')}</Text>
-                    </>
-                  )}
-                </Pressable>
-              </View>
-            </View>
-          ) : owned ? (
-            <View style={{ marginTop: 16, gap: 10 }}>
-              {onStartQuiz ? (
-                <Pressable
-                  onPress={() => onStartQuiz(p)}
-                  style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
-                >
-                  <Ionicons name="play" size={16} color="#fff" />
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{t('st_start_quiz')}</Text>
-                </Pressable>
-              ) : null}
-              {p.isMine && onEditPack ? (
-                <Pressable
-                  onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [] })}
-                  style={{ borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
-                >
-                  <Ionicons name="create-outline" size={16} color={COLORS.jiayou} />
-                  <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>{t('st_edit_pack')}</Text>
-                </Pressable>
-              ) : null}
-              <Text style={{ textAlign: 'center', color: COLORS.muted, fontWeight: '700', fontSize: 13 }}>
-                {p.isMine ? t('st_your_pack') : t('st_in_collection')}
-              </Text>
-              {/* Forget this pack : retire ses mots de la collection (premium). Réservé
-                  aux packs ACHETÉS (pas les tiens : tu gardes tes propres mots). */}
-              {!p.isMine ? (
-                <Pressable onPress={onForgetPress} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 6 }}>
-                  <Ionicons name="trash-outline" size={15} color={COLORS.danger} />
-                  <Text style={{ color: COLORS.danger, fontWeight: '700', fontSize: 13.5 }}>{t('st_forget_pack')}</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : (p.word_count || 0) === 0 ? (
-            <View style={{ marginTop: 16, backgroundColor: '#e9ecef', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
-              <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('st_coming_soon')}</Text>
-            </View>
-          ) : premiumLocked ? (
-            <Pressable
-              onPress={() => { onClose?.(); onUpgrade?.(); }}
-              style={{ marginTop: 16, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: '#f5b301' }}
-            >
-              <Ionicons name="star" size={16} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{t('st_upgrade')}</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={buyPress}
-              disabled={buying || !canBuy}
-              style={{ marginTop: 16, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: affordable ? COLORS.jiayou : '#e9ecef' }}
-            >
-              {buying ? <ActivityIndicator color="#fff" size="small" /> : (
-                <>
-                  <Ionicons name={affordable ? 'cart' : 'wallet-outline'} size={16} color={affordable ? '#fff' : COLORS.muted} />
-                  <Text style={{ color: affordable ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>
-                    {affordable ? t('st_buy_for').replace('{price}', p.price) : t('st_not_enough')}
-                  </Text>
-                </>
-              )}
-            </Pressable>
-          )}
         </View>
       )}
     </Popup>
