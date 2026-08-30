@@ -16,8 +16,8 @@ const SLIDES = [
   { icon: 'bookmarks', titleKey: 'tut_s1_title', bodyKey: 'tut_s1_body', image: require('../../assets/tutorial/01-capture.png') },
   { icon: 'trophy', titleKey: 'tut_s2_title', bodyKey: 'tut_s2_body', image: require('../../assets/tutorial/02-challenge.png') },
   { icon: 'storefront', titleKey: 'tut_s3_title', bodyKey: 'tut_s3_body', image: require('../../assets/tutorial/03-community.png') },
-  // Slide monnaie : pas de mockup → visuel dégradé avec le symbole ₵ (`symbol`).
-  { icon: 'cash', symbol: '₵', titleKey: 'tut_coins_title', bodyKey: 'tut_coins_body', image: null },
+  // Slide monnaie : mockup dédié (fallback symbole ₵ / icône si l'image manque).
+  { icon: 'cash', symbol: '₵', titleKey: 'tut_coins_title', bodyKey: 'tut_coins_body', image: require('../../assets/tutorial/coins.png') },
   { icon: 'school', titleKey: 'tut_s4_title', bodyKey: 'tut_s4_body', image: require('../../assets/tutorial/04-learn.png') },
 ];
 

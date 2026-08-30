@@ -66,10 +66,10 @@ passport.use(new GoogleStrategy({
 
       if (userRes.rows.length === 0) {
         // 🆕 NOUVEL UTILISATEUR - DONNER 200 PIÈCES
-        console.log('👤 Création nouveau utilisateur avec bonus de 200 pièces:', email);
+        console.log('👤 Création nouveau utilisateur avec bonus de 350 pièces:', email);
         const newUser = await transaction.query(
           `INSERT INTO users (email, name, provider, provider_id, last_login, balance)
-           VALUES ($1, $2, 'google', $3, NOW(), 200)  -- ✅ 200 pièces pour les nouveaux
+           VALUES ($1, $2, 'google', $3, NOW(), 350)  -- ✅ 350 pièces pour les nouveaux
            RETURNING id, email, name, balance`,
           [email, displayName, id]
         );

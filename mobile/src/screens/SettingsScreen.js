@@ -27,6 +27,16 @@ function PremiumPill() {
   );
 }
 
+// Badge BETA pour les fonctions récentes / en rodage (accessibles à tous).
+function BetaPill() {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#e7f0ff', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+      <Ionicons name="flask" size={11} color="#1a6ff7" />
+      <Text style={{ color: '#0a4fcf', fontWeight: '800', fontSize: 10.5 }}>BETA</Text>
+    </View>
+  );
+}
+
 export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = false }) {
   const { t, setLang } = useT();
   const { width } = useWindowDimensions();
@@ -212,15 +222,20 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
                 </Pressable>
               );
             })}
-            {/* Créer un nouveau parcours = premium ; sinon on ouvre le paywall. */}
-            <Pressable
-              onPress={() => (isPremium ? setPathPopup({ mode: 'create' }) : onOpen?.('pricing'))}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 13, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: COLORS.jiayou, backgroundColor: '#fff' }}
-            >
-              <Ionicons name="add" size={20} color={COLORS.jiayou} />
-              <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 14.5 }}>{t('set_add_path')}</Text>
-              {!isPremium ? <View style={{ marginLeft: 2 }}><PremiumPill /></View> : null}
-            </Pressable>
+            {/* Free : jusqu'à 2 parcours ; au-delà = premium (paywall). Premium : illimité. */}
+            {(() => {
+              const canAddPath = isPremium || (paths?.length || 0) < 2;
+              return (
+                <Pressable
+                  onPress={() => (canAddPath ? setPathPopup({ mode: 'create' }) : onOpen?.('pricing'))}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 13, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: COLORS.jiayou, backgroundColor: '#fff' }}
+                >
+                  <Ionicons name="add" size={20} color={COLORS.jiayou} />
+                  <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 14.5 }}>{t('set_add_path')}</Text>
+                  {!canAddPath ? <View style={{ marginLeft: 2 }}><PremiumPill /></View> : null}
+                </Pressable>
+              );
+            })()}
           </View>
 
           {/* ── Learning (outils du cours) ── */}
@@ -228,8 +243,8 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
             <SettingsRow icon="cloud-upload" iconColor="#0d6efd" iconBg="#e8f0ff" label={t('set_import')} sub={t('set_import_sub')} onPress={() => onOpen?.('import')} />
             <SettingsRow
               icon="brush" iconColor="#7c3aed" iconBg="#f3e8ff" label={t('set_writing')} sub={t('set_writing_sub')}
-              onPress={() => (isPremium ? onOpen?.('writing') : onOpen?.('pricing'))}
-              right={isPremium ? undefined : <PremiumPill />}
+              onPress={() => onOpen?.('writing')}
+              right={<BetaPill />}
             />
           </SettingsGroup>
 
@@ -273,7 +288,7 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
 
           {/* ── Account ── */}
           <SettingsGroup title={t('set_grp_account')}>
-            <SettingsRow icon="school" iconColor="#0d6efd" iconBg="#e8f0ff" label={t('set_find_teacher')} sub={t('set_find_teacher_sub')} onPress={() => onOpen?.('teachers')} />
+            <SettingsRow icon="school" iconColor="#0d6efd" iconBg="#e8f0ff" label={t('set_find_teacher')} sub={t('set_find_teacher_sub')} onPress={() => onOpen?.('teachers')} right={<BetaPill />} />
             <SettingsRow icon="star" iconColor="#856404" iconBg="#fff3cd" label={t('set_premium')} sub={t('set_premium_sub')} onPress={() => onOpen?.('pricing')} />
           </SettingsGroup>
 

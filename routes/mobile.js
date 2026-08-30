@@ -348,7 +348,7 @@ router.post('/api/auth/register', registerLimiter, async (req, res) => {
     try {
       const ins = await pool.query(
         `INSERT INTO users (email, password_hash, provider, email_verified, balance)
-         VALUES ($1, $2, 'local', false, 200)
+         VALUES ($1, $2, 'local', false, 350)
          RETURNING id, email, name, role, onboarding_done`,
         [email, hash]
       );
@@ -410,7 +410,7 @@ router.post('/api/auth/google-token', async (req, res) => {
     if (!user) {
       const ins = await pool.query(
         `INSERT INTO users (email, name, provider, email_verified, balance)
-         VALUES ($1, $2, 'google', true, 200)
+         VALUES ($1, $2, 'google', true, 350)
          RETURNING id, email, name, role, onboarding_done`,
         [email, payload.name || null]
       );
@@ -477,7 +477,7 @@ router.post('/api/auth/apple-token', async (req, res) => {
       if (!email) return res.status(400).json({ error: 'No email in Apple token' });
       const ins = await pool.query(
         `INSERT INTO users (email, name, provider, apple_id, email_verified, balance)
-         VALUES ($1, $2, 'apple', $3, true, 200)
+         VALUES ($1, $2, 'apple', $3, true, 350)
          RETURNING id, email, name, role, onboarding_done`,
         [email, (name || '').trim() || null, appleId]);
       user = ins.rows[0];
@@ -2748,10 +2748,13 @@ router.get('/api/m/learning-paths', requireToken, async (req, res) => {
 router.post('/api/m/learning-paths', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
-    // Créer un NOUVEAU parcours = fonctionnalité premium (basculer/éditer les
-    // parcours existants reste gratuit). Le parcours par défaut est créé au boot.
+    // Free : jusqu'à 2 parcours (le parcours par défaut compte). Au-delà = premium.
+    // Premium : illimité. Basculer/éditer les parcours existants reste gratuit.
     if (!(await isUserPremium(uid))) {
-      return res.status(403).json({ error: 'Multiple learning paths are Premium.', upgradeRequired: true, feature: 'learning_path' });
+      const { rows: cnt } = await pool.query('SELECT COUNT(*)::int AS n FROM learning_paths WHERE user_id = $1', [uid]);
+      if (cnt[0].n >= 2) {
+        return res.status(403).json({ error: 'Free accounts can have up to 2 learning paths. Upgrade for more.', upgradeRequired: true, feature: 'learning_path' });
+      }
     }
     const { learning_lang, native_lang, title } = req.body || {};
     if (!(await ensureLearnable(learning_lang, native_lang))) {
