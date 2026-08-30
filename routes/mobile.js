@@ -1842,6 +1842,13 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       if (own[0].creator_id !== uid) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Not your pack.' }); }
     }
     const langs = await getUserLangs(uid);
+    // Les packs sont hanzi-only → le mot tapé est TOUJOURS du chinois (lang 'zh').
+    // L'AUTRE langue de la paire = la langue non-zh du créateur (sa langue apprise
+    // s'il apprend une langue occidentale depuis le chinois, sinon sa langue de
+    // base). La traduction saisie va vers CELLE-CI. Sans ça, pour un apprenant
+    // occidental (native=zh), le mot tapé serait étiqueté 'en' et la trad partirait
+    // en 'zh' → tout se retrouve inversé.
+    const other = langs.learning === 'zh' ? langs.native : langs.learning;
     const { rows: owned } = await client.query(
       `SELECT DISTINCT ON (m.chinese) m.id, m.chinese
        FROM mots m JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
@@ -1863,7 +1870,9 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       let toPinyin = null;
       try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente */ }
       for (const w of notOwned) {
-        const found = await client.query('SELECT id FROM mots WHERE chinese = $1 LIMIT 1', [w]);
+        // Mot hanzi → on privilégie/creuse le lexème ZH du concept (jamais le
+        // lexème de la langue apprise, qui inverserait pour un apprenant occidental).
+        const found = await client.query("SELECT id FROM mots WHERE chinese = $1 AND lang = 'zh' LIMIT 1", [w]);
         let motId;
         if (found.rows.length) {
           motId = found.rows[0].id;
@@ -1874,9 +1883,9 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
             return res.status(400).json({ error: `Add a translation for ${w}.`, needsTranslation: [w] });
           }
           const pinyin = toPinyin ? toPinyin(w, { toneType: 'symbol' }) : null;
-          const ins = await client.query('INSERT INTO mots (chinese, pinyin, lang) VALUES ($1, $2, $3) RETURNING id', [w, pinyin, langs.learning]);
+          const ins = await client.query("INSERT INTO mots (chinese, pinyin, lang) VALUES ($1, $2, 'zh') RETURNING id", [w, pinyin]);
           motId = ins.rows[0].id;
-          await syncConceptSiblings(client, motId, english, langs.native);
+          await syncConceptSiblings(client, motId, english, other);
         }
         // Le PACK garde le mot tapé (contenu). Mais le CRÉATEUR possède le lexème
         // du concept DANS SA LANGUE APPRISE (visible dans sa collection), comme à
@@ -1905,7 +1914,7 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
     // (mots déjà en base compris) : remplit celles qui manquaient et enregistre
     // les corrections de l'utilisateur. On ne touche qu'aux mots dont la glose
     // fournie diffère de la traduction actuelle (évite de churner le graphe).
-    if (langs.native && langs.native !== langs.learning) {
+    if (other && other !== 'zh') {
       const uniqIds = [...new Set(words.map((w) => ownedMap.get(w)).filter(Boolean))];
       const curTr = new Map();
       const meaningOf = new Map();
@@ -1915,7 +1924,7 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
                   COALESCE(m.meaning_id, (SELECT min(meaning_id) FROM lexeme_senses ls WHERE ls.mot_id = m.id)) AS meaning_id,
                   mot_tr(m.id, $2) AS english
            FROM mots m WHERE m.id = ANY($1::int[])`,
-          [uniqIds, langs.native]);
+          [uniqIds, other]);
         cur.forEach((r) => { curTr.set(r.id, r.english || ''); meaningOf.set(r.id, r.meaning_id); });
       }
       const norm = (s) => String(s || '').toLowerCase().split('/').map((x) => x.trim()).filter(Boolean).sort().join('/');
@@ -1924,10 +1933,10 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
         const gloss = String(translations[w] || '').trim();
         if (!motId || !gloss) continue;
         if (norm(gloss) === norm(curTr.get(motId))) continue; // inchangé → on n'y touche pas
-        // Cible le SENS primaire du mot : remplir/corriger sa traduction sans
-        // fabriquer un sens orphelin (sinon le replace ne détache pas l'ancien).
+        // Cible le SENS primaire du mot : remplir/corriger sa traduction (dans la
+        // langue non-zh de la paire) sans fabriquer de sens orphelin.
         const meaningId = meaningOf.get(motId) || null;
-        await syncConceptSiblings(client, motId, gloss, langs.native, { replace: true, meaningId });
+        await syncConceptSiblings(client, motId, gloss, other, { replace: true, meaningId });
       }
     }
 
@@ -1940,13 +1949,12 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       await client.query('DELETE FROM word_pack_items WHERE pack_id = $1', [editId]);
       packId = editId;
     } else {
-      // lang/native_lang = la PAIRE du créateur. Le store filtre dessus (dans les
-      // deux sens) → un pack n'apparaît qu'aux apprenants de cette paire ; l'affichage
-      // est ensuite orienté selon le viewer.
+      // Pack hanzi-only → paire = zh ↔ other (langue non-zh du créateur). Le store
+      // filtre sur cette paire (dans les deux sens) et l'affichage est orienté viewer.
       const { rows: pk } = await client.query(
         `INSERT INTO word_packs (creator_id, title, description, price, cover_key, is_official, published, lang, native_lang)
-         VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE, $5, $6) RETURNING id`,
-        [uid, title, description || null, price, langs.learning, langs.native]);
+         VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE, 'zh', $5) RETURNING id`,
+        [uid, title, description || null, price, other]);
       packId = pk[0].id;
     }
     const motIds = words.map((w) => ownedMap.get(w));
