@@ -292,8 +292,8 @@ function App() {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
       case 'collection': return <CollectionScreen onNavigate={setTab} />;
       case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
-      case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} />;
-      case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} emailVerified={profile?.emailVerified} />;
+      case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} />;
+      case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} emailVerified={profile?.emailVerified} onCapture={() => setTab('add')} onOpenStore={() => { setBankReturn('duels'); setTab('store'); }} />;
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onBack={() => setTab('account')} isPremium={!!profile?.isPremium} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;

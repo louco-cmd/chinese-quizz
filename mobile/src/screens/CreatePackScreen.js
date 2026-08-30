@@ -87,26 +87,28 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
     }
   }
 
-  // Clic "Publish" : on planifie d'abord (possédés / à acheter / à traduire).
+  // Clic "Publish" : on planifie d'abord (possédés / à acheter / à traduire),
+  // puis on ouvre TOUJOURS la popup de validation — même si tout est déjà
+  // possédé — pour que l'utilisateur puisse relire/corriger la traduction de
+  // CHAQUE mot avant publication (et remplir celles qui manquent en base).
   async function onPublish() {
     if (!canPublish) return;
     setPublishing(true); setError('');
     try {
       const plan = await planPack(text);
-      const missingCount = (plan.toBuy?.length || 0) + (plan.needsTranslation?.length || 0);
-      if (missingCount === 0) {
-        await doCreate(false, {}); // tout possédé → publication directe
-        return;
-      }
-      // Ouvre le checkout d'acquisition.
-      setCheckout({
-        toBuy: plan.toBuy || [],
-        // Pré-remplit l'anglais avec la suggestion CC-CEDICT (éditable).
-        needs: (plan.needsTranslation || []).map((w) => ({ chinese: w.chinese, pinyin: w.pinyin, english: w.suggested || '' })),
-        owned: plan.owned || [], // affichés « already own » (gratuits, déjà en collection)
-        cost: plan.cost || 0,
-        balance: plan.balance ?? 0,
+      // Fusionne les trois catégories en une seule liste éditable, indexée par mot.
+      const byWord = new Map();
+      (plan.owned || []).forEach((w) => byWord.set(w.chinese, { chinese: w.chinese, pinyin: w.pinyin || '', english: w.english || '', kind: 'owned' }));
+      (plan.toBuy || []).forEach((w) => byWord.set(w.chinese, { chinese: w.chinese, pinyin: w.pinyin || '', english: w.english || '', kind: 'buy' }));
+      // Hors dico : pré-remplit avec la suggestion CC-CEDICT (éditable).
+      (plan.needsTranslation || []).forEach((w) => byWord.set(w.chinese, { chinese: w.chinese, pinyin: w.pinyin || '', english: w.suggested || '', kind: 'buy' }));
+      // Liste ordonnée selon la saisie de l'utilisateur (dédupliquée).
+      const seen = new Set();
+      const items = [];
+      text.split('\n').map((s) => s.trim()).filter(Boolean).forEach((c) => {
+        if (byWord.has(c) && !seen.has(c)) { seen.add(c); items.push(byWord.get(c)); }
       });
+      setCheckout({ items, cost: plan.cost || 0, balance: plan.balance ?? 0 });
     } catch (e) {
       setError(e.message || 'Something went wrong.');
     } finally {
@@ -114,16 +116,19 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
     }
   }
 
-  const needsFilled = checkout ? checkout.needs.every((n) => n.english.trim()) : false;
+  const needsFilled = checkout ? checkout.items.every((n) => n.english.trim()) : false;
   const enoughCoins = checkout ? checkout.balance >= checkout.cost : true;
 
   async function confirmBuy() {
     if (!checkout || !needsFilled || !enoughCoins) return;
     setBuying(true); setError('');
     try {
+      // Envoie les traductions de TOUS les mots (le back applique aussi les
+      // corrections aux mots déjà en base, pas seulement aux mots créés).
       const translations = {};
-      checkout.needs.forEach((n) => { translations[n.chinese] = n.english.trim(); });
-      await doCreate(true, translations);
+      checkout.items.forEach((n) => { translations[n.chinese] = n.english.trim(); });
+      const acquire = checkout.items.some((n) => n.kind === 'buy');
+      await doCreate(acquire, translations);
     } catch (e) {
       setError(e.message || 'Could not complete the purchase.');
       setBuying(false);
@@ -131,7 +136,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
   }
 
   function updateNeed(i, english) {
-    setCheckout((c) => ({ ...c, needs: c.needs.map((n, idx) => (idx === i ? { ...n, english } : n)) }));
+    setCheckout((c) => ({ ...c, items: c.items.map((n, idx) => (idx === i ? { ...n, english } : n)) }));
   }
 
   return (
@@ -216,16 +221,19 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
       <Popup visible={!!checkout} onClose={() => { if (!buying) setCheckout(null); }} maxWidth={440} scroll={false}>
         {checkout ? (
           <View>
-            <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginBottom: 6 }}>Buy the missing words</Text>
+            <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginBottom: 6 }}>
+              {checkout.cost > 0 ? 'Review & buy the words' : 'Review the translations'}
+            </Text>
             <Text style={{ fontSize: 13.5, color: COLORS.muted, marginBottom: 14, lineHeight: 19 }}>
-              You cannot sell words you don't own yourself. Buy them now to continue — they're added to your collection.
+              Check the translation of every word — edit any that's wrong or missing.
+              {checkout.cost > 0 ? " New words are added to your collection (3 ₵ each)." : ''}
             </Text>
 
             <ScrollView style={{ maxHeight: 300 }}>
-              {/* À traduire : l'user doit fournir l'anglais. Colonne gauche à
+              {/* Une ligne éditable par mot (possédés compris). Colonne gauche à
                   largeur FIXE → tous les champs de droite s'alignent. */}
-              {checkout.needs.map((n, i) => (
-                <View key={`need-${n.chinese}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+              {checkout.items.map((n, i) => (
+                <View key={`item-${n.chinese}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                   <View style={{ width: 92 }}>
                     <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 19, fontWeight: '700', color: '#1a1a2e' }}>{n.chinese}</Text>
                     {n.pinyin ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 1 }}>{n.pinyin}</Text> : null}
@@ -236,41 +244,13 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
                     placeholder="translation…" placeholderTextColor={COLORS.mutedLight}
                     style={{ flex: 1, borderWidth: 1, borderColor: n.english.trim() ? COLORS.line : '#f0c36d', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: 14 }}
                   />
+                  {n.kind === 'owned' ? (
+                    <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                  ) : (
+                    <Text style={{ fontSize: 11, color: COLORS.muted, fontWeight: '700', width: 26, textAlign: 'right' }}>3 ₵</Text>
+                  )}
                 </View>
               ))}
-              {/* À acheter : déjà dans le dico → on montre le pinyin sous le hanzi. */}
-              {checkout.toBuy.map((w, i) => (
-                <View key={`buy-${w.chinese}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: i === checkout.toBuy.length - 1 ? 0 : 1, borderColor: '#f2f2f4' }}>
-                  <View style={{ width: 92 }}>
-                    <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e' }}>{w.chinese}</Text>
-                    {w.pinyin ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 1 }}>{w.pinyin}</Text> : null}
-                  </View>
-                  <Text style={{ flex: 1, fontSize: 13.5, color: COLORS.muted }} numberOfLines={2}>{w.english}</Text>
-                </View>
-              ))}
-
-              {/* Déjà possédés : inclus gratuitement, montrés pour que l'user voie
-                  la composition complète du pack (pas seulement ce qu'il paie). */}
-              {checkout.owned?.length ? (
-                <>
-                  <Text style={{ fontSize: 11.5, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.4, marginTop: 12, marginBottom: 2 }}>
-                    Already in your collection
-                  </Text>
-                  {checkout.owned.map((w, i) => (
-                    <View key={`own-${w.chinese}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, opacity: 0.7 }}>
-                      <View style={{ width: 92 }}>
-                        <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 18, fontWeight: '700', color: '#1a1a2e' }}>{w.chinese}</Text>
-                        {w.pinyin ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 1 }}>{w.pinyin}</Text> : null}
-                      </View>
-                      <Text style={{ flex: 1, fontSize: 13.5, color: COLORS.muted }} numberOfLines={2}>{w.english}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                        <Ionicons name="checkmark-circle" size={14} color={COLORS.success} />
-                        <Text style={{ fontSize: 11, color: COLORS.success, fontWeight: '700' }}>Already own</Text>
-                      </View>
-                    </View>
-                  ))}
-                </>
-              ) : null}
             </ScrollView>
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 4 }}>
@@ -288,7 +268,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
                 style={{ flex: 1.4, paddingVertical: 13, borderRadius: 999, alignItems: 'center', backgroundColor: (needsFilled && enoughCoins && !buying) ? COLORS.jiayou : '#e9ecef' }}>
                 {buying ? <ActivityIndicator color="#fff" size="small" /> : (
                   <Text style={{ color: (needsFilled && enoughCoins) ? '#fff' : COLORS.muted, fontWeight: '700' }}>
-                    Buy {checkout.cost} ₵ & {isEdit ? 'update' : 'publish'}
+                    {checkout.cost > 0 ? `Buy ${checkout.cost} ₵ & ${isEdit ? 'update' : 'publish'}` : (isEdit ? 'Update pack' : 'Publish pack')}
                   </Text>
                 )}
               </Pressable>

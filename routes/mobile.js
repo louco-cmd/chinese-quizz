@@ -132,6 +132,17 @@ async function refreshLearnableLangs() {
 // Rafraîchit toutes les 5 min (capte une nouvelle langue sans redémarrage).
 setInterval(refreshLearnableLangs, 5 * 60 * 1000).unref?.();
 refreshLearnableLangs();
+// Valide des codes langue en se ré-alignant sur la base en cas de miss : le cache
+// LEARNABLE_LANGS peut avoir jusqu'à 5 min de retard sur /api/m/languages (fraîche),
+// donc une langue tout juste ajoutée serait rejetée à tort → on rafraîchit et on
+// re-teste avant de conclure. Garantit aussi que resolveCourseLangs voit le code
+// (sinon il retomberait sur zh/en).
+async function ensureLearnable(...codes) {
+  const wanted = codes.filter(Boolean);
+  if (wanted.every((c) => LEARNABLE_LANGS.includes(c))) return true;
+  await refreshLearnableLangs();
+  return wanted.every((c) => LEARNABLE_LANGS.includes(c));
+}
 // Normalise (learning, native) et dérive le binaire quiz_direction de compat
 // (legacy duel/teacher) : learning=zh → on apprend le chinois ('en→zh'), sinon
 // on n'apprend pas le chinois ('zh→en'). Garde-fous : valeurs sûres par défaut,
@@ -151,6 +162,9 @@ function resolveCourseLangs(learningIn, nativeIn) {
 // — que le reste de l'app lit encore. L'interface suit la base (native) et
 // quiz_direction reste dérivé (compat duel/teacher). Renvoie la paire posée.
 async function setActiveLangs(userId, learningIn, nativeIn) {
+  // Ré-aligne le cache si une des langues vient d'être ajoutée (sinon resolve la
+  // coercerait vers zh/en).
+  await ensureLearnable(learningIn, nativeIn);
   const { learning, native, quizDir } = resolveCourseLangs(learningIn, nativeIn);
   const up = await pool.query(
     `INSERT INTO learning_paths (user_id, learning_lang, native_lang)
@@ -634,6 +648,7 @@ router.post('/api/m/onboarding', requireToken, async (req, res) => {
     return res.status(400).json({ error: 'Tagline must be under 100 characters' });
   }
   // Langues du cours. On dérive quiz_direction (binaire legacy) pour compat duel/teacher.
+  await ensureLearnable(learning_lang, native_lang); // capte une langue tout juste ajoutée
   const { learning, native, quizDir } = resolveCourseLangs(learning_lang, native_lang);
   const code = country ? String(country).toUpperCase().slice(0, 2) : null;
 
@@ -1500,7 +1515,11 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     const qNative = LEARNABLE_LANGS.includes(req.query.native) ? req.query.native : null;
     const langs = { learning: qLearn || stored.learning, native: qNative || stored.native };
     const params = [uid, min, max, langs.learning, langs.native];
-    let where = `wp.published = TRUE AND wp.price >= $2 AND wp.price <= $3 AND wp.lang IN ($4, $5)
+    // Match de la PAIRE de langues du pack (learning=$4, native=$5), dans un sens
+    // OU l'autre (un pack en↔fr sert les apprenants en-from-fr ET fr-from-en, mais
+    // jamais un apprenant zh dont la base est en).
+    let where = `wp.published = TRUE AND wp.price >= $2 AND wp.price <= $3
+      AND ((wp.lang = $4 AND wp.native_lang = $5) OR (wp.lang = $5 AND wp.native_lang = $4))
       AND NOT EXISTS (
         SELECT 1 FROM word_pack_items i2 JOIN mots pm ON pm.id = i2.mot_id
         WHERE i2.pack_id = wp.id
@@ -1791,6 +1810,7 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       if (!own.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pack not found.' }); }
       if (own[0].creator_id !== uid) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Not your pack.' }); }
     }
+    const langs = await getUserLangs(uid);
     const { rows: owned } = await client.query(
       `SELECT DISTINCT ON (m.chinese) m.id, m.chinese
        FROM mots m JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
@@ -1811,7 +1831,6 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       }
       let toPinyin = null;
       try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente */ }
-      const langs = await getUserLangs(uid);
       for (const w of notOwned) {
         const found = await client.query('SELECT id FROM mots WHERE chinese = $1 LIMIT 1', [w]);
         let motId;
@@ -1840,6 +1859,36 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
         [uid, -cost, `Acquired ${notOwned.length} word(s) for a pack`]);
     }
 
+    // Applique les traductions saisies dans la popup à TOUS les mots du pack
+    // (mots déjà en base compris) : remplit celles qui manquaient et enregistre
+    // les corrections de l'utilisateur. On ne touche qu'aux mots dont la glose
+    // fournie diffère de la traduction actuelle (évite de churner le graphe).
+    if (langs.native && langs.native !== langs.learning) {
+      const uniqIds = [...new Set(words.map((w) => ownedMap.get(w)).filter(Boolean))];
+      const curTr = new Map();
+      const meaningOf = new Map();
+      if (uniqIds.length) {
+        const { rows: cur } = await client.query(
+          `SELECT m.id,
+                  COALESCE(m.meaning_id, (SELECT min(meaning_id) FROM lexeme_senses ls WHERE ls.mot_id = m.id)) AS meaning_id,
+                  mot_tr(m.id, $2) AS english
+           FROM mots m WHERE m.id = ANY($1::int[])`,
+          [uniqIds, langs.native]);
+        cur.forEach((r) => { curTr.set(r.id, r.english || ''); meaningOf.set(r.id, r.meaning_id); });
+      }
+      const norm = (s) => String(s || '').toLowerCase().split('/').map((x) => x.trim()).filter(Boolean).sort().join('/');
+      for (const w of words) {
+        const motId = ownedMap.get(w);
+        const gloss = String(translations[w] || '').trim();
+        if (!motId || !gloss) continue;
+        if (norm(gloss) === norm(curTr.get(motId))) continue; // inchangé → on n'y touche pas
+        // Cible le SENS primaire du mot : remplir/corriger sa traduction sans
+        // fabriquer un sens orphelin (sinon le replace ne détache pas l'ancien).
+        const meaningId = meaningOf.get(motId) || null;
+        await syncConceptSiblings(client, motId, gloss, langs.native, { replace: true, meaningId });
+      }
+    }
+
     let packId;
     if (editId) {
       // Édition : met à jour les métadonnées et remplace la liste de mots.
@@ -1849,12 +1898,13 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       await client.query('DELETE FROM word_pack_items WHERE pack_id = $1', [editId]);
       packId = editId;
     } else {
-      // Langue du pack = langue apprise par le créateur (le store filtre dessus).
-      const packLang = (await getUserLangs(uid)).learning;
+      // Le pack couvre la PAIRE de langues du créateur : lang = langue apprise,
+      // native_lang = langue d'interface. Le store filtre sur cette paire (dans
+      // les deux sens) → un pack en↔fr n'apparaît jamais pour un apprenant zh.
       const { rows: pk } = await client.query(
-        `INSERT INTO word_packs (creator_id, title, description, price, cover_key, is_official, published, lang)
-         VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE, $5) RETURNING id`,
-        [uid, title, description || null, price, packLang]);
+        `INSERT INTO word_packs (creator_id, title, description, price, cover_key, is_official, published, lang, native_lang)
+         VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE, $5, $6) RETURNING id`,
+        [uid, title, description || null, price, langs.learning, langs.native]);
       packId = pk[0].id;
     }
     const motIds = words.map((w) => ownedMap.get(w));
@@ -2704,7 +2754,7 @@ router.post('/api/m/learning-paths', requireToken, async (req, res) => {
       return res.status(403).json({ error: 'Multiple learning paths are Premium.', upgradeRequired: true, feature: 'learning_path' });
     }
     const { learning_lang, native_lang, title } = req.body || {};
-    if (!LEARNABLE_LANGS.includes(learning_lang) || !LEARNABLE_LANGS.includes(native_lang)) {
+    if (!(await ensureLearnable(learning_lang, native_lang))) {
       return res.status(400).json({ error: 'Invalid languages' });
     }
     const { learning, native } = resolveCourseLangs(learning_lang, native_lang);
@@ -2746,7 +2796,7 @@ router.patch('/api/m/learning-paths/:id', requireToken, async (req, res) => {
     }
     let newNative = null;
     if (body.native_lang !== undefined) {
-      if (!LEARNABLE_LANGS.includes(body.native_lang)) return res.status(400).json({ error: 'Invalid language' });
+      if (!(await ensureLearnable(body.native_lang))) return res.status(400).json({ error: 'Invalid language' });
       // La direction (langue apprise) est verrouillée → la base ne peut pas l'égaler.
       if (body.native_lang === path.learning_lang) {
         return res.status(400).json({ error: 'Base language cannot equal the learned language.' });
@@ -2825,7 +2875,8 @@ router.delete('/api/m/account/delete', requireToken, async (req, res) => {
 router.get('/api/m/duels', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
-    const [pending, stats, recent, bullies] = await Promise.all([
+    const langs = await getUserLangs(uid);
+    const [pending, stats, recent, bullies, wordsRow] = await Promise.all([
       pool.query(
         `SELECT d.id, d.bet_amount, d.status, d.created_at,
                 u1.name AS challenger_name, u2.name AS opponent_name,
@@ -2883,6 +2934,10 @@ router.get('/api/m/duels', requireToken, async (req, res) => {
            AND opponent.last_login >= NOW() - INTERVAL '30 days'
          GROUP BY opponent.id, opponent.name
          ORDER BY balance DESC LIMIT 8`, [uid]),
+      // Taille de la collection (langue apprise) → gate "trop peu de mots" côté client.
+      pool.query(
+        `SELECT COUNT(*)::int AS words FROM user_mots um JOIN mots m ON m.id = um.mot_id
+         WHERE um.user_id = $1 AND m.lang = $2`, [uid, langs.learning]),
     ]);
     res.json({
       pending: pending.rows,
@@ -2890,6 +2945,7 @@ router.get('/api/m/duels', requireToken, async (req, res) => {
       losses: stats.rows[0]?.losses || 0,
       recent: recent.rows,
       bullies: bullies.rows,
+      words: wordsRow.rows[0]?.words || 0,
     });
   } catch (e) {
     console.error('m/duels error:', e);

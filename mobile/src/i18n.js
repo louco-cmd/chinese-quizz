@@ -149,6 +149,11 @@ export const TRANSLATIONS = {
     // ── Quiz (home) ──
     qz_start_quiz: 'Start a quiz',
     qz_whole_collection: 'Your whole collection',
+    qz_need_words_title: 'Build your collection first',
+    qz_need_words_body: 'You need at least 10 words to start a quiz. Add a few and you’re good to go!',
+    qz_need_words_capture: 'Capture unique words',
+    qz_need_words_buy: 'Buy a pack',
+    du_need_words_body: 'You need at least 10 words to duel a friend. Add a few and you’re ready to battle!',
     qz_train_pack: 'Train on a pack',
     qz_train_pack_sub: 'Practice a specific pack',
     qz_no_pack: "You don't own any pack yet.",
@@ -388,6 +393,9 @@ export const TRANSLATIONS = {
     ob_words_sub: 'buy a pack or upload your words',
     ob_lets_start: "Let's start",
     ob_buy_later: 'You can always buy more packs later.',
+    // ── Tutorial coins slide ──
+    tut_coins_title: 'Coins are play money',
+    tut_coins_body: 'Jiayou coins (₵) are the app’s currency — play money, not real cash. Use them to buy words, build your collection and duel your friends.',
     // ── Tutorial (learner) ──
     tut_s1_title: 'Capture words',
     tut_s1_body: 'Save every word you meet — Chinese, pinyin or English — and build your own collection.',
@@ -564,6 +572,11 @@ export const TRANSLATIONS = {
     // ── Quiz (home) ──
     qz_start_quiz: 'Lancer un quiz',
     qz_whole_collection: 'Toute ta collection',
+    qz_need_words_title: 'Commence par étoffer ta collection',
+    qz_need_words_body: 'Il te faut au moins 10 mots pour lancer un quiz. Ajoutes-en quelques-uns et c’est parti !',
+    qz_need_words_capture: 'Capturer des mots',
+    qz_need_words_buy: 'Acheter un pack',
+    du_need_words_body: 'Il te faut au moins 10 mots pour défier un ami. Ajoutes-en quelques-uns et à l’attaque !',
     qz_train_pack: 'S’entraîner sur un pack',
     qz_train_pack_sub: 'Pratique un pack précis',
     qz_no_pack: 'Tu ne possèdes encore aucun pack.',
@@ -803,6 +816,9 @@ export const TRANSLATIONS = {
     ob_words_sub: 'achète un pack ou importe tes mots',
     ob_lets_start: 'C’est parti',
     ob_buy_later: 'Tu pourras toujours acheter d’autres packs plus tard.',
+    // ── Slide pièces (tutoriel) ──
+    tut_coins_title: 'Les pièces, c’est du jeu',
+    tut_coins_body: 'Les pièces jiayou (₵) sont la monnaie de l’app — une monnaie de jeu, pas de l’argent réel. Sers-t’en pour acheter des mots, enrichir ta collection et défier tes amis.',
     // ── Tutorial (learner) ──
     tut_s1_title: 'Capture des mots',
     tut_s1_body: 'Enregistre chaque mot que tu croises — chinois, pinyin ou anglais — et construis ta propre collection.',
@@ -977,6 +993,11 @@ export const TRANSLATIONS = {
     // ── 测验（主页）──
     qz_start_quiz: '开始测验',
     qz_whole_collection: '你的全部词库',
+    qz_need_words_title: '先扩充你的词库',
+    qz_need_words_body: '开始测验至少需要 10 个词。先添加几个就可以开始啦！',
+    qz_need_words_capture: '捕捉新词',
+    qz_need_words_buy: '购买词包',
+    du_need_words_body: '与好友对战至少需要 10 个词。先添加几个就能开战啦！',
     qz_train_pack: '用词包练习',
     qz_train_pack_sub: '练习指定的词包',
     qz_no_pack: '你还没有任何词包。',
@@ -1216,6 +1237,9 @@ export const TRANSLATIONS = {
     ob_words_sub: '购买词包或上传你的词',
     ob_lets_start: '开始吧',
     ob_buy_later: '你随时可以再购买更多词包。',
+    // ── 金币介绍（教程）──
+    tut_coins_title: '金币是游戏币',
+    tut_coins_body: 'jiayou 金币（₵）是应用内的货币——是游戏币，不是真钱。用它来购买词语、扩充你的收藏，并与好友对战。',
     // ── 教程（学生）──
     tut_s1_title: '收集词语',
     tut_s1_body: '把你遇到的每个词——中文、拼音或英文——都保存下来，建立你自己的词库。',

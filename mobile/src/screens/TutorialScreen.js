@@ -16,6 +16,8 @@ const SLIDES = [
   { icon: 'bookmarks', titleKey: 'tut_s1_title', bodyKey: 'tut_s1_body', image: require('../../assets/tutorial/01-capture.png') },
   { icon: 'trophy', titleKey: 'tut_s2_title', bodyKey: 'tut_s2_body', image: require('../../assets/tutorial/02-challenge.png') },
   { icon: 'storefront', titleKey: 'tut_s3_title', bodyKey: 'tut_s3_body', image: require('../../assets/tutorial/03-community.png') },
+  // Slide monnaie : pas de mockup → visuel dégradé avec le symbole ₵ (`symbol`).
+  { icon: 'cash', symbol: '₵', titleKey: 'tut_coins_title', bodyKey: 'tut_coins_body', image: null },
   { icon: 'school', titleKey: 'tut_s4_title', bodyKey: 'tut_s4_body', image: require('../../assets/tutorial/04-learn.png') },
 ];
 
@@ -75,7 +77,11 @@ export default function TutorialScreen({ onDone, onClose }) {
               colors={['#1772F5', '#1EBCEE']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
               style={{ width: '100%', aspectRatio: 1, maxHeight: 450, borderRadius: 20, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}
             >
-              <Ionicons name={slide.icon} size={96} color="rgba(255,255,255,0.95)" />
+              {slide.symbol ? (
+                <Text style={{ fontSize: 150, fontWeight: '800', color: 'rgba(255,255,255,0.97)' }}>{slide.symbol}</Text>
+              ) : (
+                <Ionicons name={slide.icon} size={96} color="rgba(255,255,255,0.95)" />
+              )}
             </LinearGradient>
           )}
 

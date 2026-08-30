@@ -407,6 +407,16 @@ const pool = new Pool({
     `);
     console.log("✅ Colonne 'lang' sur word_packs vérifiée + backfill.");
 
+    // ── Migration : langue de BASE du pack (paire de langues) ──────────────────
+    // Un pack couvre une PAIRE (lang = langue apprise du créateur, native_lang =
+    // sa langue d'interface). Le store ne le montre qu'aux utilisateurs dont la
+    // direction correspond à cette paire (dans un sens OU l'autre). Backfill : les
+    // packs existants sont la paire zh↔en → native_lang 'en' par défaut.
+    await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS native_lang VARCHAR(8)`);
+    await pool.query(`UPDATE word_packs SET native_lang = 'en' WHERE native_lang IS NULL`);
+    await pool.query(`ALTER TABLE word_packs ALTER COLUMN native_lang SET DEFAULT 'en'`);
+    console.log("✅ Colonne 'native_lang' sur word_packs vérifiée + backfill.");
+
     // ── Migration : modèle concept many-to-many (lexeme_senses) + mot_tr ───────
     // Un lexème peut appartenir à plusieurs sens → dédup des lexèmes tout en
     // gardant les concepts fidèles. Guardé : ne s'exécute que si `meanings` existe.
@@ -426,6 +436,37 @@ const pool = new Pool({
           SELECT id, meaning_id FROM mots
           WHERE meaning_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM lexeme_senses)
           ON CONFLICT DO NOTHING`);
+        // Auto-réparation (à CHAQUE boot) : un mot inséré avec seulement
+        // mots.meaning_id (ex. crawler / insert manuel) mais SANS ligne
+        // lexeme_senses est invisible partout (search/collection/mot_tr font un
+        // JOIN lexeme_senses). On recrée le lien manquant depuis meaning_id.
+        // Idempotent : ne touche que les orphelins.
+        const relinked = await pool.query(`
+          INSERT INTO lexeme_senses (mot_id, meaning_id)
+          SELECT id, meaning_id FROM mots m
+          WHERE m.meaning_id IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM lexeme_senses ls WHERE ls.mot_id = m.id)
+          ON CONFLICT DO NOTHING`);
+        if (relinked.rowCount) console.log(`🔧 lexeme_senses : ${relinked.rowCount} mot(s) orphelin(s) re-liés.`);
+        // Trigger réactif : à l'insertion de mots (crawler bulk compris), crée le
+        // lien lexeme_senses depuis meaning_id → un mot ajouté est immédiatement
+        // visible en recherche/collection SANS redémarrage. Statement-level +
+        // REFERENCING NEW TABLE (efficace sur insert de masse), comme le trigger
+        // d'enregistrement des langues.
+        await pool.query(`
+          CREATE OR REPLACE FUNCTION link_mot_senses() RETURNS trigger AS $lm$
+          BEGIN
+            INSERT INTO lexeme_senses (mot_id, meaning_id)
+            SELECT id, meaning_id FROM newrows WHERE meaning_id IS NOT NULL
+            ON CONFLICT DO NOTHING;
+            RETURN NULL;
+          END; $lm$ LANGUAGE plpgsql`);
+        await pool.query(`DROP TRIGGER IF EXISTS trg_link_mot_senses ON mots`);
+        await pool.query(`
+          CREATE TRIGGER trg_link_mot_senses AFTER INSERT ON mots
+          REFERENCING NEW TABLE AS newrows FOR EACH STATEMENT
+          EXECUTE FUNCTION link_mot_senses()`);
+        console.log("✅ Trigger lexeme_senses (auto-lien meaning_id) vérifié.");
         await pool.query(`
           CREATE OR REPLACE FUNCTION mot_tr(p_mot_id int, p_native text) RETURNS text
           LANGUAGE sql STABLE AS $fn$

@@ -23,7 +23,11 @@ function Empty({ text }) {
   return <Text style={{ color: '#adb5bd', paddingHorizontal: 18, paddingVertical: 14 }}>{text}</Text>;
 }
 
-export default function DuelsScreen({ onDefeat, emailVerified }) {
+// En dessous de ce nombre de mots, un duel n'a pas d'intérêt : on invite l'user
+// à étoffer sa collection (capture / pack) — même logique que le quiz.
+const MIN_DUEL_WORDS = 10;
+
+export default function DuelsScreen({ onDefeat, emailVerified, onCapture, onOpenStore }) {
   const { t } = useT();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
@@ -35,6 +39,7 @@ export default function DuelsScreen({ onDefeat, emailVerified }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [duelPopup, setDuelPopup] = useState(null); // null | { opponent }
+  const [needWords, setNeedWords] = useState(false); // gate collection trop petite
   const [showInvite, setShowInvite] = useState(false);
   const [vState, setVState] = useState('idle'); // idle | sending | sent (renvoi email)
   const [inviteLink, setInviteLink] = useState('');
@@ -56,6 +61,12 @@ export default function DuelsScreen({ onDefeat, emailVerified }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* ignore */ }
+  }
+
+  // Ouvre le duel si la collection est assez grande, sinon la gate d'explication.
+  function openDuel(opponent) {
+    if (data && data.words < MIN_DUEL_WORDS) setNeedWords(true);
+    else setDuelPopup({ opponent });
   }
 
   const load = useCallback(async () => {
@@ -94,7 +105,7 @@ export default function DuelsScreen({ onDefeat, emailVerified }) {
       <DuelDetailScreen
         duelId={detailDuel}
         onBack={() => setDetailDuel(null)}
-        onRematch={(opp) => { setDetailDuel(null); setDuelPopup({ opponent: opp }); }}
+        onRematch={(opp) => { setDetailDuel(null); openDuel(opp); }}
         onDefeat={onDefeat}
       />
     );
@@ -119,7 +130,7 @@ export default function DuelsScreen({ onDefeat, emailVerified }) {
           icon="flash"
           title={t('du_start')}
           text={t('du_challenge_player')}
-          onPress={() => setDuelPopup({ opponent: null })}
+          onPress={() => openDuel(null)}
         />
         <CtaCard
           colors={['#4b5158', '#2b2f36']}
@@ -146,7 +157,7 @@ export default function DuelsScreen({ onDefeat, emailVerified }) {
         {(!data.bullies || data.bullies.length === 0)
           ? <Empty text={t('du_no_rivals')} />
           : data.bullies.map((p, i) => (
-            <PlayerRow key={p.id} player={p} last={i === data.bullies.length - 1} onChallenge={(pl) => setDuelPopup({ opponent: pl })} />
+            <PlayerRow key={p.id} player={p} last={i === data.bullies.length - 1} onChallenge={(pl) => openDuel(pl)} />
           ))}
       </DuelSectionCard>
     </>
@@ -181,6 +192,32 @@ export default function DuelsScreen({ onDefeat, emailVerified }) {
         onClose={() => setDuelPopup(null)}
         onCreated={load}
       />
+
+      {/* Gate : collection < 10 mots → on explique + on oriente vers capture/pack. */}
+      <Popup visible={needWords} onClose={() => setNeedWords(false)} maxWidth={420}>
+        <View style={{ alignItems: 'center', marginBottom: 6 }}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#eef4ff', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+            <Ionicons name="library" size={30} color={COLORS.jiayou} />
+          </View>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e', textAlign: 'center' }}>{t('qz_need_words_title')}</Text>
+          <Text style={{ fontSize: 14, color: COLORS.muted, textAlign: 'center', lineHeight: 20, marginTop: 8 }}>{t('du_need_words_body')}</Text>
+        </View>
+
+        <Pressable
+          onPress={() => { setNeedWords(false); onCapture?.(); }}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingVertical: 14, borderRadius: 999, backgroundColor: COLORS.jiayou }}
+        >
+          <Ionicons name="add-circle" size={18} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{t('qz_need_words_capture')}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => { setNeedWords(false); onOpenStore?.(); }}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 10, paddingVertical: 14, borderRadius: 999, borderWidth: 1.5, borderColor: '#e0d3f2', backgroundColor: '#faf7ff' }}
+        >
+          <Ionicons name="storefront" size={16} color="#7828a7" />
+          <Text style={{ color: '#7828a7', fontWeight: '700', fontSize: 15 }}>{t('qz_need_words_buy')}</Text>
+        </Pressable>
+      </Popup>
 
       {/* Invite a friend */}
       <Popup visible={showInvite} onClose={() => setShowInvite(false)} maxWidth={380}>
