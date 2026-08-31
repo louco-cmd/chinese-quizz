@@ -3557,8 +3557,16 @@ router.post('/api/m/quiz/save', requireToken, async (req, res) => {
       const correctIds = results.filter((r) => r.correct === true && r.mot_id)
         .map((r) => parseInt(r.mot_id, 10)).filter(Number.isInteger);
       if (correctIds.length) {
+        // La récompense décroît avec la maîtrise DU MODE joué : chaque type de
+        // quiz a sa propre colonne de score (pinyin='score', caractères=
+        // 'score_character', lecture='score_reading' ; l'écriture EN/FR reste sur
+        // 'score'). Même mapping que updateWordScore — sinon un quiz caractères/
+        // lecture paierait selon la maîtrise pinyin. Colonne = littéral sûr.
+        const scoreCol = quiz_type === 'character' ? 'score_character'
+          : quiz_type === 'reading' ? 'score_reading'
+          : 'score';
         const { rows: pre } = await client.query(
-          `SELECT mot_id, COALESCE(score, 0) AS score FROM user_mots WHERE user_id = $1 AND mot_id = ANY($2)`,
+          `SELECT mot_id, COALESCE(${scoreCol}, 0) AS score FROM user_mots WHERE user_id = $1 AND mot_id = ANY($2)`,
           [userId, correctIds]
         );
         const byMot = {};
