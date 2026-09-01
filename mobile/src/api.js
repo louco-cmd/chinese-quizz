@@ -283,10 +283,10 @@ export function planPack(text) {
   return request('/api/m/market/packs/plan', { method: 'POST', body: { text } });
 }
 
-export function createPack({ title, description, price, text, translations, acquire, packId }) {
+export function createPack({ title, description, price, text, translations, acquire, packId, swap }) {
   return request('/api/m/market/packs', {
     method: 'POST',
-    body: { title, description, price, text, translations, acquire, packId },
+    body: { title, description, price, text, translations, acquire, packId, swap },
   });
 }
 

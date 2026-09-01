@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Platform
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
-import { COLORS, SHADOW_CARD } from '../theme';
+import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 import { useT } from '../i18n';
 import { getBillingPortal, refreshSubscription, syncRevenueCat, createCheckout } from '../api';
 import { buyPremium, purchasesAvailable, restorePurchases, getPremiumPlans, yearlySavingPct, isTestStore } from '../purchases';
@@ -24,8 +24,8 @@ const PREMIUM_FEATURES = [
   { icon: 'infinite', kind: 'inf', tk: 'pf_quizzes' },
   { icon: 'infinite', kind: 'inf', tk: 'pf_duels' },
   { icon: 'infinite', kind: 'inf', tk: 'pf_packs' },
+  { icon: 'infinite', kind: 'inf', tk: 'pf_paths' },
   { icon: 'checkmark', kind: 'yes', tk: 'pf_hsk' },
-  { icon: 'checkmark', kind: 'yes', tk: 'pf_writing' },
   { icon: 'checkmark', kind: 'yes', tk: 'pf_ghost' },
 ];
 const FREE_FEATURES = [
@@ -33,8 +33,8 @@ const FREE_FEATURES = [
   { icon: 'time', kind: 'lim', tk: 'ff_quizzes' },
   { icon: 'time', kind: 'lim', tk: 'ff_duels' },
   { icon: 'bag-handle', kind: 'lim', tk: 'ff_packs' },
+  { icon: 'git-branch', kind: 'lim', tk: 'ff_paths' },
   { icon: 'close', kind: 'no', tk: 'ff_hsk' },
-  { icon: 'close', kind: 'no', tk: 'ff_writing' },
   { icon: 'close', kind: 'no', tk: 'ff_ghost' },
 ];
 const FAQ = ['faq1', 'faq2', 'faq3', 'faq4'];
@@ -182,29 +182,19 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: TAB_CLEARANCE }}>
         {/* Hero */}
-        <View style={{ backgroundColor: COLORS.jiayou, paddingTop: 16, paddingBottom: 60, paddingHorizontal: 16 }}>
-          {onBack ? (
-            <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 }}>
-              <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.9)" />
-              <Text style={{ color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>{t('common_back')}</Text>
-            </Pressable>
-          ) : null}
-          {/* Espace vide entre le Back et le titre (le badge a été retiré). */}
+        <View style={{ backgroundColor: COLORS.jiayou, paddingTop: 24, paddingBottom: 60, paddingHorizontal: 16 }}>
           <View style={{ alignItems: 'center', marginTop: 24 }}>
             <Text
               style={{
                 color: '#fff',
                 fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined,
                 fontStyle: fontsLoaded ? 'normal' : 'italic',
-                fontSize: 36, lineHeight: 46, textAlign: 'center', paddingHorizontal: 8,
+                fontSize: 52, lineHeight: 62, textAlign: 'center', paddingHorizontal: 8,
               }}
             >
               {t('pricing_hero_title')}
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13.5, textAlign: 'center', marginTop: 8 }}>
-              {t('pricing_hero_sub')}
             </Text>
           </View>
         </View>

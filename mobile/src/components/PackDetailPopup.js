@@ -100,14 +100,22 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
   const p = detail?.pack || pack || {};
   const words = detail?.words;
   const preview = detail?.preview;
-  const owned = !!(p.owned || p.isMine);
-  // Pack premium verrouillé pour un utilisateur gratuit → on propose l'upgrade.
-  const premiumLocked = isPremiumPack(p) && !isPremium && !owned && onUpgrade;
+  // Possédé = possession RÉELLE dans le parcours courant (achat, ou son propre pack
+  // dont on a les mots dans la langue apprise). N'inclut PLUS « je suis le créateur »
+  // tout court : sur un parcours miroir, un créateur ne possède pas encore les mots.
+  const owned = !!p.owned;
+  const isMine = !!p.isMine;
+  // Créateur récupérant SON pack qu'il ne possède pas encore (parcours miroir) →
+  // acquisition GRATUITE (le back ne facture pas le créateur).
+  const acquireFree = isMine && !owned;
+  // Pack premium verrouillé pour un utilisateur gratuit → on propose l'upgrade
+  // (jamais au créateur de son propre pack).
+  const premiumLocked = isPremiumPack(p) && !isPremium && !owned && !isMine && onUpgrade;
   const hasWords = (p.word_count || 0) > 0;
   // Solde inconnu (profil pas encore chargé) → optimiste : on tente l'achat, le
   // backend tranchera (402 → handler global). Solde connu & insuffisant → on
-  // ouvrira la popup « gagner des pièces ».
-  const affordable = balance == null || balance >= p.price;
+  // ouvrira la popup « gagner des pièces ». Gratuit pour le créateur.
+  const affordable = acquireFree || balance == null || balance >= p.price;
   // Bouton cliquable même sans fonds → on ferme la popup pack et on ouvre la
   // popup « comment gagner des pièces » (même commit = swap propre, pas de
   // stacking de modals sur iOS). Sinon le bouton grisé n'apprend rien à l'user.
@@ -221,20 +229,33 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
           <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{t('st_upgrade')}</Text>
         </Pressable>
       ) : (
-        <Pressable
-          onPress={buyPress}
-          disabled={buying || !canBuy}
-          style={{ borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: affordable ? COLORS.jiayou : '#e9ecef' }}
-        >
-          {buying ? <ActivityIndicator color="#fff" size="small" /> : (
-            <>
-              <Ionicons name={affordable ? 'cart' : 'wallet-outline'} size={16} color={affordable ? '#fff' : COLORS.muted} />
-              <Text style={{ color: affordable ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>
-                {affordable ? t('st_buy_for').replace('{price}', p.price) : t('st_not_enough')}
-              </Text>
-            </>
-          )}
-        </Pressable>
+        <View style={{ gap: 10 }}>
+          {/* Créateur d'un pack non encore possédé (parcours miroir) : il peut
+              toujours l'éditer, et l'acquérir gratuitement. */}
+          {isMine && onEditPack ? (
+            <Pressable
+              onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [] })}
+              style={{ borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+            >
+              <Ionicons name="create-outline" size={16} color={COLORS.jiayou} />
+              <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>{t('st_edit_pack')}</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={buyPress}
+            disabled={buying || !canBuy}
+            style={{ borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: affordable ? COLORS.jiayou : '#e9ecef' }}
+          >
+            {buying ? <ActivityIndicator color="#fff" size="small" /> : (
+              <>
+                <Ionicons name={acquireFree ? 'add-circle' : (affordable ? 'cart' : 'wallet-outline')} size={16} color={affordable ? '#fff' : COLORS.muted} />
+                <Text style={{ color: affordable ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>
+                  {acquireFree ? t('st_add_free') : (affordable ? t('st_buy_for').replace('{price}', p.price) : t('st_not_enough'))}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
       )}
     </View>
   );

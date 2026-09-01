@@ -188,12 +188,34 @@ async function setActiveLangs(userId, learningIn, nativeIn) {
 //     sens de glose correspond à un lexème natif NON AMBIGU (un seul sens), on
 //     rejoint ce sens (lien multilingue réel) ; si le natif est un homonyme
 //     (plusieurs sens, ex. « can »), on crée un sens neuf plutôt que sur-lier.
-// À exécuter DANS la transaction de l'appelant (client).
-async function syncConceptSiblings(client, motId, gloss, nativeLang, { replace = false, meaningId: explicitMeaning = null } = {}) {
-  const senses = String(gloss || '').split('/').map((s) => s.trim()).filter(Boolean);
+// Découpe une glose (champ de traduction LIBRE) en sens distincts. L'utilisateur
+// sépare comme il veut : « / , ; 、 » (+ retours à la ligne). On normalise TOUS ces
+// séparateurs en sens séparés, on retire les annotations entre parenthèses/crochets
+// (ex. « (lit. and fig.) », « (dialect) », « [pinyin] ») — ignorées au quiz et bruit
+// sur la carte — et on nettoie la ponctuation de bord (dont le point final). Chaque
+// sens devient un lexème frère → la carte affiche « a / b / c » via mot_tr.
+// NB : on NE découpe PAS sur le point « . » interne (abréviations : « e.g. », « fig. »,
+// décimales) ; seul le point de fin d'un sens est retiré.
+function splitSenses(gloss) {
+  const out = [];
   const seen = new Set();
-  const uniq = [];
-  for (const s of senses) { const k = s.toLowerCase(); if (!seen.has(k)) { seen.add(k); uniq.push(s); } }
+  for (const raw of String(gloss || '').split(/[;,/／；，、\n\r]+/)) {
+    const s = raw
+      .replace(/[（(][^）)]*[）)]/g, ' ') // annotations entre parenthèses
+      .replace(/\[[^\]]*\]/g, ' ')        // annotations entre crochets (pinyin CEDICT)
+      .replace(/\s+/g, ' ')
+      .replace(/^[\s.;,、]+|[\s.;,、]+$/g, '') // ponctuation/espaces aux bords (dont point final)
+      .trim();
+    if (!s) continue;
+    const k = s.toLowerCase();
+    if (!seen.has(k)) { seen.add(k); out.push(s); }
+  }
+  return out;
+}
+
+// À exécuter DANS la transaction de l'appelant (client).
+async function syncConceptSiblings(client, motId, gloss, nativeLang, { replace = false, meaningId: explicitMeaning = null, freshBox = false } = {}) {
+  const uniq = splitSenses(gloss);
 
   const self = await client.query('SELECT lang, meaning_id FROM mots WHERE id = $1', [motId]);
   if (!self.rows.length) return null;
@@ -208,8 +230,15 @@ async function syncConceptSiblings(client, motId, gloss, nativeLang, { replace =
   //   (2) merge-on-save : le lexème natif de la glose existe déjà → on rejoint son
   //       sens PRIMAIRE (concept canonique), sinon son unique sens s'il n'en a qu'un ;
   //   (3) sinon un SENS NEUF (même si le lexème a déjà d'autres sens → homonyme).
+  // `freshBox` (création d'un NOUVEAU mot de pack) : on SAUTE le merge-on-save (1)+(2)
+  // → on ne rejoint JAMAIS une boîte existante. Sinon, un mot neuf dont une glose
+  // coïncide avec un lexème natif existant (ex. « writer » déjà dans la boîte
+  // d'« écrivain ») se ferait absorber par ce concept, contaminant des mots corrects
+  // et rattachant à la collection le mauvais lexème. On lui fabrique sa PROPRE boîte ;
+  // les lexèmes natifs des gloses y sont reliés (réutilisés, sans toucher leurs
+  // autres boîtes).
   let meaningId = explicitMeaning;
-  if (!meaningId) {
+  if (!meaningId && !freshBox) {
     for (const sense of uniq) {
       const r = await client.query(
         `SELECT ls_self.meaning_id
@@ -221,7 +250,7 @@ async function syncConceptSiblings(client, motId, gloss, nativeLang, { replace =
       if (r.rows.length) { meaningId = r.rows[0].meaning_id; break; }
     }
   }
-  if (!meaningId) {
+  if (!meaningId && !freshBox) {
     for (const sense of uniq) {
       const nat = await client.query(
         'SELECT id, meaning_id FROM mots WHERE lang = $1 AND lower(chinese) = lower($2) ORDER BY id LIMIT 1',
@@ -1542,15 +1571,30 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
       `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
-              -- Mots du pack déjà possédés, par CONCEPT (le viewer peut posséder le
-              -- lexème dans sa langue apprise alors que le pack stocke le zh).
+              -- Mots possédés DANS LA LANGUE APPRISE du viewer ($4) — pas cross-langue.
+              -- Sur un parcours miroir, posséder « manger » (fr) ne compte pas le pack
+              -- comme possédé côté en (où l'on n'a pas « to eat »).
               (SELECT COUNT(*) FROM word_pack_items i
                  WHERE i.pack_id = wp.id AND EXISTS (
-                   SELECT 1 FROM lexeme_senses lp JOIN user_mots um ON um.meaning_id = lp.meaning_id AND um.user_id = $1
+                   SELECT 1 FROM lexeme_senses lp
+                   JOIN user_mots um ON um.meaning_id = lp.meaning_id AND um.user_id = $1
+                   JOIN mots mo ON mo.id = um.mot_id AND mo.lang = $4
                    WHERE lp.mot_id = i.mot_id))::int AS owned_words,
               (wp.created_at > NOW() - INTERVAL '7 days') AS is_new,
-              -- Possédé = acheté OU créé par l'utilisateur.
-              (wp.creator_id = $1 OR EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1)) AS owned
+              (wp.creator_id = $1) AS is_mine,
+              -- Possédé = ACQUIS : acheté, OU c'est SON pack et on en a tous les mots
+              -- dans la langue apprise courante (donc « possédé » sur le parcours de la
+              -- langue du pack, pas sur un parcours miroir). Simplement CONNAÎTRE le
+              -- vocabulaire (sans l'avoir acheté ni créé) ne compte PAS comme possédé.
+              (EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1)
+                OR (wp.creator_id = $1
+                    AND (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id) > 0
+                    AND NOT EXISTS (
+                      SELECT 1 FROM word_pack_items i WHERE i.pack_id = wp.id AND NOT EXISTS (
+                        SELECT 1 FROM lexeme_senses lp
+                        JOIN user_mots um ON um.meaning_id = lp.meaning_id AND um.user_id = $1
+                        JOIN mots mo ON mo.id = um.mot_id AND mo.lang = $4
+                        WHERE lp.mot_id = i.mot_id)))) AS owned
        FROM word_packs wp
        LEFT JOIN users u ON u.id = wp.creator_id
        WHERE ${where}
@@ -1568,32 +1612,40 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
     const uid = req.tokenUser.id;
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ error: 'Invalid pack' });
+    // Langues du viewer : servent à l'affichage orienté-viewer ET au décompte des
+    // mots possédés DANS LA LANGUE APPRISE (parcours-conscient, cohérent avec la liste).
+    const vlangs = await getUserLangs(uid);
     const { rows } = await pool.query(
       `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
               wp.creator_id,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
-              -- Mots du pack déjà possédés, par CONCEPT (indépendant de la langue
-              -- du lexème possédé — cohérent avec la liste et pack_ids).
+              -- Mots possédés DANS LA LANGUE APPRISE du viewer ($3) — pas cross-langue.
               (SELECT COUNT(*) FROM word_pack_items i
                  WHERE i.pack_id = wp.id AND EXISTS(
-                   SELECT 1 FROM lexeme_senses lp JOIN user_mots um ON um.meaning_id = lp.meaning_id AND um.user_id = $1
+                   SELECT 1 FROM lexeme_senses lp
+                   JOIN user_mots um ON um.meaning_id = lp.meaning_id AND um.user_id = $1
+                   JOIN mots mo ON mo.id = um.mot_id AND mo.lang = $3
                    WHERE lp.mot_id = i.mot_id))::int AS owned_words,
               EXISTS(SELECT 1 FROM pack_purchases pp WHERE pp.pack_id = wp.id AND pp.buyer_id = $1) AS owned
        FROM word_packs wp
        LEFT JOIN users u ON u.id = wp.creator_id
-       WHERE wp.id = $2 AND wp.published = TRUE`, [uid, id]);
+       WHERE wp.id = $2 AND wp.published = TRUE`, [uid, id, vlangs.learning]);
     if (!rows.length) return res.status(404).json({ error: 'Pack not found' });
     const pack = rows[0];
     pack.isMine = pack.creator_id === uid;
     delete pack.creator_id;
-    // Propriétaire (acheteur ou créateur) → liste complète des mots ; sinon aperçu de 3.
+    // Possédé = acheté OU (mon pack ET j'en ai TOUS les mots dans la langue apprise) —
+    // même règle que la liste. Un créateur ne « possède » son pack que sur le parcours
+    // où il en a les mots ; sur un parcours miroir il devra l'acquérir (gratuitement).
+    pack.owned = pack.owned || (pack.isMine && pack.word_count > 0 && pack.owned_words >= pack.word_count);
+    // Créateur → toujours la liste complète (c'est son contenu) ; acheteur possédant →
+    // complète aussi ; sinon aperçu de 3.
     const full = pack.owned || pack.isMine;
     // Affichage ORIENTÉ VIEWER : pour chaque item, on résout le concept vers le
     // lexème de la langue APPRISE (colonne gauche) et de la langue CONNUE (droite),
     // peu importe la langue du mot stocké. Un pack de concepts s'affiche donc dans
     // le sens de CHAQUE apprenant (zh→en le voit zh|en ; en→zh le voit en|zh).
-    const vlangs = await getUserLangs(uid);
     const { rows: words } = await pool.query(
       `SELECT i.mot_id AS id,
               (SELECT string_agg(DISTINCT lx.chinese, ' / ' ORDER BY lx.chinese)
@@ -1668,14 +1720,22 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
       'SELECT id, title, price, creator_id, cover_key FROM word_packs WHERE id = $1 AND published = TRUE FOR UPDATE', [id]);
     if (!pk.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pack not found' }); }
     const pack = pk[0];
-    if (pack.creator_id === uid) { await client.query('ROLLBACK'); return res.status(400).json({ error: "It's your own pack." }); }
+    // Le CRÉATEUR peut acquérir SON propre pack GRATUITEMENT (ex. récupérer les mots
+    // dans la langue d'un parcours miroir) : pas de paiement, pas de crédit à
+    // lui-même, pas d'enregistrement d'achat — juste l'ajout des mots. Sinon achat
+    // normal (paiement + crédit créateur + purchase).
+    const isCreator = pack.creator_id === uid;
+    const price = isCreator ? 0 : pack.price;
 
-    const { rows: already } = await client.query(
-      'SELECT 1 FROM pack_purchases WHERE pack_id = $1 AND buyer_id = $2', [id, uid]);
-    if (already.length) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'You already own this pack.' }); }
+    if (!isCreator) {
+      const { rows: already } = await client.query(
+        'SELECT 1 FROM pack_purchases WHERE pack_id = $1 AND buyer_id = $2', [id, uid]);
+      if (already.length) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'You already own this pack.' }); }
+    }
 
     // Limites gratuites : packs HSK avancés réservés au premium + plafond d'achats.
-    if (!(await isUserPremium(uid))) {
+    // Ne s'appliquent pas au créateur récupérant son propre pack.
+    if (!isCreator && !(await isUserPremium(uid))) {
       if (PREMIUM_PACK_COVERS.includes(pack.cover_key)) {
         await client.query('ROLLBACK');
         return res.status(403).json({ error: 'HSK 4/5/6 packs are Premium.', upgradeRequired: true, feature: 'hsk_pack' });
@@ -1705,7 +1765,7 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
 
     const { rows: bal } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [uid]);
     if (!bal.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'User not found' }); }
-    if (bal[0].balance < pack.price) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Not enough coins', insufficient: true, cost: pack.price, balance: bal[0].balance }); }
+    if (bal[0].balance < price) { await client.query('ROLLBACK'); return res.status(402).json({ error: 'Not enough coins', insufficient: true, cost: price, balance: bal[0].balance }); }
 
     // Ajoute à la collection le lexème de la langue APPRISE de chaque concept du
     // pack (pas forcément le lexème stocké dans le pack — cf. sens zh↔en réciproque).
@@ -1719,32 +1779,35 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
        RETURNING mot_id`, [uid, id, langs.learning]);
     const added = ins.rowCount;
 
-    // Débit acheteur
-    await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [pack.price, uid]);
-    await client.query(
-      `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'pack_purchase', $3)`,
-      [uid, -pack.price, `Pack: ${pack.title}`]);
-
-    // Crédit créateur (packs communautaires uniquement ; officiels = puits de coins)
-    if (pack.creator_id && pack.price > 0) {
-      await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [pack.price, pack.creator_id]);
+    // Paiement + enregistrement : UNIQUEMENT pour un achat réel (pas le créateur).
+    if (!isCreator) {
+      // Débit acheteur
+      await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [pack.price, uid]);
       await client.query(
-        `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'pack_sale', $3)`,
-        [pack.creator_id, pack.price, `Sold: ${pack.title}`]);
+        `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'pack_purchase', $3)`,
+        [uid, -pack.price, `Pack: ${pack.title}`]);
+
+      // Crédit créateur (packs communautaires uniquement ; officiels = puits de coins)
+      if (pack.creator_id && pack.price > 0) {
+        await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [pack.price, pack.creator_id]);
+        await client.query(
+          `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'pack_sale', $3)`,
+          [pack.creator_id, pack.price, `Sold: ${pack.title}`]);
+      }
+
+      await client.query(
+        'INSERT INTO pack_purchases (pack_id, buyer_id, price_paid) VALUES ($1, $2, $3)', [id, uid, pack.price]);
+      await client.query('UPDATE word_packs SET sales_count = sales_count + 1 WHERE id = $1', [id]);
     }
 
-    await client.query(
-      'INSERT INTO pack_purchases (pack_id, buyer_id, price_paid) VALUES ($1, $2, $3)', [id, uid, pack.price]);
-    await client.query('UPDATE word_packs SET sales_count = sales_count + 1 WHERE id = $1', [id]);
-
     await client.query('COMMIT');
-    // Notif "vente de pack" pour le créateur (packs communautaires).
-    if (pack.creator_id && pack.creator_id !== uid) {
+    // Notif "vente de pack" pour le créateur (achats réels uniquement).
+    if (!isCreator && pack.creator_id && pack.creator_id !== uid) {
       pool.query('SELECT name FROM users WHERE id = $1', [uid])
         .then((r) => notify(pack.creator_id, 'pack_sold', 'Pack sold! 🎉', `${r.rows[0]?.name || 'Someone'} bought "${pack.title}" — +${pack.price} ₵.`, { packId: id }))
         .catch(() => {});
     }
-    res.json({ success: true, wordsAdded: added, newBalance: bal[0].balance - pack.price });
+    res.json({ success: true, wordsAdded: added, newBalance: bal[0].balance - price });
   } catch (e) {
     await client.query('ROLLBACK');
     console.error('m/market buy error:', e);
@@ -1754,8 +1817,13 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
 
 // Extrait la liste de mots chinois (texte collé OU tableau), dédoublonnée.
 function extractWordList(body) {
+  // Création de pack = « un mot par ligne », TOUTES langues. On ne passe PLUS par le
+  // parser Han-centré (parseImportText) : celui-ci ne gardait que `r.chinese` et
+  // jetait donc silencieusement toute ligne sans hanzi (mots occidentaux) → popup
+  // vide sur un parcours chinois. Découpe verbatim par ligne = prévisible et
+  // multilingue. (parseImportText reste utilisé pour l'import en masse.)
   let words;
-  if (typeof body?.text === 'string') words = parseImportText(body.text).map((r) => r.chinese).filter(Boolean);
+  if (typeof body?.text === 'string') words = String(body.text).split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
   else if (Array.isArray(body?.words)) words = body.words.map((w) => String(w || '').trim()).filter(Boolean);
   else words = [];
   const seen = new Set();
@@ -1770,36 +1838,48 @@ const ACQUIRE_COST = 3; // coût pour ajouter à sa collection un mot manquant
 router.post('/api/m/market/packs/plan', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
+    const langs = await getUserLangs(uid);
+    const learn = langs.learning;    // langue apprise = langue du CONTENU du pack
+    const nat = langs.native;        // langue connue  = langue de la TRADUCTION
+    const isZh = learn === 'zh';
     const words = extractWordList(req.body);
     const { rows: bal } = await pool.query('SELECT balance FROM users WHERE id = $1', [uid]);
     const balance = bal[0]?.balance ?? 0;
     if (!words.length) return res.json({ owned: [], toBuy: [], needsTranslation: [], cost: 0, balance });
-    const nat = (await getUserLangs(uid)).native;
 
+    // Rapprochement des surfaces insensible à la casse/espaces (no-op en zh), DANS
+    // LA LANGUE APPRISE (surface + lang), pour ne pas confondre un homographe d'une
+    // autre langue. Les résultats sont RENVOYÉS avec la surface TAPÉE (le front les
+    // ré-associe aux lignes saisies).
+    const normKey = (s) => String(s || '').trim().toLowerCase();
+    const wnorm = words.map(normKey);
     const { rows: ownedRows } = await pool.query(
-      `SELECT DISTINCT ON (m.chinese) m.id, m.chinese, m.pinyin, mot_tr(m.id, $3) AS english
+      `SELECT DISTINCT ON (lower(btrim(m.chinese))) lower(btrim(m.chinese)) AS k, m.pinyin, mot_tr(m.id, $3) AS english
        FROM mots m JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
-       WHERE m.chinese = ANY($2::text[]) ORDER BY m.chinese, m.id`, [uid, words, nat]);
-    const ownedSet = new Set(ownedRows.map((r) => r.chinese));
-    const owned = words.filter((w) => ownedSet.has(w)).map((w) => ownedRows.find((r) => r.chinese === w));
+       WHERE lower(btrim(m.chinese)) = ANY($2::text[]) AND m.lang = $4 ORDER BY lower(btrim(m.chinese)), m.id`, [uid, wnorm, nat, learn]);
+    const ownedByKey = new Map(ownedRows.map((r) => [r.k, r]));
+    const owned = words.filter((w) => ownedByKey.has(normKey(w)))
+      .map((w) => ({ chinese: w, pinyin: ownedByKey.get(normKey(w)).pinyin || '', english: ownedByKey.get(normKey(w)).english || '' }));
 
-    const notOwned = words.filter((w) => !ownedSet.has(w));
-    let dictMap = new Map();
+    const notOwned = words.filter((w) => !ownedByKey.has(normKey(w)));
+    let dictByKey = new Map();
     if (notOwned.length) {
       const { rows: dictRows } = await pool.query(
-        `SELECT DISTINCT ON (m.chinese) m.chinese, m.pinyin, mot_tr(m.id, $2) AS english
-         FROM mots m WHERE m.chinese = ANY($1::text[]) ORDER BY m.chinese, m.id`, [notOwned, nat]);
-      dictMap = new Map(dictRows.map((d) => [d.chinese, d]));
+        `SELECT DISTINCT ON (lower(btrim(m.chinese))) lower(btrim(m.chinese)) AS k, m.pinyin, mot_tr(m.id, $2) AS english
+         FROM mots m WHERE lower(btrim(m.chinese)) = ANY($1::text[]) AND m.lang = $3 ORDER BY lower(btrim(m.chinese)), m.id`, [notOwned.map(normKey), nat, learn]);
+      dictByKey = new Map(dictRows.map((d) => [d.k, d]));
     }
-    const toBuy = notOwned.filter((w) => dictMap.has(w)).map((w) => dictMap.get(w));
-    // Mots hors dico → on GÉNÈRE le pinyin (pinyin-pro) pour aider la saisie.
+    const toBuy = notOwned.filter((w) => dictByKey.has(normKey(w)))
+      .map((w) => ({ chinese: w, pinyin: dictByKey.get(normKey(w)).pinyin || '', english: dictByKey.get(normKey(w)).english || '' }));
+    // Mots hors dico → aides à la saisie SPÉCIFIQUES au chinois : pinyin (pinyin-pro)
+    // + suggestion CC-CEDICT. Sans objet pour les autres langues (champ vide).
     let toPinyin = null;
-    try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente → pinyin vide */ }
-    const needsTranslation = notOwned.filter((w) => !dictMap.has(w)).map((w) => ({
+    if (isZh) { try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente → pinyin vide */ } }
+    const needsTranslation = notOwned.filter((w) => !dictByKey.has(normKey(w))).map((w) => ({
       chinese: w,
       pinyin: toPinyin ? toPinyin(w, { toneType: 'symbol' }) : '',
-      // Suggestion de traduction (CC-CEDICT) pour pré-remplir le champ — éditable.
-      suggested: cedict.translate(w) || '',
+      // Suggestion de traduction (CC-CEDICT, zh→en uniquement) pour pré-remplir — éditable.
+      suggested: isZh ? (cedict.translate(w) || '') : '',
     }));
     const cost = ACQUIRE_COST * (toBuy.length + needsTranslation.length);
     res.json({ owned, toBuy, needsTranslation, cost, balance });
@@ -1820,9 +1900,29 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
   const title = String(req.body?.title || '').trim();
   const description = String(req.body?.description || '').trim();
   const price = parseInt(req.body?.price, 10);
-  const words = extractWordList(req.body);
-  const translations = (req.body?.translations && typeof req.body.translations === 'object') ? req.body.translations : {};
+  // Langue apprise = langue du CONTENU du pack ; langue connue = la TRADUCTION.
+  // (Ex. apprenant le français depuis l'anglais → pack français, trad anglaise.)
+  const langs = await getUserLangs(uid);
+  let words = extractWordList(req.body);
+  let translations = (req.body?.translations && typeof req.body.translations === 'object') ? req.body.translations : {};
   const acquire = req.body?.acquire === true;
+  // Garde-fou UX : l'utilisateur a saisi les colonnes à l'envers (mots tapés = sa
+  // langue CONNUE, langue apprise mise dans les champs de trad). Le front envoie
+  // `swap` → on inverse : les valeurs des champs deviennent les mots (langue
+  // apprise = contenu du pack), les mots tapés deviennent leurs traductions.
+  // La valeur d'un champ pouvait contenir PLUSIEURS mots séparés (« a,b,c ») — elle
+  // servait de traduction (donc découpée). Une fois promue en CONTENU, on la découpe
+  // pareil (splitSenses) → chaque valeur devient un mot distinct, plutôt qu'un seul
+  // lexème « a,b,c ». Le mot tapé sert de traduction à chacun.
+  if (req.body?.swap === true) {
+    const nw = []; const nt = {};
+    for (const w of words) {
+      for (const sense of splitSenses(translations[w])) {
+        if (nt[sense] === undefined) { nw.push(sense); nt[sense] = w; }
+      }
+    }
+    words = nw; translations = nt;
+  }
   // Mode édition : packId d'un pack existant appartenant à l'utilisateur.
   const editId = Number.isInteger(parseInt(req.body?.packId, 10)) ? parseInt(req.body.packId, 10) : null;
 
@@ -1841,19 +1941,25 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       if (!own.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pack not found.' }); }
       if (own[0].creator_id !== uid) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Not your pack.' }); }
     }
-    const langs = await getUserLangs(uid);
-    // Les packs sont hanzi-only → le mot tapé est TOUJOURS du chinois (lang 'zh').
-    // L'AUTRE langue de la paire = la langue non-zh du créateur (sa langue apprise
-    // s'il apprend une langue occidentale depuis le chinois, sinon sa langue de
-    // base). La traduction saisie va vers CELLE-CI. Sans ça, pour un apprenant
-    // occidental (native=zh), le mot tapé serait étiqueté 'en' et la trad partirait
-    // en 'zh' → tout se retrouve inversé.
-    const other = langs.learning === 'zh' ? langs.native : langs.learning;
+    // Le mot tapé est dans la langue APPRISE (`content`) ; la traduction va vers
+    // la langue connue (`other` = native). Généralise l'ancien modèle hanzi-only :
+    // avant, le contenu était forcé à 'zh' et `other` = la langue non-zh du créateur.
+    const content = langs.learning;
+    const other = langs.native;
+    const isZh = content === 'zh';
+    // Rapprochement des surfaces insensible à la casse/espaces (no-op en zh) : un
+    // mot déjà possédé ("Bonjour") doit être reconnu quand l'utilisateur tape
+    // "bonjour" — sinon il serait refacturé et re-traduit à tort.
+    const normKey = (s) => String(s || '').trim().toLowerCase();
+    const wnorm = words.map(normKey);
     const { rows: owned } = await client.query(
-      `SELECT DISTINCT ON (m.chinese) m.id, m.chinese
+      `SELECT DISTINCT ON (lower(btrim(m.chinese))) lower(btrim(m.chinese)) AS k, m.id
        FROM mots m JOIN user_mots um ON um.mot_id = m.id AND um.user_id = $1
-       WHERE m.chinese = ANY($2::text[]) ORDER BY m.chinese, m.id`, [uid, words]);
-    const ownedMap = new Map(owned.map((r) => [r.chinese, r.id]));
+       WHERE lower(btrim(m.chinese)) = ANY($2::text[]) AND m.lang = $3
+       ORDER BY lower(btrim(m.chinese)), m.id`, [uid, wnorm, content]);
+    const ownedByKey = new Map(owned.map((r) => [r.k, r.id]));
+    const ownedMap = new Map();
+    for (const w of words) { const id = ownedByKey.get(normKey(w)); if (id) ownedMap.set(w, id); }
     const notOwned = words.filter((w) => !ownedMap.has(w));
 
     if (notOwned.length) {
@@ -1868,11 +1974,17 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
         return res.status(402).json({ error: `Not enough coins (need ${cost} ₵).`, insufficient: true, cost, balance: balRows[0]?.balance ?? 0 });
       }
       let toPinyin = null;
-      try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente */ }
+      if (isZh) { try { toPinyin = require('pinyin-pro').pinyin; } catch { /* lib absente */ } }
       for (const w of notOwned) {
-        // Mot hanzi → on privilégie/creuse le lexème ZH du concept (jamais le
-        // lexème de la langue apprise, qui inverserait pour un apprenant occidental).
-        const found = await client.query("SELECT id FROM mots WHERE chinese = $1 AND lang = 'zh' LIMIT 1", [w]);
+        // On cible le lexème de la langue APPRISE du concept (le contenu du pack) :
+        // c'est lui que le créateur possédera et que verront les apprenants de la
+        // même langue. (En zh c'est le hanzi ; en fr/en c'est le mot latin.)
+        // Rapprochement insensible à la casse/espaces (comme syncConceptSiblings)
+        // pour RÉUTILISER un lexème existant ("Bonjour") plutôt que d'en dupliquer
+        // un ("bonjour"). Sans effet en zh (les hanzi n'ont pas de casse).
+        const found = await client.query(
+          'SELECT id FROM mots WHERE lower(btrim(chinese)) = lower(btrim($1)) AND lang = $2 ORDER BY id LIMIT 1',
+          [w, content]);
         let motId;
         if (found.rows.length) {
           motId = found.rows[0].id;
@@ -1883,9 +1995,11 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
             return res.status(400).json({ error: `Add a translation for ${w}.`, needsTranslation: [w] });
           }
           const pinyin = toPinyin ? toPinyin(w, { toneType: 'symbol' }) : null;
-          const ins = await client.query("INSERT INTO mots (chinese, pinyin, lang) VALUES ($1, $2, 'zh') RETURNING id", [w, pinyin]);
+          const ins = await client.query('INSERT INTO mots (chinese, pinyin, lang) VALUES ($1, $2, $3) RETURNING id', [w, pinyin, content]);
           motId = ins.rows[0].id;
-          await syncConceptSiblings(client, motId, english, other);
+          // Mot NEUF → boîte de sens PROPRE (pas de merge-on-save) : ne pas absorber
+          // un concept existant qui partagerait une glose ni contaminer des mots corrects.
+          await syncConceptSiblings(client, motId, english, other, { freshBox: true });
         }
         ownedMap.set(w, motId);
       }
@@ -1899,7 +2013,7 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
     // (mots déjà en base compris) : remplit celles qui manquaient et enregistre
     // les corrections de l'utilisateur. On ne touche qu'aux mots dont la glose
     // fournie diffère de la traduction actuelle (évite de churner le graphe).
-    if (other && other !== 'zh') {
+    if (other && other !== content) {
       const uniqIds = [...new Set(words.map((w) => ownedMap.get(w)).filter(Boolean))];
       const curTr = new Map();
       const meaningOf = new Map();
@@ -1912,7 +2026,9 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
           [uniqIds, other]);
         cur.forEach((r) => { curTr.set(r.id, r.english || ''); meaningOf.set(r.id, r.meaning_id); });
       }
-      const norm = (s) => String(s || '').toLowerCase().split('/').map((x) => x.trim()).filter(Boolean).sort().join('/');
+      // Même découpe que syncConceptSiblings → « a; b » et « a / b » sont vus égaux
+      // (pas de re-churn du graphe si seule la ponctuation de séparation diffère).
+      const norm = (s) => splitSenses(s).map((x) => x.toLowerCase()).sort().join('/');
       for (const w of words) {
         const motId = ownedMap.get(w);
         const gloss = String(translations[w] || '').trim();
@@ -1955,12 +2071,14 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
       await client.query('DELETE FROM word_pack_items WHERE pack_id = $1', [editId]);
       packId = editId;
     } else {
-      // Pack hanzi-only → paire = zh ↔ other (langue non-zh du créateur). Le store
-      // filtre sur cette paire (dans les deux sens) et l'affichage est orienté viewer.
+      // Paire du pack = content (langue apprise) ↔ other (langue connue). Le store
+      // filtre sur cette paire dans les DEUX sens (réciprocité) et l'affichage est
+      // orienté viewer. Ex. pack fr↔en visible par les apprenants fr-depuis-en ET
+      // en-depuis-fr, chacun voyant sa langue apprise à gauche.
       const { rows: pk } = await client.query(
         `INSERT INTO word_packs (creator_id, title, description, price, cover_key, is_official, published, lang, native_lang)
-         VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE, 'zh', $5) RETURNING id`,
-        [uid, title, description || null, price, other]);
+         VALUES ($1, $2, $3, $4, 'user', FALSE, TRUE, $5, $6) RETURNING id`,
+        [uid, title, description || null, price, content, other]);
       packId = pk[0].id;
     }
     const motIds = words.map((w) => ownedMap.get(w));

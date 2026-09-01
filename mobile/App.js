@@ -298,8 +298,8 @@ function App() {
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onBack={() => setTab('account')} isPremium={!!profile?.isPremium} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} onPurchased={() => loadProfile({ route: false })} />;
-      case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} canCreate={[profile?.learning_lang, profile?.native_lang, profile?.interface_lang].includes('zh')} onStartQuiz={startPackQuiz} onEditPack={startEditPack} onUpgrade={() => { setBankReturn('store'); setTab('pricing'); }} />;
-      case 'create-pack': return <CreatePackScreen editPack={editPack} onBack={() => { setEditPack(null); setTab('store'); }} onCreated={() => { setEditPack(null); setTab('store'); }} />;
+      case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} canCreate onStartQuiz={startPackQuiz} onEditPack={startEditPack} onUpgrade={() => { setBankReturn('store'); setTab('pricing'); }} />;
+      case 'create-pack': return <CreatePackScreen editPack={editPack} learningLang={profile?.learning_lang || 'zh'} nativeLang={profile?.native_lang || 'en'} onBack={() => { setEditPack(null); setTab('store'); }} onCreated={() => { setEditPack(null); setTab('store'); }} />;
       case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} onDone={() => setTab('add')} />;
       case 'writing': return <WritingPracticeScreen onBack={() => setTab('settings')} />;
       case 'support': return <SupportScreen onBack={() => setTab(bankReturn)} />;
@@ -388,7 +388,7 @@ function App() {
             (quiz, recherche de collection…). Sur l'accueil (Add Word) le champ de
             recherche est en HAUT : masquer toute la barre + le chat à chaque focus
             donnait l'impression que la nav-bar « disparaissait » par intermittence. */}
-        {(kbOpen && tab !== 'add') || tab === 'settings' || tab === 'pricing' || tab === 'import'
+        {(kbOpen && tab !== 'add') || tab === 'settings' || tab === 'import'
           || tab === 'legal' || tab === 'terms' || tab === 'privacy' || tab === 'support' ? null : (
           // On garde la nav-bar sur Add Word même clavier ouvert, mais on masque
           // le CHAT (showChar) tant que le clavier est là : sinon il chevauche le

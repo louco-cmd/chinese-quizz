@@ -5,8 +5,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
-import { planPack, createPack } from '../api';
+import { planPack, createPack, getSettings, getCachedSettings } from '../api';
+import { LANG_META } from '../langs';
 import { COLORS, SHADOW_CARD } from '../theme';
+
+const langName = (code) => LANG_META[code]?.endonym || String(code || '').toUpperCase();
 
 function Field({ label, hint, children }) {
   return (
@@ -23,8 +26,35 @@ const inputStyle = {
   paddingHorizontal: 14, paddingVertical: 11, fontSize: 15,
 };
 
-export default function CreatePackScreen({ onBack, onCreated, editPack }) {
+export default function CreatePackScreen({ onBack, onCreated, editPack, learningLang = 'zh', nativeLang = 'en' }) {
   const isEdit = !!editPack;
+  // Langues du parcours ACTIF. Les props (profil App.js) peuvent être périmées
+  // (hot-reload, changement de parcours) → on se resynchronise sur /settings, la
+  // source de vérité, invalidée à chaque changement de parcours.
+  const cached = getCachedSettings();
+  const [langs, setLangs] = useState({
+    learning: cached?.learning_lang || learningLang,
+    native: cached?.native_lang || nativeLang,
+  });
+  useEffect(() => {
+    let alive = true;
+    getSettings()
+      .then((s) => { if (alive && s) setLangs({ learning: s.learning_lang || learningLang, native: s.native_lang || nativeLang }); })
+      .catch(() => { /* garde le fallback prop */ });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const isZh = langs.learning === 'zh';
+  const learnName = langName(langs.learning);
+  const natName = langName(langs.native);
+  // Sens des colonnes de la popup de validation. `swapped` = l'utilisateur signale
+  // qu'il a rempli à l'envers (mots dans la langue connue au lieu de l'apprise).
+  const [swapped, setSwapped] = useState(false);
+  // Le contenu du pack est dans la langue APPRISE : indices/placeholder adaptés.
+  const wordsHint = isZh ? 'One per line — only Chinese hanzi supported' : 'One per line';
+  const wordsPlaceholder = isZh ? '你好\n谢谢\n再见'
+    : langs.learning === 'fr' ? 'bonjour\nmerci\nau revoir'
+    : 'hello\nthank you\ngoodbye';
   const [title, setTitle] = useState(editPack?.title || '');
   const [description, setDescription] = useState(editPack?.description || '');
   const [price, setPrice] = useState(editPack?.price != null ? String(editPack.price) : '');
@@ -85,7 +115,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
   // Envoie la création (avec ou sans acquisition).
   async function doCreate(acquire, translations) {
     try {
-      await createPack({ title: title.trim(), description: description.trim(), price: priceNum, text, translations, acquire, packId: editPack?.id });
+      await createPack({ title: title.trim(), description: description.trim(), price: priceNum, text, translations, acquire, packId: editPack?.id, swap: swapped });
       onCreated?.();
     } catch (e) {
       throw e;
@@ -98,7 +128,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
   // CHAQUE mot avant publication (et remplir celles qui manquent en base).
   async function onPublish() {
     if (!canPublish) return;
-    setPublishing(true); setError('');
+    setPublishing(true); setError(''); setSwapped(false);
     try {
       const plan = await planPack(text);
       // Fusionne les trois catégories en une seule liste éditable, indexée par mot.
@@ -190,7 +220,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
           </View>
         </Field>
 
-        <Field label="Words" hint="One per line — only Chinese hanzi supported">
+        <Field label="Words" hint={wordsHint}>
           {/* Coût estimé du pass : 3 ₵ par mot NON possédé (affiné en débounce). */}
           {lineCount > 0 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
@@ -205,7 +235,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
             </View>
           ) : null}
           <TextInput value={text} onChangeText={setText} multiline autoCapitalize="none" onFocus={focusScroll}
-            placeholder={'你好\n谢谢\n再见'} placeholderTextColor={COLORS.mutedLight}
+            placeholder={wordsPlaceholder} placeholderTextColor={COLORS.mutedLight}
             style={{ ...inputStyle, minHeight: 150, textAlignVertical: 'top', lineHeight: 22 }} />
         </Field>
 
@@ -226,33 +256,55 @@ export default function CreatePackScreen({ onBack, onCreated, editPack }) {
       <Popup visible={!!checkout} onClose={() => { if (!buying) setCheckout(null); }} maxWidth={440} scroll={false}>
         {checkout ? (
           <View>
-            <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginBottom: 6 }}>
+            <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginBottom: 12 }}>
               {checkout.cost > 0 ? 'Review & buy the words' : 'Review the translations'}
             </Text>
-            <Text style={{ fontSize: 13.5, color: COLORS.muted, marginBottom: 14, lineHeight: 19 }}>
-              Check the translation of every word — edit any that's wrong or missing.
-              {checkout.cost > 0 ? " New words are added to your collection (3 ₵ each)." : ''}
-            </Text>
+
+            {/* En-têtes = direction attendue par le back : « mots du pack (langue
+                apprise) → leur sens (langue connue) ». La colonne de DROITE = ce que
+                l'utilisateur écrit/vérifie. ⇄ inverse s'il a saisi à l'envers. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingBottom: 10, borderBottomWidth: 1, borderColor: '#eef0f3' }}>
+              <View style={{ width: 92 }}>
+                <Text style={{ fontSize: 9.5, color: COLORS.mutedLight, fontWeight: '800', letterSpacing: 0.4, marginBottom: 1 }}>WORD</Text>
+                <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e' }}>{swapped ? natName : learnName}</Text>
+              </View>
+              {/* Lane SWAP (mêmes marges que le spacer des lignes) : collée à la colonne
+                  mot puis 20px d'air avant la colonne sens → le bouton se recentre dans
+                  la bande blanche entre les deux titres, la droite reste alignée. */}
+              <Pressable onPress={() => setSwapped((s) => !s)} hitSlop={8}
+                style={{ width: 34, alignItems: 'center' }}>
+                <Ionicons name="swap-horizontal" size={20} color={swapped ? COLORS.jiayou : COLORS.mutedLight} />
+                <Text style={{ fontSize: 8, color: swapped ? COLORS.jiayou : COLORS.mutedLight, fontWeight: '800', letterSpacing: 0.3, marginTop: 1 }}>SWAP</Text>
+              </Pressable>
+              <View style={{ flex: 1, marginLeft: 20 }}>
+                <Text style={{ fontSize: 9.5, color: COLORS.jiayou, fontWeight: '800', letterSpacing: 0.4, marginBottom: 1 }}>ITS MEANING — TYPE HERE</Text>
+                <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '800', color: COLORS.jiayou }}>{swapped ? learnName : natName}</Text>
+              </View>
+            </View>
 
             <ScrollView style={{ maxHeight: 300 }}>
               {/* Une ligne éditable par mot (possédés compris). Colonne gauche à
                   largeur FIXE → tous les champs de droite s'alignent. */}
               {checkout.items.map((n, i) => (
-                <View key={`item-${n.chinese}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <View key={`item-${n.chinese}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                   <View style={{ width: 92 }}>
                     <Text numberOfLines={1} adjustsFontSizeToFit style={{ fontSize: 19, fontWeight: '700', color: '#1a1a2e' }}>{n.chinese}</Text>
                     {n.pinyin ? <Text numberOfLines={1} style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 1 }}>{n.pinyin}</Text> : null}
                   </View>
+                  {/* Spacer = lane SWAP de l'en-tête (marges explicites : swap collé à
+                      la colonne mot, plus d'air à droite → aligne le champ ET recentre
+                      le swap entre les deux titres). */}
+                  <View style={{ width: 34 }} />
                   <TextInput
                     value={n.english}
                     onChangeText={(t) => updateNeed(i, t)}
-                    placeholder="translation…" placeholderTextColor={COLORS.mutedLight}
-                    style={{ flex: 1, borderWidth: 1, borderColor: n.english.trim() ? COLORS.line : '#f0c36d', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: 14 }}
+                    placeholder={`${swapped ? learnName : natName}…`} placeholderTextColor={COLORS.mutedLight}
+                    style={{ flex: 1, marginLeft: 20, borderWidth: 1, borderColor: n.english.trim() ? COLORS.line : '#f0c36d', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: 14 }}
                   />
                   {n.kind === 'owned' ? (
-                    <Ionicons name="checkmark-circle" size={16} color={COLORS.success} />
+                    <Ionicons name="checkmark-circle" size={16} color={COLORS.success} style={{ marginLeft: 10 }} />
                   ) : (
-                    <Text style={{ fontSize: 11, color: COLORS.muted, fontWeight: '700', width: 26, textAlign: 'right' }}>3 ₵</Text>
+                    <Text style={{ fontSize: 11, color: COLORS.muted, fontWeight: '700', width: 26, textAlign: 'right', marginLeft: 10 }}>3 ₵</Text>
                   )}
                 </View>
               ))}
