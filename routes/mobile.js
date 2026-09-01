@@ -213,16 +213,34 @@ function splitSenses(gloss) {
   return out;
 }
 
+// Garde-fous P2P — Phase 1 : journalise une mutation du graphe (append-only) et
+// marque le dernier modificateur du lexème. À exécuter DANS la transaction (client)
+// pour être atomique avec l'édition (rollback ensemble). La table edit_log est créée
+// au boot → l'INSERT ne peut pas échouer sur une base à jour.
+async function logEdit(client, userId, motId, action, surface, before, after) {
+  await client.query(
+    `INSERT INTO edit_log (user_id, mot_id, action, surface, before, after)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [userId || null, motId, action, surface || null,
+     before == null ? null : JSON.stringify(before),
+     after == null ? null : JSON.stringify(after)]);
+  await client.query('UPDATE mots SET last_edited_by = $1, last_edited_at = NOW() WHERE id = $2', [userId || null, motId]);
+}
+
 // À exécuter DANS la transaction de l'appelant (client).
-async function syncConceptSiblings(client, motId, gloss, nativeLang, { replace = false, meaningId: explicitMeaning = null, freshBox = false } = {}) {
+async function syncConceptSiblings(client, motId, gloss, nativeLang, { replace = false, meaningId: explicitMeaning = null, freshBox = false, userId = null } = {}) {
   const uniq = splitSenses(gloss);
 
-  const self = await client.query('SELECT lang, meaning_id FROM mots WHERE id = $1', [motId]);
+  const self = await client.query('SELECT lang, meaning_id, chinese FROM mots WHERE id = $1', [motId]);
   if (!self.rows.length) return null;
   const selfLang = self.rows[0].lang || 'zh';
   if (!nativeLang || nativeLang === selfLang) return null; // rien à dériver
   // Glose vide → ne PAS fabriquer de sens orphelin ; on garde le sens courant.
   if (!explicitMeaning && uniq.length === 0) return self.rows[0].meaning_id || null;
+  // Audit : traduction AVANT mutation (pour le diff avant/après dans edit_log).
+  const beforeTr = userId
+    ? (await client.query('SELECT mot_tr($1, $2) AS tr', [motId, nativeLang])).rows[0].tr || ''
+    : null;
 
   // Détermine le SENS à alimenter :
   //   (0) sens explicite (édition d'une entrée précise) ;
@@ -299,6 +317,14 @@ async function syncConceptSiblings(client, motId, gloss, nativeLang, { replace =
       nid = ins.rows[0].id;
     }
     await client.query('INSERT INTO lexeme_senses(mot_id, meaning_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [nid, meaningId]);
+  }
+  // Audit : ne journalise QUE si la traduction a réellement changé (évite le bruit).
+  if (userId) {
+    const afterTr = (await client.query('SELECT mot_tr($1, $2) AS tr', [motId, nativeLang])).rows[0].tr || '';
+    if (afterTr !== beforeTr) {
+      await logEdit(client, userId, motId, beforeTr ? 'edit_meaning' : 'create',
+        self.rows[0].chinese, { tr: beforeTr || null }, { tr: afterTr || null });
+    }
   }
   return meaningId; // sens utilisé (créé/rejoint) → l'appelant capture ce sens
 }
@@ -995,7 +1021,7 @@ router.post('/api/m/words', requireToken, async (req, res) => {
     // un concept primaire, la glose ENRICHIT ce concept (frame + cadre + 框架 réunis)
     // au lieu de créer un sens détaché. Un lexème neuf laisse sync décider.
     const targetMeaning = ex.length ? (ex[0].meaning_id || null) : null;
-    const meaningId = await syncConceptSiblings(client, motId, english, langs.native, { meaningId: targetMeaning });
+    const meaningId = await syncConceptSiblings(client, motId, english, langs.native, { meaningId: targetMeaning, userId: req.tokenUser.id });
 
     // Déjà possédé — par SENS (on peut posséder un autre sens du même terme).
     const { rows: owned } = await client.query(
@@ -1331,7 +1357,7 @@ router.post('/api/m/import/commit', requireToken, async (req, res) => {
       // Modèle concept : concept + frère(s) natif(s) par sens pour chaque mot créé.
       const glossByChinese = new Map(missing.map((w) => [w.chinese, w.english]));
       for (const r of ins) {
-        await syncConceptSiblings(client, r.id, glossByChinese.get(r.chinese), langs.native);
+        await syncConceptSiblings(client, r.id, glossByChinese.get(r.chinese), langs.native, { userId: req.tokenUser.id });
       }
     }
 
@@ -1405,6 +1431,8 @@ router.put('/api/m/words/:motId', requireToken, async (req, res) => {
     try {
       await client.query('BEGIN');
       // chinese/pinyin = base partagée (mots) ; description = note PERSO (user_mots).
+      // Audit : on journalise si la SURFACE partagée change réellement.
+      const beforeRow = (await client.query('SELECT chinese, pinyin FROM mots WHERE id = $1', [motId])).rows[0] || {};
       await client.query(
         `UPDATE mots
          SET chinese = COALESCE($2, chinese),
@@ -1412,6 +1440,12 @@ router.put('/api/m/words/:motId', requireToken, async (req, res) => {
          WHERE id = $1`,
         [motId, chinese ?? null, pinyin ?? null]
       );
+      const afterRow = (await client.query('SELECT chinese, pinyin FROM mots WHERE id = $1', [motId])).rows[0] || {};
+      if (beforeRow.chinese !== afterRow.chinese || beforeRow.pinyin !== afterRow.pinyin) {
+        await logEdit(client, req.tokenUser.id, motId, 'edit_surface', afterRow.chinese,
+          { chinese: beforeRow.chinese, pinyin: beforeRow.pinyin },
+          { chinese: afterRow.chinese, pinyin: afterRow.pinyin });
+      }
       if (description != null) {
         await client.query(
           'UPDATE user_mots SET description = $4 WHERE user_id = $1 AND mot_id = $2 AND meaning_id = $3',
@@ -1419,7 +1453,7 @@ router.put('/api/m/words/:motId', requireToken, async (req, res) => {
       }
       // Glose modifiée → réécrit les frères natifs de CE sens (replace, ciblé).
       if (english != null && String(english).trim()) {
-        await syncConceptSiblings(client, motId, english, langs.native, { replace: true, meaningId });
+        await syncConceptSiblings(client, motId, english, langs.native, { replace: true, meaningId, userId: req.tokenUser.id });
       }
       const { rows: out } = await client.query(
         `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, $2, $3) AS english, m.hsk,
@@ -1999,7 +2033,7 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
           motId = ins.rows[0].id;
           // Mot NEUF → boîte de sens PROPRE (pas de merge-on-save) : ne pas absorber
           // un concept existant qui partagerait une glose ni contaminer des mots corrects.
-          await syncConceptSiblings(client, motId, english, other, { freshBox: true });
+          await syncConceptSiblings(client, motId, english, other, { freshBox: true, userId: req.tokenUser.id });
         }
         ownedMap.set(w, motId);
       }
@@ -2037,7 +2071,7 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
         // Cible le SENS primaire du mot : remplir/corriger sa traduction (dans la
         // langue non-zh de la paire) sans fabriquer de sens orphelin.
         const meaningId = meaningOf.get(motId) || null;
-        await syncConceptSiblings(client, motId, gloss, other, { replace: true, meaningId });
+        await syncConceptSiblings(client, motId, gloss, other, { replace: true, meaningId, userId: req.tokenUser.id });
       }
     }
 
@@ -3956,7 +3990,7 @@ router.post('/api/m/teacher/classes/:id/lessons', requireToken, requireTeacher, 
         motId = existing.rows[0].id;
         if (existing.rows[0].hsk == null && english) {
           await client.query('UPDATE mots SET pinyin = $1 WHERE id = $2', [pinyin, motId]);
-          await syncConceptSiblings(client, motId, english, langs.native, { replace: true });
+          await syncConceptSiblings(client, motId, english, langs.native, { replace: true, userId: req.tokenUser.id });
         }
       } else {
         if (!english) continue;
@@ -3965,7 +3999,7 @@ router.post('/api/m/teacher/classes/:id/lessons', requireToken, requireTeacher, 
           [chinese.slice(0, 50), pinyin, langs.learning]
         );
         motId = ins.rows[0].id;
-        await syncConceptSiblings(client, motId, english, langs.native);
+        await syncConceptSiblings(client, motId, english, langs.native, { userId: req.tokenUser.id });
       }
       motIds.push(motId);
     }

@@ -729,6 +729,31 @@ const pool = new Pool({
       console.warn('⚠️ Index de perf non créés (table absente ?) :', e.message);
     }
 
+    // ── Garde-fous P2P — Phase 1 : journal d'audit des modifications du graphe ──
+    // La base de mots/concepts est éditable par tous (P2P) → on trace QUI modifie
+    // QUOI (avant/après) pour pouvoir enquêter et, plus tard (Phase 2), détecter les
+    // éditions en masse, geler et rétablir. Append-only, invisible côté user.
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS edit_log (
+          id serial PRIMARY KEY,
+          user_id int,
+          mot_id int,
+          action varchar(24) NOT NULL,     -- 'create' | 'edit_meaning' | 'edit_surface'
+          surface text,                    -- surface du mot au moment du log (lisible dans l'alerte)
+          before jsonb,
+          after jsonb,
+          created_at timestamptz DEFAULT now()
+        )`);
+      // Détection Phase 2 : « N éditions de concepts partagés en M minutes » par user.
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_edit_log_user_time ON edit_log(user_id, created_at DESC)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_edit_log_mot ON edit_log(mot_id, created_at DESC)`);
+      // Dernier modificateur d'un lexème (affichage rapide + forensic).
+      await pool.query(`ALTER TABLE mots ADD COLUMN IF NOT EXISTS last_edited_by int`);
+      await pool.query(`ALTER TABLE mots ADD COLUMN IF NOT EXISTS last_edited_at timestamptz`);
+      console.log("✅ Audit P2P (edit_log + mots.last_edited_by/at) vérifié.");
+    } catch (e) { console.error('edit_log migration failed:', e.message); }
+
     // Réconciliation des packs officiels HSK (idempotente).
     try {
       const r = await reconcileHskPacks();
