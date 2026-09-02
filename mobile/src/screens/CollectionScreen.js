@@ -39,8 +39,9 @@ async function bestVoiceFor(lang) {
   return _voiceCache[(lang || '').toLowerCase().split(/[-_]/)[0]];
 }
 
-// Lit un texte. `cbs.onStart/onDone` pour piloter un loader. Coupe toute lecture
-// en cours pour éviter les chevauchements.
+// Lit un texte. `cbs.onStart/onDone` pour piloter un loader ; `cbs.rate` règle la
+// vitesse (1 = normal, <1 = plus lent). Coupe toute lecture en cours pour éviter
+// les chevauchements.
 async function speak(t, lang = 'zh-CN', cbs = {}) {
   if (!t) { cbs.onDone?.(); return; }
   try { Speech.stop(); } catch { /* noop */ }
@@ -48,6 +49,7 @@ async function speak(t, lang = 'zh-CN', cbs = {}) {
   Speech.speak(t, {
     language: lang,
     voice, // undefined → voix par défaut
+    rate: cbs.rate ?? 1.0,
     onStart: cbs.onStart,
     onDone: cbs.onDone,
     onStopped: cbs.onDone,
@@ -141,11 +143,18 @@ export default function CollectionScreen({ onNavigate }) {
 
   // Lance la lecture vocale avec loader : `key` identifie le bouton qui montre le
   // spinner jusqu'à la fin (la 1re lecture est lente le temps d'init du moteur TTS).
+  // Ré-appui rapide sur LE MÊME bouton (< 4 s) → relit plus lentement (aide à
+  // distinguer les sons). Un appui après ce délai repart à vitesse normale.
+  const lastPlayRef = useRef({ key: null, at: 0 });
   function play(text, lang, key) {
     if (!text) return;
+    const now = Date.now();
+    const prev = lastPlayRef.current;
+    const rapid = prev.key === key && now - prev.at < 4000;
+    lastPlayRef.current = { key, at: now };
     setSpeakingKey(key);
     const clear = () => setSpeakingKey((k) => (k === key ? null : k));
-    speak(text, lang, { onDone: clear }).catch(clear);
+    speak(text, lang, { rate: rapid ? 0.5 : 1.0, onDone: clear }).catch(clear);
   }
 
   // Coupe la lecture si on quitte l'écran.

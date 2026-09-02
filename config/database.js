@@ -4,6 +4,13 @@ const { Pool } = require("pg");
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
+  // Tuning pool : borne les connexions (Neon a une limite), recycle les clients
+  // inactifs, échoue vite si le pool est saturé, et coupe toute requête qui
+  // dépasse 15 s (garde-fou anti-requête-folle qui bloquerait un client).
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
+  statement_timeout: 15000,
 });
 
 // -------------------- Initialisation des tables --------------------
@@ -436,6 +443,24 @@ const pool = new Pool({
           SELECT id, meaning_id FROM mots
           WHERE meaning_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM lexeme_senses)
           ON CONFLICT DO NOTHING`);
+        // ANTI-RÉSURRECTION (à CHAQUE boot, AVANT le re-linker ci-dessous) :
+        // une connexion supprimée via l'édition (DELETE lexeme_senses) laissait le
+        // lexème délié avec `mots.meaning_id` pointant encore vers le concept — que
+        // le re-linker orphelin ci-dessous ressuscitait au boot suivant. On dé-pointe
+        // donc ces `meaning_id` pendouillants vers un sens que le lexème possède
+        // ENCORE (min restant), sinon NULL. SÛR vis-à-vis des vrais orphelins crawler :
+        // on ne touche QUE les lexèmes retirés d'un concept ENCORE VIVANT (qui a
+        // d'autres membres) — signature d'une suppression volontaire. Un orphelin
+        // crawler jamais lié pointe vers un concept sans autre membre → EXISTS faux
+        // → intact → toujours re-lié par le bloc suivant. (Le correctif à la source
+        // vit dans syncConceptSiblings ; ceci rattrape le backlog d'avant le fix.)
+        const unstuck = await pool.query(`
+          UPDATE mots m
+          SET meaning_id = (SELECT min(ls.meaning_id) FROM lexeme_senses ls WHERE ls.mot_id = m.id)
+          WHERE m.meaning_id IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM lexeme_senses ls WHERE ls.mot_id = m.id AND ls.meaning_id = m.meaning_id)
+            AND EXISTS (SELECT 1 FROM lexeme_senses ls WHERE ls.meaning_id = m.meaning_id)`);
+        if (unstuck.rowCount) console.log(`🔧 anti-résurrection : ${unstuck.rowCount} pointeur(s) meaning_id pendouillant(s) nettoyé(s).`);
         // Auto-réparation (à CHAQUE boot) : un mot inséré avec seulement
         // mots.meaning_id (ex. crawler / insert manuel) mais SANS ligne
         // lexeme_senses est invisible partout (search/collection/mot_tr font un
@@ -724,7 +749,14 @@ const pool = new Pool({
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_quiz_history_user_date ON quiz_history(user_id, date_completed DESC)`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_duels_challenger ON duels(challenger_id)`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_duels_opponent ON duels(opponent_id)`);
-      console.log('✅ Index de perf (user_mots/quiz_history/duels) vérifiés.');
+      // word_pack_items(mot_id) : le sous-select pack_ids de la collection et les
+      // gardes NOT EXISTS de syncConceptSiblings joignent sur mot_id (seul pack_id
+      // était indexé → scan). mots(lang, lower(chinese)) : la création/plan de pack
+      // fait des dizaines de lookups `WHERE lang=$ AND lower(chinese)=lower($)` en
+      // seq scan sur une table `mots` qui grossit — index fonctionnel = O(log n).
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_pack_items_mot ON word_pack_items(mot_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_mots_lang_lower_chinese ON mots(lang, lower(chinese))`);
+      console.log('✅ Index de perf (user_mots/quiz_history/duels/pack_items/mots) vérifiés.');
     } catch (e) {
       console.warn('⚠️ Index de perf non créés (table absente ?) :', e.message);
     }

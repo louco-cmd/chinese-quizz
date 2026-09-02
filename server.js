@@ -5,6 +5,7 @@ const resend = new Resend(process.env.SMTP_PASSWORD);
 const path = require("path");
 const express = require("express");
 const compression = require("compression");
+const helmet = require("helmet");
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
@@ -37,10 +38,34 @@ const PostgreSQLStore = require('connect-pg-simple')(session);
 const { router: mobileRoutes } = require('./routes/mobile');
 const { pool } = require('./config/database');
 const { registerLimiter, validateSignupEmail } = require('./middleware/signup-guard');
+const { SIGNUP_GRANT } = require('./lib/economy');
 const { listenerCount } = require('process');
 const app = express();
 app.set('trust proxy', 1); // Pour les déploiements derrière un proxy (Heroku, Render, etc.)
+// En-têtes de sécurité (HSTS, X-Frame-Options, noSniff, etc.). CSP DÉSACTIVÉE pour
+// l'instant : le SPA RN-web + Stripe + Google chargent des scripts/styles inline
+// qu'une CSP stricte casserait — à durcir dans un second temps avec une politique
+// dédiée. `crossOriginResourcePolicy: cross-origin` car les assets buildés sont
+// servis à l'app (web + natif). `crossOriginEmbedderPolicy: false` idem.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(compression()); // gzip/brotli sur HTML, CSS, JS, JSON → ~4x moins de transfert
+
+// Health check (déclaré TÔT, avant le fallback SPA) : ping léger de liveness +
+// vérif que la base répond. Utilisé par Render / le monitoring pour un deploy net.
+// 200 = serveur + DB OK ; 503 = DB injoignable.
+app.get('/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', uptime: Math.round(process.uptime()) });
+  } catch (e) {
+    res.status(503).json({ status: 'db_unavailable' });
+  }
+});
+
 console.log("Callback URL utilisée :", process.env.GOOGLE_CALLBACK_URL
 );
 
@@ -156,7 +181,10 @@ app.use(session({
     pruneSessionInterval: false,
     ttl: 7 * 24 * 60 * 60
   }),
-  secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
+  secret: process.env.SESSION_SECRET
+    || (process.env.NODE_ENV === 'production'
+      ? (() => { throw new Error('SESSION_SECRET manquant en production — refus de démarrer'); })()
+      : 'dev-only-insecure-session'),
   name: 'jiayou.sid',
   resave: false,
   saveUninitialized: false,
@@ -452,12 +480,40 @@ app.get("/auth/google/callback",
 );
 
 // Dans votre server.js ou routes/auth.js
-app.post('/auth/google/one-tap', async (req, res) => {
-  try {
-    // ✅ IMPORTANT: Ajoutez ces headers CORS
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+// Origines autorisées à faire des appels CORS authentifiés (credentials). On ne
+// REFLÈTE plus une origine arbitraire : seul un site de la liste reçoit les headers
+// CORS, sinon aucun (un site tiers ne peut pas lancer d'appel authentifié ici).
+const CORS_ALLOWED_ORIGINS = [
+  process.env.APP_WEB_URL || 'https://app.jiayou.fr',
+  'https://app.jiayou.fr',
+  'https://jiayou.fr',
+];
+function applyCorsAllowlist(req, res) {
+  const origin = req.headers.origin;
+  const ok = origin && (
+    CORS_ALLOWED_ORIGINS.includes(origin)
+    || (process.env.NODE_ENV !== 'production' && /^https?:\/\/localhost(:\d+)?$/.test(origin))
+  );
+  if (ok) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  }
+  return ok;
+}
+
+// Préflight CORS de l'endpoint one-tap (POST + Content-Type JSON → le navigateur
+// envoie un OPTIONS d'abord). On répond avec les headers de l'allowlist.
+app.options('/auth/google/one-tap', (req, res) => {
+  applyCorsAllowlist(req, res);
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.sendStatus(204);
+});
+
+app.post('/auth/google/one-tap', async (req, res) => {
+  try {
+    applyCorsAllowlist(req, res);
 
     const { credential } = req.body;
 
@@ -488,7 +544,7 @@ app.post('/auth/google/one-tap', async (req, res) => {
       // Créer un nouvel utilisateur
       const newUser = await pool.query(
         `INSERT INTO users (email, provider, email_verified, balance)
-         VALUES ($1, 'google', true, 200)
+         VALUES ($1, 'google', true, ${SIGNUP_GRANT})
          RETURNING id, email`,
         [payload.email]
       );
@@ -583,7 +639,7 @@ app.post('/auth/signup-basic', registerLimiter, async (req, res) => {
     // Insertion utilisateur
     const userRes = await pool.query(
       `INSERT INTO users (email, password_hash, provider, email_verified, balance)
-       VALUES ($1, $2, 'local', false, 200)
+       VALUES ($1, $2, 'local', false, ${SIGNUP_GRANT})
        RETURNING id, email`,
       [email, hash]
     );
@@ -2136,7 +2192,26 @@ cron.schedule('0 10 * * *', async () => {
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`🔗 Webhook endpoint: http://localhost:${PORT}/webhook`);
 });
+
+// Arrêt propre : à chaque déploiement, Render envoie SIGTERM. On arrête d'accepter
+// de nouvelles connexions, on laisse les requêtes en cours finir, puis on ferme le
+// pool PG proprement (évite les connexions coupées à la volée / erreurs transitoires).
+let shuttingDown = false;
+function gracefulShutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`↩️  ${signal} reçu — arrêt propre en cours…`);
+  server.close(async () => {
+    try { await pool.end(); } catch (e) { console.error('pool.end error:', e.message); }
+    console.log('✅ Arrêt propre terminé.');
+    process.exit(0);
+  });
+  // Filet de sécurité : si quelque chose pend, on force la sortie au bout de 10 s.
+  setTimeout(() => { console.error('⏱️  Arrêt forcé (timeout).'); process.exit(1); }, 10000).unref();
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

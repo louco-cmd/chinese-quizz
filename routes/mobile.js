@@ -13,6 +13,7 @@ const { generateDuelQuiz, addTransaction, updateWordScore } = require('../middle
 const { sendExpoPush } = require('../middleware/push.service');
 const { registerLimiter, loginLimiter, validateSignupEmail } = require('../middleware/signup-guard');
 const { rewardPendingReferral } = require('../lib/referral');
+const { SIGNUP_GRANT } = require('../lib/economy');
 const cedict = require('../lib/cedict');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
@@ -78,7 +79,9 @@ function requireToken(req, res, next) {
   const match = header.match(/^Bearer (.+)$/);
   if (!match) return res.status(401).json({ error: 'Missing token' });
   try {
-    const payload = jwt.verify(match[1], JWT_SECRET);
+    // `algorithms` épinglé : refuse tout token signé autrement qu'en HS256
+    // (protège des attaques de confusion d'algorithme, ex. `alg: none`).
+    const payload = jwt.verify(match[1], JWT_SECRET, { algorithms: ['HS256'] });
     req.tokenUser = { id: payload.id, email: payload.email };
     next();
   } catch {
@@ -299,6 +302,17 @@ async function syncConceptSiblings(client, motId, gloss, nativeLang, { replace =
          AND NOT EXISTS (SELECT 1 FROM user_mots um WHERE um.mot_id = e.id)
          AND NOT EXISTS (SELECT 1 FROM word_pack_items w WHERE w.mot_id = e.id)`,
       [meaningId, nativeLang, motId]);
+    // ANTI-RÉSURRECTION : le DELETE ci-dessus ne coupe que lexeme_senses. Un lexème
+    // délié qui garde `mots.meaning_id = M` (son pointeur de sens primaire) serait
+    // re-lié à M au prochain boot par l'auto-réparation orphelins (config/database.js)
+    // → la connexion supprimée réapparaîtrait au redémarrage. On re-pointe donc
+    // meaning_id vers un sens que le lexème possède ENCORE (min restant), sinon NULL.
+    await client.query(
+      `UPDATE mots m
+       SET meaning_id = (SELECT min(ls.meaning_id) FROM lexeme_senses ls WHERE ls.mot_id = m.id)
+       WHERE m.lang = $2 AND m.meaning_id = $1 AND m.id <> $3
+         AND NOT EXISTS (SELECT 1 FROM lexeme_senses ls WHERE ls.mot_id = m.id AND ls.meaning_id = $1)`,
+      [meaningId, nativeLang, motId]);
   }
 
   // 3) Pour chaque sens : lexème natif CANONIQUE (réutilisé si existant), relié à M.
@@ -403,7 +417,7 @@ router.post('/api/auth/register', registerLimiter, async (req, res) => {
     try {
       const ins = await pool.query(
         `INSERT INTO users (email, password_hash, provider, email_verified, balance)
-         VALUES ($1, $2, 'local', false, 350)
+         VALUES ($1, $2, 'local', false, ${SIGNUP_GRANT})
          RETURNING id, email, name, role, onboarding_done`,
         [email, hash]
       );
@@ -465,7 +479,7 @@ router.post('/api/auth/google-token', async (req, res) => {
     if (!user) {
       const ins = await pool.query(
         `INSERT INTO users (email, name, provider, email_verified, balance)
-         VALUES ($1, $2, 'google', true, 350)
+         VALUES ($1, $2, 'google', true, ${SIGNUP_GRANT})
          RETURNING id, email, name, role, onboarding_done`,
         [email, payload.name || null]
       );
@@ -532,7 +546,7 @@ router.post('/api/auth/apple-token', async (req, res) => {
       if (!email) return res.status(400).json({ error: 'No email in Apple token' });
       const ins = await pool.query(
         `INSERT INTO users (email, name, provider, apple_id, email_verified, balance)
-         VALUES ($1, $2, 'apple', $3, true, 350)
+         VALUES ($1, $2, 'apple', $3, true, ${SIGNUP_GRANT})
          RETURNING id, email, name, role, onboarding_done`,
         [email, (name || '').trim() || null, appleId]);
       user = ins.rows[0];
@@ -672,11 +686,15 @@ router.post('/api/m/resend-verification', requireToken, loginLimiter, async (req
 // un faux compte non vérifié ne rapporte aucun coin. Pour les comptes déjà
 // vérifiés (Google/Apple), rewardPendingReferral crédite immédiatement.
 async function creditReferralByCode(userId, code) {
-  if (code) {
+  // Tolérant à la saisie manuelle (champ « code » à l'inscription) : les codes
+  // stockés sont en MAJUSCULES → on normalise (trim + upper) pour accepter un
+  // collage en minuscule ou avec des espaces. Lookup insensible à la casse.
+  const norm = code ? String(code).trim().toUpperCase() : '';
+  if (norm) {
     const me = await pool.query(
       'SELECT referred_by, referral_rewarded FROM users WHERE id = $1', [userId]);
     if (me.rows.length && !me.rows[0].referred_by && !me.rows[0].referral_rewarded) {
-      const ref = await pool.query('SELECT id FROM users WHERE referral_code = $1', [code]);
+      const ref = await pool.query('SELECT id FROM users WHERE upper(referral_code) = $1', [norm]);
       if (ref.rows.length && ref.rows[0].id !== userId) { // pas d'auto-parrainage
         await pool.query(
           `UPDATE users SET referred_by = $1
@@ -3228,6 +3246,25 @@ router.get('/api/m/referral', requireToken, async (req, res) => {
     res.json({ code, link: `${base}/?ref=${encodeURIComponent(code)}` });
   } catch (e) {
     console.error('m/referral error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── GET /api/m/referral/check?code= : valide un code saisi à l'inscription ────
+// Renvoie { valid, self, name } pour un feedback live dans le champ « code ».
+// `self` = l'utilisateur a saisi son propre code (auto-parrainage interdit).
+router.get('/api/m/referral/check', requireToken, async (req, res) => {
+  try {
+    const norm = String(req.query.code || '').trim().toUpperCase();
+    if (!norm) return res.json({ valid: false });
+    const r = await pool.query(
+      'SELECT id, name FROM users WHERE upper(referral_code) = $1', [norm]);
+    if (!r.rows.length) return res.json({ valid: false });
+    if (r.rows[0].id === req.tokenUser.id) return res.json({ valid: false, self: true });
+    const first = (r.rows[0].name || '').trim().split(' ')[0] || null;
+    res.json({ valid: true, name: first });
+  } catch (e) {
+    console.error('m/referral/check error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });

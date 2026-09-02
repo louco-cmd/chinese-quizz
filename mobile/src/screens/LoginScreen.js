@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import GoogleSignIn from '../components/GoogleSignIn';
 import AppleSignIn from '../components/AppleSignIn';
 import LegalScreen from './LegalScreen';
@@ -34,6 +35,7 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false); // afficher/masquer le mot de passe
+  const [fontsLoaded] = useFonts({ LaBelleAurore_400Regular }); // police cursive du sous-titre
   const [step, setStep] = useState('email'); // 'email' | 'login' | 'signup' | 'google_only'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -125,9 +127,15 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
             {/* Header */}
             <View className="items-center mb-6">
               <Text className="text-5xl font-extrabold text-jiayou mb-2">加油!</Text>
-              <Text className="text-gray-500 text-center text-sm px-2">
-                Learn Chinese in the real world. Collect your words, test yourself,
-                challenge your friends and much more.
+              <Text
+                className="text-center px-2 text-jiayou"
+                style={{
+                  fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined,
+                  fontStyle: fontsLoaded ? 'normal' : 'italic',
+                  fontSize: 28, lineHeight: 34,
+                }}
+              >
+                Boost your vocabulary
               </Text>
             </View>
 

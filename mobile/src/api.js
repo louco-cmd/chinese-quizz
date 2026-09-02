@@ -103,17 +103,41 @@ export function notifyNeedCoins(data = {}) {
 let unauthorizedHandler = null;
 export function setUnauthorizedHandler(fn) { unauthorizedHandler = fn; }
 
+// Timeout dur par requête : sans lui, `fetch` peut pendre indéfiniment sur un
+// réseau lent/instable (ex. Chine) → l'app paraît figée. On coupe à 15 s.
+const REQUEST_TIMEOUT_MS = 15000;
+
 async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {
     const token = await getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
   }
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  // Un fetch borné par un AbortController (timeout). `finally` nettoie le timer.
+  const doFetch = async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await fetch(`${API_BASE}${path}`, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  let res;
+  try {
+    res = await doFetch();
+  } catch (e) {
+    // Échec réseau / timeout : UN seul réessai, et UNIQUEMENT pour les GET
+    // (idempotents). On ne rejoue jamais un POST/PUT/DELETE → pas de double envoi
+    // (achat, création de pack, envoi de coins…).
+    if (method === 'GET') res = await doFetch();
+    else throw e;
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     // Token mort sur une requête authentifiée → purge + logout global. Les
@@ -445,6 +469,11 @@ export function getDuels() {
 
 export function getReferral() {
   return request('/api/m/referral');
+}
+
+// Valide un code de parrainage saisi à l'inscription → { valid, self, name }.
+export function checkReferral(code) {
+  return request(`/api/m/referral/check?code=${encodeURIComponent(code)}`);
 }
 
 export function searchDuelPlayers(q) {
