@@ -43,23 +43,34 @@ export default function DuelsScreen({ onDefeat, emailVerified, onCapture, onOpen
   const [showInvite, setShowInvite] = useState(false);
   const [vState, setVState] = useState('idle'); // idle | sending | sent (renvoi email)
   const [inviteLink, setInviteLink] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [copied, setCopied] = useState(false);       // code copié
+  const [copiedLink, setCopiedLink] = useState(false); // lien copié (option secondaire)
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [playingDuel, setPlayingDuel] = useState(null); // id du duel en cours de jeu
   const [detailDuel, setDetailDuel] = useState(null); // id du duel dont on voit le détail
 
   function openInvite() {
-    setCopied(false);
+    setCopied(false); setCopiedLink(false);
     setShowInvite(true);
-    if (!inviteLink) getReferral().then((r) => setInviteLink(r.link)).catch(() => {});
+    if (!inviteCode) getReferral().then((r) => { setInviteCode(r.code); setInviteLink(r.link); }).catch(() => {});
+  }
+
+  async function copyInviteCode() {
+    if (!inviteCode) return;
+    try {
+      await Clipboard.setStringAsync(inviteCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
   }
 
   async function copyInviteLink() {
     if (!inviteLink) return;
     try {
       await Clipboard.setStringAsync(inviteLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
     } catch { /* ignore */ }
   }
 
@@ -255,13 +266,13 @@ export default function DuelsScreen({ onDefeat, emailVerified, onCapture, onOpen
           <>
             <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{t('du_invite')}</Text>
             <Text style={{ fontSize: 14, color: COLORS.muted, lineHeight: 20, marginBottom: 16 }}>
-              {t('du_invite_body')}
+              {t('du_invite_code_body')}
             </Text>
 
-            {/* Aperçu du lien */}
-            <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e3e8f7', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 20 }}>
-              <Text style={{ fontSize: 13, color: inviteLink ? '#1a1a2e' : '#adb5bd' }} numberOfLines={1}>
-                {inviteLink || t('du_generating_link')}
+            {/* Code de parrainage — mis en avant (l'ami le saisit à l'inscription) */}
+            <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e3e8f7', borderRadius: 12, paddingVertical: 16, paddingHorizontal: 14, marginBottom: 16, alignItems: 'center' }}>
+              <Text style={{ fontSize: 26, fontWeight: '800', letterSpacing: 4, color: inviteCode ? '#1a1a2e' : '#adb5bd' }}>
+                {inviteCode || '·······'}
               </Text>
             </View>
 
@@ -270,14 +281,21 @@ export default function DuelsScreen({ onDefeat, emailVerified, onCapture, onOpen
                 <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_close')}</Text>
               </Pressable>
               <Pressable
-                onPress={copyInviteLink}
-                disabled={!inviteLink}
-                style={{ flex: 1, backgroundColor: copied ? COLORS.success : COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: inviteLink ? 1 : 0.6 }}
+                onPress={copyInviteCode}
+                disabled={!inviteCode}
+                style={{ flex: 1, backgroundColor: copied ? COLORS.success : COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: inviteCode ? 1 : 0.6 }}
               >
                 <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: '700' }}>{copied ? t('du_copied') : t('du_copy_link')}</Text>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{copied ? t('du_copied') : t('du_copy_code')}</Text>
               </Pressable>
             </View>
+
+            {/* Option secondaire : partager plutôt un lien d'invitation */}
+            <Pressable onPress={copyInviteLink} disabled={!inviteLink} style={{ paddingVertical: 12, alignItems: 'center', marginTop: 4 }}>
+              <Text style={{ fontSize: 13, color: copiedLink ? COLORS.success : COLORS.jiayou, fontWeight: '600' }}>
+                {copiedLink ? t('du_copied') : t('du_copy_link_alt')}
+              </Text>
+            </Pressable>
           </>
         )}
       </Popup>

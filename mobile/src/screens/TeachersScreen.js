@@ -33,7 +33,9 @@ export default function TeachersScreen({ onBack }) {
   const [showJoin, setShowJoin] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [copied, setCopied] = useState(false);        // code copié
+  const [copiedLink, setCopiedLink] = useState(false); // lien copié (option secondaire)
 
   const load = useCallback(async () => {
     setError('');
@@ -62,13 +64,17 @@ export default function TeachersScreen({ onBack }) {
   );
 
   function openInvite() {
-    setCopied(false);
+    setCopied(false); setCopiedLink(false);
     setShowInvite(true);
-    if (!inviteLink) getReferral().then((r) => setInviteLink(r.link)).catch(() => {});
+    if (!inviteCode) getReferral().then((r) => { setInviteCode(r.code); setInviteLink(r.link); }).catch(() => {});
+  }
+  async function copyInviteCode() {
+    if (!inviteCode) return;
+    try { await Clipboard.setStringAsync(inviteCode); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* noop */ }
   }
   async function copyInvite() {
     if (!inviteLink) return;
-    try { await Clipboard.setStringAsync(inviteLink); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { /* noop */ }
+    try { await Clipboard.setStringAsync(inviteLink); setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); } catch { /* noop */ }
   }
 
   if (loading) {
@@ -129,22 +135,28 @@ export default function TeachersScreen({ onBack }) {
       <Popup visible={showInvite} onClose={() => setShowInvite(false)} maxWidth={380}>
         <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Invite your teacher</Text>
         <Text style={{ fontSize: 14, color: COLORS.muted, lineHeight: 20, marginBottom: 16 }}>
-          Share Jiayou with your teacher. When they join, you earn 150 coins.
+          Share your code. Your teacher enters it when signing up — you earn 150 coins and they start with +50.
         </Text>
-        <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e3e8f7', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 20 }}>
-          <Text style={{ fontSize: 13, color: inviteLink ? '#1a1a2e' : '#adb5bd' }} numberOfLines={1}>
-            {inviteLink || 'Generating your link…'}
+        {/* Code de parrainage mis en avant (le prof le saisit à l'inscription) */}
+        <View style={{ backgroundColor: '#f8f9fa', borderWidth: 1, borderColor: '#e3e8f7', borderRadius: 12, paddingVertical: 16, paddingHorizontal: 14, marginBottom: 16, alignItems: 'center' }}>
+          <Text style={{ fontSize: 26, fontWeight: '800', letterSpacing: 4, color: inviteCode ? '#1a1a2e' : '#adb5bd' }}>
+            {inviteCode || '·······'}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <Pressable onPress={() => setShowInvite(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
             <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Close</Text>
           </Pressable>
-          <Pressable onPress={copyInvite} disabled={!inviteLink} style={{ flex: 1, backgroundColor: copied ? COLORS.success : COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: inviteLink ? 1 : 0.6 }}>
+          <Pressable onPress={copyInviteCode} disabled={!inviteCode} style={{ flex: 1, backgroundColor: copied ? COLORS.success : COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: inviteCode ? 1 : 0.6 }}>
             <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700' }}>{copied ? 'Copied!' : 'Copy my link'}</Text>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>{copied ? 'Copied!' : 'Copy my code'}</Text>
           </Pressable>
         </View>
+        <Pressable onPress={copyInvite} disabled={!inviteLink} style={{ paddingVertical: 12, alignItems: 'center', marginTop: 4 }}>
+          <Text style={{ fontSize: 13, color: copiedLink ? COLORS.success : COLORS.jiayou, fontWeight: '600' }}>
+            {copiedLink ? 'Copied!' : 'or copy an invite link instead'}
+          </Text>
+        </Pressable>
       </Popup>
     </View>
   );
