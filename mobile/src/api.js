@@ -176,8 +176,8 @@ export function checkEmail(email) {
 }
 
 // Création d'un compte email/mot de passe → { token, user }.
-export function register(email, password) {
-  return request('/api/auth/register', { method: 'POST', body: { email, password }, auth: false });
+export function register(email, password, ref) {
+  return request('/api/auth/register', { method: 'POST', body: { email, password, ref: ref || undefined }, auth: false });
 }
 
 // Renvoie l'email de vérification au compte connecté (nudge de vérification).
@@ -196,12 +196,12 @@ export function resetPassword(token, newPassword) {
   return request('/auth/reset-password', { method: 'POST', body: { token, newPassword }, auth: false });
 }
 
-export function loginWithApple(identityToken, name) {
-  return request('/api/auth/apple-token', { method: 'POST', body: { identity_token: identityToken, name }, auth: false });
+export function loginWithApple(identityToken, name, ref) {
+  return request('/api/auth/apple-token', { method: 'POST', body: { identity_token: identityToken, name, ref: ref || undefined }, auth: false });
 }
 
-export function loginWithGoogle(idToken) {
-  return request('/api/auth/google-token', { method: 'POST', body: { id_token: idToken }, auth: false });
+export function loginWithGoogle(idToken, ref) {
+  return request('/api/auth/google-token', { method: 'POST', body: { id_token: idToken, ref: ref || undefined }, auth: false });
 }
 
 // Client ID Google (le MÊME web client ID que le backend GOOGLE_CLIENT_ID,

@@ -441,6 +441,12 @@ router.post('/api/auth/register', registerLimiter, async (req, res) => {
       console.error('m/register verification email:', mailErr.message);
     }
 
+    // Parrainage capté à l'INSCRIPTION (champ « code » de l'écran de connexion) :
+    // pose referred_by. La récompense (parrain + bonus invité +50) n'est versée
+    // qu'à la vérification de l'email (rewardPendingReferral, anti-farming).
+    try { await creditReferralByCode(user.id, req.body?.ref); }
+    catch (e) { console.error('register referral:', e.message); }
+
     await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: TOKEN_TTL });
     res.status(201).json({
@@ -476,6 +482,7 @@ router.post('/api/auth/google-token', async (req, res) => {
       [email]
     );
     let user = rows[0];
+    let created = false;
     if (!user) {
       const ins = await pool.query(
         `INSERT INTO users (email, name, provider, email_verified, balance)
@@ -484,6 +491,14 @@ router.post('/api/auth/google-token', async (req, res) => {
         [email, payload.name || null]
       );
       user = ins.rows[0];
+      created = true;
+    }
+
+    // Parrainage : uniquement pour un NOUVEAU compte Google (Google = déjà vérifié
+    // → le crédit parrain + bonus invité +50 est immédiat via rewardPendingReferral).
+    if (created) {
+      try { await creditReferralByCode(user.id, req.body?.ref); }
+      catch (e) { console.error('google referral:', e.message); }
     }
 
     // Trace la connexion (comme le login web) — sert p.ex. au filtre "rivaux actifs".
@@ -542,6 +557,7 @@ router.post('/api/auth/apple-token', async (req, res) => {
     }
 
     // 3) sinon création (email requis pour un nouveau compte).
+    let created = false;
     if (!user) {
       if (!email) return res.status(400).json({ error: 'No email in Apple token' });
       const ins = await pool.query(
@@ -550,6 +566,14 @@ router.post('/api/auth/apple-token', async (req, res) => {
          RETURNING id, email, name, role, onboarding_done`,
         [email, (name || '').trim() || null, appleId]);
       user = ins.rows[0];
+      created = true;
+    }
+
+    // Parrainage : uniquement pour un NOUVEAU compte Apple (Apple = déjà vérifié
+    // → crédit parrain + bonus invité +50 immédiat via rewardPendingReferral).
+    if (created) {
+      try { await creditReferralByCode(user.id, req.body?.ref); }
+      catch (e) { console.error('apple referral:', e.message); }
     }
 
     await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
@@ -3251,16 +3275,17 @@ router.get('/api/m/referral', requireToken, async (req, res) => {
 });
 
 // ── GET /api/m/referral/check?code= : valide un code saisi à l'inscription ────
-// Renvoie { valid, self, name } pour un feedback live dans le champ « code ».
-// `self` = l'utilisateur a saisi son propre code (auto-parrainage interdit).
-router.get('/api/m/referral/check', requireToken, async (req, res) => {
+// PUBLIC (pas de requireToken) : le champ « code » vit sur l'écran de connexion,
+// AVANT que le compte (donc le token) n'existe. Renvoie { valid, name } pour un
+// feedback live. L'auto-parrainage est de toute façon bloqué côté serveur au
+// moment du crédit (creditReferralByCode, id !== userId).
+router.get('/api/m/referral/check', async (req, res) => {
   try {
     const norm = String(req.query.code || '').trim().toUpperCase();
     if (!norm) return res.json({ valid: false });
     const r = await pool.query(
-      'SELECT id, name FROM users WHERE upper(referral_code) = $1', [norm]);
+      'SELECT name FROM users WHERE upper(referral_code) = $1', [norm]);
     if (!r.rows.length) return res.json({ valid: false });
-    if (r.rows[0].id === req.tokenUser.id) return res.json({ valid: false, self: true });
     const first = (r.rows[0].name || '').trim().split(' ')[0] || null;
     res.json({ valid: true, name: first });
   } catch (e) {

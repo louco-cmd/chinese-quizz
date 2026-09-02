@@ -13,7 +13,7 @@ import Toggle from '../components/Toggle';
 import CtaCard from '../components/duels/CtaCard';
 import PackMarket from '../components/PackMarket';
 import ImportWordsScreen from './ImportWordsScreen';
-import { completeOnboarding, teacherGetProfile, teacherSaveProfile, checkReferral } from '../api';
+import { completeOnboarding, teacherGetProfile, teacherSaveProfile } from '../api';
 import { COLORS } from '../theme';
 import { useT, makeT } from '../i18n';
 import { LANG_META, useLearnableLangs } from '../langs';
@@ -202,14 +202,6 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   const [name, setName] = useState(initial?.name || '');
   const [country, setCountry] = useState(null);
   const [tagline, setTagline] = useState('');
-  // Code de parrainage : pré-rempli si capté via deep link (?ref=), sinon saisi à
-  // la main par qui a déjà installé l'app (majuscules, lettres/chiffres seulement).
-  const [refInput, setRefInput] = useState((refCode || '').toUpperCase());
-  // Feedback live : null | 'checking' | 'valid' | 'invalid' | 'self' (+ nom du parrain).
-  const [refStatus, setRefStatus] = useState(null);
-  const [refName, setRefName] = useState(null);
-  const refCheckTimer = useRef(null);
-  const refCheckSeq = useRef(0); // ignore les réponses hors-ordre (frappe rapide)
   // Langue apprise ; la langue de base (native) = la langue d'interface (`lang`).
   const [learnLang, setLearnLang] = useState('zh');
   const learnable = useLearnableLangs(); // langues apprenables (réactif au backend)
@@ -229,28 +221,6 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
   const [balance, setBalance] = useState(null);
-
-  // Vérif live du code de parrainage (debounce 400 ms). Codes = 7 caractères ; on
-  // n'interroge qu'à partir de 4 pour éviter le bruit. `refCheckSeq` jette les
-  // réponses hors-ordre si l'user continue de taper.
-  useEffect(() => {
-    clearTimeout(refCheckTimer.current);
-    const code = (refInput || '').trim();
-    if (code.length < 4) { setRefStatus(null); setRefName(null); return undefined; }
-    setRefStatus('checking');
-    const seq = ++refCheckSeq.current;
-    refCheckTimer.current = setTimeout(async () => {
-      try {
-        const r = await checkReferral(code);
-        if (seq !== refCheckSeq.current) return; // réponse périmée
-        if (r.valid) { setRefStatus('valid'); setRefName(r.name || null); }
-        else { setRefStatus(r.self ? 'self' : 'invalid'); setRefName(null); }
-      } catch {
-        if (seq === refCheckSeq.current) { setRefStatus(null); setRefName(null); }
-      }
-    }, 400);
-    return () => clearTimeout(refCheckTimer.current);
-  }, [refInput]);
 
   // Prénom live : suit le champ "name" (candy : "Welcome, learner!" → "Welcome, John!").
   const firstName = (name || '').trim().split(' ')[0] || 'learner';
@@ -280,7 +250,11 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
         learning_lang: role === 'teacher' ? undefined : learnLang,
         native_lang: role === 'teacher' ? undefined : lang, // langue de base = interface
         interface_lang: lang, // langue choisie au picker, persistée pour les 2 rôles
-        ref: (refInput || refCode || '').trim().toUpperCase() || undefined,
+        // Parrainage : uniquement le code capté par DEEP LINK (?ref=). La saisie
+        // MANUELLE du code se fait désormais à la création de compte (LoginScreen),
+        // pas ici (l'onboarding est rejouable). Garde-fous : referred_by posé une
+        // seule fois côté serveur.
+        ref: refCode || undefined,
       });
       setSaving(false);
       return true;
@@ -673,40 +647,6 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
                   placeholder={t('ob_tagline_ph')} placeholderTextColor={COLORS.mutedLight}
                   className={`${inputClass} mb-5`}
                 />
-
-                {/* Code de parrainage (optionnel) : à coller si un ami vous a partagé
-                    son code sans passer par le lien d'invitation. */}
-                <FieldLabel hint={t('ob_optional')}>{t('ob_referral')}</FieldLabel>
-                <Text className="text-[12px] text-muted mb-2">{t('ob_referral_hint')}</Text>
-                <TextInput
-                  value={refInput}
-                  onChangeText={(v) => setRefInput(v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))}
-                  autoCapitalize="characters" autoCorrect={false} maxLength={12}
-                  placeholder={t('ob_referral_ph')} placeholderTextColor={COLORS.mutedLight}
-                  className={`${inputClass} ${refStatus && refStatus !== 'checking' ? 'mb-1.5' : 'mb-5'}`}
-                />
-                {refStatus === 'checking' && (
-                  <View className="flex-row items-center gap-1.5 mb-4">
-                    <ActivityIndicator size="small" color={COLORS.muted} />
-                    <Text className="text-[12px] text-muted">{t('ob_referral_checking')}</Text>
-                  </View>
-                )}
-                {refStatus === 'valid' && (
-                  <View className="flex-row items-center gap-1.5 mb-4">
-                    <Ionicons name="checkmark-circle" size={15} color="#16a34a" />
-                    <Text className="text-[12px] font-semibold" style={{ color: '#16a34a' }}>
-                      {(refName ? t('ob_referral_valid_named').replace('{name}', refName) : t('ob_referral_valid'))}
-                    </Text>
-                  </View>
-                )}
-                {(refStatus === 'invalid' || refStatus === 'self') && (
-                  <View className="flex-row items-center gap-1.5 mb-4">
-                    <Ionicons name="close-circle" size={15} color={COLORS.danger} />
-                    <Text className="text-[12px] font-semibold text-danger">
-                      {t(refStatus === 'self' ? 'ob_referral_self' : 'ob_referral_invalid')}
-                    </Text>
-                  </View>
-                )}
 
                 <View className="h-px bg-line-soft mb-4" />
 

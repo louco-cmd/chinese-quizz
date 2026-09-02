@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, Pressable, ActivityIndicator,
   KeyboardAvoidingView, Platform, ScrollView,
@@ -10,7 +10,7 @@ import GoogleSignIn from '../components/GoogleSignIn';
 import AppleSignIn from '../components/AppleSignIn';
 import LegalScreen from './LegalScreen';
 import { TERMS_BLOCKS, PRIVACY_BLOCKS } from '../data/legalContent';
-import { login, register, checkEmail, loginWithGoogle, loginWithApple, setToken } from '../api';
+import { login, register, checkEmail, loginWithGoogle, loginWithApple, setToken, checkReferral } from '../api';
 
 // Style explicite (et pas seulement className) : sur natif, NativeWind n'applique
 // pas de façon fiable la couleur du texte d'un TextInput → texte invisible. On fixe
@@ -41,10 +41,36 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
   const [error, setError] = useState('');
   const [legalDoc, setLegalDoc] = useState(null); // 'terms' | 'privacy' | null (overlay pré-login)
 
+  // Code de parrainage (optionnel), saisi à la création de compte. Vérif live via
+  // l'endpoint public /api/m/referral/check → feedback ✓/✗ + prénom du parrain.
+  const [refInput, setRefInput] = useState('');
+  const [refStatus, setRefStatus] = useState(null); // null|'checking'|'valid'|'invalid'
+  const [refName, setRefName] = useState(null);
+  const refCheckTimer = useRef(null);
+  const refCheckSeq = useRef(0);
+  useEffect(() => {
+    clearTimeout(refCheckTimer.current);
+    const code = (refInput || '').trim();
+    if (code.length < 4) { setRefStatus(null); setRefName(null); return undefined; }
+    setRefStatus('checking');
+    const seq = ++refCheckSeq.current;
+    refCheckTimer.current = setTimeout(async () => {
+      try {
+        const r = await checkReferral(code);
+        if (seq !== refCheckSeq.current) return;
+        if (r.valid) { setRefStatus('valid'); setRefName(r.name || null); }
+        else { setRefStatus('invalid'); setRefName(null); }
+      } catch { if (seq === refCheckSeq.current) { setRefStatus(null); setRefName(null); } }
+    }, 400);
+    return () => clearTimeout(refCheckTimer.current);
+  }, [refInput]);
+  // Code normalisé transmis aux inscriptions (majuscules, alphanum, ≤12).
+  const refCode = () => refInput.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || undefined;
+
   async function exchangeGoogle(idToken) {
     setError('');
     try {
-      const { token } = await loginWithGoogle(idToken);
+      const { token } = await loginWithGoogle(idToken, refCode());
       await setToken(token);
       onLoggedIn();
     } catch { setError(GOOGLE_FAIL_MSG); }
@@ -53,7 +79,7 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
   async function exchangeApple(identityToken, name) {
     setError('');
     try {
-      const { token } = await loginWithApple(identityToken, name);
+      const { token } = await loginWithApple(identityToken, name, refCode());
       await setToken(token);
       onLoggedIn();
     } catch (e) { setError(e.message || 'Apple sign-in failed'); }
@@ -88,7 +114,7 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
     if (!password) { setError('Choose a password'); return; }
     setError(''); setLoading(true);
     try {
-      const { token } = await register(email.trim(), password);
+      const { token } = await register(email.trim(), password, refCode());
       await setToken(token);
       onLoggedIn();
     } catch (e) { setError(e.message || 'Could not create account'); }
@@ -200,6 +226,33 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
                 </View>
                 {step === 'signup' && (
                   <Text className="text-gray-400 text-xs mb-3 -mt-1">At least 8 characters, 1 uppercase and 1 number.</Text>
+                )}
+
+                {/* Code de parrainage (optionnel) — création de compte uniquement. */}
+                {step === 'signup' && (
+                  <>
+                    <TextInput
+                      style={inputStyle}
+                      autoCapitalize="characters" autoCorrect={false}
+                      value={refInput}
+                      onChangeText={(v) => setRefInput(v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))}
+                      placeholder="Referral code (optional)" placeholderTextColor="#9aa4b2"
+                    />
+                    {refStatus === 'checking' && (
+                      <Text className="text-gray-400 text-xs mb-3 -mt-1">Checking…</Text>
+                    )}
+                    {refStatus === 'valid' && (
+                      <Text className="text-green-600 text-xs mb-3 -mt-1">
+                        {refName ? `✓ Invited by ${refName} — you start with +50 coins!` : '✓ Valid code — you start with +50 coins!'}
+                      </Text>
+                    )}
+                    {refStatus === 'invalid' && (
+                      <Text className="text-red-500 text-xs mb-3 -mt-1">Code not found</Text>
+                    )}
+                    {!refStatus && (
+                      <Text className="text-gray-400 text-xs mb-3 -mt-1">Have a friend’s code? Start with 50 bonus coins.</Text>
+                    )}
+                  </>
                 )}
 
                 {error ? <Text className="text-red-500 text-sm mb-3">{error}</Text> : null}
