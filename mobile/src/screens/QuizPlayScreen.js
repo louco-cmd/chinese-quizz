@@ -9,6 +9,7 @@ import { COLORS, SHADOW_CARD } from '../theme';
 import CatLoader from '../components/CatLoader';
 import RevealAnswerCard from '../components/RevealAnswerCard';
 import { isZhLearning } from '../langs';
+import { registerPositiveMoment } from '../reviewPrompt';
 
 // ── Helpers (identiques à quiz-play.ejs) ──
 function normalizePinyin(str) {
@@ -185,6 +186,10 @@ export default function QuizPlayScreen({ config, onExit }) {
     } catch { /* garde le score affiché même si la sauvegarde échoue */ }
     // Si c'est une task d'un prof, on remonte aussi le résultat (compteur côté prof)
     if (lessonId) { try { await saveTaskResult(lessonId, correctCountRef.current, ws.length); } catch { /* noop */ } }
+    // Moment positif → éventuelle demande d'avis in-app (dormant tant que le build
+    // n'embarque pas expo-store-review ; no-op silencieux sinon). Ne compte que si
+    // le quiz est réussi ; l'ouverture réelle reste gated (cumul + cooldown + OS).
+    try { registerPositiveMoment({ scoreRatio: ws.length ? correctCountRef.current / ws.length : 0 }); } catch { /* noop */ }
   }
 
   // On garde une ref du score courant pour finish() (évite les closures périmées)

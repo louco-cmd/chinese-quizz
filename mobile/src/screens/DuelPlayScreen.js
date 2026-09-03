@@ -10,6 +10,7 @@ import { COLORS, SHADOW_CARD } from '../theme';
 import CatLoader from '../components/CatLoader';
 import RevealAnswerCard from '../components/RevealAnswerCard';
 import { isZhLearning } from '../langs';
+import { registerPositiveMoment } from '../reviewPrompt';
 
 // Helpers identiques à quiz-play.ejs
 function normalizePinyin(str) {
@@ -136,6 +137,11 @@ export default function DuelPlayScreen({ duelId, onExit }) {
       const r = await submitDuelScore(duelId, correctRef.current);
       submitted.current = true;
       setResult(r);
+      // Duel GAGNÉ = fort moment positif → éventuelle demande d'avis in-app
+      // (dormant tant que le build n'embarque pas expo-store-review ; gated).
+      if (r && r.duel_completed && r.you_won) {
+        try { registerPositiveMoment({ scoreRatio: 1 }); } catch { /* noop */ }
+      }
     } catch {
       setResult({ error: true });
     }
