@@ -37,10 +37,16 @@ async function writeFlag(k, v) {
   } catch { /* noop */ }
 }
 
-// Chargement LAZY du module natif → null si absent (vieux build / web).
+// ⚠️ MODULE NATIF VOLONTAIREMENT NON EMBARQUÉ dans le build 1.1.3 : `expo-store-review`
+// @57.0.2 exige expo 57.0.13 (il appelle `SceneGeometry.foregroundScene()`, absent de
+// expo-modules-core 57.0.12) → la compilation iOS échouait. Comme la feature est de
+// toute façon DORMANTE (REVIEW_PROMPT_ENABLED=false), on retire le module de ce build.
+// POUR ACTIVER PLUS TARD : (1) aligner expo puis `npx expo install expo-store-review`,
+// (2) restaurer le require ci-dessous, (3) passer REVIEW_PROMPT_ENABLED à true.
 function nativeStoreReview() {
-  if (isWeb) return null;
-  try { return require('expo-store-review'); } catch { return null; }
+  return null;
+  // if (isWeb) return null;
+  // try { return require('expo-store-review'); } catch { return null; }
 }
 
 // Conditions de déclenchement. L'OS throttle DÉJÀ agressivement `requestReview`
