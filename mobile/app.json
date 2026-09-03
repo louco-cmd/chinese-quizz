@@ -52,8 +52,8 @@
             "useFrameworks": "static"
           },
           "android": {
-            "enableProguardInReleaseBuilds": true,
-            "enableShrinkResources": true
+            "enableProguardInReleaseBuilds": false,
+            "enableShrinkResources": false
           }
         }
       ],
