@@ -13,7 +13,15 @@ import { isZhLearning } from '../langs';
 
 // Helpers identiques à quiz-play.ejs
 function normalizePinyin(str) {
-  return (str || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '').toLowerCase().trim();
+  // Cf. QuizPlayScreen : on compare le pinyin sur ses SEULES lettres/chiffres —
+  // diacritiques, espaces et ponctuation (' - , . …) ignorés (pas de faux négatif
+  // ni de case créée pour un jeton de ponctuation).
+  return (str || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+// Comparaison souple des réponses en caractères (hanzi) : lettres (CJK inclus) +
+// chiffres conservés, espaces et ponctuation ignorés.
+function stripPunct(str) {
+  return (str || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 }
 function parseAnswers(str) {
   if (!str) return [];
@@ -112,7 +120,8 @@ export default function DuelPlayScreen({ duelId, onExit }) {
       const got = stripLetters(inputs.join(''));
       return got.length > 0 && senses.some((s) => stripLetters(s) === got);
     }
-    return senses.some((a) => a === inputs[0].trim().toLowerCase());
+    // Hanzi : comparaison souple (ponctuation/espaces ignorés).
+    return senses.some((a) => stripPunct(a) === stripPunct(inputs[0]));
   }
 
   function advance(nextIdx) {

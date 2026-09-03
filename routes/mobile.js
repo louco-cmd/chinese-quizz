@@ -891,9 +891,17 @@ router.get('/api/m/search', requireToken, async (req, res) => {
          WHERE english IS NOT NULL
          ORDER BY lower(chinese), lower(coalesce(english,'')), owned DESC, meaning_id ASC
        )
-       SELECT id, chinese, pinyin, hsk, meaning_id, english, owned
-       FROM deduped
-       ORDER BY (chinese = $3 OR lower(english) = lower($3)) DESC, (english IS NOT NULL) DESC, id ASC
+       SELECT d.id, d.chinese, d.pinyin, d.hsk, d.meaning_id, d.english, d.owned
+       FROM deduped d
+       -- Qualité P2P (Phase A) : scores confiance/possession posés par le crawler
+       -- externe. LEFT JOIN → absents = NULL → lexeme_rank() applique un score
+       -- NEUTRE. Sert UNIQUEMENT de tie-breaker APRÈS la pertinence (exact match,
+       -- présence de traduction) : un résultat pertinent mais peu trusté reste visible.
+       LEFT JOIN lexeme_sense_scores s ON s.mot_id = d.id AND s.meaning_id = d.meaning_id
+       ORDER BY (d.chinese = $3 OR lower(d.english) = lower($3)) DESC,
+                (d.english IS NOT NULL) DESC,
+                lexeme_rank(s.confidence, s.possession_count, s.trust) DESC,
+                d.id ASC
        LIMIT 8`,
       params
     );
@@ -1741,7 +1749,12 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
               (SELECT string_agg(DISTINCT lx.chinese, ' / ' ORDER BY lx.chinese)
                  FROM lexeme_senses a JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
                  JOIN mots lx ON lx.id = b.mot_id
-                 WHERE a.mot_id = i.mot_id AND lx.lang = 'zh') AS zh
+                 WHERE a.mot_id = i.mot_id AND lx.lang = 'zh') AS zh,
+              -- Surface RÉELLE du lexème de l'item (le mot curé, PAS l'agrégat du
+              -- concept). Sert au RÉ-REMPLISSAGE à l'édition : réinjecter l'agrégat
+              -- « A / B » ferait une ligne non-possédable (planPack ne trouve aucun
+              -- lexème « A / B ») → faux « non possédé » + re-demande d'achat/trad.
+              (SELECT chinese FROM mots WHERE id = i.mot_id) AS raw
        FROM word_pack_items i WHERE i.pack_id = $1 ORDER BY i.mot_id`,
       [id, vlangs.learning, vlangs.native]);
     if (full) { res.json({ pack, words }); return; }

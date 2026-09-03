@@ -786,6 +786,49 @@ const pool = new Pool({
       console.log("✅ Audit P2P (edit_log + mots.last_edited_by/at) vérifié.");
     } catch (e) { console.error('edit_log migration failed:', e.message); }
 
+    // ── Qualité P2P — scores de confiance/possession par lexème-sens (Phase A) ──
+    // Table alimentée par un CRAWLER EXTERNE (l'IA note `confidence` + `reason`,
+    // et compte `possession_count`). Le back ne fait que LIRE ces scores pour
+    // classer les résultats de recherche. On CREATE IF NOT EXISTS pour que la
+    // jointure de ranking ne casse jamais sur une base neuve (prod l'a déjà).
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS lexeme_sense_scores (
+          mot_id integer NOT NULL,
+          meaning_id integer NOT NULL,
+          lang text,
+          zh_text text,
+          mot_text text,
+          confidence double precision NOT NULL,
+          reason text,
+          possession_count integer NOT NULL DEFAULT 0,
+          trust double precision,
+          judged_at timestamptz NOT NULL DEFAULT now(),
+          review_status text,
+          PRIMARY KEY (mot_id, meaning_id)
+        )`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS lexeme_sense_scores_confidence_idx ON lexeme_sense_scores(confidence)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS lexeme_sense_scores_trust_idx ON lexeme_sense_scores(trust DESC NULLS LAST)`);
+      // Fonction de RANKING centralisée (un seul endroit à tuner). Score dans ~[0,1] :
+      //   • justesse (confidence IA, prior NEUTRE 0.5 si non jugé) pèse le plus ;
+      //   • popularité (possession_count) en log normalisé et SATURÉ (au-delà de
+      //     ~POP_SAT possesseurs, plus de bonus) → évite qu'un mot ultra-partagé
+      //     écrase tout (garde-fou anti « rich-get-richer »).
+      // Priorité au `trust` explicite si le crawler l'a posé, sinon on le dérive.
+      // Tout NULL (lexème non encore jugé) → score NEUTRE (0.65*0.5 = 0.325) : il ne
+      // remonte pas au-dessus d'un mot jugé bon, ni ne coule sous un mot jugé mauvais.
+      await pool.query(`
+        CREATE OR REPLACE FUNCTION lexeme_rank(conf double precision, poss integer, trust double precision)
+        RETURNS double precision LANGUAGE sql IMMUTABLE AS $lr$
+          SELECT COALESCE(
+            trust,
+            0.65 * COALESCE(conf, 0.5)
+            + 0.35 * LEAST(1.0, ln(1 + GREATEST(COALESCE(poss, 0), 0)) / ln(1 + 50))
+          )
+        $lr$`);
+      console.log("✅ Qualité P2P (lexeme_sense_scores + lexeme_rank) vérifiée.");
+    } catch (e) { console.error('lexeme_sense_scores migration failed:', e.message); }
+
     // Réconciliation des packs officiels HSK (idempotente).
     try {
       const r = await reconcileHskPacks();

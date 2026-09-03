@@ -12,7 +12,17 @@ import { isZhLearning } from '../langs';
 
 // ── Helpers (identiques à quiz-play.ejs) ──
 function normalizePinyin(str) {
-  return (str || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '').toLowerCase().trim();
+  // On compare le pinyin sur ses SEULES lettres/chiffres : diacritiques (tons),
+  // espaces ET ponctuation (' - , . …) sont ignorés → pas de faux négatif quand
+  // l'user omet une apostrophe (nǚ'ér) ou un tiret, et pas de case d'input créée
+  // pour un jeton de ponctuation seule. (Les chiffres de ton « ni3 hao3 » restent.)
+  return (str || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+// Comparaison « souple » pour les réponses en CARACTÈRES (hanzi) : on garde les
+// lettres (tous scripts, CJK inclus) et les chiffres, on retire espaces et
+// ponctuation (', - , . …) → mêmes faux négatifs évités que pour le latin/pinyin.
+function stripPunct(str) {
+  return (str || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 }
 function parseAnswers(str) {
   if (!str) return [];
@@ -194,8 +204,8 @@ export default function QuizPlayScreen({ config, onExit }) {
       const got = stripLetters(inputs.join(''));
       return got.length > 0 && senses.some((s) => stripLetters(s) === got);
     }
-    // Hanzi : champ unique, correspondance exacte.
-    return senses.some((a) => a === inputs[0].trim().toLowerCase());
+    // Hanzi : champ unique, comparaison souple (ponctuation/espaces ignorés).
+    return senses.some((a) => stripPunct(a) === stripPunct(inputs[0]));
   }
 
   function submit() {

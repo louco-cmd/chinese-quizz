@@ -58,12 +58,14 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
   const [title, setTitle] = useState(editPack?.title || '');
   const [description, setDescription] = useState(editPack?.description || '');
   const [price, setPrice] = useState(editPack?.price != null ? String(editPack.price) : '');
-  // Édition : on ne pré-remplit QUE les surfaces chinoises (l'édition n'est pas
-  // encore câblée pour les autres langues). `w.zh` vient du détail ; fallback
-  // `w.chinese` pour les anciens clients.
+  // Édition : on réinjecte la surface RÉELLE de chaque item du pack (`w.raw` = le
+  // lexème curé), PAS l'agrégat du concept (`w.chinese`/`w.zh` = « A / B » quand un
+  // concept a des synonymes). Réinjecter l'agrégat produisait une ligne « A / B »
+  // introuvable → faux « non possédé » → re-demande d'achat/traduction à la
+  // revalidation. `w.zh`/`w.chinese` en fallback pour les anciennes réponses.
   const [text, setText] = useState(
     editPack?.words?.length
-      ? editPack.words.map((w) => w.zh || w.chinese).filter(Boolean).join('\n')
+      ? editPack.words.map((w) => w.raw || w.zh || w.chinese).filter(Boolean).join('\n')
       : '');
 
   const [publishing, setPublishing] = useState(false);
