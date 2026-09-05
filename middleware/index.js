@@ -353,15 +353,17 @@ async function updateWordScore(userId, motId, isCorrect, quizType = 'pinyin') {
     // Récupérer le score actuel pour la colonne concernée
     const currentScore = current[scoreColumn] || 0;
 
-    // Calcul du nouveau score (+15 / -20)
+    // Calcul du nouveau score (+20 juste / -15 faux). Courbe volontairement plus
+    // clémente : récompense ≥ pénalité → la progression se sent, ~4 bonnes réponses
+    // pour atteindre la maîtrise (seuil 85), une erreur recule d'à peine 3/4 de rep.
     let newScore;
     if (isCorrect) {
-      newScore = Math.min(100, currentScore + 15);
+      newScore = Math.min(100, currentScore + 20);
     } else {
-      newScore = Math.max(0, currentScore - 20);
+      newScore = Math.max(0, currentScore - 15);
     }
 
-    console.log(`✏️ Mise à jour ${scoreColumn} mot ${motId}: ${currentScore} -> ${newScore} (${isCorrect ? '+15' : '-20'})`);
+    console.log(`✏️ Mise à jour ${scoreColumn} mot ${motId}: ${currentScore} -> ${newScore} (${isCorrect ? '+20' : '-15'})`);
 
     // Mettre à jour uniquement la colonne concernée, et nb_quiz/nb_correct
     await pool.query(

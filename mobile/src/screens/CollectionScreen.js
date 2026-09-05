@@ -63,7 +63,7 @@ const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 const isChinese = (s) => /[一-鿿]/.test(s || '');
 
 function scorePicto(s) {
-  if (s >= 90) return '🏆';
+  if (s >= 85) return '🏆';
   if (s >= 75) return '😎';
   if (s >= 50) return '🙂';
   if (s >= 25) return '😐';
@@ -72,13 +72,13 @@ function scorePicto(s) {
 
 // Paliers de connaissance (mêmes seuils/icônes que scorePicto) pour le filtre.
 const KNOWLEDGE = [
-  { key: 'trophy', emoji: '🏆', lk: 'quiz_mastered', min: 90 },
+  { key: 'trophy', emoji: '🏆', lk: 'quiz_mastered', min: 85 },
   { key: 'cool', emoji: '😎', lk: 'kn_strong', min: 75 },
   { key: 'ok', emoji: '🙂', lk: 'kn_okay', min: 50 },
   { key: 'meh', emoji: '😐', lk: 'kn_weak', min: 25 },
   { key: 'seed', emoji: '🌱', lk: 'kn_new', min: 0 },
 ];
-const bucketOf = (s) => (s >= 90 ? 'trophy' : s >= 75 ? 'cool' : s >= 50 ? 'ok' : s >= 25 ? 'meh' : 'seed');
+const bucketOf = (s) => (s >= 85 ? 'trophy' : s >= 75 ? 'cool' : s >= 50 ? 'ok' : s >= 25 ? 'meh' : 'seed');
 const hskKey = (w) => (w.hsk ? String(w.hsk) : 'street');
 const hskLabel = (k) => (k === 'street' ? 'Street' : `HSK ${k}`);
 

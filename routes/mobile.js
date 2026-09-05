@@ -2707,8 +2707,8 @@ router.get('/api/m/account', requireToken, async (req, res) => {
 
     // Distribution de maîtrise (mêmes seuils que l'EJS)
     const bucket = (scores) => ({
-      mastered: scores.filter((s) => s >= 90).length,
-      learning: scores.filter((s) => s >= 60 && s < 90).length,
+      mastered: scores.filter((s) => s >= 85).length,
+      learning: scores.filter((s) => s >= 60 && s < 85).length,
       medium:   scores.filter((s) => s >= 30 && s < 60).length,
       novice:   scores.filter((s) => s < 30).length,
     });
@@ -2726,7 +2726,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
     const hsk = HSK_ORDER.map((key) => {
       const scores = groups[key] || [];
       if (!scores.length) return null;
-      const mastered = scores.filter((s) => s >= 90).length;
+      const mastered = scores.filter((s) => s >= 85).length;
       return {
         key,
         label: key === 'Street' ? 'HSK Street' : key.replace('HSK', 'HSK '),
@@ -2830,8 +2830,8 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
 
     // Distribution de maîtrise (mêmes seuils que l'EJS)
     const bucket = (scores) => ({
-      mastered: scores.filter((s) => s >= 90).length,
-      learning: scores.filter((s) => s >= 60 && s < 90).length,
+      mastered: scores.filter((s) => s >= 85).length,
+      learning: scores.filter((s) => s >= 60 && s < 85).length,
       medium:   scores.filter((s) => s >= 30 && s < 60).length,
       novice:   scores.filter((s) => s < 30).length,
     });
@@ -3742,7 +3742,7 @@ router.get('/api/m/quiz/stats', requireToken, async (req, res) => {
          FROM quiz_history WHERE user_id = $1`, [uid]),
       pool.query(
         `SELECT COUNT(*)::int AS words,
-                COUNT(*) FILTER (WHERE COALESCE(um.score, 0) >= 90)::int AS mastered
+                COUNT(*) FILTER (WHERE COALESCE(um.score, 0) >= 85)::int AS mastered
          FROM user_mots um JOIN mots m ON m.id = um.mot_id
          WHERE um.user_id = $1 AND m.lang = $2`, [uid, langs.learning]),
       pool.query('SELECT quiz_direction FROM users WHERE id = $1', [uid]),
@@ -3801,13 +3801,18 @@ router.post('/api/m/quiz/save', requireToken, async (req, res) => {
         let raw = 0;
         for (const id of correctIds) {
           const s = byMot[id] ?? 0;
-          if (s < 50) raw += 0.5; else if (s < 80) raw += 0.3; else raw += 0.1;
+          // Récompense dégressive avec la maîtrise, mais un mot maîtrisé (≥85, même
+          // borne que « mastered ») rapporte 0.2 au lieu de 0.1 : réviser ses mots
+          // acquis ne doit pas payer quasi rien.
+          if (s < 50) raw += 0.5; else if (s < 85) raw += 0.3; else raw += 0.2;
         }
         // Bonus : sens supplémentaires correctement donnés (mots à plusieurs
         // traductions) → 0.1 pièce chacun. Plafonné pour éviter tout abus.
         const bonusTotal = results.reduce((n, r) => n + (Number.isInteger(r?.bonus) && r.bonus > 0 ? Math.min(r.bonus, 5) : 0), 0);
         raw += bonusTotal * 0.1;
-        coinsEarned = Math.round(raw);
+        // Plancher anti-zéro : au moins 1 coin dès qu'il y a une bonne réponse
+        // (sinon Math.round d'un petit total tombait à 0 → quiz « gratuit »).
+        coinsEarned = raw > 0 ? Math.max(1, Math.round(raw)) : 0;
       }
     }
 
