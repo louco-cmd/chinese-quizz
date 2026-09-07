@@ -157,7 +157,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
   // Feedback + actions = FOOTER collé en bas du Popup (bouton d'achat toujours
   // visible, ne scrolle pas avec la liste de mots).
   const footerNode = bodyLoading ? null : (
-    <View>
+    <View style={{ paddingTop: 12 }}>
       {msg ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#e8f5e9', borderRadius: 12, padding: 12, marginBottom: 10 }}>
           <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
@@ -206,9 +206,6 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
               <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>{t('st_edit_pack')}</Text>
             </Pressable>
           ) : null}
-          <Text style={{ textAlign: 'center', color: COLORS.muted, fontWeight: '700', fontSize: 13 }}>
-            {p.isMine ? t('st_your_pack') : t('st_in_collection')}
-          </Text>
           {!p.isMine ? (
             <Pressable onPress={onForgetPress} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 2 }}>
               <Ionicons name="trash-outline" size={15} color={COLORS.danger} />
@@ -261,7 +258,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
   );
 
   return (
-    <Popup visible={!!pack} onClose={onClose} maxWidth={420} maxHeight={Math.round(screenH * 0.8)} footer={footerNode}>
+    <Popup visible={!!pack} onClose={onClose} maxWidth={420} maxHeight={Math.round(screenH * 0.72)} footer={footerNode}>
       {loading && !detail ? (
         <View style={{ marginVertical: 30, alignItems: 'center' }}><CatLoader size={90} /></View>
       ) : (
