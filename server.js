@@ -47,10 +47,15 @@ app.set('trust proxy', 1); // Pour les déploiements derrière un proxy (Heroku,
 // qu'une CSP stricte casserait — à durcir dans un second temps avec une politique
 // dédiée. `crossOriginResourcePolicy: cross-origin` car les assets buildés sont
 // servis à l'app (web + natif). `crossOriginEmbedderPolicy: false` idem.
+// `crossOriginOpenerPolicy: same-origin-allow-popups` : le défaut helmet
+// (`same-origin`) COUPE `window.opener` des popups → casse les connexions SSO
+// Google/Apple sur le web (la popup OAuth ne peut plus renvoyer le résultat à la
+// page). `-allow-popups` garde l'isolation tout en autorisant ce retour.
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
 }));
 app.use(compression()); // gzip/brotli sur HTML, CSS, JS, JSON → ~4x moins de transfert
 
