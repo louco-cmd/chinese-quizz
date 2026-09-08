@@ -4411,6 +4411,9 @@ router.post('/api/m/create-checkout', requireToken, async (req, res) => {
       success_url: `${base}/?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}/`,
       metadata: { userId: String(uid), planName: 'premium' },
+      // Propage userId à la SUBSCRIPTION → les webhooks customer.subscription.*
+      // (renouvellement, annulation) peuvent aussi remonter au bon compte.
+      subscription_data: { metadata: { userId: String(uid), planName: 'premium' } },
     };
     if (customerId) params.customer = customerId; else params.customer_email = email;
 

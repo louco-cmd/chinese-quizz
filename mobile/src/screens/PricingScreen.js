@@ -150,6 +150,16 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
       } finally { setPortalBusy(false); }
       return;
     }
+    // ⛔ Sur une app NATIVE (iOS/Android), Stripe est INTERDIT : les stores exigent
+    // l'achat in-app, et surtout un paiement Stripe lancé depuis l'app ne créditait
+    // PAS le compte (« silent success » : débité mais toujours free). Si on arrive
+    // ici en natif, c'est que RevenueCat n'est pas dispo sur ce build → on n'ouvre
+    // JAMAIS Stripe, on affiche « indisponible » (une mise à jour du build rétablira
+    // l'achat in-app). Stripe reste réservé au WEB.
+    if (Platform.OS !== 'web') {
+      setPortalError(t('pricing_err_unavailable'));
+      return;
+    }
     // web → Stripe DIRECT (plus de détour par le site public).
     setPortalError(''); setPortalBusy(true);
     try {

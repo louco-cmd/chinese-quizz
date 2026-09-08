@@ -1737,70 +1737,59 @@ async function handleCheckoutSessionCompleted(session) {
   try {
     console.log('💳 Checkout complété:', session.id);
 
-    // Récupérer l'email du client
-    const customerEmail = session.customer_email || session.customer_details?.email;
-
-    if (!customerEmail) {
-      console.error('❌ Pas d\'email client dans la session');
+    // ── Résolution FIABLE de l'utilisateur ──────────────────────────────────
+    // `metadata.userId` (posé par nos endpoints create-checkout) EN PRIORITÉ.
+    // AVANT : lookup par email EXACT uniquement → si l'email tapé au checkout
+    // différait du compte (casse, alias gmail, autre adresse), l'user n'était pas
+    // trouvé → return silencieux → « silent success » (débité, jamais premium).
+    // Le mobile ne passe PAS par /welcome-jiayou-premium : ce webhook est sa SEULE
+    // voie de crédit, d'où la criticité.
+    let userId = null;
+    const metaId = parseInt(session.metadata?.userId, 10);
+    if (Number.isInteger(metaId)) {
+      const r = await pool.query('SELECT id FROM users WHERE id = $1', [metaId]);
+      if (r.rows.length) userId = r.rows[0].id;
+    }
+    if (!userId) {
+      const email = session.customer_email || session.customer_details?.email;
+      if (email) {
+        const r = await pool.query('SELECT id FROM users WHERE lower(btrim(email)) = lower(btrim($1))', [email]);
+        if (r.rows.length) userId = r.rows[0].id;
+      }
+    }
+    if (!userId) {
+      // Échec BRUYANT : on ne peut pas laisser un paiement sans compte crédité.
+      console.error('🚨 [checkout] PAIEMENT NON CRÉDITÉ — user introuvable. session=%s metadata=%j email=%s customer=%s subscription=%s',
+        session.id, session.metadata, session.customer_email || session.customer_details?.email, session.customer, session.subscription);
       return;
     }
+    console.log('👤 [checkout] User ID:', userId);
 
-    console.log('📧 Email client:', customerEmail);
+    // Premium accordé IMMÉDIATEMENT + lien user↔customer↔subscription (crée le
+    // stripe_customer_id → les webhooks subscription suivants trouveront l'user).
+    await pool.query(`
+      INSERT INTO user_subscriptions (
+        user_id, plan_name, status, stripe_status,
+        stripe_customer_id, stripe_subscription_id, created_at, updated_at
+      ) VALUES ($1, 'premium', 'active', 'active', $2, $3, NOW(), NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        plan_name = 'premium', status = 'active', stripe_status = 'active',
+        stripe_customer_id = EXCLUDED.stripe_customer_id,
+        stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+        updated_at = NOW()
+    `, [userId, session.customer, session.subscription]);
+    console.log('✅ [checkout] premium accordé à user', userId);
 
-    // Trouver l'utilisateur
-    const userResult = await pool.query(
-      'SELECT id FROM users WHERE email = $1',
-      [customerEmail]
-    );
-
-    if (userResult.rows.length === 0) {
-      console.error('❌ Utilisateur non trouvé:', customerEmail);
-      return;
-    }
-
-    const userId = userResult.rows[0].id;
-    console.log('👤 User ID:', userId);
-
-    // Récupérer la subscription depuis Stripe pour avoir les dates
+    // Dates précises (period end) via l'objet subscription — best-effort, le premium
+    // est déjà accordé ci-dessus donc une erreur ici ne prive personne.
     if (session.subscription) {
       try {
         const subscription = await stripe.subscriptions.retrieve(session.subscription);
         await handleSubscriptionEvent(subscription, 'checkout.session.completed');
       } catch (err) {
-        console.error('Erreur récupération subscription:', err.message);
-
-        // Fallback: créer une ligne de base sans les dates
-        await pool.query(`
-          INSERT INTO user_subscriptions (
-            user_id,
-            plan_name,
-            status,
-            stripe_status,
-            stripe_customer_id,
-            stripe_subscription_id,
-            created_at,
-            updated_at
-          ) VALUES ($1, 'premium', 'active', 'active', $2, $3, NOW(), NOW())
-          ON CONFLICT (user_id) 
-          DO UPDATE SET
-            plan_name = 'premium',
-            status = 'active',
-            stripe_status = 'active',
-            stripe_customer_id = EXCLUDED.stripe_customer_id,
-            stripe_subscription_id = EXCLUDED.stripe_subscription_id,
-            updated_at = NOW()
-        `, [
-          userId,
-          session.customer,
-          session.subscription
-        ]);
-
-        console.log('✅ Abonnement créé (fallback) pour user', userId);
+        console.error('Erreur récupération subscription (dates, non bloquant):', err.message);
       }
-    } else {
-      console.error('❌ Pas de subscription_id dans la session');
     }
-
   } catch (error) {
     console.error('❌ Erreur handleCheckoutSessionCompleted:', error);
   }
