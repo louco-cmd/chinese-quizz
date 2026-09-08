@@ -217,9 +217,20 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
           <View style={{ flex: isDesktop ? 1 : undefined, width: isDesktop ? undefined : '100%', backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', marginBottom: isDesktop ? 0 : 16, ...SHADOW_CARD }}>
             <LinearGradient colors={['#0d6efd', '#0a58ca']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 18 }}>
               <Text style={{ color: '#fff', fontWeight: '700', fontSize: 17, marginBottom: 4 }}>{t('pricing_premium')}</Text>
-              {/* Prix : celui du store si dispo (localisé + à jour), sinon le tarif web. */}
-              <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800' }}>{plan ? plan.priceString : '5€'}</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>{plan ? plan.period : t('pricing_per_month')}</Text>
+              {/* Déjà premium → on masque le PRIX (le tarif store payé, ex. 5,99€,
+                  diffère du fallback web 5€ → source de confusion post-achat) et on
+                  affiche « Premium actif ». Sinon, prix du store si dispo, sinon web. */}
+              {isPremium ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 2 }}>
+                  <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                  <Text style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>{t('pricing_active')}</Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800' }}>{plan ? plan.priceString : '5€'}</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>{plan ? plan.period : t('pricing_per_month')}</Text>
+                </>
+              )}
             </LinearGradient>
             <View style={{ padding: 18 }}>
               {/* Choix de la formule (natif + offering configurée). */}
