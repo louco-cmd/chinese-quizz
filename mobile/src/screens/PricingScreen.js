@@ -193,15 +193,19 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <ScrollView contentContainerStyle={{ paddingBottom: TAB_CLEARANCE }}>
-        {/* Hero */}
-        <View style={{ backgroundColor: COLORS.jiayou, paddingTop: 24, paddingBottom: 60, paddingHorizontal: 16 }}>
-          <View style={{ alignItems: 'center', marginTop: 24 }}>
+        {/* Hero — paddings réduits pour faire remonter le bloc premium. */}
+        <View style={{ backgroundColor: COLORS.jiayou, paddingTop: 16, paddingBottom: 28, paddingHorizontal: 16 }}>
+          <View style={{ alignItems: 'center', marginTop: 8 }}>
             <Text
+              // Police cursive à grandes hampes/jambages : lineHeight généreux
+              // (~1.4×) + pas de scaling système → évite le rognage vertical du
+              // texte sur certains mobiles (accessibilité grande police).
+              allowFontScaling={false}
               style={{
                 color: '#fff',
                 fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined,
                 fontStyle: fontsLoaded ? 'normal' : 'italic',
-                fontSize: 52, lineHeight: 62, textAlign: 'center', paddingHorizontal: 8,
+                fontSize: 52, lineHeight: 74, textAlign: 'center', paddingHorizontal: 8,
               }}
             >
               {t('pricing_hero_title')}
@@ -216,7 +220,11 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
           {/* ── Premium (featured) ── */}
           <View style={{ flex: isDesktop ? 1 : undefined, width: isDesktop ? undefined : '100%', backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', marginBottom: isDesktop ? 0 : 16, ...SHADOW_CARD }}>
             <LinearGradient colors={['#0d6efd', '#0a58ca']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ padding: 18 }}>
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 17, marginBottom: 4 }}>{t('pricing_premium')}</Text>
+              {/* Titre « Premium » masqué quand actif → évite la répétition avec
+                  « Premium actif » juste en dessous. */}
+              {!isPremium ? (
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 17, marginBottom: 4 }}>{t('pricing_premium')}</Text>
+              ) : null}
               {/* Déjà premium → on masque le PRIX (le tarif store payé, ex. 5,99€,
                   diffère du fallback web 5€ → source de confusion post-achat) et on
                   affiche « Premium actif ». Sinon, prix du store si dispo, sinon web. */}
