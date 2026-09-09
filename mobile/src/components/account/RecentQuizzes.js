@@ -1,30 +1,25 @@
 import { View, Text } from 'react-native';
 import { useT } from '../../i18n';
 
-// Coins gagnés selon le % de réussite (mêmes paliers que calcCoins EJS).
-function calcCoins(pct) {
-  if (pct >= 71) return 5;
-  if (pct >= 51) return 3;
-  if (pct >= 1) return 2;
-  return 0;
-}
-
-const TYPE_COLOR = { pinyin: '#0d6efd', character: '#ffc107', mixed: '#198754' };
+// Couleurs par type de quiz réellement enregistré (pinyin/character/reading pour
+// le chinois, word=écriture pour les autres langues). Alignées sur les anneaux
+// de connaissance de la page compte.
+const TYPE_COLOR = { pinyin: '#0d6efd', character: '#6f42c1', reading: '#20c997', word: '#fd7e14' };
 
 // Liste des derniers quiz : pastille type + score + coins à gauche, date à droite.
 export default function RecentQuizzes({ quizzes }) {
   const { t } = useT();
   const typeLabel = (type) => (type === 'pinyin' ? t('qz_pinyin')
     : type === 'character' ? t('qz_characters')
-      : type === 'mixed' ? t('ac_mixed') : t('ac_quiz'));
+      : type === 'reading' ? t('qz_reading')
+        : type === 'word' ? t('qz_mode_write') : t('ac_quiz'));
   if (!quizzes || !quizzes.length) {
     return <Text style={{ color: '#adb5bd', textAlign: 'center', fontSize: 13, paddingVertical: 8 }}>{t('ac_no_quizzes')}</Text>;
   }
   return (
     <View>
       {quizzes.map((q, i) => {
-        const pct = q.total > 0 ? (q.score / q.total) * 100 : 0;
-        const coins = calcCoins(pct);
+        const coins = q.coins; // vrai montant serveur ; null pour les quiz d'avant le suivi
         const date = new Date(q.date);
         const dateStr = isNaN(date) ? '' : date.toLocaleDateString('fr-FR');
         return (
@@ -42,7 +37,7 @@ export default function RecentQuizzes({ quizzes }) {
               </View>
               <Text style={{ fontWeight: '600', fontSize: 14, color: '#1a1a2e' }}>{q.score}/{q.total}</Text>
               <Text style={{ fontSize: 13, color: '#f0a500', fontWeight: '500' }}>
-                {coins > 0 ? `+${coins} ${t('ac_coins')}` : `0 ${t('ac_coins')}`}
+                {coins == null ? '—' : coins > 0 ? `+${coins} ${t('ac_coins')}` : `0 ${t('ac_coins')}`}
               </Text>
             </View>
             <Text style={{ fontSize: 12, color: '#bbb' }}>{dateStr}</Text>

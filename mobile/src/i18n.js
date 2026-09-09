@@ -310,6 +310,7 @@ export const TRANSLATIONS = {
     ep_name: 'Name', ep_your_name: 'Your name', ep_tagline: 'Tagline', ep_your_motto: 'Your learning motto…', ep_country: 'Country',
     // Mastery captions
     ac_pinyin_mastered: 'pinyin mastered', ac_words_mastered: 'of words mastered', ac_chars_mastered: 'characters mastered', ac_reading_mastered: 'reading mastered', ac_writing_mastered: 'writing mastered',
+    ac_type_pinyin: 'Pinyin', ac_type_character: 'Characters', ac_type_reading: 'Reading', ac_type_writing: 'Writing',
     // ── Collection ──
     co_filter: 'Filter', co_filters: 'Filters', co_hsk_level: 'HSK level', co_knowledge: 'Knowledge',
     co_pack: 'Pack', co_all_words: 'All words', co_reset: 'Reset', co_show: 'Show',
@@ -749,6 +750,7 @@ export const TRANSLATIONS = {
     ep_name: 'Nom', ep_your_name: 'Ton nom', ep_tagline: 'Slogan', ep_your_motto: 'Ta devise d’apprentissage…', ep_country: 'Pays',
     // Mastery captions
     ac_pinyin_mastered: 'pinyin maîtrisé', ac_words_mastered: 'des mots maîtrisés', ac_chars_mastered: 'caractères maîtrisés', ac_reading_mastered: 'lecture maîtrisée', ac_writing_mastered: 'écriture maîtrisée',
+    ac_type_pinyin: 'Pinyin', ac_type_character: 'Caractères', ac_type_reading: 'Lecture', ac_type_writing: 'Écriture',
     // ── Collection ──
     co_filter: 'Filtrer', co_filters: 'Filtres', co_hsk_level: 'Niveau HSK', co_knowledge: 'Connaissance',
     co_pack: 'Pack', co_all_words: 'Tous les mots', co_reset: 'Réinitialiser', co_show: 'Afficher',
@@ -1186,6 +1188,7 @@ export const TRANSLATIONS = {
     ep_name: '名字', ep_your_name: '你的名字', ep_tagline: '个性签名', ep_your_motto: '你的学习格言…', ep_country: '国家',
     // 掌握度说明
     ac_pinyin_mastered: '拼音已掌握', ac_words_mastered: '的词已掌握', ac_chars_mastered: '汉字已掌握', ac_reading_mastered: '认读已掌握', ac_writing_mastered: '书写已掌握',
+    ac_type_pinyin: '拼音', ac_type_character: '汉字', ac_type_reading: '认读', ac_type_writing: '书写',
     // ── 词库 ──
     co_filter: '筛选', co_filters: '筛选', co_hsk_level: 'HSK 等级', co_knowledge: '掌握度',
     co_pack: '词包', co_all_words: '全部词汇', co_reset: '重置', co_show: '显示',

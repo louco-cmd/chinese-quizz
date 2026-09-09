@@ -6,6 +6,7 @@ import AccountCard from '../components/account/AccountCard';
 import StatTriplet from '../components/account/StatTriplet';
 import MasteryBar from '../components/account/MasteryBar';
 import HskStatList from '../components/account/HskStatList';
+import KnowledgeRing from '../components/account/KnowledgeRing';
 import RecentQuizzes from '../components/account/RecentQuizzes';
 import EditProfilePopup from '../components/account/EditProfilePopup';
 import YourMentorsCard from '../components/teachers/YourMentorsCard';
@@ -26,6 +27,18 @@ function UsageTile({ icon, value, label }) {
       <Text style={{ fontSize: 20 }}>{icon}</Text>
       <Text style={{ fontSize: 26, fontWeight: '800', color: '#111', lineHeight: 30, marginTop: 2 }}>{value}</Text>
       <Text style={{ fontSize: 11, color: '#999', marginTop: 2, textAlign: 'center' }}>{label}</Text>
+    </View>
+  );
+}
+
+// Jauge circulaire de connaissance pour un type de quiz : anneau + % au centre + libellé.
+function RingStat({ pct, color, label }) {
+  return (
+    <View style={{ alignItems: 'center', minWidth: 84 }}>
+      <KnowledgeRing pct={pct} color={color}>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: '#222' }}>{pct}%</Text>
+      </KnowledgeRing>
+      <Text style={{ fontSize: 12, color: '#666', marginTop: 8, fontWeight: '600' }}>{label}</Text>
     </View>
   );
 }
@@ -184,13 +197,33 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
                 />
               )}
 
-              {/* Statistiques par niveau HSK : spécifique au chinois → masqué pour
-                  les autres langues apprises (pas de notion de HSK). */}
-              {learningChinese && (
-                <AccountCard icon="search-outline" title={t('ac_stats_on_words')}>
-                  <HskStatList items={data.hsk} />
-                </AccountCard>
-              )}
+              {/* Connaissance par type de quiz (anneaux) + répartition HSK.
+                  Les anneaux s'affichent pour toutes les langues ; la liste HSK
+                  est spécifique au chinois (pas de notion de HSK ailleurs). */}
+              <AccountCard icon="search-outline" title={t('ac_stats_on_words')}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-around',
+                    flexWrap: 'wrap',
+                    rowGap: 16,
+                    columnGap: 12,
+                    marginBottom: learningChinese ? 18 : 4,
+                    marginTop: 4,
+                  }}
+                >
+                  <RingStat
+                    pct={pinyinPct}
+                    color="#0d6efd"
+                    label={learningChinese ? t('ac_type_pinyin') : t('ac_type_writing')}
+                  />
+                  {learningChinese && (
+                    <RingStat pct={charPct} color="#6f42c1" label={t('ac_type_character')} />
+                  )}
+                  <RingStat pct={readingPct} color="#20c997" label={t('ac_type_reading')} />
+                </View>
+                {learningChinese && <HskStatList items={data.hsk} />}
+              </AccountCard>
 
               <AccountCard icon="time-outline" title={t('ac_recent_quizzes')} actionLabel={t('ac_start_new_quiz')} onPress={() => onNavigate?.('quiz')}>
                 <RecentQuizzes quizzes={data.recentQuizzes} />

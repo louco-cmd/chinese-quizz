@@ -2686,7 +2686,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
          WHERE user_id = $1 AND EXTRACT(YEAR FROM date_completed) = $2
          GROUP BY DATE(date_completed) ORDER BY date ASC`, [uid, year]),
       pool.query(
-        `SELECT score, total_questions, ratio, quiz_type, date_completed
+        `SELECT score, total_questions, ratio, quiz_type, coins_earned, date_completed
          FROM quiz_history WHERE user_id = $1 AND lang = $2
          ORDER BY date_completed DESC LIMIT 5`, [uid, L]),
       // Rang au classement des duels = position par victoires, DANS le même cours
@@ -2757,6 +2757,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
         score: r.score, total: r.total_questions,
         ratio: r.ratio != null ? Number(r.ratio) : null,
         type: r.quiz_type || 'quiz',
+        coins: r.coins_earned != null ? r.coins_earned : null, // null = quiz d'avant le suivi → « — »
         date: r.date_completed instanceof Date ? r.date_completed.toISOString() : String(r.date_completed),
       })),
       year,
@@ -3819,9 +3820,9 @@ router.post('/api/m/quiz/save', requireToken, async (req, res) => {
     const wordsForHistory = Array.isArray(results) ? results.map((r) => r.pinyin) : [];
     const quizLang = (await getUserLangs(userId)).learning; // tag pour stats par parcours
     await client.query(
-      `INSERT INTO quiz_history (user_id, score, total_questions, ratio, quiz_type, words_used, lang)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [userId, scoreNum, totalNum, ratio, quiz_type, JSON.stringify(wordsForHistory), quizLang]
+      `INSERT INTO quiz_history (user_id, score, total_questions, ratio, quiz_type, words_used, lang, coins_earned)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [userId, scoreNum, totalNum, ratio, quiz_type, JSON.stringify(wordsForHistory), quizLang, coinsEarned]
     );
 
     if (Array.isArray(results)) {

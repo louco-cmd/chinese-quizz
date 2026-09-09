@@ -634,7 +634,11 @@ const pool = new Pool({
       await pool.query(`ALTER TABLE duels ADD COLUMN IF NOT EXISTS lang varchar(8)`);
       await pool.query(`UPDATE quiz_history SET lang = 'zh' WHERE lang IS NULL`);
       await pool.query(`UPDATE duels SET lang = 'zh' WHERE lang IS NULL`);
-      console.log("✅ quiz_history.lang + duels.lang (stats par parcours) vérifiés.");
+      // Coins réellement gagnés par quiz : l'historique de compte affichait une
+      // ré-estimation client fausse (paliers fixes) faute de valeur stockée. On
+      // persiste désormais le montant serveur ; les vieux quiz restent NULL → « — ».
+      await pool.query(`ALTER TABLE quiz_history ADD COLUMN IF NOT EXISTS coins_earned INTEGER`);
+      console.log("✅ quiz_history.lang + duels.lang + coins_earned (stats par parcours) vérifiés.");
     } catch (e) { console.error('learning_paths migration:', e.message); }
 
     // ── Registre des langues + LISTENER d'auto-enregistrement ──────────────────
