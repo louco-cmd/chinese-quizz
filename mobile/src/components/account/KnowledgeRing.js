@@ -3,14 +3,14 @@ import { View } from 'react-native';
 // Anneau de progression 0–100 % en React Native pur — AUCUNE dépendance native
 // (pas de react-native-svg) → livrable par OTA. Technique des deux demi-disques
 // masqués (overflow:hidden sur chaque moitié) que l'on fait pivoter autour du
-// centre du cercle via translateX → rotate → translateX, puis un disque central
-// qui « creuse » le plein pour ne laisser que l'épaisseur de l'anneau.
+// centre via translateX → rotate → translateX, puis un disque central qui
+// « creuse » le plein pour ne laisser que l'épaisseur de l'anneau.
 export default function KnowledgeRing({
-  size = 78,
-  stroke = 7,
+  size = 40,
+  stroke = 5,
   pct = 0,
   color = '#0d6efd',
-  track = '#e9ecef',
+  track = '#e3e6ea',
   inner = '#fff',
   children,
 }) {

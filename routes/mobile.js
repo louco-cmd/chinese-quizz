@@ -893,14 +893,22 @@ router.get('/api/m/search', requireToken, async (req, res) => {
        )
        SELECT d.id, d.chinese, d.pinyin, d.hsk, d.meaning_id, d.english, d.owned
        FROM deduped d
-       -- Qualité P2P (Phase A) : scores confiance/possession posés par le crawler
-       -- externe. LEFT JOIN → absents = NULL → lexeme_rank() applique un score
-       -- NEUTRE. Sert UNIQUEMENT de tie-breaker APRÈS la pertinence (exact match,
-       -- présence de traduction) : un résultat pertinent mais peu trusté reste visible.
-       LEFT JOIN lexeme_sense_scores s ON s.mot_id = d.id AND s.meaning_id = d.meaning_id
+       -- Qualité P2P : le crawler externe note des PAIRES dirigées dans
+       -- lexeme_pair_scores (src_mot_id, tgt_mot_id, meaning_id + confidence/
+       -- possession/trust). On récupère le MEILLEUR score reliant le mot appris
+       -- (d.id) à un mot de la langue native ($4) pour ce sens, dans les DEUX
+       -- directions. Absent → COALESCE score NEUTRE (0.325). Sert UNIQUEMENT de
+       -- tie-breaker APRÈS la pertinence : un résultat pertinent mais non jugé
+       -- reste visible.
        ORDER BY (d.chinese = $3 OR lower(d.english) = lower($3)) DESC,
                 (d.english IS NOT NULL) DESC,
-                lexeme_rank(s.confidence, s.possession_count, s.trust) DESC,
+                COALESCE((
+                  SELECT MAX(lexeme_rank(ps.confidence, ps.possession_count, ps.trust))
+                  FROM lexeme_pair_scores ps
+                  WHERE ps.meaning_id = d.meaning_id
+                    AND ((ps.src_mot_id = d.id AND ps.tgt_lang = $4)
+                      OR (ps.tgt_mot_id = d.id AND ps.src_lang = $4))
+                ), 0.325) DESC,
                 d.id ASC
        LIMIT 8`,
       params
@@ -2716,22 +2724,29 @@ router.get('/api/m/account', requireToken, async (req, res) => {
     const charDist   = bucket(words.map((w) => w.score_character || 0));
     const readingDist = bucket(words.map((w) => w.score_reading || 0));
 
-    // Stats HSK : nombre + % maîtrisé par niveau
+    // Stats HSK : nombre + % maîtrisé PAR TYPE de quiz et par niveau. Chaque mode
+    // a sa colonne de score (pinyin='score', caractères='score_character',
+    // lecture='score_reading'), même seuil « maîtrisé » (≥85) qu'ailleurs.
     const HSK_ORDER = ['HSK1', 'HSK2', 'HSK3', 'HSK4', 'HSK5', 'HSK6', 'Street'];
     const groups = {};
     words.forEach((w) => {
       const lvl = w.hsk ? `HSK${w.hsk}` : 'Street';
-      (groups[lvl] = groups[lvl] || []).push(w.score || 0);
+      (groups[lvl] = groups[lvl] || []).push(w);
     });
+    const masteredPctOf = (ws, col) =>
+      ws.length ? Math.round((ws.filter((w) => (w[col] || 0) >= 85).length / ws.length) * 100) : 0;
     const hsk = HSK_ORDER.map((key) => {
-      const scores = groups[key] || [];
-      if (!scores.length) return null;
-      const mastered = scores.filter((s) => s >= 85).length;
+      const ws = groups[key] || [];
+      if (!ws.length) return null;
+      const pinyinPct = masteredPctOf(ws, 'score');
       return {
         key,
         label: key === 'Street' ? 'HSK Street' : key.replace('HSK', 'HSK '),
-        count: scores.length,
-        masteredPct: Math.round((mastered / scores.length) * 100),
+        count: ws.length,
+        masteredPct: pinyinPct, // conservé pour compat
+        pinyinPct,
+        characterPct: masteredPctOf(ws, 'score_character'),
+        readingPct: masteredPctOf(ws, 'score_reading'),
       };
     }).filter(Boolean);
 

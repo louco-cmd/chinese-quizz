@@ -830,8 +830,32 @@ const pool = new Pool({
             + 0.35 * LEAST(1.0, ln(1 + GREATEST(COALESCE(poss, 0), 0)) / ln(1 + 50))
           )
         $lr$`);
-      console.log("✅ Qualité P2P (lexeme_sense_scores + lexeme_rank) vérifiée.");
-    } catch (e) { console.error('lexeme_sense_scores migration failed:', e.message); }
+      // Table réellement alimentée par le crawler : scores de PAIRES dirigées
+      // (src→tgt) par sens. CREATE IF NOT EXISTS → la jointure de ranking de la
+      // recherche ne casse jamais sur une base neuve (prod l'a déjà, ~50k lignes).
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS lexeme_pair_scores (
+          src_mot_id integer NOT NULL,
+          tgt_mot_id integer NOT NULL,
+          meaning_id integer NOT NULL,
+          src_lang text,
+          tgt_lang text,
+          src_text text,
+          tgt_text text,
+          confidence double precision,
+          reason text,
+          possession_count integer DEFAULT 0,
+          trust double precision,
+          review_status text,
+          judged_at timestamptz DEFAULT now(),
+          PRIMARY KEY (src_mot_id, tgt_mot_id, meaning_id)
+        )`);
+      // La PK couvre le lookup par src_mot_id ; on indexe la direction inverse
+      // (tgt_mot_id) car la recherche interroge les DEUX sens de la paire.
+      await pool.query(`CREATE INDEX IF NOT EXISTS lexeme_pair_scores_tgt_meaning_idx ON lexeme_pair_scores(tgt_mot_id, meaning_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS lexeme_pair_scores_src_meaning_idx ON lexeme_pair_scores(src_mot_id, meaning_id)`);
+      console.log("✅ Qualité P2P (lexeme_pair_scores + lexeme_rank) vérifiée.");
+    } catch (e) { console.error('lexeme_pair_scores migration failed:', e.message); }
 
     // Réconciliation des packs officiels HSK (idempotente).
     try {
