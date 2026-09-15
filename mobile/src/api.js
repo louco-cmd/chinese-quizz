@@ -278,6 +278,7 @@ export function importPreview(text, direction) {
   return request('/api/m/import/preview', { method: 'POST', body: { text, direction } });
 }
 export function importCommit(words) {
+  invalidateCollection();
   return request('/api/m/import/commit', { method: 'POST', body: { words } });
 }
 
@@ -300,6 +301,7 @@ export function getMarketPack(id) {
 }
 
 export function buyMarketPack(id) {
+  invalidateCollection(); // l'achat ajoute les mots du pack à la collection
   return request(`/api/m/market/packs/${id}/buy`, { method: 'POST' });
 }
 
@@ -308,6 +310,7 @@ export function planPack(text) {
 }
 
 export function createPack({ title, description, price, text, translations, acquire, packId, swap }) {
+  if (acquire) invalidateCollection(); // « acquire » ajoute les mots à la collection
   return request('/api/m/market/packs', {
     method: 'POST',
     body: { title, description, price, text, translations, acquire, packId, swap },
@@ -330,8 +333,24 @@ export function deletePack(id) {
   return request(`/api/m/market/packs/${id}`, { method: 'DELETE' });
 }
 
-export function getCollection() {
-  return request('/api/m/collection');
+// Cache mémoire de la collection : elle est rechargée à CHAQUE ouverture de
+// l'onglet, or c'est le plus gros payload DB→serveur (toute la liste possédée).
+// On sert le cache tant qu'il est frais (TTL court) ; toute mutation locale
+// (ajout/édition/suppression de mot, quiz, achat de pack, import) l'invalide
+// via invalidateCollection() → pas de données périmées au-delà du TTL.
+let _collectionCache = null; // { data, ts }
+const COLLECTION_TTL_MS = 90 * 1000;
+export function invalidateCollection() { _collectionCache = null; }
+export async function getCollection({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && _collectionCache && now - _collectionCache.ts < COLLECTION_TTL_MS) {
+    // Clone superficiel du tableau (les objets mot restent en lecture seule) pour
+    // éviter tout partage de référence entre montages successifs de l'écran.
+    return { ..._collectionCache.data, words: (_collectionCache.data.words || []).slice() };
+  }
+  const d = await request('/api/m/collection');
+  _collectionCache = { data: d, ts: now };
+  return { ...d, words: (d.words || []).slice() };
 }
 
 export function searchWords(q) {
@@ -348,28 +367,34 @@ export function getTranslation(cn) {
 }
 
 export function captureWord(id, meaningId) {
+  invalidateCollection();
   return request(`/api/m/words/${id}/capture`, { method: 'POST', body: meaningId != null ? { meaning_id: meaningId } : {} });
 }
 
 // Crée un nouveau mot (chinese + english requis) et le capture (coûte 3 coins).
 export function createWord(fields) {
+  invalidateCollection();
   return request('/api/m/words', { method: 'POST', body: fields });
 }
 
 export function updateWord(id, fields) {
+  invalidateCollection();
   return request(`/api/m/words/${id}`, { method: 'PUT', body: fields });
 }
 
 export function deleteWord(id, meaningId) {
+  invalidateCollection();
   const q = meaningId != null ? `?meaning_id=${meaningId}` : '';
   return request(`/api/m/words/${id}${q}`, { method: 'DELETE' });
 }
 
 // Suppression en masse (premium). Par liste d'ids OU par pack (« forget pack »).
 export function bulkDeleteWords(ids) {
+  invalidateCollection();
   return request('/api/m/words/bulk-delete', { method: 'POST', body: { ids } });
 }
 export function forgetPack(packId) {
+  invalidateCollection();
   return request('/api/m/words/bulk-delete', { method: 'POST', body: { packId } });
 }
 
@@ -566,6 +591,8 @@ export function getQuizStats() {
 }
 
 // Enregistre le quiz (score, résultats par mot) → renvoie les coins gagnés.
+// Les scores des mots changent → la collection (triée par score) est invalidée.
 export function saveQuiz(payload) {
+  invalidateCollection();
   return request('/api/m/quiz/save', { method: 'POST', body: payload });
 }
