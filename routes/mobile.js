@@ -3641,7 +3641,7 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
       const type = String(req.query.type || 'pinyin');
       const scoreCol = type === 'character' ? 'score_character' : type === 'reading' ? 'score_reading' : 'score';
       const { rows } = await pool.query(
-        `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $4) AS english, m.hsk, COALESCE(um.${scoreCol}, 0) AS score
+        `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $4) AS english, m.hsk, um.description, COALESCE(um.${scoreCol}, 0) AS score
          FROM word_pack_items i
          JOIN user_mots um ON um.mot_id = i.mot_id AND um.user_id = $1
          JOIN mots m ON m.id = i.mot_id
@@ -3658,7 +3658,7 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
       const ids = String(idsParam).split(',').map((s) => parseInt(s, 10)).filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
       if (!ids.length) return res.status(400).json({ error: 'invalid_ids' });
       const { rows } = await pool.query(
-        `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $3) AS english, m.hsk, COALESCE(um.score, 0) AS score
+        `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $3) AS english, m.hsk, um.description, COALESCE(um.score, 0) AS score
          FROM user_mots um INNER JOIN mots m ON um.mot_id = m.id
          WHERE um.user_id = $1 AND m.id = ANY($2) AND m.lang = $4`, [userId, ids, langs.native, langs.learning]);
       if (!rows.length) return res.status(400).json({ error: 'not_enough_words' });
@@ -3696,7 +3696,7 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
       return `COALESCE(um.score, 0) BETWEEN $${params.length - 1} AND $${params.length}`;
     });
     let q = `
-      SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $${natIdx}) AS english, m.hsk, COALESCE(um.score, 0) AS score
+      SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $${natIdx}) AS english, m.hsk, um.description, COALESCE(um.score, 0) AS score
       FROM user_mots um INNER JOIN mots m ON um.mot_id = m.id
       WHERE um.user_id = $1 AND m.lang = $${learnIdx} AND (${scoreParts.join(' OR ')})`;
     const hskConds = [];
