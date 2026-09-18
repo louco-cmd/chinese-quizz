@@ -248,14 +248,37 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
             />
           </SettingsGroup>
 
-          {/* ── Notifications ── (un seul flag `notifications_enabled` gate TOUTES
-              les push : duels, vente de pack, virements/red envelopes). */}
+          {/* ── Notifications ── Master (notifications_enabled) + une catégorie par
+              type de push. Les sous-toggles sont grisés/désactivés quand le master
+              est off (rien ne part de toute façon). */}
           <SettingsGroup title={t('set_grp_notifications')}>
             <SettingsRow
               icon="notifications" iconColor="#198754" iconBg="#e8f5e9"
               label={t('set_push')} sub={t('set_push_sub')}
               right={<Toggle value={s.notifications_enabled} onValueChange={(v) => patch({ notifications_enabled: v })} />}
             />
+            <View style={{ opacity: s.notifications_enabled ? 1 : 0.45 }} pointerEvents={s.notifications_enabled ? 'auto' : 'none'}>
+              <SettingsRow
+                icon="flash" iconColor="#e8590c" iconBg="#fff1e6"
+                label={t('set_notif_duels')} sub={t('set_notif_duels_sub')}
+                right={<Toggle value={s.notif_duels} disabled={!s.notifications_enabled} onValueChange={(v) => patch({ notif_duels: v })} />}
+              />
+              <SettingsRow
+                icon="cube" iconColor="#0d6efd" iconBg="#e8f0ff"
+                label={t('set_notif_packs')} sub={t('set_notif_packs_sub')}
+                right={<Toggle value={s.notif_packs} disabled={!s.notifications_enabled} onValueChange={(v) => patch({ notif_packs: v })} />}
+              />
+              <SettingsRow
+                icon="gift" iconColor="#e83e8c" iconBg="#fde8f1"
+                label={t('set_notif_social')} sub={t('set_notif_social_sub')}
+                right={<Toggle value={s.notif_social} disabled={!s.notifications_enabled} onValueChange={(v) => patch({ notif_social: v })} />}
+              />
+              <SettingsRow
+                icon="alarm" iconColor="#7c3aed" iconBg="#f3e8ff"
+                label={t('set_notif_reminders')} sub={t('set_notif_reminders_sub')}
+                right={<Toggle value={s.notif_reminders} disabled={!s.notifications_enabled} onValueChange={(v) => patch({ notif_reminders: v })} />}
+              />
+            </View>
           </SettingsGroup>
 
           {/* ── Privacy ── */}

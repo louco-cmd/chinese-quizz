@@ -184,6 +184,18 @@ const pool = new Pool({
       ADD COLUMN IF NOT EXISTS reengage_push_stage SMALLINT NOT NULL DEFAULT 0
     `);
 
+    // ── Migration: toggles de notifs par catégorie (master = notifications_enabled).
+    // Défaut TRUE : sous le master, chaque catégorie est active sauf refus explicite.
+    // + pack_broadcast_at : throttle 1 broadcast « nouveau pack » / créateur / jour.
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS notif_duels BOOLEAN NOT NULL DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS notif_packs BOOLEAN NOT NULL DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS notif_social BOOLEAN NOT NULL DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS notif_reminders BOOLEAN NOT NULL DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS pack_broadcast_at TIMESTAMPTZ
+    `);
+
     // ── Migration: word_review_enabled sur users ──────────────────────────────
     await pool.query(`
       ALTER TABLE users

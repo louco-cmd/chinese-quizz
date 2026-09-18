@@ -81,18 +81,31 @@ async function sendPushToUser(userId, payload) {
  * @param {number} userId
  * @param {object} payload - { title, body, data }
  */
+// Type de notif → colonne de préférence (catégorie). Le master reste
+// notifications_enabled ; une catégorie à false coupe uniquement ce type.
+const TYPE_CATEGORY = {
+  duel_new: 'notif_duels', duel_result: 'notif_duels',
+  pack_new: 'notif_packs', pack_sold: 'notif_packs',
+  red_envelope: 'notif_social',
+  reengage: 'notif_reminders',
+};
+
 async function sendExpoPush(userId, payload) {
   let u;
   try {
     const { rows } = await pool.query(
-      'SELECT expo_push_token, notifications_enabled FROM users WHERE id = $1', [userId]);
+      `SELECT expo_push_token, notifications_enabled,
+              notif_duels, notif_packs, notif_social, notif_reminders
+       FROM users WHERE id = $1`, [userId]);
     u = rows[0];
   } catch (e) {
     console.error('[ExpoPush] lecture user :', e.message);
     return;
   }
   if (!u || !u.expo_push_token) return;                 // pas d'appareil natif enregistré
-  if (u.notifications_enabled === false) return;        // désactivé par l'utilisateur
+  if (u.notifications_enabled === false) return;        // master coupé
+  const cat = TYPE_CATEGORY[payload?.data?.type];       // catégorie coupée ?
+  if (cat && u[cat] === false) return;
   if (typeof fetch !== 'function') return;              // Node < 18 : pas de fetch global
 
   try {

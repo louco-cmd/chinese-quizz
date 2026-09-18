@@ -2217,6 +2217,7 @@ cron.schedule('0 18 * * *', async () => {
       FROM users
       WHERE expo_push_token IS NOT NULL
         AND notifications_enabled IS NOT FALSE
+        AND notif_reminders IS NOT FALSE
         AND last_login IS NOT NULL
         AND last_login <= NOW() - INTERVAL '2 days'
         AND (

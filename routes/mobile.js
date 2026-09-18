@@ -2214,20 +2214,30 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
         fr: { title: 'Nouveau pack sur le store 📦', body: (t) => `« ${t} » vient d'arriver — ajoute-le à ta collection !` },
         zh: { title: '商店上新啦 📦', body: (t) => `《${t}》已上架，快来添加到你的词库吧！` },
       };
+      // Throttle : 1 broadcast « nouveau pack » par créateur / 24 h. L'UPDATE
+      // conditionnel est atomique → pas de course même si 2 packs publiés d'affilée.
       pool.query(
-        `SELECT COALESCE(interface_lang, 'en') AS lang, expo_push_token
-         FROM users
-         WHERE learning_lang = $1 AND id <> $2
-           AND expo_push_token IS NOT NULL AND notifications_enabled IS NOT FALSE`,
-        [content, uid])
-        .then(({ rows }) => {
-          const byLang = {};
-          for (const r of rows) (byLang[r.lang] = byLang[r.lang] || []).push(r.expo_push_token);
-          for (const [lang, tokens] of Object.entries(byLang)) {
-            const copy = PACK_NEW[lang] || PACK_NEW.en;
-            sendExpoPushBulk(tokens, { title: copy.title, body: copy.body(title), data: { type: 'pack_new', packId } })
-              .catch(() => {});
-          }
+        `UPDATE users SET pack_broadcast_at = NOW()
+         WHERE id = $1 AND (pack_broadcast_at IS NULL OR pack_broadcast_at < NOW() - INTERVAL '1 day')
+         RETURNING id`, [uid])
+        .then(({ rows: won }) => {
+          if (!won.length) return; // déjà notifié pour ce créateur aujourd'hui
+          return pool.query(
+            `SELECT COALESCE(interface_lang, 'en') AS lang, expo_push_token
+             FROM users
+             WHERE learning_lang = $1 AND id <> $2
+               AND expo_push_token IS NOT NULL
+               AND notifications_enabled IS NOT FALSE AND notif_packs IS NOT FALSE`,
+            [content, uid])
+            .then(({ rows }) => {
+              const byLang = {};
+              for (const r of rows) (byLang[r.lang] = byLang[r.lang] || []).push(r.expo_push_token);
+              for (const [lang, tokens] of Object.entries(byLang)) {
+                const copy = PACK_NEW[lang] || PACK_NEW.en;
+                sendExpoPushBulk(tokens, { title: copy.title, body: copy.body(title), data: { type: 'pack_new', packId } })
+                  .catch(() => {});
+              }
+            });
         })
         .catch((e) => console.error('pack_new broadcast:', e.message));
     }
@@ -2964,7 +2974,8 @@ router.get('/api/m/settings', requireToken, async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT quiz_direction, interface_lang, learning_lang, native_lang, ghost_mode,
-              notifications_enabled, word_review_enabled
+              notifications_enabled, word_review_enabled,
+              notif_duels, notif_packs, notif_social, notif_reminders
        FROM users WHERE id = $1`, [req.tokenUser.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
@@ -2977,6 +2988,11 @@ router.get('/api/m/settings', requireToken, async (req, res) => {
       ghost_mode: !!u.ghost_mode,
       notifications_enabled: !!u.notifications_enabled,
       word_review_enabled: !!u.word_review_enabled,
+      // Catégories (par défaut actives) — gated par le master ci-dessus.
+      notif_duels: u.notif_duels !== false,
+      notif_packs: u.notif_packs !== false,
+      notif_social: u.notif_social !== false,
+      notif_reminders: u.notif_reminders !== false,
     });
   } catch (e) {
     console.error('m/settings get error:', e);
@@ -3022,6 +3038,10 @@ router.patch('/api/m/settings', requireToken, async (req, res) => {
     }
     if (typeof body.notifications_enabled === 'boolean') push('notifications_enabled', body.notifications_enabled);
     if (typeof body.word_review_enabled === 'boolean') push('word_review_enabled', body.word_review_enabled);
+    // Toggles de catégories de notifs.
+    for (const col of ['notif_duels', 'notif_packs', 'notif_social', 'notif_reminders']) {
+      if (typeof body[col] === 'boolean') push(col, body[col]);
+    }
 
     if (!sets.length) {
       if (langsChanged) return res.json({ success: true });
