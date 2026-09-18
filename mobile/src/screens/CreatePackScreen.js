@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
 import { planPack, createPack, getSettings, getCachedSettings } from '../api';
-import { LANG_META, useLearnableLangs } from '../langs';
+import { LANG_META } from '../langs';
 import { COLORS, SHADOW_CARD } from '../theme';
 
 const langName = (code) => LANG_META[code]?.endonym || String(code || '').toUpperCase();
@@ -36,8 +36,6 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
     learning: cached?.learning_lang || learningLang,
     native: cached?.native_lang || nativeLang,
   });
-  // Langues apprenables (dynamique) pour le sélecteur de langue du pack.
-  const learnableLangs = useLearnableLangs();
   // Langue DÉCLARÉE du contenu du pack. En édition : verrouillée sur la langue
   // réelle du pack. En création : défaut = langue apprise active, modifiable via
   // le sélecteur (tant que l'utilisateur n'y a pas touché, elle suit le parcours).
@@ -58,6 +56,13 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
   const isZh = packLang === 'zh';
   const learnName = langName(packLang);
   const natName = langName(langs.native);
+  // Choix limités à la SESSION d'apprentissage : langue apprise + langue native
+  // (ex. « chinois depuis anglais » → 中文 / English uniquement). En édition, on
+  // garantit que la langue réelle du pack figure dans la liste (chip verrouillé).
+  const sessionLangs = [...new Set([langs.learning, langs.native].filter(Boolean))];
+  const packLangOptions = (isEdit && packLang && !sessionLangs.includes(packLang))
+    ? [packLang, ...sessionLangs]
+    : sessionLangs;
   // Sens des colonnes de la popup de validation. `swapped` = l'utilisateur signale
   // qu'il a rempli à l'envers (mots dans la langue connue au lieu de l'apprise).
   const [swapped, setSwapped] = useState(false);
@@ -241,7 +246,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
             {isEdit ? 'Pack language (locked)' : 'Which language are these words in?'}
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-            {learnableLangs.map((code) => {
+            {packLangOptions.map((code) => {
               const active = code === packLang;
               return (
                 <Pressable
