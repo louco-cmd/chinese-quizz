@@ -12,9 +12,9 @@ import { useT } from '../../i18n';
 // ligne. `flex:1` → les deux pills se partagent la largeur, sans expansion verticale.
 function StatPill({ emoji, value, label }) {
   return (
-    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-      <Text numberOfLines={1} style={{ color: 'rgba(26,26,46,0.75)', fontSize: 13 }}>
-        {emoji} <Text style={{ color: '#0b1b3a', fontWeight: '800' }}>{value}</Text> {label}
+    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+      <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.92)', fontSize: 13 }}>
+        {emoji} <Text style={{ color: '#fff', fontWeight: '800' }}>{value}</Text> {label}
       </Text>
     </View>
   );
