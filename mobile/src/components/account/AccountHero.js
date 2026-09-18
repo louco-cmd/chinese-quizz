@@ -20,7 +20,7 @@ function StatPill({ emoji, value, label }) {
   );
 }
 
-export default function AccountHero({ name, tagline, country, avatarIcon, avatarColor, year, activeDays, restDays = 0, contributions, hPad = 16, onEdit }) {
+export default function AccountHero({ name, tagline, country, avatarIcon, avatarColor, year, activeDays, restDays = 0, contributions, hPad = 16, onEdit, onShare }) {
   const { t } = useT();
   const flag = flagEmoji(country);
   return (
@@ -48,18 +48,29 @@ export default function AccountHero({ name, tagline, country, avatarIcon, avatar
             </View>
           </View>
 
-          {/* Bouton Edit, centré verticalement avec l'identité */}
-          <Pressable
-            onPress={onEdit}
-            style={{
-              flexDirection: 'row', alignItems: 'center', gap: 6,
-              backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999,
-              paddingVertical: 8, paddingHorizontal: 14,
-            }}
-          >
-            <Ionicons name="pencil" size={14} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{t('ah_edit')}</Text>
-          </Pressable>
+          {/* Actions : partager (si dispo) + éditer, centrées avec l'identité */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {onShare ? (
+              <Pressable
+                onPress={onShare}
+                hitSlop={8}
+                style={{ width: 34, height: 34, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Ionicons name="share-social" size={16} color="#fff" />
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={onEdit}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999,
+                paddingVertical: 8, paddingHorizontal: 14,
+              }}
+            >
+              <Ionicons name="pencil" size={14} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{t('ah_edit')}</Text>
+            </Pressable>
+          </View>
         </View>
 
         <ContributionsHeatmap

@@ -13,6 +13,8 @@ import MyPacksCard from '../components/account/MyPacksCard';
 import PurchasedPacksCard from '../components/account/PurchasedPacksCard';
 import Popup from '../components/Popup';
 import CoursePage from './CoursePage';
+import ProgressShareCard from '../share/ProgressShareCard';
+import { imageShareAvailable, captureAndShare } from '../share/shareImage';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getAccount, getStudentClasses, leaveMentor, prefetchSettings } from '../api';
 import { useT } from '../i18n';
@@ -41,6 +43,9 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   const [leaving, setLeaving] = useState(null); // mentor à quitter
   const [leaveBusy, setLeaveBusy] = useState(false);
   const [courseId, setCourseId] = useState(null); // task ouverte
+  const [shareOpen, setShareOpen] = useState(false); // popup "partager ma progression"
+  const [sharing, setSharing] = useState(false);
+  const shareCardRef = useRef(null);
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
 
@@ -144,6 +149,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
           contributions={data.contributions}
           hPad={hPad}
           onEdit={() => setEditing(true)}
+          onShare={imageShareAvailable() ? () => setShareOpen(true) : undefined}
         />
 
         {/* Corps centré et borné à 1200px comme .account-layout de l'EJS */}
@@ -222,6 +228,38 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
         onClose={() => setEditing(false)}
         onSaved={(u) => setData((d) => ({ ...d, ...u }))}
       />
+
+      {/* Partager ma progression : aperçu de la carte + partage image natif. */}
+      <Popup visible={shareOpen} onClose={() => { if (!sharing) setShareOpen(false); }} maxWidth={400}>
+        <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginBottom: 14, textAlign: 'center' }}>{t('sh_title')}</Text>
+        <View style={{ alignItems: 'center', marginBottom: 18 }}>
+          <ProgressShareCard
+            ref={shareCardRef}
+            name={data.name}
+            avatarIcon={data.avatar_icon}
+            avatarColor={data.avatar_color}
+            learningLang={data.learning_lang}
+            nativeLang={data.native_lang}
+            words={total}
+            masteredPct={pinyinPct}
+            learningDays={activeDays}
+            restDays={restDays}
+            t={t}
+          />
+        </View>
+        <Pressable
+          onPress={async () => { setSharing(true); await captureAndShare(shareCardRef, { dialogTitle: t('sh_title') }); setSharing(false); }}
+          disabled={sharing}
+          style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, opacity: sharing ? 0.6 : 1 }}
+        >
+          {sharing ? <ActivityIndicator color="#fff" /> : (
+            <>
+              <Ionicons name="share-social" size={17} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{t('sh_share_btn')}</Text>
+            </>
+          )}
+        </Pressable>
+      </Popup>
 
       {/* Quitter un prof */}
       <Popup visible={!!leaving} onClose={() => setLeaving(null)} maxWidth={380}>

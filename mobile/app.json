@@ -63,7 +63,8 @@
           "organization": "jiayou-qe",
           "project": "react-native"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
       "eas": {
