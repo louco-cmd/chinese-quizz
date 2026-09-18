@@ -114,4 +114,34 @@ async function sendExpoPush(userId, payload) {
   }
 }
 
-module.exports = { initVapid, sendPushToUser, sendExpoPush };
+/**
+ * Envoi push NATIF groupé (broadcast) via l'API Expo Push, par lots de 100.
+ * @param {string[]} tokens - tokens Expo déjà filtrés (notifs activées + non nuls)
+ * @param {object} payload  - { title, body, data }
+ */
+async function sendExpoPushBulk(tokens, payload) {
+  const list = [...new Set((tokens || []).filter(Boolean))];
+  if (!list.length || typeof fetch !== 'function') return;
+  const base = {
+    title: payload.title || 'Jiayou',
+    body: payload.body || '',
+    data: payload.data || {},
+    sound: 'default',
+    channelId: 'default',
+    priority: 'high',
+  };
+  for (let i = 0; i < list.length; i += 100) {
+    const messages = list.slice(i, i + 100).map((to) => ({ to, ...base }));
+    try {
+      await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(messages),
+      });
+    } catch (e) {
+      console.error('[ExpoPushBulk] envoi :', e.message);
+    }
+  }
+}
+
+module.exports = { initVapid, sendPushToUser, sendExpoPush, sendExpoPushBulk };

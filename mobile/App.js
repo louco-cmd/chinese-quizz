@@ -192,7 +192,7 @@ function App() {
         setTab('duels');
       } else if (type === 'duel_new') {
         setTab('duels');
-      } else if (type === 'pack_sold') {
+      } else if (type === 'pack_sold' || type === 'pack_new') {
         setTab('store');
       } else if (type === 'red_envelope' || type === 'reengage') {
         setTab('add'); // enveloppes en popup / relance inactif → home

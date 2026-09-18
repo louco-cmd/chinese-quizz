@@ -10,7 +10,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { pool, reconcileHskPacks } = require('../config/database');
 const { generateDuelQuiz, addTransaction, updateWordScore } = require('../middleware/index');
-const { sendExpoPush } = require('../middleware/push.service');
+const { sendExpoPush, sendExpoPushBulk } = require('../middleware/push.service');
 const { registerLimiter, loginLimiter, validateSignupEmail } = require('../middleware/signup-guard');
 const { rewardPendingReferral } = require('../lib/referral');
 const { SIGNUP_GRANT } = require('../lib/economy');
@@ -2204,6 +2204,34 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
     }
 
     await client.query('COMMIT');
+
+    // Nouveau pack publié → notifie les apprenants de la langue du pack (hors
+    // créateur), message localisé par interface_lang. Fire-and-forget : ne bloque
+    // jamais la réponse. (Édition = pas de broadcast : le pack n'est pas « nouveau ».)
+    if (!editId) {
+      const PACK_NEW = {
+        en: { title: 'New pack on the store 📦', body: (t) => `“${t}” just landed — add it to your collection!` },
+        fr: { title: 'Nouveau pack sur le store 📦', body: (t) => `« ${t} » vient d'arriver — ajoute-le à ta collection !` },
+        zh: { title: '商店上新啦 📦', body: (t) => `《${t}》已上架，快来添加到你的词库吧！` },
+      };
+      pool.query(
+        `SELECT COALESCE(interface_lang, 'en') AS lang, expo_push_token
+         FROM users
+         WHERE learning_lang = $1 AND id <> $2
+           AND expo_push_token IS NOT NULL AND notifications_enabled IS NOT FALSE`,
+        [content, uid])
+        .then(({ rows }) => {
+          const byLang = {};
+          for (const r of rows) (byLang[r.lang] = byLang[r.lang] || []).push(r.expo_push_token);
+          for (const [lang, tokens] of Object.entries(byLang)) {
+            const copy = PACK_NEW[lang] || PACK_NEW.en;
+            sendExpoPushBulk(tokens, { title: copy.title, body: copy.body(title), data: { type: 'pack_new', packId } })
+              .catch(() => {});
+          }
+        })
+        .catch((e) => console.error('pack_new broadcast:', e.message));
+    }
+
     res.json({ success: true, id: packId, wordCount: motIds.length, acquired: notOwned.length, edited: !!editId, propagated });
   } catch (e) {
     await client.query('ROLLBACK');
