@@ -103,6 +103,17 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
   }
 
   const activeDays = (data.contributions || []).filter((c) => c.count > 0).length;
+  // Jours de repos = jours écoulés depuis le PREMIER jour d'apprentissage (cette
+  // année) jusqu'à aujourd'hui, moins les jours actifs. Cadrage positif : les
+  // pauses font partie de l'apprentissage (jamais de culpabilité, pas de streak).
+  const activeDates = (data.contributions || []).filter((c) => c.count > 0).map((c) => c.date).sort();
+  let restDays = 0;
+  if (activeDates.length) {
+    const first = new Date(activeDates[0]);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const span = Math.floor((today - first) / 86400000) + 1; // inclusif
+    restDays = Math.max(0, span - activeDays);
+  }
   const learningChinese = (data.learning_lang || (data.quizDirection !== 'zh→en' ? 'zh' : 'en')) === 'zh';
   const total = data.mastery?.total || 0;
   const pinyinDist = data.mastery?.pinyin || {};
@@ -129,6 +140,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
           avatarColor={data.avatar_color}
           year={data.year}
           activeDays={activeDays}
+          restDays={restDays}
           contributions={data.contributions}
           hPad={hPad}
           onEdit={() => setEditing(true)}

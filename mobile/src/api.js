@@ -305,15 +305,15 @@ export function buyMarketPack(id) {
   return request(`/api/m/market/packs/${id}/buy`, { method: 'POST' });
 }
 
-export function planPack(text) {
-  return request('/api/m/market/packs/plan', { method: 'POST', body: { text } });
+export function planPack(text, lang) {
+  return request('/api/m/market/packs/plan', { method: 'POST', body: { text, lang } });
 }
 
-export function createPack({ title, description, price, text, translations, acquire, packId, swap }) {
+export function createPack({ title, description, price, text, translations, acquire, packId, swap, lang }) {
   if (acquire) invalidateCollection(); // « acquire » ajoute les mots à la collection
   return request('/api/m/market/packs', {
     method: 'POST',
-    body: { title, description, price, text, translations, acquire, packId, swap },
+    body: { title, description, price, text, translations, acquire, packId, swap, lang },
   });
 }
 

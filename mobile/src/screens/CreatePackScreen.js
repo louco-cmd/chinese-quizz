@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../components/Popup';
 import { planPack, createPack, getSettings, getCachedSettings } from '../api';
-import { LANG_META } from '../langs';
+import { LANG_META, useLearnableLangs } from '../langs';
 import { COLORS, SHADOW_CARD } from '../theme';
 
 const langName = (code) => LANG_META[code]?.endonym || String(code || '').toUpperCase();
@@ -36,24 +36,35 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
     learning: cached?.learning_lang || learningLang,
     native: cached?.native_lang || nativeLang,
   });
+  // Langues apprenables (dynamique) pour le sélecteur de langue du pack.
+  const learnableLangs = useLearnableLangs();
+  // Langue DÉCLARÉE du contenu du pack. En édition : verrouillée sur la langue
+  // réelle du pack. En création : défaut = langue apprise active, modifiable via
+  // le sélecteur (tant que l'utilisateur n'y a pas touché, elle suit le parcours).
+  const [packLang, setPackLang] = useState(editPack?.lang || cached?.learning_lang || learningLang);
+  const packLangTouched = useRef(false);
   useEffect(() => {
     let alive = true;
     getSettings()
-      .then((s) => { if (alive && s) setLangs({ learning: s.learning_lang || learningLang, native: s.native_lang || nativeLang }); })
+      .then((s) => {
+        if (!alive || !s) return;
+        setLangs({ learning: s.learning_lang || learningLang, native: s.native_lang || nativeLang });
+        if (!isEdit && !packLangTouched.current && s.learning_lang) setPackLang(s.learning_lang);
+      })
       .catch(() => { /* garde le fallback prop */ });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const isZh = langs.learning === 'zh';
-  const learnName = langName(langs.learning);
+  const isZh = packLang === 'zh';
+  const learnName = langName(packLang);
   const natName = langName(langs.native);
   // Sens des colonnes de la popup de validation. `swapped` = l'utilisateur signale
   // qu'il a rempli à l'envers (mots dans la langue connue au lieu de l'apprise).
   const [swapped, setSwapped] = useState(false);
-  // Le contenu du pack est dans la langue APPRISE : indices/placeholder adaptés.
-  const wordsHint = isZh ? 'One per line — only Chinese hanzi supported' : 'One per line';
+  // Le contenu du pack est dans la langue SÉLECTIONNÉE : placeholder adapté.
+  const wordsHint = 'One per line';
   const wordsPlaceholder = isZh ? '你好\n谢谢\n再见'
-    : langs.learning === 'fr' ? 'bonjour\nmerci\nau revoir'
+    : packLang === 'fr' ? 'bonjour\nmerci\nau revoir'
     : 'hello\nthank you\ngoodbye';
   const [title, setTitle] = useState(editPack?.title || '');
   const [description, setDescription] = useState(editPack?.description || '');
@@ -88,14 +99,14 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
     if (!lineCount) { setEstimate({ cost: 0, ownedCount: 0, acquireCount: 0 }); return undefined; }
     estTimer.current = setTimeout(async () => {
       try {
-        const plan = await planPack(text);
+        const plan = await planPack(text, packLang);
         const acquireCount = (plan.toBuy?.length || 0) + (plan.needsTranslation?.length || 0);
         setEstimate({ cost: plan.cost || 0, ownedCount: plan.owned?.length || 0, acquireCount });
       } catch { /* on garde l'estimation ligne×3 */ }
     }, 600);
     return () => clearTimeout(estTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text]);
+  }, [text, packLang]);
 
   const estimatedCost = estimate ? estimate.cost : lineCount * 3;
 
@@ -117,7 +128,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
   // Envoie la création (avec ou sans acquisition).
   async function doCreate(acquire, translations) {
     try {
-      await createPack({ title: title.trim(), description: description.trim(), price: priceNum, text, translations, acquire, packId: editPack?.id, swap: swapped });
+      await createPack({ title: title.trim(), description: description.trim(), price: priceNum, text, translations, acquire, packId: editPack?.id, swap: swapped, lang: packLang });
       onCreated?.();
     } catch (e) {
       throw e;
@@ -132,7 +143,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
     if (!canPublish) return;
     setPublishing(true); setError(''); setSwapped(false);
     try {
-      const plan = await planPack(text);
+      const plan = await planPack(text, packLang);
       // Fusionne les trois catégories en une seule liste éditable, indexée par mot.
       const byWord = new Map();
       (plan.owned || []).forEach((w) => byWord.set(w.chinese, { chinese: w.chinese, pinyin: w.pinyin || '', english: w.english || '', kind: 'owned' }));
@@ -223,6 +234,34 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
         </Field>
 
         <Field label="Words" hint={wordsHint}>
+          {/* Sélecteur DÉCLARATIF de la langue du contenu : l'utilisateur dit dans
+              quelle langue il saisit, et tout le reste (plan/traduction) suit.
+              Verrouillé en édition (la langue d'un pack existant ne change pas). */}
+          <Text style={{ fontSize: 12.5, color: COLORS.muted, marginBottom: 6 }}>
+            {isEdit ? 'Pack language (locked)' : 'Which language are these words in?'}
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+            {learnableLangs.map((code) => {
+              const active = code === packLang;
+              return (
+                <Pressable
+                  key={code}
+                  disabled={isEdit}
+                  onPress={() => { packLangTouched.current = true; setPackLang(code); }}
+                  style={{
+                    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5,
+                    borderColor: active ? COLORS.jiayou : COLORS.line,
+                    backgroundColor: active ? COLORS.jiayou : '#fff',
+                    opacity: isEdit && !active ? 0.4 : 1,
+                  }}
+                >
+                  <Text style={{ fontSize: 13.5, fontWeight: '700', color: active ? '#fff' : '#1a1a2e' }}>
+                    {LANG_META[code]?.endonym || String(code).toUpperCase()}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
           {/* Coût estimé du pass : 3 ₵ par mot NON possédé (affiné en débounce). */}
           {lineCount > 0 ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>

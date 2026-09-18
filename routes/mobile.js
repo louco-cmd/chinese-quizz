@@ -1709,7 +1709,7 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
     const vlangs = await getUserLangs(uid);
     const { rows } = await pool.query(
       `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
-              wp.creator_id,
+              wp.creator_id, wp.lang, wp.native_lang,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
               -- Mots possédés DANS LA LANGUE APPRISE du viewer ($3) — pas cross-langue.
@@ -1936,7 +1936,10 @@ router.post('/api/m/market/packs/plan', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
     const langs = await getUserLangs(uid);
-    const learn = langs.learning;    // langue apprise = langue du CONTENU du pack
+    // Langue du CONTENU du pack : DÉCLARÉE par l'utilisateur (sélecteur), validée
+    // contre les langues apprenables ; repli sur la langue apprise active.
+    const declared = req.body?.lang;
+    const learn = (declared && LEARNABLE_LANGS.includes(declared)) ? declared : langs.learning;
     const nat = langs.native;        // langue connue  = langue de la TRADUCTION
     const isZh = learn === 'zh';
     const words = extractWordList(req.body);
@@ -2033,15 +2036,21 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
   try {
     await client.query('BEGIN');
     // Édition : le pack doit exister et appartenir à l'utilisateur.
+    let existingLang = null;
     if (editId) {
-      const { rows: own } = await client.query('SELECT creator_id FROM word_packs WHERE id = $1 FOR UPDATE', [editId]);
+      const { rows: own } = await client.query('SELECT creator_id, lang FROM word_packs WHERE id = $1 FOR UPDATE', [editId]);
       if (!own.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pack not found.' }); }
       if (own[0].creator_id !== uid) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Not your pack.' }); }
+      existingLang = own[0].lang;
     }
-    // Le mot tapé est dans la langue APPRISE (`content`) ; la traduction va vers
-    // la langue connue (`other` = native). Généralise l'ancien modèle hanzi-only :
-    // avant, le contenu était forcé à 'zh' et `other` = la langue non-zh du créateur.
-    const content = langs.learning;
+    // Le mot tapé est dans la langue du CONTENU (`content`) ; la traduction va vers
+    // la langue connue (`other` = native). Langue du contenu : DÉCLARÉE par
+    // l'utilisateur (sélecteur, validée) en création ; en édition on garde la
+    // langue réelle du pack existant. Repli : langue apprise active.
+    const declared = req.body?.lang;
+    const content = editId
+      ? (existingLang || langs.learning)
+      : ((declared && LEARNABLE_LANGS.includes(declared)) ? declared : langs.learning);
     const other = langs.native;
     const isZh = content === 'zh';
     // Rapprochement des surfaces insensible à la casse/espaces (no-op en zh) : un

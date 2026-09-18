@@ -8,7 +8,16 @@ import { useT } from '../../i18n';
 // Hero bleu de la page account : identité (icône + nom + pays, puis phrase
 // d'accroche) à gauche, bouton Edit à droite, puis heatmap pleine largeur avec
 // le compteur de jours à gauche face à la légende Less/More.
-export default function AccountHero({ name, tagline, country, avatarIcon, avatarColor, year, activeDays, contributions, hPad = 16, onEdit }) {
+// Stat inline compacte (emoji + nombre gras + label) sur le hero bleu.
+function StatInline({ emoji, value, label }) {
+  return (
+    <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>
+      {emoji} <Text style={{ color: '#fff', fontWeight: '800' }}>{value}</Text> {label}
+    </Text>
+  );
+}
+
+export default function AccountHero({ name, tagline, country, avatarIcon, avatarColor, year, activeDays, restDays = 0, contributions, hPad = 16, onEdit }) {
   const { t } = useT();
   const flag = flagEmoji(country);
   return (
@@ -53,8 +62,14 @@ export default function AccountHero({ name, tagline, country, avatarIcon, avatar
         <ContributionsHeatmap
           contributions={contributions}
           year={year}
-          footerLeft={(activeDays === 1 ? t('ah_practice_one') : t('ah_practice')).replace('{n}', activeDays).replace('{year}', year)}
         />
+
+        {/* Sentiment de progrès, compact : apprentissage ET repos sur une ligne,
+            sans culpabilité (les pauses sont valorisées, pas punies — anti-streak). */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 16, rowGap: 4, marginTop: 12 }}>
+          <StatInline emoji="🌱" value={activeDays} label={t('ah_learning_days')} />
+          <StatInline emoji="☕" value={restDays} label={t('ah_rest_days')} />
+        </View>
       </View>
     </View>
   );
