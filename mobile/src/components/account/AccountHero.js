@@ -8,12 +8,15 @@ import { useT } from '../../i18n';
 // Hero bleu de la page account : identité (icône + nom + pays, puis phrase
 // d'accroche) à gauche, bouton Edit à droite, puis heatmap pleine largeur avec
 // le compteur de jours à gauche face à la légende Less/More.
-// Stat inline compacte (emoji + nombre gras + label) sur le hero bleu.
-function StatInline({ emoji, value, label }) {
+// Pill de stat (fond translucide clair) : emoji + nombre gras + label sur UNE
+// ligne. `flex:1` → les deux pills se partagent la largeur, sans expansion verticale.
+function StatPill({ emoji, value, label }) {
   return (
-    <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>
-      {emoji} <Text style={{ color: '#fff', fontWeight: '800' }}>{value}</Text> {label}
-    </Text>
+    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+      <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.92)', fontSize: 13 }}>
+        {emoji} <Text style={{ color: '#fff', fontWeight: '800' }}>{value}</Text> {label}
+      </Text>
+    </View>
   );
 }
 
@@ -64,11 +67,11 @@ export default function AccountHero({ name, tagline, country, avatarIcon, avatar
           year={year}
         />
 
-        {/* Sentiment de progrès, compact : apprentissage ET repos sur une ligne,
-            sans culpabilité (les pauses sont valorisées, pas punies — anti-streak). */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 16, rowGap: 4, marginTop: 12 }}>
-          <StatInline emoji="🌱" value={activeDays} label={t('ah_learning_days')} />
-          <StatInline emoji="☕" value={restDays} label={t('ah_rest_days')} />
+        {/* Sentiment de progrès : apprentissage ET repos en deux pills pleine
+            largeur (une ligne), sans culpabilité (anti-streak). */}
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+          <StatPill emoji="🌱" value={activeDays} label={t('ah_pill_learning')} />
+          <StatPill emoji="☕" value={restDays} label={t('ah_pill_rest')} />
         </View>
       </View>
     </View>
