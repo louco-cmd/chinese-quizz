@@ -1625,7 +1625,10 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
       price_desc: 'wp.price DESC, wp.created_at DESC',
       popular: 'wp.sales_count DESC, wp.created_at DESC',
     };
-    const orderBy = sortMap[req.query.sort] || sortMap.featured;
+    // Le pack dont la promo est ACTIVE MAINTENANT (fenêtre from→until) remonte en
+    // tête, quel que soit le tri. Le front l'isole en carte « mise en avant ».
+    const ACTIVE = '(wp.boosted_until > NOW() AND (wp.boosted_from IS NULL OR wp.boosted_from <= NOW()))';
+    const orderBy = `${ACTIVE} DESC, ` + (sortMap[req.query.sort] || sortMap.featured);
 
     // Un pack couvre UNE PAIRE de langues (celle de son créateur). On le montre
     // uniquement aux apprenants de CETTE paire, dans un sens OU l'autre (réciprocité
@@ -1661,6 +1664,10 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     }
     const { rows } = await pool.query(
       `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
+              wp.boosted_until, ${ACTIVE} AS boosted,
+              wp.discount_pct,
+              (CASE WHEN ${ACTIVE} AND wp.discount_pct > 0
+                    THEN ROUND(wp.price * (100 - wp.discount_pct) / 100.0)::int ELSE wp.price END) AS effective_price,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
               -- Mots possédés DANS LA LANGUE APPRISE du viewer ($4) — pas cross-langue.
@@ -1710,6 +1717,13 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
     const { rows } = await pool.query(
       `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.is_official, wp.sales_count,
               wp.creator_id, wp.lang, wp.native_lang,
+              wp.boosted_until, wp.boosted_from,
+              (wp.boosted_until > NOW() AND (wp.boosted_from IS NULL OR wp.boosted_from <= NOW())) AS boosted,
+              wp.discount_pct,
+              (CASE WHEN wp.boosted_until > NOW() AND (wp.boosted_from IS NULL OR wp.boosted_from <= NOW()) AND wp.discount_pct > 0
+                    THEN ROUND(wp.price * (100 - wp.discount_pct) / 100.0)::int ELSE wp.price END) AS effective_price,
+              -- Fin de la file d'attente des promos (hors ce pack) → date de départ estimée.
+              (SELECT MAX(w2.boosted_until) FROM word_packs w2 WHERE w2.boosted_until > NOW() AND w2.id <> wp.id) AS promo_queue_until,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count,
               -- Mots possédés DANS LA LANGUE APPRISE du viewer ($3) — pas cross-langue.
@@ -1814,7 +1828,10 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
   try {
     await client.query('BEGIN');
     const { rows: pk } = await client.query(
-      'SELECT id, title, price, creator_id, cover_key FROM word_packs WHERE id = $1 AND published = TRUE FOR UPDATE', [id]);
+      `SELECT id, title, price, creator_id, cover_key,
+              (CASE WHEN boosted_until > NOW() AND (boosted_from IS NULL OR boosted_from <= NOW()) AND discount_pct > 0
+                    THEN ROUND(price * (100 - discount_pct) / 100.0)::int ELSE price END) AS effective_price
+       FROM word_packs WHERE id = $1 AND published = TRUE FOR UPDATE`, [id]);
     if (!pk.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pack not found' }); }
     const pack = pk[0];
     // Le CRÉATEUR peut acquérir SON propre pack GRATUITEMENT (ex. récupérer les mots
@@ -1822,7 +1839,8 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
     // lui-même, pas d'enregistrement d'achat — juste l'ajout des mots. Sinon achat
     // normal (paiement + crédit créateur + purchase).
     const isCreator = pack.creator_id === uid;
-    const price = isCreator ? 0 : pack.price;
+    // Prix effectif = remisé si une promo (boost + discount) est active.
+    const price = isCreator ? 0 : pack.effective_price;
 
     if (!isCreator) {
       const { rows: already } = await client.query(
@@ -1878,22 +1896,22 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
 
     // Paiement + enregistrement : UNIQUEMENT pour un achat réel (pas le créateur).
     if (!isCreator) {
-      // Débit acheteur
-      await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [pack.price, uid]);
+      // Débit acheteur (prix EFFECTIF = remisé si promo active)
+      await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [price, uid]);
       await client.query(
         `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'pack_purchase', $3)`,
-        [uid, -pack.price, `Pack: ${pack.title}`]);
+        [uid, -price, `Pack: ${pack.title}`]);
 
       // Crédit créateur (packs communautaires uniquement ; officiels = puits de coins)
-      if (pack.creator_id && pack.price > 0) {
-        await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [pack.price, pack.creator_id]);
+      if (pack.creator_id && price > 0) {
+        await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [price, pack.creator_id]);
         await client.query(
           `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'pack_sale', $3)`,
-          [pack.creator_id, pack.price, `Sold: ${pack.title}`]);
+          [pack.creator_id, price, `Sold: ${pack.title}`]);
       }
 
       await client.query(
-        'INSERT INTO pack_purchases (pack_id, buyer_id, price_paid) VALUES ($1, $2, $3)', [id, uid, pack.price]);
+        'INSERT INTO pack_purchases (pack_id, buyer_id, price_paid) VALUES ($1, $2, $3)', [id, uid, price]);
       await client.query('UPDATE word_packs SET sales_count = sales_count + 1 WHERE id = $1', [id]);
     }
 
@@ -1901,13 +1919,87 @@ router.post('/api/m/market/packs/:id/buy', requireToken, async (req, res) => {
     // Notif "vente de pack" pour le créateur (achats réels uniquement).
     if (!isCreator && pack.creator_id && pack.creator_id !== uid) {
       pool.query('SELECT name FROM users WHERE id = $1', [uid])
-        .then((r) => notify(pack.creator_id, 'pack_sold', 'Pack sold! 🎉', `${r.rows[0]?.name || 'Someone'} bought "${pack.title}" — +${pack.price} ₵.`, { packId: id }))
+        .then((r) => notify(pack.creator_id, 'pack_sold', 'Pack sold! 🎉', `${r.rows[0]?.name || 'Someone'} bought "${pack.title}" — +${price} ₵.`, { packId: id }))
         .catch(() => {});
     }
     res.json({ success: true, wordsAdded: added, newBalance: bal[0].balance - price });
   } catch (e) {
     await client.query('ROLLBACK');
     console.error('m/market buy error:', e);
+    res.status(500).json({ error: 'Server error' });
+  } finally { client.release(); }
+});
+
+// ── Promotion de pack (puits de coins) : mettre son pack en avant dans le store.
+// Tarif 15 ₵/h, DÉGRESSIF selon la durée réservée (incite aux longues promos).
+const PROMOTE_BASE_PER_HOUR = 10;
+function promoteDiscount(hours) {
+  if (hours >= 72) return 0.30;
+  if (hours >= 24) return 0.20;
+  if (hours >= 6) return 0.10;
+  return 0;
+}
+function promoteCost(hours) {
+  return Math.max(1, Math.round(PROMOTE_BASE_PER_HOUR * hours * (1 - promoteDiscount(hours))));
+}
+
+// POST /api/m/market/packs/:id/promote { hours } — booste SON propre pack. Débite
+// les coins et empile sur un boost en cours (prolonge). Recalcule le coût côté
+// serveur (le front n'est qu'un affichage).
+router.post('/api/m/market/packs/:id/promote', requireToken, async (req, res) => {
+  const uid = req.tokenUser.id;
+  const id = parseInt(req.params.id, 10);
+  const hours = parseInt(req.body?.hours, 10);
+  if (!id) return res.status(400).json({ error: 'Invalid pack' });
+  if (!Number.isInteger(hours) || hours < 1 || hours > 720) return res.status(400).json({ error: 'Invalid duration (1–720h).' });
+  // Remise TEMPORAIRE optionnelle sur le prix du pack (0 = aucune), appliquée tant
+  // que le boost est actif. Bornée à un jeu de valeurs.
+  const ALLOWED_DISCOUNTS = [0, 10, 20, 30, 50];
+  const discountPct = ALLOWED_DISCOUNTS.includes(parseInt(req.body?.discountPct, 10)) ? parseInt(req.body.discountPct, 10) : 0;
+  const cost = promoteCost(hours);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: pk } = await client.query('SELECT creator_id, boosted_until FROM word_packs WHERE id = $1 FOR UPDATE', [id]);
+    if (!pk.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pack not found.' }); }
+    if (pk[0].creator_id !== uid) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Not your pack.' }); }
+    const { rows: bal } = await client.query('SELECT balance FROM users WHERE id = $1 FOR UPDATE', [uid]);
+    const balance = bal[0]?.balance ?? 0;
+    if (balance < cost) {
+      await client.query('ROLLBACK');
+      return res.status(402).json({ error: `Not enough coins (need ${cost} ₵).`, insufficient: true, cost, balance });
+    }
+    // File d'attente : UNE seule promo active à la fois sur tout le store. La
+    // nouvelle démarre à la fin de la dernière programmée (hors ce pack), sinon
+    // maintenant. Fenêtre = [boosted_from, boosted_until]. Pas de chevauchement.
+    const { rows: q } = await client.query(
+      `SELECT MAX(boosted_until) AS queue_end FROM word_packs WHERE boosted_until > NOW() AND id <> $1`, [id]);
+    const queueEnd = q[0].queue_end; // null si le store est libre
+    const { rows: upd } = await client.query(
+      `UPDATE word_packs
+         SET boosted_from  = GREATEST(NOW(), COALESCE($3::timestamptz, NOW())),
+             boosted_until = GREATEST(NOW(), COALESCE($3::timestamptz, NOW())) + ($2 || ' hours')::interval,
+             discount_pct  = $4
+       WHERE id = $1 RETURNING boosted_from, boosted_until, discount_pct`,
+      [id, String(hours), queueEnd, discountPct]);
+    await client.query('UPDATE users SET balance = balance - $1 WHERE id = $2', [cost, uid]);
+    await client.query(
+      `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'pack_promote', $3)`,
+      [uid, -cost, `Promote pack #${id} (${hours}h)`]);
+    await client.query('COMMIT');
+    const startsAt = upd[0].boosted_from;
+    res.json({
+      success: true,
+      boosted_from: startsAt,
+      boosted_until: upd[0].boosted_until,
+      discount_pct: upd[0].discount_pct,
+      scheduled: new Date(startsAt).getTime() > Date.now() + 1000, // programmée (file d'attente)
+      cost,
+      balance: balance - cost,
+    });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('m/market promote error:', e);
     res.status(500).json({ error: 'Server error' });
   } finally { client.release(); }
 });
@@ -1940,7 +2032,9 @@ router.post('/api/m/market/packs/plan', requireToken, async (req, res) => {
     // contre les langues apprenables ; repli sur la langue apprise active.
     const declared = req.body?.lang;
     const learn = (declared && LEARNABLE_LANGS.includes(declared)) ? declared : langs.learning;
-    const nat = langs.native;        // langue connue  = langue de la TRADUCTION
+    // Trad = l'AUTRE langue de la paire relatif au contenu (réciprocité correcte
+    // même si l'utilisateur choisit sa langue native comme contenu du pack).
+    const nat = (learn === langs.native) ? langs.learning : langs.native;
     const isZh = learn === 'zh';
     const words = extractWordList(req.body);
     const { rows: bal } = await pool.query('SELECT balance FROM users WHERE id = $1', [uid]);
@@ -2036,22 +2130,27 @@ router.post('/api/m/market/packs', requireToken, async (req, res) => {
   try {
     await client.query('BEGIN');
     // Édition : le pack doit exister et appartenir à l'utilisateur.
-    let existingLang = null;
+    let existingLang = null, existingNative = null;
     if (editId) {
-      const { rows: own } = await client.query('SELECT creator_id, lang FROM word_packs WHERE id = $1 FOR UPDATE', [editId]);
+      const { rows: own } = await client.query('SELECT creator_id, lang, native_lang FROM word_packs WHERE id = $1 FOR UPDATE', [editId]);
       if (!own.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Pack not found.' }); }
       if (own[0].creator_id !== uid) { await client.query('ROLLBACK'); return res.status(403).json({ error: 'Not your pack.' }); }
       existingLang = own[0].lang;
+      existingNative = own[0].native_lang;
     }
     // Le mot tapé est dans la langue du CONTENU (`content`) ; la traduction va vers
-    // la langue connue (`other` = native). Langue du contenu : DÉCLARÉE par
-    // l'utilisateur (sélecteur, validée) en création ; en édition on garde la
-    // langue réelle du pack existant. Repli : langue apprise active.
+    // l'AUTRE langue de la paire de session (`other`). Langue du contenu : DÉCLARÉE
+    // par l'utilisateur (sélecteur, validée) en création ; en édition on garde la
+    // langue réelle du pack. `other` = l'autre membre de la paire {apprise, native}
+    // relatif au contenu → réciproque correcte quelle que soit la langue choisie
+    // (ex. contenu = ma langue native → trad vers ma langue apprise, PAS native→native).
     const declared = req.body?.lang;
     const content = editId
       ? (existingLang || langs.learning)
       : ((declared && LEARNABLE_LANGS.includes(declared)) ? declared : langs.learning);
-    const other = langs.native;
+    const other = editId
+      ? (existingNative || (content === langs.native ? langs.learning : langs.native))
+      : (content === langs.native ? langs.learning : langs.native);
     const isZh = content === 'zh';
     // Rapprochement des surfaces insensible à la casse/espaces (no-op en zh) : un
     // mot déjà possédé ("Bonjour") doit être reconnu quand l'utilisateur tape

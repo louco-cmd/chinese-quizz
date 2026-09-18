@@ -333,6 +333,12 @@ export function getMyPacks() {
   return request('/api/m/market/my-packs');
 }
 
+// Booste (met en avant) SON pack pendant `hours` heures (débité en coins), avec
+// une remise TEMPORAIRE optionnelle sur le prix (`discountPct`, 0 = aucune).
+export function promotePack(id, hours, discountPct = 0) {
+  return request(`/api/m/market/packs/${id}/promote`, { method: 'POST', body: { hours, discountPct } });
+}
+
 export function getPurchasedPacks() {
   return request('/api/m/market/purchased-packs');
 }

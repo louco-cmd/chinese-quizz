@@ -55,7 +55,10 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
   }, []);
   const isZh = packLang === 'zh';
   const learnName = langName(packLang);
-  const natName = langName(langs.native);
+  // Colonne de traduction = l'AUTRE langue de la paire relatif au contenu choisi
+  // (si le contenu = ma langue native, la trad se fait vers ma langue apprise).
+  const otherLang = (packLang === langs.native) ? langs.learning : langs.native;
+  const natName = langName(otherLang);
   // Choix limités à la SESSION d'apprentissage : langue apprise + langue native
   // (ex. « chinois depuis anglais » → 中文 / English uniquement). En édition, on
   // garantit que la langue réelle du pack figure dans la liste (chip verrouillé).

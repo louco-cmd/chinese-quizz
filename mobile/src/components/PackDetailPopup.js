@@ -2,10 +2,20 @@ import { useState, useEffect } from 'react';
 import { View, Text, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from './Popup';
-import { getMarketPack, buyMarketPack, notifyNeedCoins, forgetPack, notifyUpgrade } from '../api';
+import { getMarketPack, buyMarketPack, notifyNeedCoins, forgetPack, notifyUpgrade, promotePack } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 import CatLoader from './CatLoader';
+
+// Tarif de promotion (miroir du backend) : 15 ₵/h, dégressif selon la durée.
+const PROMOTE_PER_HOUR = 10;
+const promoteDiscount = (h) => (h >= 72 ? 0.30 : h >= 24 ? 0.20 : h >= 6 ? 0.10 : 0);
+const promoteCost = (h) => Math.max(1, Math.round(PROMOTE_PER_HOUR * h * (1 - promoteDiscount(h))));
+// Durées proposées (heures) + libellé court.
+const PROMOTE_DURATIONS = [
+  { h: 1, label: '1h' }, { h: 6, label: '6h' }, { h: 12, label: '12h' },
+  { h: 24, label: '1d' }, { h: 72, label: '3d' }, { h: 168, label: '7d' },
+];
 
 // Illustration fictive : fond bleu pâle + idéogramme du niveau HSK.
 const HSK_GLYPH = { hsk1: '一', hsk2: '二', hsk3: '三', hsk4: '四', hsk5: '五', hsk6: '六' };
@@ -75,7 +85,7 @@ export function WordRow({ w, last }) {
 //   balance     : solde de l'utilisateur (pour le bouton d'achat)
 //   onStartQuiz : (pack) => void — affiche "Start a quiz" si possédé
 //   onBought    : (packId, { newBalance, wordsAdded }) => void — après achat
-export default function PackDetailPopup({ pack, balance, isPremium = false, onClose, onStartQuiz, onBought, onEditPack, onUpgrade, onForgotten }) {
+export default function PackDetailPopup({ pack, balance, isPremium = false, onClose, onStartQuiz, onBought, onEditPack, onUpgrade, onForgotten, onPromoted }) {
   const { t } = useT();
   const { height: screenH } = useWindowDimensions();
   const [detail, setDetail] = useState(null); // { pack, words?, preview? }
@@ -85,11 +95,16 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
   const [msg, setMsg] = useState('');
   const [confirmForget, setConfirmForget] = useState(false); // « Forget this pack » (premium)
   const [forgetting, setForgetting] = useState(false);
+  const [promoteOpen, setPromoteOpen] = useState(false); // panneau « booster ce pack »
+  const [promoteHours, setPromoteHours] = useState(24);
+  const [packDiscount, setPackDiscount] = useState(0); // remise sur le prix (%)
+  const [promoting, setPromoting] = useState(false);
 
   useEffect(() => {
     if (!pack) return;
     let alive = true;
     setLoading(true); setDetail(null); setError(''); setMsg(''); setConfirmForget(false); setForgetting(false);
+    setPromoteOpen(false); setPromoteHours(24); setPackDiscount(0); setPromoting(false);
     getMarketPack(pack.id)
       .then((d) => { if (alive) setDetail(d); })
       .catch((e) => { if (alive) setError(e.message); })
@@ -105,6 +120,9 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
   // tout court : sur un parcours miroir, un créateur ne possède pas encore les mots.
   const owned = !!p.owned;
   const isMine = !!p.isMine;
+  // Prix effectif (remisé si une promo est active) — celui réellement débité.
+  const effPrice = p.effective_price != null ? p.effective_price : p.price;
+  const onSale = !!p.boosted && (p.discount_pct || 0) > 0 && effPrice < p.price;
   // Créateur récupérant SON pack qu'il ne possède pas encore (parcours miroir) →
   // acquisition GRATUITE (le back ne facture pas le créateur).
   const acquireFree = isMine && !owned;
@@ -115,14 +133,14 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
   // Solde inconnu (profil pas encore chargé) → optimiste : on tente l'achat, le
   // backend tranchera (402 → handler global). Solde connu & insuffisant → on
   // ouvrira la popup « gagner des pièces ». Gratuit pour le créateur.
-  const affordable = acquireFree || balance == null || balance >= p.price;
+  const affordable = acquireFree || balance == null || balance >= effPrice;
   // Bouton cliquable même sans fonds → on ferme la popup pack et on ouvre la
   // popup « comment gagner des pièces » (même commit = swap propre, pas de
   // stacking de modals sur iOS). Sinon le bouton grisé n'apprend rien à l'user.
   const canBuy = !owned && hasWords;
   const buyPress = affordable
     ? buy
-    : () => { onClose?.(); notifyNeedCoins({ cost: p.price, balance }); };
+    : () => { onClose?.(); notifyNeedCoins({ cost: effPrice, balance }); };
 
   async function buy() {
     setBuying(true); setError('');
@@ -153,6 +171,37 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
     }
   }
 
+  async function doPromote() {
+    setPromoting(true); setError('');
+    try {
+      const d = await promotePack(pack.id, promoteHours, packDiscount);
+      onPromoted?.(pack.id, d);
+      try { setDetail(await getMarketPack(pack.id)); } catch { /* noop */ }
+      setPromoteOpen(false);
+      // Programmée (file d'attente) → on annonce la date de départ ; sinon active.
+      setMsg(d.scheduled && d.boosted_from
+        ? t('st_boost_queued').replace('{date}', new Date(d.boosted_from).toLocaleString())
+        : t('st_boost_done'));
+    } catch (e) {
+      // Solde insuffisant → popup « gagner des pièces » (swap propre).
+      if (e?.status === 402 || e?.data?.insufficient) { onClose?.(); notifyNeedCoins({ cost: e?.data?.cost, balance: e?.data?.balance }); return; }
+      setError(e.message || 'Could not promote the pack.');
+    } finally {
+      setPromoting(false);
+    }
+  }
+
+  // Bouton « booster » (créateur uniquement). Libellé selon boost en cours.
+  const promoteBtn = (
+    <Pressable
+      onPress={() => { setError(''); setMsg(''); setPackDiscount(p.boosted ? (p.discount_pct || 0) : 0); setPromoteOpen(true); }}
+      style={{ borderWidth: 1.5, borderColor: '#f5b301', borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+    >
+      <Ionicons name="megaphone-outline" size={16} color="#f5b301" />
+      <Text style={{ color: '#b3820a', fontWeight: '700', fontSize: 15 }}>{p.boosted ? t('st_boost_extend') : t('st_boost_pack')}</Text>
+    </Pressable>
+  );
+
   const bodyLoading = loading && !detail;
   // Feedback + actions = FOOTER collé en bas du Popup (bouton d'achat toujours
   // visible, ne scrolle pas avec la liste de mots).
@@ -165,7 +214,23 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
         </View>
       ) : null}
       {error ? <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '600', marginBottom: 10 }}>{error}</Text> : null}
-      {confirmForget ? (
+      {promoteOpen ? (
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Pressable onPress={() => setPromoteOpen(false)} disabled={promoting}
+            style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
+            <Text style={{ color: '#444', fontWeight: '700' }}>{t('co_cancel')}</Text>
+          </Pressable>
+          <Pressable onPress={doPromote} disabled={promoting}
+            style={{ flex: 1.5, paddingVertical: 13, borderRadius: 999, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: COLORS.jiayou }}>
+            {promoting ? <ActivityIndicator color="#fff" size="small" /> : (
+              <>
+                <Ionicons name="megaphone" size={15} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '800' }}>{t('st_boost_cta').replace('{price}', promoteCost(promoteHours))}</Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      ) : confirmForget ? (
         <View>
           <Text style={{ fontSize: 14, color: '#1a1a2e', lineHeight: 20, marginBottom: 14, textAlign: 'center' }}>
             {t('st_forget_confirm')}
@@ -206,6 +271,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
               <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>{t('st_edit_pack')}</Text>
             </Pressable>
           ) : null}
+          {isMine ? promoteBtn : null}
           {!p.isMine ? (
             <Pressable onPress={onForgetPress} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 2 }}>
               <Ionicons name="trash-outline" size={15} color={COLORS.danger} />
@@ -238,6 +304,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
               <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 15 }}>{t('st_edit_pack')}</Text>
             </Pressable>
           ) : null}
+          {isMine ? promoteBtn : null}
           <Pressable
             onPress={buyPress}
             disabled={buying || !canBuy}
@@ -247,7 +314,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
               <>
                 <Ionicons name={acquireFree ? 'add-circle' : (affordable ? 'cart' : 'wallet-outline')} size={16} color={affordable ? '#fff' : COLORS.muted} />
                 <Text style={{ color: affordable ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>
-                  {acquireFree ? t('st_add_free') : (affordable ? t('st_buy_for').replace('{price}', p.price) : t('st_not_enough'))}
+                  {acquireFree ? t('st_add_free') : (affordable ? t('st_buy_for').replace('{price}', effPrice) : t('st_not_enough'))}
                 </Text>
               </>
             )}
@@ -261,6 +328,81 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
     <Popup visible={!!pack} onClose={onClose} maxWidth={420} maxHeight={Math.round(screenH * 0.72)} footer={footerNode}>
       {loading && !detail ? (
         <View style={{ marginVertical: 30, alignItems: 'center' }}><CatLoader size={90} /></View>
+      ) : promoteOpen ? (
+        // Vue PROMOTION plein écran : le détail du pack s'efface, place aux réglages.
+        <View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: '#fff7e6', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="megaphone" size={18} color="#f5b301" />
+            </View>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e', flex: 1 }} numberOfLines={1}>{p.title}</Text>
+          </View>
+          <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e', marginTop: 10 }}>{t('st_boost_title')}</Text>
+          <Text style={{ fontSize: 13, color: COLORS.muted, marginTop: 2, lineHeight: 18 }}>{t('st_boost_sub')}</Text>
+          {/* File d'attente : une promo tourne déjà → la tienne démarrera plus tard. */}
+          {p.promo_queue_until && new Date(p.promo_queue_until) > new Date() ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: '#e8f0ff', borderRadius: 10, padding: 10 }}>
+              <Ionicons name="hourglass-outline" size={15} color={COLORS.jiayou} />
+              <Text style={{ flex: 1, fontSize: 12.5, color: COLORS.jiayou, fontWeight: '600' }}>
+                {t('st_boost_queue').replace('{date}', new Date(p.promo_queue_until).toLocaleString())}
+              </Text>
+            </View>
+          ) : null}
+          {p.boosted && p.boosted_until ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, backgroundColor: '#fff7e6', borderRadius: 10, padding: 10 }}>
+              <Ionicons name="time-outline" size={15} color="#b3820a" />
+              <Text style={{ flex: 1, fontSize: 12.5, color: '#b3820a', fontWeight: '600' }}>
+                {t('st_boost_active').replace('{date}', new Date(p.boosted_until).toLocaleString())}
+              </Text>
+            </View>
+          ) : null}
+          <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 18, marginBottom: 8 }}>{t('st_boost_duration')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {PROMOTE_DURATIONS.map(({ h, label }) => {
+              const active = promoteHours === h;
+              const disc = promoteDiscount(h);
+              return (
+                <Pressable key={h} onPress={() => setPromoteHours(h)}
+                  style={{ flexGrow: 1, flexBasis: '30%', borderWidth: 2, borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff', borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: active ? COLORS.jiayou : '#1a1a2e' }}>{label}</Text>
+                  <Text style={{ fontSize: 13, color: active ? COLORS.jiayou : COLORS.muted, fontWeight: '700', marginTop: 3 }}>{promoteCost(h)} ₵</Text>
+                  {disc ? <Text style={{ fontSize: 10, color: COLORS.success, fontWeight: '800', marginTop: 2 }}>-{Math.round(disc * 100)}%</Text> : null}
+                </Pressable>
+              );
+            })}
+          </View>
+          {/* Remise TEMPORAIRE optionnelle sur le prix du pack (pendant la promo). */}
+          <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 18, marginBottom: 8 }}>{t('st_boost_discount')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {[0, 10, 20, 30, 50].map((d) => {
+              const active = packDiscount === d;
+              return (
+                <Pressable key={d} onPress={() => setPackDiscount(d)}
+                  style={{ flexGrow: 1, flexBasis: '30%', borderWidth: 2, borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff', borderRadius: 12, paddingVertical: 11, alignItems: 'center' }}>
+                  <Text style={{ fontWeight: '800', color: active ? COLORS.jiayou : '#1a1a2e' }}>{d === 0 ? t('st_boost_no_discount') : `-${d}%`}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {/* Prix du pack : actuel → remisé si une remise est choisie. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+            <Text style={{ fontSize: 13, color: COLORS.muted }}>{t('st_pack_price')}:</Text>
+            {packDiscount > 0 ? (
+              <>
+                <Text style={{ fontSize: 14, color: COLORS.mutedLight, textDecorationLine: 'line-through' }}>{p.price} ₵</Text>
+                <Ionicons name="arrow-forward" size={13} color={COLORS.muted} />
+                <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.success }}>{Math.round(p.price * (100 - packDiscount) / 100)} ₵</Text>
+              </>
+            ) : (
+              <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e' }}>{p.price} ₵</Text>
+            )}
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+            <Text style={{ fontSize: 13, color: COLORS.muted }}>{t('st_balance')}: {balance != null ? balance : '—'} ₵</Text>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e' }}>{t('st_total')}: {promoteCost(promoteHours)} ₵</Text>
+          </View>
+        </View>
       ) : (
         <View>
           <View style={{ height: 84, borderRadius: 14, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>
@@ -272,6 +414,12 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
               </View>
             ) : null}
             {!owned ? <OwnedProgress owned={p.owned_words} total={p.word_count} /> : null}
+            {p.boosted ? (
+              <View style={{ position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f5b301', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+                <Ionicons name="megaphone" size={11} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{t('st_boosted_tag')}</Text>
+              </View>
+            ) : null}
           </View>
           <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e' }}>{p.title}</Text>
           <Text style={{ fontSize: 13, color: COLORS.muted, marginTop: 2 }}>

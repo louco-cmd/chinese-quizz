@@ -53,17 +53,69 @@ function PackCard({ pack, onPress }) {
               <Text numberOfLines={2} style={{ fontSize: 12, color: COLORS.muted, lineHeight: 16, marginTop: 7, minHeight: 32 }}>
                 {pack.description || t('st_no_desc')}
               </Text>
-              {/* Prix ↔ créateur */}
+              {/* Prix ↔ créateur (prix barré + remisé si promo active) */}
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 9 }}>
-                <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.jiayou }}>
-                  {pack.price === 0 ? t('st_free') : `${pack.price} ₵`}
-                </Text>
+                {pack.price !== 0 && pack.boosted && (pack.discount_pct || 0) > 0 && pack.effective_price < pack.price ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 5 }}>
+                    <Text style={{ fontSize: 12, color: COLORS.mutedLight, textDecorationLine: 'line-through' }}>{pack.price}</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.success }}>{pack.effective_price} ₵</Text>
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.jiayou }}>
+                    {pack.price === 0 ? t('st_free') : `${pack.price} ₵`}
+                  </Text>
+                )}
                 <Text numberOfLines={1} style={{ flexShrink: 1, marginLeft: 8, fontSize: 11.5, color: COLORS.muted, textAlign: 'right' }}>
                   {t('st_by')} {pack.creator}
                 </Text>
               </View>
             </>
           )}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+// Carte « mise en avant » (pack boosté) : large, pleine largeur, posée au-dessus
+// de la grille. Cover ronde à gauche, titre + prix, description, CTA + créateur.
+function FeaturedPackCard({ pack, onPress }) {
+  const { t } = useT();
+  return (
+    <Pressable onPress={() => onPress(pack)} style={{ marginBottom: 14 }}>
+      <View style={{ backgroundColor: '#fff', borderRadius: 18, padding: 14, ...SHADOW_CARD }}>
+        <View style={{ position: 'absolute', top: 10, right: 12, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#fff7e6', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+          <Ionicons name="megaphone" size={10} color="#b3820a" />
+          <Text style={{ color: '#b3820a', fontSize: 10, fontWeight: '800' }}>{t('st_sponsored')}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+          <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 40, fontWeight: '700', color: COVER_FG }}>{glyphOf(pack.cover_key)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, paddingRight: 70 }}>
+              <Text numberOfLines={1} style={{ flex: 1, fontSize: 16, fontWeight: '800', color: '#1a1a2e' }}>{pack.title}</Text>
+            </View>
+            <Text numberOfLines={2} style={{ fontSize: 12.5, color: COLORS.muted, lineHeight: 17, marginTop: 6, minHeight: 34 }}>
+              {pack.description || t('st_no_desc')}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12 }}>
+              <View style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 16 }}>
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>{t('st_discover')}</Text>
+              </View>
+              <View style={{ flexShrink: 1, alignItems: 'flex-end' }}>
+                {pack.price !== 0 && pack.boosted && (pack.discount_pct || 0) > 0 && pack.effective_price < pack.price ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 5 }}>
+                    <Text style={{ fontSize: 12, color: COLORS.mutedLight, textDecorationLine: 'line-through' }}>{pack.price}</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.success }}>{pack.effective_price} ₵</Text>
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: COLORS.jiayou }}>{pack.price === 0 ? t('st_free') : `${pack.price} ₵`}</Text>
+                )}
+                <Text numberOfLines={1} style={{ fontSize: 11, color: COLORS.muted }}>{t('st_by')} {pack.creator}</Text>
+              </View>
+            </View>
+          </View>
         </View>
       </View>
     </Pressable>
@@ -135,7 +187,10 @@ export default function PackMarket({
   // Construit la grille : packs (filtrés par prix si maxPrice) + tuile injectée +
   // spacers pour compléter la dernière rangée (multiple de numColumns).
   const visiblePacks = maxPrice == null ? packs : packs.filter((p) => (p.price || 0) < maxPrice);
-  const items = [...visiblePacks];
+  // Packs boostés → cartes « mises en avant » au-dessus de la grille (retirés de
+  // la grille pour ne pas apparaître deux fois).
+  const featured = visiblePacks.filter((p) => p.boosted);
+  const items = visiblePacks.filter((p) => !p.boosted);
   // La tuile injectée (ex. « import manuel » de l'onboarding) n'apparaît qu'une
   // fois les packs chargés → sinon elle s'affichait seule avant le reste (et des
   // users impatients cliquaient dessus). Pendant `loading`, la grille reste vide
@@ -156,7 +211,14 @@ export default function PackMarket({
         numColumns={numColumns}
         columnWrapperStyle={{ gap: 18 }}
         contentContainerStyle={contentContainerStyle || { flexGrow: 1, width: '100%', maxWidth: numColumns === 3 ? 980 : 720, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: TAB_CLEARANCE + extraBottomPad }}
-        ListHeaderComponent={ListHeaderComponent}
+        ListHeaderComponent={(
+          <>
+            {ListHeaderComponent}
+            {featured.length && !loading ? (
+              <View>{featured.map((p) => <FeaturedPackCard key={`feat-${p.id}`} pack={p} onPress={setSelected} />)}</View>
+            ) : null}
+          </>
+        )}
         ListFooterComponent={ListFooterComponent}
         renderItem={({ item }) =>
           item._spacer ? <View style={{ flex: 1 }} />
@@ -192,6 +254,7 @@ export default function PackMarket({
         onUpgrade={onUpgrade}
         onClose={() => setSelected(null)}
         onBought={onBought}
+        onPromoted={(id, d) => { setMe((m) => ({ ...m, balance: d.balance })); onBalance?.(d.balance); fetchPacks(); }}
         onForgotten={() => fetchPacks()}
         onStartQuiz={onStartQuiz ? (p) => { setSelected(null); onStartQuiz(p); } : undefined}
         onEditPack={onEditPack ? (d) => { setSelected(null); onEditPack(d); } : undefined}

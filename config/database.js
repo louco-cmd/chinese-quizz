@@ -443,6 +443,13 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE word_packs ALTER COLUMN native_lang SET DEFAULT 'en'`);
     console.log("✅ Colonne 'native_lang' sur word_packs vérifiée + backfill.");
 
+    // ── Migration : promotion de pack (boost payé en coins → mise en avant store)
+    // + remise TEMPORAIRE optionnelle sur le prix (appliquée tant que le boost est actif).
+    await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS boosted_until TIMESTAMPTZ`);
+    await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS boosted_from TIMESTAMPTZ`);
+    await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS discount_pct SMALLINT NOT NULL DEFAULT 0`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_word_packs_boosted ON word_packs(boosted_until)`);
+
     // ── Migration : modèle concept many-to-many (lexeme_senses) + mot_tr ───────
     // Un lexème peut appartenir à plusieurs sens → dédup des lexèmes tout en
     // gardant les concepts fidèles. Guardé : ne s'exécute que si `meanings` existe.
