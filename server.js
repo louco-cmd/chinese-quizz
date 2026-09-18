@@ -2195,9 +2195,9 @@ const REENGAGE_PUSH = {
     zh: { title: '你的小伙伴想你了 🐼', body: '两天没见啦，回来复习几个词吧！加油' },
   },
   2: {
-    en: { title: 'Ready for a comeback? 📚', body: 'A quick session today keeps your Chinese sharp. See you on Jiayou!' },
-    fr: { title: "Tes mots t'attendent toujours 📚", body: 'Une petite session aujourd’hui ? Reprends là où tu t’étais arrêté sur Jiayou.' },
-    zh: { title: '回来学习吧 📚', body: '今天来一小节？继续你的中文之旅！' },
+    en: { title: 'Rested and ready? 🌿', body: 'Resting is part of the learning process — come back to Jiayou soon and show us how fast you learn!' },
+    fr: { title: 'Reposé·e et prêt·e ? 🌿', body: 'Le repos fait partie de l’apprentissage — reviens vite sur Jiayou nous montrer à quelle vitesse tu apprends !' },
+    zh: { title: '休息好了吗？🌿', body: '休息也是学习的一部分——快回到 Jiayou，让我们看看你学得有多快！' },
   },
 };
 function reengagePushCopy(stage, lang) {
