@@ -24,9 +24,11 @@ const KNOWLEDGE = [
 ];
 const K_MAX = KNOWLEDGE.length - 1;
 
-function SectionLabel({ children }) {
+// `tight` : marge réduite quand un sous-titre bleu suit immédiatement (titre collé
+// à sa valeur). Sinon marge normale au-dessus des tuiles/boutons.
+function SectionLabel({ children, tight }) {
   return (
-    <Text style={{ fontSize: 12, fontWeight: '700', color: '#555', letterSpacing: 0.5, marginBottom: 2 }}>
+    <Text style={{ fontSize: 12, fontWeight: '700', color: '#555', letterSpacing: 0.5, marginBottom: tight ? 2 : 10 }}>
       {children}
     </Text>
   );
@@ -131,7 +133,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
           {/* Plage HSK : notion propre au chinois → masquée pour les autres langues. */}
           {learningZh ? (
             <>
-              <SectionLabel>{t('qz_hsk_range')}</SectionLabel>
+              <SectionLabel tight>{t('qz_hsk_range')}</SectionLabel>
               <Text style={{ fontSize: 14, fontWeight: '500', color: COLORS.jiayou, marginBottom: 12 }}>{status}</Text>
               <View style={{ flexDirection: 'row', gap: 6, marginBottom: 4 }}>
                 {HSK_LEVELS.map((n) => {
@@ -150,7 +152,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
           ) : null}
 
           {/* Difficulté — même UI (plage de tuiles) que le HSK, juste dessous. */}
-          <SectionLabel>{t('qz_difficulty')}</SectionLabel>
+          <SectionLabel tight>{t('qz_difficulty')}</SectionLabel>
           <Text style={{ fontSize: 14, fontWeight: '500', color: COLORS.jiayou, marginBottom: 12 }}>
             {kAll ? t('qz_all_levels') : kMin === kMax ? t(KNOWLEDGE[kMin].lk) : `${t(KNOWLEDGE[kMin].lk)} → ${t(KNOWLEDGE[kMax].lk)}`}
           </Text>
