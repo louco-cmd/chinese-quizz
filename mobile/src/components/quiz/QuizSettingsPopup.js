@@ -26,7 +26,7 @@ const K_MAX = KNOWLEDGE.length - 1;
 
 function SectionLabel({ children }) {
   return (
-    <Text style={{ fontSize: 12, fontWeight: '700', color: '#555', letterSpacing: 0.5, marginBottom: 10 }}>
+    <Text style={{ fontSize: 12, fontWeight: '700', color: '#555', letterSpacing: 0.5, marginBottom: 2 }}>
       {children}
     </Text>
   );
