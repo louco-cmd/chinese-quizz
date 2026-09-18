@@ -12,9 +12,9 @@ import { useT } from '../../i18n';
 // ligne. `flex:1` → les deux pills se partagent la largeur, sans expansion verticale.
 function StatPill({ emoji, value, label }) {
   return (
-    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-      <Text numberOfLines={1} style={{ color: 'rgba(255,255,255,0.92)', fontSize: 13 }}>
-        {emoji} <Text style={{ color: '#fff', fontWeight: '800' }}>{value}</Text> {label}
+    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+      <Text numberOfLines={1} style={{ color: 'rgba(26,26,46,0.75)', fontSize: 13 }}>
+        {emoji} <Text style={{ color: '#0b1b3a', fontWeight: '800' }}>{value}</Text> {label}
       </Text>
     </View>
   );
@@ -24,7 +24,7 @@ export default function AccountHero({ name, tagline, country, avatarIcon, avatar
   const { t } = useT();
   const flag = flagEmoji(country);
   return (
-    <View style={{ backgroundColor: '#0d6efd', paddingTop: 20, paddingBottom: 40 }}>
+    <View style={{ backgroundColor: '#0d6efd', paddingTop: 20, paddingBottom: 18 }}>
       {/* Contenu centré et borné à 1200px comme .account-layout de l'EJS */}
       <View style={{ width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: hPad }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
