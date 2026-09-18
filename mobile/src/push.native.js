@@ -38,6 +38,32 @@ export function configureNotificationHandler() {
   } catch { /* module absent */ }
 }
 
+// Enregistre un handler appelé quand l'utilisateur TAPE une notification (app au
+// premier plan, en arrière-plan, OU lancée depuis un état tué via le "cold start").
+// `handler` reçoit le `data` de la notif (ex. { type:'duel_result', duelId:42 }).
+// Renvoie une fonction de nettoyage. No-op si le module natif est absent.
+export function addNotificationResponseListener(handler) {
+  const m = mods();
+  if (!m) return () => {};
+  const { Notifications } = m;
+  let sub = null;
+  try {
+    // Cold start : l'app a été ouverte EN TAPANT une notif alors qu'elle était tuée.
+    Notifications.getLastNotificationResponseAsync?.()
+      .then((resp) => {
+        const data = resp?.notification?.request?.content?.data;
+        if (data) handler(data);
+      })
+      .catch(() => {});
+    // App déjà lancée (premier plan / arrière-plan).
+    sub = Notifications.addNotificationResponseReceivedListener((resp) => {
+      const data = resp?.notification?.request?.content?.data;
+      if (data) handler(data);
+    });
+  } catch { /* module absent */ }
+  return () => { try { sub?.remove?.(); } catch { /* noop */ } };
+}
+
 // Demande la permission et renvoie le token Expo Push (ou null). À envoyer au backend.
 export async function registerForPush() {
   const m = mods();

@@ -5,7 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef, setUpgradeHandler, setCoinsHandler, setUnauthorizedHandler } from './src/api';
 import { configurePurchases } from './src/purchases';
-import { registerForPush, configureNotificationHandler } from './src/push';
+import { registerForPush, configureNotificationHandler, addNotificationResponseListener } from './src/push';
 import { LangContext, makeT } from './src/i18n';
 import { initSentry, wrapApp } from './src/sentry';
 
@@ -54,6 +54,7 @@ function App() {
   const [bankReturn, setBankReturn] = useState('add');
   const [quizPack, setQuizPack] = useState(null); // pack à quizzer (depuis store/account)
   const [editPack, setEditPack] = useState(null); // pack à éditer (create-pack pré-rempli)
+  const [duelDeepLink, setDuelDeepLink] = useState(null); // id de duel à ouvrir en détail (depuis une notif)
 
   // Lance un quiz sur un pack possédé → onglet Quiz, popup de réglages pré-rempli.
   const startPackQuiz = (pack) => { setQuizPack(pack); setTab('quiz'); };
@@ -181,6 +182,25 @@ function App() {
 
   useEffect(() => { configureNotificationHandler(); }, []);
 
+  // Routage des notifications tapées → écran ciblé (au lieu d'ouvrir toujours la
+  // home). Le backend envoie `data.type` (+ ids) : cf. notify() côté serveur.
+  useEffect(() => {
+    const cleanup = addNotificationResponseListener((data) => {
+      const type = data?.type;
+      if (type === 'duel_result' && data.duelId) {
+        setDuelDeepLink(Number(data.duelId)); // ouvre le détail/résultat du duel
+        setTab('duels');
+      } else if (type === 'duel_new') {
+        setTab('duels');
+      } else if (type === 'pack_sold') {
+        setTab('store');
+      } else if (type === 'red_envelope') {
+        setTab('add'); // les enveloppes reçues s'ouvrent en popup sur la home
+      }
+    });
+    return cleanup;
+  }, []);
+
   useEffect(() => {
     getToken().then((t) => {
       setAuthed(!!t);
@@ -293,7 +313,7 @@ function App() {
       case 'collection': return <CollectionScreen onNavigate={setTab} />;
       case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
       case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} />;
-      case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} emailVerified={profile?.emailVerified} onCapture={() => setTab('add')} onOpenStore={() => { setBankReturn('duels'); setTab('store'); }} />;
+      case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} emailVerified={profile?.emailVerified} onCapture={() => setTab('add')} onOpenStore={() => { setBankReturn('duels'); setTab('store'); }} initialDetailDuelId={duelDeepLink} onDeepLinkConsumed={() => setDuelDeepLink(null)} />;
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onBack={() => setTab('account')} isPremium={!!profile?.isPremium} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;

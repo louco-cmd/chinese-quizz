@@ -27,7 +27,7 @@ function Empty({ text }) {
 // à étoffer sa collection (capture / pack) — même logique que le quiz.
 const MIN_DUEL_WORDS = 10;
 
-export default function DuelsScreen({ onDefeat, emailVerified, onCapture, onOpenStore }) {
+export default function DuelsScreen({ onDefeat, emailVerified, onCapture, onOpenStore, initialDetailDuelId, onDeepLinkConsumed }) {
   const { t } = useT();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
@@ -95,6 +95,15 @@ export default function DuelsScreen({ onDefeat, emailVerified, onCapture, onOpen
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Deep-link depuis une notification « résultat de duel » : ouvre directement le
+  // détail du duel ciblé, puis consomme le lien (évite de le rouvrir au re-render).
+  useEffect(() => {
+    if (initialDetailDuelId) {
+      setDetailDuel(Number(initialDetailDuelId));
+      onDeepLinkConsumed?.();
+    }
+  }, [initialDetailDuelId, onDeepLinkConsumed]);
 
   if (loading) {
     return (
