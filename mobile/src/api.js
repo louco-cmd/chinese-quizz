@@ -107,6 +107,17 @@ export function setUnauthorizedHandler(fn) { unauthorizedHandler = fn; }
 // réseau lent/instable (ex. Chine) → l'app paraît figée. On coupe à 15 s.
 const REQUEST_TIMEOUT_MS = 15000;
 
+// Normalise un échec de couche réseau (offline / timeout / abort) en une erreur
+// propre : plus de message brut Expo (« …offline. (at ExpoModulesCore/Promise.swift:56) »)
+// affiché en rouge. `isOffline` permet aux écrans d'afficher un empty state dédié ;
+// ErrorRetry ignore de toute façon `message` et montre un texte localisé générique.
+function offlineError(orig) {
+  const err = new Error('No internet connection. Please check your network and try again.');
+  err.isOffline = true;
+  err.original = orig;
+  return err;
+}
+
 async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth) {
@@ -135,8 +146,9 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
     // Échec réseau / timeout : UN seul réessai, et UNIQUEMENT pour les GET
     // (idempotents). On ne rejoue jamais un POST/PUT/DELETE → pas de double envoi
     // (achat, création de pack, envoi de coins…).
-    if (method === 'GET') res = await doFetch();
-    else throw e;
+    if (method === 'GET') {
+      try { res = await doFetch(); } catch (e2) { throw offlineError(e2); }
+    } else throw offlineError(e);
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

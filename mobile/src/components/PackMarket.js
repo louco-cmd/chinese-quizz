@@ -6,6 +6,7 @@ import { useT } from '../i18n';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 import PackDetailPopup, { glyphOf, COVER_BG, COVER_FG, OwnedProgress, isPremiumPack } from './PackDetailPopup';
 import CatLoader from './CatLoader';
+import { ErrorRetry } from './ErrorRetry';
 
 function PackCard({ pack, onPress }) {
   const { t } = useT();
@@ -167,7 +168,7 @@ export default function PackMarket({
             {loading ? (
               <CatLoader size={110} />
             ) : error ? (
-              <Text style={{ textAlign: 'center', color: COLORS.danger }}>{error}</Text>
+              <ErrorRetry onRetry={fetchPacks} />
             ) : (['zh', 'en'].includes(learningLang || me?.learning_lang || 'zh') && ['zh', 'en'].includes(baseLang || me?.native_lang || 'en')) ? (
               <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 15, paddingHorizontal: 24 }}>{t('st_no_packs')}</Text>
             ) : (
