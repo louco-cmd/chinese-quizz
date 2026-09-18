@@ -10,12 +10,12 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-// ⛔ INTERRUPTEUR MAÎTRE — laisse la feature DORMANTE même sur un build qui embarque
-// `expo-store-review`. Le terrain est prêt (dépendance + code + déclencheurs), mais
-// AUCUNE popup ne s'ouvre tant que ce flag est `false`. Pour l'activer plus tard,
-// une fois l'interaction peaufinée : passer à `true` → part par simple OTA (pas de
-// rebuild, le module natif est déjà dans le binaire). C'est le SEUL point à toucher.
-const REVIEW_PROMPT_ENABLED = false;
+// ✅ INTERRUPTEUR MAÎTRE — feature ACTIVE. La revue in-app s'ouvre sur un vrai
+// moment positif (throttlée par l'appli ET par l'OS). Sur le binaire 1.1.3 actuel
+// (sans le module natif) elle reste dormante ; elle devient effective dès le
+// prochain build natif embarquant `expo-store-review`. Repasser à `false` la coupe
+// partout, instantanément, par OTA.
+const REVIEW_PROMPT_ENABLED = true;
 
 const isWeb = Platform.OS === 'web';
 
@@ -37,16 +37,14 @@ async function writeFlag(k, v) {
   } catch { /* noop */ }
 }
 
-// ⚠️ MODULE NATIF VOLONTAIREMENT NON EMBARQUÉ dans le build 1.1.3 : `expo-store-review`
-// @57.0.2 exige expo 57.0.13 (il appelle `SceneGeometry.foregroundScene()`, absent de
-// expo-modules-core 57.0.12) → la compilation iOS échouait. Comme la feature est de
-// toute façon DORMANTE (REVIEW_PROMPT_ENABLED=false), on retire le module de ce build.
-// POUR ACTIVER PLUS TARD : (1) aligner expo puis `npx expo install expo-store-review`,
-// (2) restaurer le require ci-dessous, (3) passer REVIEW_PROMPT_ENABLED à true.
+// `expo-store-review` est de nouveau dans les dépendances (expo ≥ 57.0.13 corrige
+// le bug SceneGeometry qui cassait le build 1.1.3). Chargement LAZY en try/catch :
+// sur un build qui N'EMBARQUE PAS encore le module natif (binaire 1.1.3 actuel),
+// l'appel natif échoue et tout retombe en no-op (cf. garde-fous plus bas) → aucune
+// popup, aucun crash. La revue in-app s'active pleinement au PROCHAIN build natif.
 function nativeStoreReview() {
-  return null;
-  // if (isWeb) return null;
-  // try { return require('expo-store-review'); } catch { return null; }
+  if (isWeb) return null;
+  try { return require('expo-store-review'); } catch { return null; }
 }
 
 // Conditions de déclenchement. L'OS throttle DÉJÀ agressivement `requestReview`
