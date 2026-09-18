@@ -49,7 +49,7 @@ function PackRow({ pack, onPress, last }) {
 
 // Page Quiz : stats sticky à gauche (desktop) + CTA "Start a quiz" (mode fusionné
 // pinyin/characters) + "Train on a pack" + task quizzes + difficultés.
-export default function QuizScreen({ onOpenStore, onCapture, initialPack, onInitialConsumed, onBalanceChanged }) {
+export default function QuizScreen({ onOpenStore, onCapture, initialPack, onInitialConsumed, onBalanceChanged, onNavigate }) {
   const { t } = useT();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
@@ -91,7 +91,12 @@ export default function QuizScreen({ onOpenStore, onCapture, initialPack, onInit
   const learningEnglish = !isZh;
 
   const statsCard = (
-    <DuelSectionCard icon="stats-chart" title={t('quiz_mystats')}>
+    <DuelSectionCard
+      icon="stats-chart"
+      title={t('quiz_mystats')}
+      note={onNavigate ? t('quiz_access_account') : undefined}
+      onPress={onNavigate ? () => onNavigate('account') : undefined}
+    >
       <QuizStats
         quizzes={stats?.quizzes || 0}
         avg={stats?.avg || 0}

@@ -12,7 +12,7 @@ export const TRANSLATIONS = {
     nav_quiz: 'Quiz',
     nav_duels: 'Duels',
     // Quiz
-    quiz_mystats: 'My statistics',
+    quiz_mystats: 'My statistics', quiz_access_account: 'Access my account',
     quiz_quizzes: 'Quizzes',
     quiz_avg: 'Avg score',
     quiz_best: 'Best',
@@ -459,7 +459,7 @@ export const TRANSLATIONS = {
     nav_quiz: 'Quiz',
     nav_duels: 'Duels',
     // Quiz
-    quiz_mystats: 'Mes statistiques',
+    quiz_mystats: 'Mes statistiques', quiz_access_account: 'Accéder à mon compte',
     quiz_quizzes: 'Quiz',
     quiz_avg: 'Score moyen',
     quiz_best: 'Meilleur',
@@ -904,7 +904,7 @@ export const TRANSLATIONS = {
     nav_add: '添加',
     nav_quiz: '测验',
     nav_duels: '对战',
-    quiz_mystats: '我的统计',
+    quiz_mystats: '我的统计', quiz_access_account: '查看我的账户',
     quiz_quizzes: '测验数',
     quiz_avg: '平均分',
     quiz_best: '最佳',
