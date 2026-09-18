@@ -28,7 +28,7 @@ const {
   addTransaction
 } = require('./middleware/index');
 const { sendPasswordResetEmail, sendVerificationEmail, sendReengagementEmail } = require('./middleware/mail.service');
-const { initVapid, sendPushToUser } = require('./middleware/push.service');
+const { initVapid, sendPushToUser, sendExpoPush } = require('./middleware/push.service');
 initVapid();
 const cron = require('node-cron');
 require('dotenv').config();
@@ -2180,6 +2180,73 @@ cron.schedule('0 10 * * *', async () => {
     if (users.length) console.log(`📧 Reengagement: ${users.length} email(s) envoyés.`);
   } catch (err) {
     console.error('[Reengage cron] Erreur:', err.message);
+  }
+});
+
+// ── Relance PUSH "reviens sur Jiayou" : notif native aux inactifs ────────────
+// Deux paliers par période d'inactivité, sans spam : tier 1 dès 2 j, tier 2 vers
+// 7 j (au moins 4 j après le 1er). Le compteur `reengage_push_stage` se réinitialise
+// tout seul dès que l'utilisateur revient (son last_login repasse devant
+// reengage_pushed_at). Messages localisés selon interface_lang.
+const REENGAGE_PUSH = {
+  1: {
+    en: { title: 'Your words miss you 🐼', body: "It's been 2 days — hop back into Jiayou for a quick review! 加油" },
+    fr: { title: "On t'a gardé ta place 🐼", body: 'Ça fait 2 jours ! Reviens réviser quelques mots sur Jiayou 加油' },
+    zh: { title: '你的小伙伴想你了 🐼', body: '两天没见啦，回来复习几个词吧！加油' },
+  },
+  2: {
+    en: { title: 'Ready for a comeback? 📚', body: 'A quick session today keeps your Chinese sharp. See you on Jiayou!' },
+    fr: { title: "Tes mots t'attendent toujours 📚", body: 'Une petite session aujourd’hui ? Reprends là où tu t’étais arrêté sur Jiayou.' },
+    zh: { title: '回来学习吧 📚', body: '今天来一小节？继续你的中文之旅！' },
+  },
+};
+function reengagePushCopy(stage, lang) {
+  const t = REENGAGE_PUSH[stage] || REENGAGE_PUSH[1];
+  return t[lang] || t.en;
+}
+
+cron.schedule('0 18 * * *', async () => {
+  try {
+    // Candidats : inactifs ≥ 2 j, avec un token natif et les notifs activées, et
+    // qui n'ont pas encore reçu les 2 paliers pour CETTE absence.
+    const { rows: users } = await pool.query(`
+      SELECT id, interface_lang,
+             EXTRACT(EPOCH FROM (NOW() - last_login)) / 86400.0 AS days_idle,
+             COALESCE(reengage_push_stage, 0) AS stage,
+             reengage_pushed_at, last_login
+      FROM users
+      WHERE expo_push_token IS NOT NULL
+        AND notifications_enabled IS NOT FALSE
+        AND last_login IS NOT NULL
+        AND last_login <= NOW() - INTERVAL '2 days'
+        AND (
+          -- palier 1 pas encore envoyé pour cette absence
+          (reengage_pushed_at IS NULL OR reengage_pushed_at < last_login)
+          -- ou palier 1 envoyé, palier 2 dû (≥7 j d'absence, ≥4 j depuis le 1er)
+          OR (COALESCE(reengage_push_stage,0) = 1
+              AND last_login <= NOW() - INTERVAL '7 days'
+              AND reengage_pushed_at <= NOW() - INTERVAL '4 days')
+        )
+      ORDER BY last_login ASC
+      LIMIT 300
+    `);
+    let sent = 0;
+    for (const u of users) {
+      // Nouvelle absence (last_login plus récent que le dernier push) → palier 1.
+      const freshAbsence = !u.reengage_pushed_at || new Date(u.reengage_pushed_at) < new Date(u.last_login);
+      const stage = freshAbsence ? 1 : 2;
+      const copy = reengagePushCopy(stage, u.interface_lang || 'en');
+      try {
+        await sendExpoPush(u.id, { title: copy.title, body: copy.body, data: { type: 'reengage' } });
+        await pool.query(
+          'UPDATE users SET reengage_pushed_at = NOW(), reengage_push_stage = $2 WHERE id = $1',
+          [u.id, stage]);
+        sent += 1;
+      } catch (e) { console.error('[ReengagePush] failed for', u.id, e.message); }
+    }
+    if (sent) console.log(`🔔 Reengagement push: ${sent} notif(s) envoyée(s).`);
+  } catch (err) {
+    console.error('[ReengagePush cron] Erreur:', err.message);
   }
 });
 

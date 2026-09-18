@@ -194,8 +194,8 @@ function App() {
         setTab('duels');
       } else if (type === 'pack_sold') {
         setTab('store');
-      } else if (type === 'red_envelope') {
-        setTab('add'); // les enveloppes reçues s'ouvrent en popup sur la home
+      } else if (type === 'red_envelope' || type === 'reengage') {
+        setTab('add'); // enveloppes en popup / relance inactif → home
       }
     });
     return cleanup;

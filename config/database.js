@@ -177,6 +177,13 @@ const pool = new Pool({
     `);
     console.log("✅ Colonne 'notifications_enabled' vérifiée ou créée sur 'users'.");
 
+    // ── Migration: relance push des inactifs (2 paliers, cf. cron server.js) ──
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS reengage_pushed_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS reengage_push_stage SMALLINT NOT NULL DEFAULT 0
+    `);
+
     // ── Migration: word_review_enabled sur users ──────────────────────────────
     await pool.query(`
       ALTER TABLE users
