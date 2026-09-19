@@ -44,7 +44,19 @@ async function writeFlag(k, v) {
 // popup, aucun crash. La revue in-app s'active pleinement au PROCHAIN build natif.
 function nativeStoreReview() {
   if (isWeb) return null;
-  try { return require('expo-store-review'); } catch { return null; }
+  // ⚠️ On NE require PAS expo-store-review tant que son module natif n'est pas dans
+  // le build : sur la New Architecture ce require peut CRASHER EN DUR (non
+  // rattrapable par try/catch), comme vu avec react-native-view-shot. On teste
+  // d'abord la présence du natif via requireOptionalNativeModule (qui ne throw pas
+  // et ne charge pas la lib). Sur le binaire actuel → null → dormant, aucun crash.
+  try {
+    const core = require('expo-modules-core');
+    const present = typeof core.requireOptionalNativeModule === 'function'
+      ? !!core.requireOptionalNativeModule('ExpoStoreReview')
+      : !!(core.NativeModulesProxy && core.NativeModulesProxy.ExpoStoreReview);
+    if (!present) return null;
+    return require('expo-store-review');
+  } catch { return null; }
 }
 
 // Conditions de déclenchement. L'OS throttle DÉJÀ agressivement `requestReview`
