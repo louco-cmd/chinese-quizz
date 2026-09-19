@@ -359,6 +359,11 @@ export function deletePack(id) {
 let _collectionCache = null; // { data, ts }
 const COLLECTION_TTL_MS = 90 * 1000;
 export function invalidateCollection() { _collectionCache = null; }
+// Trophées : catalogue + progression + déblocage/crédit (calculé serveur).
+export function getTrophies() {
+  return request('/api/m/trophies');
+}
+
 export async function getCollection({ force = false } = {}) {
   const now = Date.now();
   if (!force && _collectionCache && now - _collectionCache.ts < COLLECTION_TTL_MS) {

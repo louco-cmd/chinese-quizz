@@ -603,6 +603,20 @@ const pool = new Pool({
       }
     } catch (e) { console.error('lexeme_senses migration:', e.message); }
 
+    // ── Trophées : débloqués une fois, récompense en coins créditée à l'unlock ──
+    // trophies_init : au 1er sync on backfill les paliers DÉJÀ atteints à 0 ₵
+    // (badges rétro sans crédit) → pas d'inflation ; ensuite crédit normal.
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS trophies_init BOOLEAN NOT NULL DEFAULT FALSE`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_trophies (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        trophy_id VARCHAR(48) NOT NULL,
+        coins_awarded INTEGER NOT NULL DEFAULT 0,
+        unlocked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, trophy_id)
+      )
+    `);
+
     // ── Learning paths (parcours d'apprentissage multi-langues) ────────────────
     // Un user peut avoir plusieurs parcours (apprendre zh ET fr), chacun sa
     // collection (déjà scindée par mots.lang = learning_lang). Le parcours ACTIF

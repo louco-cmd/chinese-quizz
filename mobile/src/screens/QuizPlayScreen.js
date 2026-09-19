@@ -25,6 +25,18 @@ function normalizePinyin(str) {
 function stripPunct(str) {
   return (str || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 }
+// Nombre de lettres pinyin par syllabe (tons/ponctuation ignorés) → aide-mémoire
+// en mode caractère : ex. « nǐ hǎo » → [2, 3] affiché « 2 · 3 ». Ne donne pas le
+// hanzi, mais rappelle la structure phonétique.
+function pinyinLetterCounts(pinyin) {
+  if (!pinyin) return [];
+  return String(pinyin)
+    .replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '')
+    .split('/')[0] // 1er sens seulement
+    .split(/\s+/)
+    .map((s) => normalizePinyin(s).length)
+    .filter((n) => n > 0);
+}
 function parseAnswers(str) {
   if (!str) return [];
   return str
@@ -337,6 +349,8 @@ export default function QuizPlayScreen({ config, onExit }) {
   // Champs à jetons (un par mot/syllabe) : pinyin (syllabes) OU terme latin (mots).
   // Le hanzi (cours de chinois, type caractère) reste un champ unique.
   const tokenFields = isPinyin || latinTokens;
+  // Mode caractère : décompte de lettres pinyin par syllabe (aide-mémoire).
+  const pyCounts = (!tokenFields && answerIsHanzi) ? pinyinLetterCounts(w.pinyin) : [];
   const senses = answerSenses(w, answerKind);
   const primary = tokenFields ? firstSenseTokens(w, answerKind) : [];
   const multiHint = senses.length > 1;
@@ -409,6 +423,13 @@ export default function QuizPlayScreen({ config, onExit }) {
                 />
               )}
             </View>
+            {/* Mode caractère (champ hanzi unique) : indice = nb de lettres pinyin
+                par syllabe (aide-mémoire, ne révèle pas le caractère). */}
+            {!tokenFields && answerIsHanzi && pyCounts.length ? (
+              <Text style={{ textAlign: 'center', color: COLORS.mutedLight, fontSize: 12.5, marginBottom: 14 }}>
+                {tr('qp_pinyin_len')}: {pyCounts.join(' · ')}
+              </Text>
+            ) : null}
             {multiHint ? (
               <Text style={{ textAlign: 'center', color: COLORS.mutedLight, fontSize: 12, marginBottom: 14 }}>
                 {`${senses.length} ${tr('qp_answers_possible')}`}

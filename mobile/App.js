@@ -24,6 +24,7 @@ import QuizScreen from './src/screens/QuizScreen';
 import DuelsScreen from './src/screens/DuelsScreen';
 import AccountScreen from './src/screens/AccountScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import TrophiesScreen from './src/screens/TrophiesScreen';
 import BankScreen from './src/screens/BankScreen';
 import PricingScreen from './src/screens/PricingScreen';
 import StoreScreen from './src/screens/StoreScreen';
@@ -293,7 +294,7 @@ function App() {
       // 4) Plateforme prof : ses onglets gèrent leur propre retour.
       if (profile?.role === 'teacher') return false;
       // 5) Sous-écrans → parent (miroir de leurs boutons onBack).
-      const PARENTS = { settings: 'account', account: 'add', writing: 'settings', 'create-pack': 'store' };
+      const PARENTS = { settings: 'account', account: 'add', writing: 'settings', trophies: 'settings', 'create-pack': 'store' };
       if (PARENTS[tab]) { setTab(PARENTS[tab]); return true; }
       if (['bank', 'pricing', 'teachers', 'import', 'support', 'legal', 'terms', 'privacy'].includes(tab)) {
         setTab(bankReturn || 'add'); return true;
@@ -316,6 +317,7 @@ function App() {
       case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} emailVerified={profile?.emailVerified} onCapture={() => setTab('add')} onOpenStore={() => { setBankReturn('duels'); setTab('store'); }} initialDetailDuelId={duelDeepLink} onDeepLinkConsumed={() => setDuelDeepLink(null)} />;
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onBack={() => setTab('account')} isPremium={!!profile?.isPremium} />;
+      case 'trophies': return <TrophiesScreen onBack={() => setTab('settings')} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} onPurchased={() => loadProfile({ route: false })} />;
       case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} canCreate onStartQuiz={startPackQuiz} onEditPack={startEditPack} onUpgrade={() => { setBankReturn('store'); setTab('pricing'); }} />;

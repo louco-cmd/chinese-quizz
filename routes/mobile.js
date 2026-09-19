@@ -2863,12 +2863,24 @@ router.get('/api/m/account', requireToken, async (req, res) => {
       pool.query(
         `SELECT COUNT(*)::int AS n FROM duels
          WHERE (challenger_id = $1 OR opponent_id = $1) AND status = 'completed' AND lang = $2`, [uid, L]),
-      // Calendrier d'activité : GLOBAL (tous parcours confondus).
+      // Calendrier d'activité : GLOBAL (tous parcours confondus). Un événement de
+      // révision = un quiz OU un duel joué. Pour le duel, la date de jeu de CE
+      // joueur ≈ created_at s'il est le challengeur (il joue à la création),
+      // completed_at s'il est l'adversaire (il joue en terminant le duel).
       pool.query(
-        `SELECT DATE(date_completed) AS date, COUNT(*) AS count
-         FROM quiz_history
-         WHERE user_id = $1 AND EXTRACT(YEAR FROM date_completed) = $2
-         GROUP BY DATE(date_completed) ORDER BY date ASC`, [uid, year]),
+        `SELECT date, COUNT(*) AS count FROM (
+           SELECT DATE(date_completed) AS date
+           FROM quiz_history
+           WHERE user_id = $1 AND EXTRACT(YEAR FROM date_completed) = $2
+           UNION ALL
+           SELECT DATE(CASE WHEN challenger_id = $1 THEN created_at ELSE completed_at END) AS date
+           FROM duels
+           WHERE (challenger_id = $1 OR opponent_id = $1)
+             AND (challenger_id = $1 OR status = 'completed')
+             AND (CASE WHEN challenger_id = $1 THEN created_at ELSE completed_at END) IS NOT NULL
+             AND EXTRACT(YEAR FROM (CASE WHEN challenger_id = $1 THEN created_at ELSE completed_at END)) = $2
+         ) ev
+         GROUP BY date ORDER BY date ASC`, [uid, year]),
       pool.query(
         `SELECT score, total_questions, ratio, quiz_type, coins_earned, date_completed
          FROM quiz_history WHERE user_id = $1 AND lang = $2
@@ -3073,6 +3085,143 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
     });
   } catch (e) {
     console.error('m/user profile error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── Trophées : catalogue (source unique) + endpoint qui calcule la progression,
+// débloque les paliers atteints et crédite la récompense (idempotent). ───────────
+// Chaque palier = [cible, récompense₵]. id = `${cat}_${cible}`. Le front n'affiche
+// que ce que renvoie l'endpoint (catégorie, unité, cible, reward, progress, unlocked).
+const TROPHY_CATALOG = [
+  { cat: 'captures',     unit: 'captures',      tiers: [[350, 50], [600, 100], [1000, 200], [2000, 350], [3500, 500], [5000, 800], [8000, 1200]] },
+  { cat: 'mastered',     unit: 'mastered',      tiers: [[100, 80], [500, 200], [800, 300], [1000, 400], [1500, 600], [2000, 900], [3000, 1500]] },
+  // Assiduité : jours d'activité CUMULÉS sur l'année en cours (quiz OU duel),
+  // remis à zéro le 1er janvier → paliers ré-obtenables chaque année (id daté).
+  { cat: 'streak',       unit: 'days_year', yearly: true, tiers: [[7, 30], [30, 80], [60, 150], [120, 300], [180, 500], [270, 800], [360, 1200]] },
+  { cat: 'quiz',         unit: 'quizzes',       tiers: [[10, 20], [50, 60], [100, 120], [300, 250], [800, 500], [2000, 900], [5000, 1800]] },
+  { cat: 'duel_win',     unit: 'duels_won',     tiers: [[10, 40], [25, 80], [50, 150], [100, 300], [250, 600], [500, 1000], [1000, 2000]] },
+  { cat: 'duel_play',    unit: 'duels_played',  tiers: [[10, 30], [25, 60], [50, 120], [100, 250], [250, 500], [500, 800], [1000, 1500]] },
+  { cat: 'money',        unit: 'coins_bank',    tiers: [[1000, 100], [5000, 200], [10000, 300], [25000, 500], [50000, 800], [100000, 1500]] },
+  { cat: 'pack_create',  unit: 'packs_created', tiers: [[1, 50], [5, 150], [10, 300]] },
+  { cat: 'pack_buy',     unit: 'packs_bought',  tiers: [[1, 20], [5, 80], [20, 200]] },
+];
+
+router.get('/api/m/trophies', requireToken, async (req, res) => {
+  const uid = req.tokenUser.id;
+  const year = new Date().getFullYear();
+  // id de trophée : daté pour les catégories annuelles (reset au 1er janvier).
+  const trophyId = (cat, target, yearly) => (yearly ? `${cat}_${target}_${year}` : `${cat}_${target}`);
+  try {
+    const [wordsQ, masteredQ, quizQ, duelQ, meQ, packCreateQ, packBuyQ, daysQ] = await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1', [uid]),
+      pool.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1 AND COALESCE(score,0) >= 85', [uid]),
+      pool.query('SELECT COUNT(*)::int AS n FROM quiz_history WHERE user_id = $1', [uid]),
+      pool.query(
+        `SELECT COUNT(*) FILTER (WHERE winner_id = $1)::int AS won,
+                COUNT(*) FILTER (WHERE status = 'completed' AND (challenger_id = $1 OR opponent_id = $1))::int AS played
+         FROM duels WHERE challenger_id = $1 OR opponent_id = $1`, [uid]),
+      pool.query('SELECT balance, trophies_init FROM users WHERE id = $1', [uid]),
+      pool.query('SELECT COUNT(*)::int AS n FROM word_packs WHERE creator_id = $1', [uid]),
+      pool.query('SELECT COUNT(*)::int AS n FROM pack_purchases WHERE buyer_id = $1', [uid]),
+      // Assiduité : jours d'activité DISTINCTS de l'ANNÉE en cours (quiz OU duel).
+      pool.query(
+        `SELECT COUNT(*)::int AS n FROM (
+           SELECT DATE(date_completed) AS d FROM quiz_history
+           WHERE user_id = $1 AND EXTRACT(YEAR FROM date_completed) = $2
+           UNION
+           SELECT DATE(CASE WHEN challenger_id = $1 THEN created_at ELSE completed_at END) AS d
+           FROM duels
+           WHERE (challenger_id = $1 OR opponent_id = $1)
+             AND (challenger_id = $1 OR status = 'completed')
+             AND (CASE WHEN challenger_id = $1 THEN created_at ELSE completed_at END) IS NOT NULL
+             AND EXTRACT(YEAR FROM (CASE WHEN challenger_id = $1 THEN created_at ELSE completed_at END)) = $2
+         ) days`, [uid, year]),
+    ]);
+    const stats = {
+      captures: wordsQ.rows[0].n,
+      mastered: masteredQ.rows[0].n,
+      quiz: quizQ.rows[0].n,
+      duel_win: duelQ.rows[0].won,
+      duel_play: duelQ.rows[0].played,
+      money: meQ.rows[0]?.balance || 0,
+      pack_create: packCreateQ.rows[0].n,
+      pack_buy: packBuyQ.rows[0].n,
+      streak: daysQ.rows[0].n,
+    };
+
+    // Trophées déjà débloqués.
+    const { rows: owned } = await pool.query('SELECT trophy_id, unlocked_at FROM user_trophies WHERE user_id = $1', [uid]);
+    const unlockedMap = new Map(owned.map((r) => [r.trophy_id, r.unlocked_at]));
+
+    // Débloque les paliers atteints pas encore possédés + crédite (atomique).
+    const toAward = [];
+    for (const c of TROPHY_CATALOG) {
+      for (const [target, reward] of c.tiers) {
+        const id = trophyId(c.cat, target, c.yearly);
+        if ((stats[c.cat] || 0) >= target && !unlockedMap.has(id)) toAward.push({ id, reward, cat: c.cat, target });
+      }
+    }
+    const firstSync = !meQ.rows[0]?.trophies_init;
+    let newlyUnlocked = [];
+    if (toAward.length || firstSync) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        if (firstSync) {
+          // 1er sync : backfill des paliers déjà atteints à 0 ₵ (badges rétro, aucun
+          // crédit → pas d'inflation). Pas de célébration (newlyUnlocked vide).
+          for (const a of toAward) {
+            await client.query(
+              'INSERT INTO user_trophies (user_id, trophy_id, coins_awarded) VALUES ($1, $2, 0) ON CONFLICT DO NOTHING',
+              [uid, a.id]);
+            unlockedMap.set(a.id, new Date().toISOString());
+          }
+          await client.query('UPDATE users SET trophies_init = TRUE WHERE id = $1', [uid]);
+        } else {
+          // Débloque + crédite les paliers franchis (une seule fois chacun).
+          let credited = 0;
+          for (const a of toAward) {
+            const ins = await client.query(
+              'INSERT INTO user_trophies (user_id, trophy_id, coins_awarded) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING trophy_id',
+              [uid, a.id, a.reward]);
+            if (ins.rowCount) { credited += a.reward; newlyUnlocked.push(a); unlockedMap.set(a.id, new Date().toISOString()); }
+          }
+          if (credited > 0) {
+            await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [credited, uid]);
+            await client.query(
+              `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'trophy', $3)`,
+              [uid, credited, `Trophies unlocked (${newlyUnlocked.length})`]);
+          }
+        }
+        await client.query('COMMIT');
+      } catch (e) {
+        await client.query('ROLLBACK');
+        console.error('trophy award error:', e.message);
+        newlyUnlocked = [];
+      } finally { client.release(); }
+    }
+
+    const categories = TROPHY_CATALOG.map((c) => ({
+      key: c.cat,
+      unit: c.unit,
+      yearly: !!c.yearly,
+      trophies: c.tiers.map(([target, reward]) => {
+        const id = trophyId(c.cat, target, c.yearly);
+        return {
+          id, target, reward, unit: c.unit,
+          current: Math.min(stats[c.cat] || 0, target),
+          value: stats[c.cat] || 0,
+          unlocked: unlockedMap.has(id),
+          unlocked_at: unlockedMap.get(id) || null,
+        };
+      }),
+    }));
+
+    const { rows: bal } = await pool.query('SELECT balance FROM users WHERE id = $1', [uid]);
+    res.json({ balance: bal[0]?.balance || 0, categories, newlyUnlocked });
+  } catch (e) {
+    console.error('m/trophies error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -3672,6 +3821,20 @@ router.get('/api/m/duels/:id', requireToken, async (req, res) => {
     const qd = typeof d.quiz_data === 'string' ? JSON.parse(d.quiz_data || '{}') : (d.quiz_data || {});
     const myScore = isChallenger ? d.challenger_score : d.opponent_score;
     const oppScore = isChallenger ? d.opponent_score : d.challenger_score;
+    // Enrichit les mots (snapshot) avec, POUR CE JOUEUR : meaning_id (sens primaire)
+    // + owned → permet de capturer depuis l'écran de résultat un mot rencontré non
+    // possédé (duels aléatoires). Le snapshot ne stocke que l'id du mot.
+    const wordsSnap = Array.isArray(qd.words) ? qd.words : [];
+    const wIds = wordsSnap.map((w) => w.id).filter(Boolean);
+    if (wIds.length) {
+      const { rows: meta } = await pool.query(
+        `SELECT m.id,
+                (SELECT min(meaning_id) FROM lexeme_senses ls WHERE ls.mot_id = m.id) AS meaning_id,
+                EXISTS(SELECT 1 FROM user_mots um WHERE um.user_id = $2 AND um.mot_id = m.id) AS owned
+         FROM mots m WHERE m.id = ANY($1)`, [wIds, uid]);
+      const byId = new Map(meta.map((r) => [r.id, r]));
+      wordsSnap.forEach((w) => { const mm = byId.get(w.id); if (mm) { w.meaning_id = mm.meaning_id; w.owned = mm.owned; } });
+    }
     // Issue vue par l'utilisateur (uniquement quand le duel est terminé).
     let result = null;
     if (d.status === 'completed') {
@@ -3692,7 +3855,7 @@ router.get('/api/m/duels/:id', requireToken, async (req, res) => {
       my_name: isChallenger ? d.challenger_name : d.opponent_name,
       my_avatar_icon: isChallenger ? d.challenger_avatar_icon : d.opponent_avatar_icon,
       my_avatar_color: isChallenger ? d.challenger_avatar_color : d.opponent_avatar_color,
-      words: qd.words || [],
+      words: wordsSnap,
       my_score: myScore,
       opp_score: oppScore,
       result,

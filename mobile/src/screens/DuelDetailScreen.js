@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator, Platform, useWind
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import Avatar from '../components/Avatar';
+import WordCapturePopup from '../components/WordCapturePopup';
 import { getDuel } from '../api';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
@@ -93,14 +94,23 @@ function VsPlayer({ name, score, winner, loser, icon, color }) {
   );
 }
 
-function WordRow({ word, last }) {
+function WordRow({ word, last, onPress, isDesktop }) {
   const { t } = useT();
+  // Cliquable (duel aléatoire) : on peut ouvrir le mot pour le capturer. Un mot
+  // non possédé porte une pastille « + » pour signaler qu'on peut l'ajouter.
+  const Wrapper = onPress ? Pressable : View;
+  const capturable = onPress && !word.owned;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: last ? 0 : 1, borderColor: '#f5f5f5' }}>
-      <Text style={{ fontSize: 22, fontWeight: '500', color: '#1d1d1f', minWidth: 48, textAlign: 'center' }}>{word.chinese}</Text>
+    <Wrapper onPress={onPress} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: last ? 0 : 1, borderColor: '#f5f5f5' }}>
+      {/* Groupe TERME appris : caractère + pinyin ensemble. Largeur FIXE en desktop
+          → la colonne anglaise s'aligne quelle que soit la longueur du terme. */}
+      <View style={{ width: isDesktop ? 140 : undefined, minWidth: 64, alignItems: 'center' }}>
+        <Text style={{ fontSize: 22, fontWeight: '500', color: '#1d1d1f', textAlign: 'center' }}>{word.chinese}</Text>
+        {word.pinyin ? <Text style={{ fontSize: 12.5, color: COLORS.jiayou, fontWeight: '600', marginTop: 2, textAlign: 'center' }}>{word.pinyin}</Text> : null}
+      </View>
+      {/* Traduction (anglais) séparée. */}
       <View style={{ flex: 1, minWidth: 0 }}>
-        {word.pinyin ? <Text style={{ fontSize: 12.5, color: COLORS.jiayou, fontWeight: '600' }}>{word.pinyin}</Text> : null}
-        <Text numberOfLines={1} style={{ fontSize: 14, color: '#1d1d1f', fontWeight: '500' }}>{word.english || ''}</Text>
+        <Text numberOfLines={2} style={{ fontSize: 14, color: '#1d1d1f', fontWeight: '500' }}>{word.english || ''}</Text>
         {word.description ? <Text numberOfLines={1} style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>{word.description}</Text> : null}
       </View>
       {word.hsk ? (
@@ -112,7 +122,16 @@ function WordRow({ word, last }) {
           <Text style={{ fontSize: 11, fontWeight: '700', color: '#888' }}>{t('qz_street')}</Text>
         </View>
       )}
-    </View>
+      {/* Affordance de capture : + si non possédé, ✓ si déjà dans la collection. */}
+      {onPress ? (
+        <Ionicons
+          name={word.owned ? 'checkmark-circle' : 'add-circle'}
+          size={20}
+          color={word.owned ? COLORS.success : COLORS.jiayou}
+          style={{ marginLeft: 2 }}
+        />
+      ) : null}
+    </Wrapper>
   );
 }
 
@@ -137,6 +156,7 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
   const [duel, setDuel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [captureSel, setCaptureSel] = useState(null); // mot ouvert pour capture
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -176,6 +196,9 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
   const pageBg = theyWon ? DEFEAT_BG : COLORS.page;
   const words = duel.words || [];
   const completed = duel.status === 'completed' && onRematch;
+  // Capture possible depuis les résultats d'un duel ALÉATOIRE (mots venant des
+  // collections des deux joueurs → on peut rencontrer un mot qu'on ne possède pas).
+  const canCapture = duel.duel_type === 'classic';
 
   const details = [
     { icon: 'shuffle', label: t('dd_mode'), value: duel.duel_type === 'classic' ? t('dd_random') : t('dd_aa_match') },
@@ -207,7 +230,15 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
     <>
       <View style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', ...SHADOW_CARD }}>
         {words.length > 0 ? (
-          words.map((w, i) => <WordRow key={i} word={w} last={i === words.length - 1} />)
+          words.map((w, i) => (
+            <WordRow
+              key={i}
+              word={w}
+              last={i === words.length - 1}
+              isDesktop={isDesktop}
+              onPress={canCapture && w.id ? () => setCaptureSel(w) : undefined}
+            />
+          ))
         ) : (
           <View style={{ paddingVertical: 40, paddingHorizontal: 24, alignItems: 'center' }}>
             <Ionicons name="file-tray-outline" size={38} color="#bbb" />
@@ -262,6 +293,16 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
           )}
         </View>
       </ScrollView>
+
+      {/* Capture d'un mot rencontré (duel aléatoire) — même esprit que la recherche home. */}
+      <WordCapturePopup
+        word={captureSel}
+        isZh={/[㐀-鿿]/.test(captureSel?.chinese || '')}
+        onClose={() => setCaptureSel(null)}
+        onCaptured={(w) => {
+          setDuel((d) => (d ? { ...d, words: (d.words || []).map((x) => (x.id === w.id ? { ...x, owned: true } : x)) } : d));
+        }}
+      />
     </View>
   );
 }

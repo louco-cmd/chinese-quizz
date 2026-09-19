@@ -35,6 +35,17 @@ function stripLetters(str) {
   return (str || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 }
 // Sens valides d'une réponse, séparés par / → UN SEUL suffit.
+// Nombre de lettres pinyin par syllabe (tons/ponctuation ignorés) → aide-mémoire
+// en mode caractère : « nǐ hǎo » → [2, 3] affiché « 2 · 3 » (ne donne pas le hanzi).
+function pinyinLetterCounts(pinyin) {
+  if (!pinyin) return [];
+  return String(pinyin)
+    .replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '')
+    .split('/')[0]
+    .split(/\s+/)
+    .map((s) => normalizePinyin(s).length)
+    .filter((n) => n > 0);
+}
 function answerSenses(w, isPinyin) {
   if (isPinyin) {
     return (w?.pinyin || '').replace(/（[^）]*）/g, '').replace(/\([^)]*\)/g, '')
@@ -269,6 +280,8 @@ export default function DuelPlayScreen({ duelId, onExit }) {
 
   // Champs à jetons : pinyin (syllabes) OU terme latin (mots). Hanzi = champ unique.
   const tokenFields = isPinyin || isLatin;
+  // Mode caractère (hanzi) : décompte de lettres pinyin par syllabe (aide-mémoire).
+  const pyCounts = (!tokenFields && isZh) ? pinyinLetterCounts(w.pinyin) : [];
   const senses = answerSenses(w, isPinyin);
   const primary = tokenFields ? firstSenseTokens(w, isPinyin) : [];
   const multiHint = senses.length > 1;
@@ -327,6 +340,11 @@ export default function DuelPlayScreen({ duelId, onExit }) {
                 />
               )}
             </View>
+            {!tokenFields && isZh && pyCounts.length ? (
+              <Text style={{ textAlign: 'center', color: COLORS.mutedLight, fontSize: 12.5, marginBottom: 14 }}>
+                {tr('qp_pinyin_len')}: {pyCounts.join(' · ')}
+              </Text>
+            ) : null}
             {multiHint ? (
               <Text style={{ textAlign: 'center', color: COLORS.mutedLight, fontSize: 12, marginBottom: 14 }}>
                 {`${senses.length} ${tr('qp_answers_possible')}`}

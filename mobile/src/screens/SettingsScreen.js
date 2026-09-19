@@ -240,6 +240,7 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
 
           {/* ── Learning (outils du cours) ── */}
           <SettingsGroup title={t('set_grp_learning')}>
+            <SettingsRow icon="trophy" iconColor="#f5b301" iconBg="#fff7e6" label={t('set_trophies')} sub={t('set_trophies_sub')} onPress={() => onOpen?.('trophies')} />
             <SettingsRow icon="cloud-upload" iconColor="#0d6efd" iconBg="#e8f0ff" label={t('set_import')} sub={t('set_import_sub')} onPress={() => onOpen?.('import')} />
             <SettingsRow
               icon="brush" iconColor="#7c3aed" iconBg="#f3e8ff" label={t('set_writing')} sub={t('set_writing_sub')}
