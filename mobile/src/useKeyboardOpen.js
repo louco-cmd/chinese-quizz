@@ -17,8 +17,17 @@ export default function useKeyboardOpen() {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
 
     const isTouch = () => !!window.matchMedia?.('(pointer: coarse)')?.matches;
+    // Seuls les champs qui ouvrent VRAIMENT le clavier comptent. Un <input> non
+    // texte (checkbox/radio/range… — c'est ainsi que react-native-web rend Switch
+    // et Toggle) déclenchait à tort l'état « clavier ouvert » et masquait la
+    // TabBar à chaque clic sur un toggle. On restreint aux types textuels.
+    const TEXT_INPUT = new Set(['text', 'search', 'email', 'password', 'number', 'tel', 'url', '']);
     const isField = (el) =>
-      !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+      !!el && (
+        (el.tagName === 'INPUT' && TEXT_INPUT.has((el.getAttribute('type') || '').toLowerCase()))
+        || el.tagName === 'TEXTAREA'
+        || el.isContentEditable
+      );
 
     let blurTimer = null;
     const onFocusIn = (e) => {

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getMe, getQuizPlayWords, saveQuiz, saveTaskResult } from '../api';
@@ -236,9 +236,15 @@ export default function QuizPlayScreen({ config, onExit }) {
       // Point (+ bonus) seulement si trouvé à la 1re tentative.
       if (results.current[idx].correct === null) { results.current[idx].correct = true; results.current[idx].bonus = bonus; }
       if (!second) setCorrectCount((c) => c + 1 + bonus);
-      setFeedback({ kind: 'success', text: tr('qp_correct') });
       setLocked(true);
-      setTimeout(() => advance(idx + 1, words), 1000);
+      if (type === 'reading') {
+        // Mode lecture : on révèle trad + pinyin avec une barre de 2 s (l'avance est
+        // pilotée par la carte ; maintien du doigt = pause du timer).
+        setFeedback({ kind: 'success_reveal', word: w });
+      } else {
+        setFeedback({ kind: 'success', text: tr('qp_correct') });
+        setTimeout(() => advance(idx + 1, words), 1000);
+      }
     } else if (!second) {
       // 1re erreur : on marque faux, on MONTRE la réponse, puis 2e chance (recopie).
       results.current[idx].correct = false;
@@ -373,11 +379,13 @@ export default function QuizPlayScreen({ config, onExit }) {
           {feedback && (
             feedback.kind === 'reveal'
               ? <RevealAnswerCard word={feedback.word} learningLang={learningLang} type={type} />
-              : (
-                <View style={{ backgroundColor: fbColor.bg, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16, alignItems: 'center' }}>
-                  <Text style={{ color: fbColor.fg, fontWeight: '700' }}>{feedback.text}</Text>
-                </View>
-              )
+              : feedback.kind === 'success_reveal'
+                ? <SuccessRevealCard word={feedback.word} learningLang={learningLang} type={type} durationMs={3000} onDone={() => advance(idx + 1, words)} />
+                : (
+                  <View style={{ backgroundColor: fbColor.bg, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16, alignItems: 'center' }}>
+                    <Text style={{ color: fbColor.fg, fontWeight: '700' }}>{feedback.text}</Text>
+                  </View>
+                )
           )}
 
           {/* Champs de réponse */}
@@ -454,6 +462,61 @@ export default function QuizPlayScreen({ config, onExit }) {
           </View>
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+// Révélation « bonne réponse » (mode lecture) : on réutilise TELLE QUELLE la carte
+// de réponse (identique à une erreur) et on ajoute EN DESSOUS une barre verte de
+// `durationMs` qui déclenche l'avance auto. Maintenir le doigt sur la barre MET EN
+// PAUSE le timer (onPressIn) et RELÂCHER le reprend (onPressOut) — temps de lire.
+function SuccessRevealCard({ word, learningLang, type, durationMs = 2000, onDone }) {
+  const { t: tr } = useT();
+  const progress = useRef(new Animated.Value(0)).current;
+  const remaining = useRef(durationMs);
+  const startedAt = useRef(0);
+  const anim = useRef(null);
+  const done = useRef(false);
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone; // toujours la dernière ref sans relancer le timer
+  const [paused, setPaused] = useState(false);
+
+  const run = (ms) => {
+    startedAt.current = Date.now();
+    anim.current = Animated.timing(progress, { toValue: 1, duration: Math.max(0, ms), easing: Easing.linear, useNativeDriver: false });
+    anim.current.start(({ finished }) => { if (finished && !done.current) { done.current = true; onDoneRef.current?.(); } });
+  };
+
+  // Timer lancé UNE fois au montage (nouvelle carte à chaque question).
+  useEffect(() => { run(durationMs); return () => anim.current?.stop?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pause = () => {
+    if (done.current || paused) return;
+    anim.current?.stop?.();
+    remaining.current = Math.max(0, remaining.current - (Date.now() - startedAt.current));
+    setPaused(true);
+  };
+  const resume = () => {
+    if (done.current || !paused) return;
+    setPaused(false);
+    run(remaining.current);
+  };
+
+  const width = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+
+  return (
+    <View>
+      {/* Carte de réponse identique au cas « faux », mais traduction en gros. */}
+      <RevealAnswerCard word={word} learningLang={learningLang} type={type} emphasizeTranslation />
+      {/* Barre verte du timer en dessous — maintenir pour mettre en pause. */}
+      <Pressable onPressIn={pause} onPressOut={resume} style={{ marginTop: -6, marginBottom: 16, paddingVertical: 8 }}>
+        <View style={{ height: 6, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <Animated.View style={{ width, height: '100%', borderRadius: 999, backgroundColor: paused ? COLORS.mutedLight : COLORS.success }} />
+        </View>
+        <Text style={{ fontSize: 11, color: COLORS.mutedLight, textAlign: 'center', marginTop: 6 }}>
+          {paused ? tr('qp_paused_hold') : tr('qp_hold_to_pause')}
+        </Text>
+      </Pressable>
     </View>
   );
 }

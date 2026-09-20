@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
-import { View, Text, Pressable, ActivityIndicator, Animated, useWindowDimensions } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toggle from '../Toggle';
 import { COLORS, SHADOW_CARD } from '../../theme';
@@ -7,47 +7,15 @@ import { useT } from '../../i18n';
 import { getDifficultWords, getMe } from '../../api';
 import CatLoader from '../CatLoader';
 
-// Carte recto/verso qui se retourne au tap (rotateY), comme les flip-cards EJS.
-function FlipCard({ front, sub, back, width }) {
-  const anim = useRef(new Animated.Value(0)).current;
-  const [flipped, setFlipped] = useState(false);
-  function flip() {
-    Animated.spring(anim, { toValue: flipped ? 0 : 1, useNativeDriver: true, friction: 8, tension: 10 }).start();
-    setFlipped((f) => !f);
-  }
-  const frontRotate = anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
-  const backRotate = anim.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] });
-
-  // Pas d'ombre (elevation) sur les faces qui tournent : sur Android l'ombre est
-  // projetée depuis les bords de la vue et se déforme pendant le rotateY. L'ombre
-  // est portée par le conteneur statique ci-dessous.
-  const face = {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    alignItems: 'center', justifyContent: 'center', backfaceVisibility: 'hidden',
-    backgroundColor: '#fff', borderRadius: 14, padding: 8,
-  };
-  return (
-    <Pressable onPress={flip} style={{ width, height: 110, borderRadius: 14, backgroundColor: '#fff', ...SHADOW_CARD }}>
-      {/* Recto : fond blanc, texte bleu */}
-      <Animated.View style={[face, { transform: [{ perspective: 800 }, { rotateY: frontRotate }] }]}>
-        <Text style={{ fontSize: 21, fontWeight: '700', color: COLORS.jiayou, textAlign: 'center' }}>{front}</Text>
-        {sub ? <Text style={{ fontSize: 13, color: COLORS.jiayou, opacity: 0.7, marginTop: 4 }}>{sub}</Text> : null}
-      </Animated.View>
-      {/* Verso : fond bleu, texte blanc */}
-      <Animated.View style={[face, { backgroundColor: COLORS.jiayou, transform: [{ perspective: 800 }, { rotateY: backRotate }] }]}>
-        <Text style={{ fontSize: 17, fontWeight: '700', color: '#fff', textAlign: 'center' }}>{back}</Text>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-// Section "Your difficulties" : mots les plus ratés en flip-cards + quick quiz.
-export default function DifficultWords({ onQuickQuiz }) {
+// Section "Your difficulties" : tableau des mots les plus ratés sur ~2 semaines.
+// Chaque ligne = terme appris (+ pinyin si chinois) : traduction. Un bouton
+// « Hide translation » (à côté du titre, comme un show-pinyin) masque la colonne
+// traduction, et un bouton « Start quiz on these words » lance un quiz sur la liste.
+export default function DifficultWords({ onQuickQuiz, wordsCount, onCapture, onStartQuiz }) {
   const { t } = useT();
-  const { width } = useWindowDimensions();
   const [words, setWords] = useState(null);
   const [learningLang, setLearningLang] = useState('zh');
-  const [showPinyin, setShowPinyin] = useState(false);
+  const [hideTranslation, setHideTranslation] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -60,51 +28,89 @@ export default function DifficultWords({ onQuickQuiz }) {
     return () => { alive = false; };
   }, []);
 
-  // Terme appris = toujours w.chinese ; traduction = w.english. Pinyin si chinois.
   const learningChinese = learningLang === 'zh';
-  // Colonnes selon la largeur ; largeur en % (robuste quelle que soit la marge parent).
-  const cols = width >= 900 ? 4 : width >= 560 ? 3 : 2;
-  const cardWidth = cols === 4 ? '23.5%' : cols === 3 ? '31.5%' : '48%';
+  // Collection maigre (<10 mots) → on invite à capturer plutôt qu'à lancer un quiz.
+  const fewWords = typeof wordsCount === 'number' && wordsCount < 10;
 
   return (
     <View style={{ marginTop: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>{t('qz_your_difficulties')}</Text>
-        {learningChinese && (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ color: COLORS.muted, fontSize: 13 }}>{t('qz_pinyin')}</Text>
-            <Toggle value={showPinyin} onValueChange={setShowPinyin} />
-          </View>
-        )}
-      </View>
-
       {loading ? (
         <View style={{ marginVertical: 24, alignItems: 'center' }}><CatLoader size={90} /></View>
       ) : words.length === 0 ? (
-        <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-          <Ionicons name="happy-outline" size={40} color={COLORS.muted} />
-          <Text style={{ color: COLORS.muted, marginTop: 8 }}>{t('qz_no_difficult')}</Text>
+        <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 16, ...SHADOW_CARD }}>
+          {/* Entête identique (icône + titre), sans toggle. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 14, borderBottomWidth: 1, borderColor: '#f0f0f0' }}>
+            <Ionicons name="barbell" size={19} color={COLORS.muted} />
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#444' }}>{t('qz_your_difficulties')}</Text>
+          </View>
+          {/* Empty state : titre secondaire + sous-titre + CTA (sans picto). */}
+          <View style={{ alignItems: 'center', paddingVertical: 28, paddingHorizontal: 8 }}>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: COLORS.muted, textAlign: 'center' }}>{t('qz_no_difficult')}</Text>
+            {fewWords ? (
+              <>
+                <Text style={{ fontSize: 13.5, color: COLORS.mutedLight, textAlign: 'center', marginTop: 8, lineHeight: 20, maxWidth: 300 }}>{t('qz_empty_capture_sub')}</Text>
+                <Pressable onPress={() => onCapture?.()}
+                  style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, paddingHorizontal: 26 }}>
+                  <Ionicons name="add-circle" size={16} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14.5 }}>{t('qz_empty_capture_cta')}</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={{ fontSize: 13.5, color: COLORS.mutedLight, textAlign: 'center', marginTop: 8, lineHeight: 20, maxWidth: 300 }}>{t('qz_empty_quiz_sub')}</Text>
+                <Pressable onPress={() => onStartQuiz?.()}
+                  style={{ marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 24 }}>
+                  <Ionicons name="flash" size={16} color={COLORS.jiayou} />
+                  <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 14.5 }}>{t('qz_start_quiz')}</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
         </View>
       ) : (
         <>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 }}>
-            {words.map((w) => (
-              <FlipCard
+          {/* Tableau : entête (titre + toggle) puis lignes terme (+ pinyin) : traduction. */}
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 16, ...SHADOW_CARD }}>
+            {/* Entête de tableau — même UI que « My statistics » : icône grise +
+                titre (15/700/#444), toggle « masquer traduction » à droite. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, borderBottomWidth: 1, borderColor: '#f0f0f0' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="barbell" size={19} color={COLORS.muted} />
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#444' }}>{t('qz_your_difficulties')}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ color: COLORS.muted, fontSize: 13 }}>{t('qz_hide_translation')}</Text>
+                <Toggle value={hideTranslation} onValueChange={setHideTranslation} />
+              </View>
+            </View>
+            {words.map((w, i) => (
+              <View
                 key={w.id}
-                width={cardWidth}
-                front={w.chinese}
-                sub={learningChinese && showPinyin ? w.pinyin : null}
-                back={w.english}
-              />
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: i === words.length - 1 ? 0 : 1, borderColor: '#f2f4f7' }}
+              >
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontSize: learningChinese ? 20 : 17, fontWeight: '700', color: '#1a1a2e' }}>{w.chinese}</Text>
+                  {learningChinese && w.pinyin ? (
+                    <Text style={{ fontSize: 13, color: COLORS.jiayou, fontWeight: '600', marginTop: 2 }}>{w.pinyin}</Text>
+                  ) : null}
+                </View>
+                <View style={{ flex: 1.2, minWidth: 0 }}>
+                  {hideTranslation ? (
+                    <Text style={{ fontSize: 16, color: '#c4c9d2', letterSpacing: 1 }}>•••</Text>
+                  ) : (
+                    <Text style={{ fontSize: 14, color: '#495057', fontWeight: '500' }}>{w.english}</Text>
+                  )}
+                </View>
+              </View>
             ))}
           </View>
 
           <Pressable
             onPress={() => onQuickQuiz(words.map((w) => w.id).filter(Boolean))}
-            style={{ alignSelf: 'center', marginTop: 20, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#6c757d', borderRadius: 999, paddingVertical: 10, paddingHorizontal: 18 }}
+            style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14 }}
           >
-            <Ionicons name="flash" size={15} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>{t('qz_quick_quiz')}</Text>
+            <Ionicons name="flash" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{t('qz_start_quiz_words')}</Text>
           </Pressable>
         </>
       )}

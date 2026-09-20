@@ -12,7 +12,9 @@ import { isZhLearning, ttsFor } from '../langs';
 //  • sinon (pinyin/caractère zh, écriture non-zh) → mot appris (hanzi en chinois)
 //    en principal + pinyin (zh) + traduction en secondaire.
 // Voix TTS = toujours le mot appris, dans la langue apprise.
-export default function RevealAnswerCard({ word, learningLang = 'zh', type }) {
+// `emphasizeTranslation` (bonne réponse en lecture chinois) : inverse la hiérarchie
+// → traduction en GROS, pinyin en secondaire (au lieu de pinyin gros + trad petite).
+export default function RevealAnswerCard({ word, learningLang = 'zh', type, emphasizeTranslation = false }) {
   const isZh = isZhLearning(learningLang);
   const isReading = type === 'reading';
   const readingBase = !isZh && isReading; // non-zh lecture → réponse = traduction
@@ -33,10 +35,17 @@ export default function RevealAnswerCard({ word, learningLang = 'zh', type }) {
           {readingBase ? (
             <Text style={{ fontSize: 22, fontWeight: '800', color: '#1a1a2e' }}>{word.english}</Text>
           ) : readingZh ? (
-            <>
-              <Text style={{ fontSize: 24, fontWeight: '800', color: '#1a1a2e' }}>{word.pinyin || word.chinese}</Text>
-              {word.english ? <Text style={{ fontSize: 14.5, color: COLORS.muted, marginTop: 2 }}>{word.english}</Text> : null}
-            </>
+            emphasizeTranslation ? (
+              <>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: '#1a1a2e' }}>{word.english || word.pinyin || word.chinese}</Text>
+                {word.pinyin ? <Text style={{ fontSize: 14.5, color: COLORS.muted, marginTop: 2 }}>{word.pinyin}</Text> : null}
+              </>
+            ) : (
+              <>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: '#1a1a2e' }}>{word.pinyin || word.chinese}</Text>
+                {word.english ? <Text style={{ fontSize: 14.5, color: COLORS.muted, marginTop: 2 }}>{word.english}</Text> : null}
+              </>
+            )
           ) : (
             <>
               <Text style={{ fontSize: isZh ? 24 : 20, fontWeight: '800', color: '#1a1a2e' }}>{word.chinese}</Text>

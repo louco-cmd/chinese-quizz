@@ -196,6 +196,23 @@ const pool = new Pool({
       ADD COLUMN IF NOT EXISTS pack_broadcast_at TIMESTAMPTZ
     `);
 
+    // ── Migration: relances de duels en attente de jeu. reminder_stage = dernier
+    // palier de rappel envoyé (0=aucun, 1=2j, 2=4j, 3=7j « dernière chance ») ;
+    // évite de renvoyer le même rappel. Au-delà, le duel est forfait (both lose bet).
+    await pool.query(`ALTER TABLE duels ADD COLUMN IF NOT EXISTS reminder_stage SMALLINT NOT NULL DEFAULT 0`);
+
+    // ── Décomposition des caractères (makemeahanzi, dictionary.txt) ──
+    // Sert la popup « tap sur un caractère » : radical, décomposition (IDS ⿰⿱…) et
+    // étymologie. Import one-shot via scripts/import-hanzi.js. Les tracés (ordre des
+    // traits) viennent d'ailleurs (proxy /api/m/hanzi/:char → hanzi-writer-data).
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS hanzi (
+        char text PRIMARY KEY,
+        radical text,
+        decomposition text,
+        etymology jsonb
+      )`);
+
     // ── Migration: word_review_enabled sur users ──────────────────────────────
     await pool.query(`
       ALTER TABLE users
@@ -830,29 +847,11 @@ const pool = new Pool({
       console.log("✅ Audit P2P (edit_log + mots.last_edited_by/at) vérifié.");
     } catch (e) { console.error('edit_log migration failed:', e.message); }
 
-    // ── Qualité P2P — scores de confiance/possession par lexème-sens (Phase A) ──
-    // Table alimentée par un CRAWLER EXTERNE (l'IA note `confidence` + `reason`,
-    // et compte `possession_count`). Le back ne fait que LIRE ces scores pour
-    // classer les résultats de recherche. On CREATE IF NOT EXISTS pour que la
-    // jointure de ranking ne casse jamais sur une base neuve (prod l'a déjà).
+    // ── Qualité P2P — ranking des résultats de recherche (crawler externe) ──
+    // La table réellement alimentée/lue est `lexeme_pair_scores` (scores de paires
+    // dirigées, plus bas). L'ancienne `lexeme_sense_scores` (Phase A, par lexème-sens)
+    // n'a jamais été alimentée ni lue → supprimée (drop manuel en base + retrait ici).
     try {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS lexeme_sense_scores (
-          mot_id integer NOT NULL,
-          meaning_id integer NOT NULL,
-          lang text,
-          zh_text text,
-          mot_text text,
-          confidence double precision NOT NULL,
-          reason text,
-          possession_count integer NOT NULL DEFAULT 0,
-          trust double precision,
-          judged_at timestamptz NOT NULL DEFAULT now(),
-          review_status text,
-          PRIMARY KEY (mot_id, meaning_id)
-        )`);
-      await pool.query(`CREATE INDEX IF NOT EXISTS lexeme_sense_scores_confidence_idx ON lexeme_sense_scores(confidence)`);
-      await pool.query(`CREATE INDEX IF NOT EXISTS lexeme_sense_scores_trust_idx ON lexeme_sense_scores(trust DESC NULLS LAST)`);
       // Fonction de RANKING centralisée (un seul endroit à tuner). Score dans ~[0,1] :
       //   • justesse (confidence IA, prior NEUTRE 0.5 si non jugé) pèse le plus ;
       //   • popularité (possession_count) en log normalisé et SATURÉ (au-delà de

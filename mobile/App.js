@@ -188,10 +188,10 @@ function App() {
   useEffect(() => {
     const cleanup = addNotificationResponseListener((data) => {
       const type = data?.type;
-      if (type === 'duel_result' && data.duelId) {
-        setDuelDeepLink(Number(data.duelId)); // ouvre le détail/résultat du duel
+      if ((type === 'duel_result' || type === 'duel_reminder') && data.duelId) {
+        setDuelDeepLink(Number(data.duelId)); // ouvre le détail du duel (résultat ou à jouer)
         setTab('duels');
-      } else if (type === 'duel_new') {
+      } else if (type === 'duel_new' || type === 'duel_expired') {
         setTab('duels');
       } else if (type === 'pack_sold' || type === 'pack_new') {
         setTab('store');

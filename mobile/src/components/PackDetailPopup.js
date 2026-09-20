@@ -65,12 +65,8 @@ export function WordRow({ w, last }) {
         {w.pinyin ? <Text style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 1 }}>{w.pinyin}</Text> : null}
       </View>
       {locked ? (
-        // Traduction masquée : barre grise (rendu identique iOS/Android/web) — le
-        // `filter: blur` CSS n'existe pas sur natif, d'où une barre "caviardée".
-        <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 6 }}>
-          <View style={{ width: 54, height: 11, borderRadius: 6, backgroundColor: '#e1e5ea' }} />
-          <View style={{ width: 34, height: 11, borderRadius: 6, backgroundColor: '#e1e5ea' }} />
-        </View>
+        // Traduction masquée : « ••• » (unifié avec « Your difficulties »).
+        <Text style={{ flex: 1, textAlign: 'right', fontSize: 16, color: '#c4c9d2', letterSpacing: 1 }}>•••</Text>
       ) : (
         <Text style={{ flex: 1, textAlign: 'right', color: '#1a1a2e', ...scriptStyle(w.english) }} numberOfLines={2}>{w.english}</Text>
       )}

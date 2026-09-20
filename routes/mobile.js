@@ -1589,18 +1589,59 @@ router.post('/api/m/words/bulk-delete', requireToken, async (req, res) => {
   }
 });
 
+// Composants « réels » d'une chaîne de décomposition IDS (makemeahanzi) : on retire
+// les caractères de description idéographique (⿰⿱⿲…, U+2FF0–2FFF), les inconnus
+// (『？』) et le caractère lui-même ; on garde les sous-caractères Han uniques.
+function parseHanziComponents(decomposition, self) {
+  if (!decomposition) return [];
+  const out = [];
+  for (const c of Array.from(decomposition)) {
+    const code = c.codePointAt(0);
+    if (code >= 0x2ff0 && code <= 0x2fff) continue;  // IDC
+    if (c === '？' || c === '?') continue;            // composant inconnu
+    if (!/[㐀-鿿]/.test(c)) continue;                  // hors plage Han unifiée
+    if (c === self) continue;                         // pas le caractère lui-même
+    if (!out.includes(c)) out.push(c);
+  }
+  return out;
+}
+
 // ── GET /api/m/character/:char : sens d'un caractère seul (tap sur la carte) ──
+// Fusionne NOTRE donnée (pinyin/trad/HSK depuis `mots`, langue native) avec la
+// décomposition makemeahanzi (radical, décompo IDS, composants, étymologie).
 router.get('/api/m/character/:char', requireToken, async (req, res) => {
   try {
     const ch = decodeURIComponent(req.params.char || '').trim();
     if (!ch) return res.status(400).json({ error: 'Missing character' });
-    // Correspondance exacte d'un mot d'un seul caractère dans le dictionnaire
     const nat = (await getUserLangs(req.tokenUser.id)).native;
-    const { rows } = await pool.query(
-      "SELECT chinese, pinyin, mot_tr(id, $2) AS english, hsk FROM mots WHERE chinese = $1 AND lang = 'zh' ORDER BY id ASC LIMIT 1",
-      [ch, nat]
-    );
-    res.json({ character: rows[0] || null });
+    const uid = req.tokenUser.id;
+    const [motQ, hanziQ] = await Promise.all([
+      pool.query(
+        `SELECT m.id, m.chinese, m.pinyin, mot_tr(m.id, $2) AS english, m.hsk,
+                (SELECT min(meaning_id) FROM lexeme_senses ls WHERE ls.mot_id = m.id) AS meaning_id,
+                EXISTS(SELECT 1 FROM user_mots um WHERE um.user_id = $3 AND um.mot_id = m.id) AS owned
+         FROM mots m WHERE m.chinese = $1 AND m.lang = 'zh' ORDER BY m.id ASC LIMIT 1`,
+        [ch, nat, uid]),
+      pool.query('SELECT radical, decomposition, etymology FROM hanzi WHERE char = $1', [ch]),
+    ]);
+    const mot = motQ.rows[0] || null;
+    const hz = hanziQ.rows[0] || null;
+    // Rien du tout (ni dans mots ni dans hanzi) → null (popup « non répertorié »).
+    if (!mot && !hz) return res.json({ character: null });
+    const character = {
+      id: mot ? mot.id : null,
+      meaning_id: mot ? mot.meaning_id : null,
+      owned: mot ? mot.owned : false,
+      chinese: (mot && mot.chinese) || ch,
+      pinyin: mot ? mot.pinyin : null,
+      english: mot ? mot.english : null,
+      hsk: mot ? mot.hsk : null,
+      radical: hz ? hz.radical : null,
+      decomposition: hz ? hz.decomposition : null,
+      components: hz ? parseHanziComponents(hz.decomposition, ch) : [],
+      etymology: hz ? hz.etymology : null,
+    };
+    res.json({ character });
   } catch (e) {
     console.error('m/character error:', e);
     res.status(500).json({ error: 'Server error' });
@@ -3827,13 +3868,29 @@ router.get('/api/m/duels/:id', requireToken, async (req, res) => {
     const wordsSnap = Array.isArray(qd.words) ? qd.words : [];
     const wIds = wordsSnap.map((w) => w.id).filter(Boolean);
     if (wIds.length) {
+      // Le snapshot fige la traduction dans la langue de l'INITIATEUR uniquement.
+      // On la ré-résout POUR CE JOUEUR dans sa langue native ; à défaut on retombe
+      // sur l'anglais (fallback universel garanti par la génération) et on signale
+      // `tr_missing` pour que le front affiche « traduction indispo dans ta langue ».
       const { rows: meta } = await pool.query(
         `SELECT m.id,
                 (SELECT min(meaning_id) FROM lexeme_senses ls WHERE ls.mot_id = m.id) AS meaning_id,
-                EXISTS(SELECT 1 FROM user_mots um WHERE um.user_id = $2 AND um.mot_id = m.id) AS owned
+                EXISTS(SELECT 1 FROM user_mots um WHERE um.user_id = $2 AND um.mot_id = m.id) AS owned,
+                mot_tr(m.id, (SELECT COALESCE(native_lang, 'en') FROM users WHERE id = $2)) AS tr_native,
+                mot_tr(m.id, 'en') AS tr_en
          FROM mots m WHERE m.id = ANY($1)`, [wIds, uid]);
       const byId = new Map(meta.map((r) => [r.id, r]));
-      wordsSnap.forEach((w) => { const mm = byId.get(w.id); if (mm) { w.meaning_id = mm.meaning_id; w.owned = mm.owned; } });
+      wordsSnap.forEach((w) => {
+        const mm = byId.get(w.id);
+        if (!mm) return;
+        w.meaning_id = mm.meaning_id;
+        w.owned = mm.owned;
+        const nat = (mm.tr_native || '').trim();
+        const en = (mm.tr_en || '').trim();
+        if (nat) { w.english = nat; w.tr_missing = false; }
+        else if (en) { w.english = en; w.tr_missing = true; }
+        // Sinon (ni native ni anglais) : on garde la valeur du snapshot.
+      });
     }
     // Issue vue par l'utilisateur (uniquement quand le duel est terminé).
     let result = null;
@@ -4079,7 +4136,10 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
 });
 
 // ── GET /api/m/difficult-words : mots à retravailler (section "Your difficulties") ─
-// Version allégée de /api/difficult-words : mots les plus ratés / score bas.
+// Mots les plus ratés vus RÉCEMMENT (fenêtre glissante ~2 semaines via last_seen),
+// classés par taux d'échec puis score bas. Max 20. Approximation : faute d'un
+// journal d'essais horodaté, on utilise last_seen (dernière révision) + le taux
+// d'échec cumulé — proche de « les plus échoués sur 2 semaines ».
 router.get('/api/m/difficult-words', requireToken, async (req, res) => {
   try {
     const langs = await getUserLangs(req.tokenUser.id);
@@ -4090,9 +4150,10 @@ router.get('/api/m/difficult-words', requireToken, async (req, res) => {
               ELSE 0.5 END AS error_rate
        FROM user_mots um JOIN mots m ON um.mot_id = m.id
        WHERE um.user_id = $1 AND m.lang = $3 AND um.nb_quiz > 0
+         AND um.last_seen >= NOW() - INTERVAL '14 days'
          AND ((um.nb_quiz >= 2 AND (um.nb_correct::float / um.nb_quiz) < 0.6) OR COALESCE(um.score,0) < 50)
        ORDER BY error_rate DESC, COALESCE(um.score,0) ASC, um.last_seen ASC NULLS FIRST
-       LIMIT 12`,
+       LIMIT 20`,
       [req.tokenUser.id, langs.native, langs.learning]
     );
     res.json({ words: rows.map((r) => ({ id: r.id, chinese: r.chinese, pinyin: r.pinyin, english: r.english })) });

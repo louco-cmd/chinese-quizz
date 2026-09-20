@@ -88,6 +88,8 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
         : hskMin === hskMax ? `HSK ${label(hskMin)}` : `HSK ${label(hskMin)}–${label(hskMax)}`;
 
   function start() {
+    // Difficultés : liste de mots figée → seul le type de quiz est choisi.
+    if (scope === 'ids') { onStart({ type }); return; }
     if (scope === 'pack') { onStart({ type, count }); return; }
     const hsk = isAll ? 'all' : `${hskMin}-${hskMax}`;
     // Plage complète = tous les niveaux (vide) ; sinon les clés de la plage.
@@ -105,6 +107,11 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
           <Ionicons name="albums" size={14} color={COLORS.jiayou} />
           <Text style={{ fontSize: 13.5, color: COLORS.muted }} numberOfLines={1}>{t('qz_training_on')} <Text style={{ fontWeight: '700', color: '#1a1a2e' }}>{packLabel}</Text></Text>
+        </View>
+      ) : scope === 'ids' ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+          <Ionicons name="barbell" size={14} color={COLORS.jiayou} />
+          <Text style={{ fontSize: 13.5, color: COLORS.muted }} numberOfLines={1}>{t('qz_training_on')} <Text style={{ fontWeight: '700', color: '#1a1a2e' }}>{t('qz_your_difficulties')}</Text></Text>
         </View>
       ) : <View style={{ height: 14 }} />}
 
@@ -171,8 +178,9 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
         </>
       ) : null}
 
-      {/* Number of words */}
-      <SectionLabel>{t('qz_num_words')}</SectionLabel>
+      {/* Number of words — masqué pour les difficultés (liste de mots figée). */}
+      {scope !== 'ids' ? (
+      <><SectionLabel>{t('qz_num_words')}</SectionLabel>
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
         {WORD_COUNTS.map((w) => {
           const active = w.value === count;
@@ -184,7 +192,8 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
             </Pressable>
           );
         })}
-      </View>
+      </View></>
+      ) : null}
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>

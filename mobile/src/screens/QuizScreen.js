@@ -55,7 +55,7 @@ export default function QuizScreen({ onOpenStore, onCapture, initialPack, onInit
   const isDesktop = width >= 992;
   const hPad = isDesktop ? 24 : 16;
 
-  const [pending, setPending] = useState(null); // { scope:'collection' } | { scope:'pack', packId, title }
+  const [pending, setPending] = useState(null); // { scope:'collection' } | { scope:'pack', packId, title } | { scope:'ids', ids }
   const [needWords, setNeedWords] = useState(false); // gate collection trop petite
   const [playing, setPlaying] = useState(null);
   const [stats, setStats] = useState(null);
@@ -135,7 +135,12 @@ export default function QuizScreen({ onOpenStore, onCapture, initialPack, onInit
       <TaskQuizzes onStart={(cfg) => setPlaying(cfg)} />
 
       {/* Your difficulties */}
-      <DifficultWords onQuickQuiz={(ids) => setPlaying({ type: 'pinyin', ids })} />
+      <DifficultWords
+        onQuickQuiz={(ids) => setPending({ scope: 'ids', ids })}
+        wordsCount={stats?.words}
+        onCapture={onCapture}
+        onStartQuiz={() => setPending({ scope: 'collection' })}
+      />
     </>
   );
 
@@ -239,7 +244,9 @@ export default function QuizScreen({ onOpenStore, onCapture, initialPack, onInit
         onStart={(opts) => {
           const p = pending;
           setPending(null);
-          setPlaying(p?.scope === 'pack' ? { ...opts, packId: p.packId, title: p.title } : opts);
+          if (p?.scope === 'pack') setPlaying({ ...opts, packId: p.packId, title: p.title });
+          else if (p?.scope === 'ids') setPlaying({ ...opts, ids: p.ids });
+          else setPlaying(opts);
         }}
       />
     </View>

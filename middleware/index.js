@@ -278,11 +278,15 @@ async function generateDuelQuiz(transaction, user1Id, user2Id, duelType, quizTyp
 
 async function getRandomUserWords(transaction, userId, count) {
   // Cours multilingue : ne tire que des mots de la langue apprise par le joueur.
+  // On exige aussi une traduction anglaise non vide : c'est le fallback universel
+  // affiché quand la langue native de l'adversaire n'a pas de traduction. Sans
+  // fallback, la question serait vide → on ne poole jamais un tel mot.
   const result = await transaction.query(`
     SELECT um.mot_id
     FROM user_mots um JOIN mots m ON m.id = um.mot_id
     WHERE um.user_id = $1
       AND m.lang = (SELECT COALESCE(learning_lang, 'zh') FROM users WHERE id = $1)
+      AND COALESCE(btrim(mot_tr(m.id, 'en')), '') <> ''
     ORDER BY RANDOM()
     LIMIT $2
   `, [userId, count]);
@@ -291,6 +295,8 @@ async function getRandomUserWords(transaction, userId, count) {
 
 async function getCommonWords(transaction, user1Id, user2Id, count) {
   // Mots communs DANS la langue apprise par l'initiateur (cours multilingue).
+  // Même garde que getRandomUserWords : exiger une traduction anglaise (fallback
+  // universel) pour ne jamais pooler un mot qui afficherait une question vide.
   const result = await transaction.query(`
     SELECT um1.mot_id
     FROM user_mots um1
@@ -298,6 +304,7 @@ async function getCommonWords(transaction, user1Id, user2Id, count) {
     JOIN mots m ON m.id = um1.mot_id
     WHERE um1.user_id = $1 AND um2.user_id = $2
       AND m.lang = (SELECT COALESCE(learning_lang, 'zh') FROM users WHERE id = $1)
+      AND COALESCE(btrim(mot_tr(m.id, 'en')), '') <> ''
     ORDER BY RANDOM()
     LIMIT $3
   `, [user1Id, user2Id, count]);

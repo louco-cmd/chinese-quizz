@@ -2251,6 +2251,112 @@ cron.schedule('0 18 * * *', async () => {
   }
 });
 
+// ── Relances des DUELS en attente de jeu + forfait ───────────────────────────
+// Un duel reste 'pending' tant que les DEUX joueurs n'ont pas soumis leur score
+// (score NULL = pas encore joué). La mise est débitée dès la création. On relance
+// le(s) joueur(s) qui n'ont pas joué à 2 j, 4 j et 7 j (« dernière chance »), puis
+// au 8e jour on forfait le duel : status='expired', mises NON remboursées → les
+// deux perdent leur pari (puits de pièces). reminder_stage évite les doublons.
+const DUEL_REMIND = {
+  1: {
+    en: { title: 'A duel is waiting ⚔️', body: (o) => `${o} is waiting — play your duel on Jiayou!` },
+    fr: { title: 'Un duel t’attend ⚔️', body: (o) => `${o} attend — lance ton duel sur Jiayou !` },
+    zh: { title: '有一场对战在等你 ⚔️', body: (o) => `${o} 在等你——快来 Jiayou 应战吧！` },
+  },
+  2: {
+    en: { title: 'Your duel is still pending ⚔️', body: (o) => `${o} is still waiting for your move. Don’t keep them hanging!` },
+    fr: { title: 'Ton duel est toujours en attente ⚔️', body: (o) => `${o} attend toujours ton coup. Ne le/la laisse pas en plan !` },
+    zh: { title: '你的对战还没开始 ⚔️', body: (o) => `${o} 还在等你出手，别让人家干等哦！` },
+  },
+  3: {
+    en: { title: 'Last chance ⚔️', body: (o, bet) => bet > 0
+      ? `Play your duel with ${o} now — or you both lose your ${bet} coin bet!`
+      : `Play your duel with ${o} now — or it will expire!` },
+    fr: { title: 'Dernière chance ⚔️', body: (o, bet) => bet > 0
+      ? `Joue ton duel contre ${o} maintenant — sinon vous perdez tous les deux votre mise de ${bet} pièces !`
+      : `Joue ton duel contre ${o} maintenant — sinon il expirera !` },
+    zh: { title: '最后机会 ⚔️', body: (o, bet) => bet > 0
+      ? `快和 ${o} 完成对战——否则你们都将失去 ${bet} 枚金币的赌注！`
+      : `快和 ${o} 完成对战——否则将会过期！` },
+  },
+};
+const DUEL_EXPIRED_COPY = {
+  en: { title: 'Duel expired ⌛', body: (o, bet) => bet > 0 ? `Your duel with ${o} expired — you both lost your ${bet} coin bet.` : `Your duel with ${o} expired.` },
+  fr: { title: 'Duel expiré ⌛', body: (o, bet) => bet > 0 ? `Ton duel contre ${o} a expiré — vous avez tous les deux perdu votre mise de ${bet} pièces.` : `Ton duel contre ${o} a expiré.` },
+  zh: { title: '对战已过期 ⌛', body: (o, bet) => bet > 0 ? `你和 ${o} 的对战已过期——你们都失去了 ${bet} 枚金币的赌注。` : `你和 ${o} 的对战已过期。` },
+};
+const nameOr = (n) => n || 'your opponent';
+
+cron.schedule('0 17 * * *', async () => {
+  try {
+    // 1) RAPPELS. Palier dû = le plus élevé dont le seuil d'âge est atteint.
+    const { rows: duels } = await pool.query(`
+      SELECT d.id, d.challenger_id, d.opponent_id, d.challenger_score, d.opponent_score,
+             d.bet_amount, COALESCE(d.reminder_stage,0) AS stage,
+             EXTRACT(EPOCH FROM (NOW() - d.created_at)) / 86400.0 AS age_days,
+             uc.name AS challenger_name, uc.interface_lang AS challenger_lang,
+             uo.name AS opponent_name,   uo.interface_lang AS opponent_lang
+      FROM duels d
+      JOIN users uc ON uc.id = d.challenger_id
+      JOIN users uo ON uo.id = d.opponent_id
+      WHERE d.status = 'pending'
+        AND d.created_at <= NOW() - INTERVAL '2 days'
+        AND COALESCE(d.reminder_stage,0) < 3
+      ORDER BY d.created_at ASC
+      LIMIT 500
+    `);
+    let remind = 0;
+    for (const d of duels) {
+      const tier = d.age_days >= 7 ? 3 : d.age_days >= 4 ? 2 : d.age_days >= 2 ? 1 : 0;
+      if (tier <= d.stage) continue;
+      const copy = DUEL_REMIND[tier];
+      // Destinataires = les joueurs qui n'ont PAS encore joué (score NULL).
+      const targets = [];
+      if (d.challenger_score === null) targets.push({ id: d.challenger_id, lang: d.challenger_lang, opp: d.opponent_name });
+      if (d.opponent_score === null) targets.push({ id: d.opponent_id, lang: d.opponent_lang, opp: d.challenger_name });
+      for (const tg of targets) {
+        const c = copy[tg.lang] || copy.en;
+        try {
+          await sendExpoPush(tg.id, { title: c.title, body: c.body(nameOr(tg.opp), d.bet_amount || 0), data: { type: 'duel_reminder', duelId: d.id } });
+          remind += 1;
+        } catch (e) { console.error('[DuelRemind] failed for', tg.id, e.message); }
+      }
+      await pool.query('UPDATE duels SET reminder_stage = $2 WHERE id = $1', [d.id, tier]);
+    }
+    if (remind) console.log(`🔔 Duel reminders: ${remind} notif(s) envoyée(s).`);
+
+    // 2) FORFAIT au 8e jour : mises déjà débitées, aucun remboursement → les deux
+    // perdent leur pari. On passe le duel en 'expired' et on prévient les 2 joueurs.
+    const { rows: exp } = await pool.query(`
+      SELECT d.id, d.challenger_id, d.opponent_id, d.bet_amount,
+             uc.name AS challenger_name, uc.interface_lang AS challenger_lang,
+             uo.name AS opponent_name,   uo.interface_lang AS opponent_lang
+      FROM duels d
+      JOIN users uc ON uc.id = d.challenger_id
+      JOIN users uo ON uo.id = d.opponent_id
+      WHERE d.status = 'pending' AND d.created_at <= NOW() - INTERVAL '8 days'
+        AND COALESCE(d.reminder_stage, 0) >= 3   -- la « dernière chance » a déjà été envoyée
+      LIMIT 500
+    `);
+    let expired = 0;
+    for (const d of exp) {
+      await pool.query(`UPDATE duels SET status = 'expired' WHERE id = $1`, [d.id]);
+      const recips = [
+        { id: d.challenger_id, lang: d.challenger_lang, opp: d.opponent_name },
+        { id: d.opponent_id, lang: d.opponent_lang, opp: d.challenger_name },
+      ];
+      for (const r of recips) {
+        const c = DUEL_EXPIRED_COPY[r.lang] || DUEL_EXPIRED_COPY.en;
+        try { await sendExpoPush(r.id, { title: c.title, body: c.body(nameOr(r.opp), d.bet_amount || 0), data: { type: 'duel_expired', duelId: d.id } }); } catch { /* noop */ }
+      }
+      expired += 1;
+    }
+    if (expired) console.log(`⌛ Duels forfaits (expired): ${expired}.`);
+  } catch (err) {
+    console.error('[DuelReminder cron] Erreur:', err.message);
+  }
+});
+
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;

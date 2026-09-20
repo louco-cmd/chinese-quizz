@@ -111,6 +111,7 @@ function WordRow({ word, last, onPress, isDesktop }) {
       {/* Traduction (anglais) séparée. */}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text numberOfLines={2} style={{ fontSize: 14, color: '#1d1d1f', fontWeight: '500' }}>{word.english || ''}</Text>
+        {word.tr_missing ? <Text numberOfLines={1} style={{ fontSize: 11, color: COLORS.mutedLight, marginTop: 2, fontStyle: 'italic' }}>{t('dp_tr_fallback')}</Text> : null}
         {word.description ? <Text numberOfLines={1} style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>{word.description}</Text> : null}
       </View>
       {word.hsk ? (

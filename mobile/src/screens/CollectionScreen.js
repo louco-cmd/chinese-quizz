@@ -7,10 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Speech from 'expo-speech';
 import { Loading, ErrorRetry } from '../components/ErrorRetry';
 import Popup from '../components/Popup';
+import HanziStroke from '../components/HanziStroke';
 import { COLORS, SHADOW_CARD_FLAT, TAB_CLEARANCE } from '../theme';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
-import { getCollection, updateWord, deleteWord, bulkDeleteWords, notifyUpgrade, getCharacter, getMe, getPurchasedPacks, getMyPacks, getPinyin } from '../api';
+import { getCollection, updateWord, deleteWord, bulkDeleteWords, notifyUpgrade, getCharacter, getMe, getPurchasedPacks, getMyPacks, getPinyin, captureWord } from '../api';
 import { langMeta } from '../langs';
 import CatLoader from '../components/CatLoader';
 import { ttsFor } from '../langs';
@@ -59,6 +60,8 @@ async function speak(t, lang = 'zh-CN', cbs = {}) {
 
 // Majuscule sur la 1re lettre de l'anglais (cosmétique).
 const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+// Caractère Han unifié (pour n'afficher l'ordre des traits que sur les hanzi).
+const isHanChar = (s) => !!s && /[㐀-鿿]/.test(s);
 // Contient au moins un caractère chinois (pour l'auto-génération du pinyin).
 const isChinese = (s) => /[一-鿿]/.test(s || '');
 
@@ -404,6 +407,24 @@ export default function CollectionScreen({ onNavigate }) {
     }
   }
 
+  const [capturingChar, setCapturingChar] = useState(false);
+  // Capture le caractère actuellement ouvert dans la popup (s'il n'est pas possédé).
+  async function captureCurrentChar() {
+    const d = charInfo?.data;
+    if (!d || !d.id || d.owned || capturingChar) return;
+    setCapturingChar(true);
+    try {
+      await captureWord(d.id, d.meaning_id);
+      setCharInfo((ci) => (ci ? { ...ci, data: { ...ci.data, owned: true } } : ci));
+      load(); // rafraîchit la collection en arrière-plan
+    } catch (e) {
+      // Solde insuffisant → la popup « gagner des pièces » est gérée globalement.
+      if (e?.status !== 402 && !e?.data?.insufficient) console.warn('capture char failed:', e?.message);
+    } finally {
+      setCapturingChar(false);
+    }
+  }
+
   function openEdit(word) {
     // Sens multiples (chinois ET anglais) stockés séparés par '/' en base → listes.
     const enList = (word.english || '').split('/').map((s) => s.trim()).filter(Boolean);
@@ -696,7 +717,6 @@ export default function CollectionScreen({ onNavigate }) {
 
   // ── Vue CARTE ──
   const chars = Array.from(w.chinese || '');
-  const isSingle = chars.length === 1;
   // Le terme appris est toujours w.chinese ; sa traduction native est w.english.
   // isZh pilote hanzi+pinyin+HSK+tap-caractère ; sinon on affiche un mot latin.
   const isZh = learningLang === 'zh';
@@ -714,12 +734,12 @@ export default function CollectionScreen({ onNavigate }) {
   const enSize = enLen <= 6 ? 42 : enLen <= 12 ? 34 : enLen <= 22 ? 27
     : enLen <= 40 ? 22 : 18;
 
-  // Rend les caractères chinois ; cliquables (sens du caractère) seulement pour
-  // les mots/phrases de plus d'1 caractère (sur 1 caractère, le sens est déjà là).
+  // Rend les caractères chinois ; chaque caractère est cliquable (ouvre la popup :
+  // tracés + décomposition + sens), y compris sur les mots d'un seul caractère.
   const renderGlyphs = (size, interactive) => (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
       {chars.map((ch, i) =>
-        interactive && !isSingle ? (
+        interactive ? (
           <Pressable key={i} onPress={() => openChar(ch)}>
             <Text style={{ fontSize: size, lineHeight: size * 1.12, fontWeight: '800', color: '#1a1a2e' }}>{ch}</Text>
           </Pressable>
@@ -837,31 +857,116 @@ export default function CollectionScreen({ onNavigate }) {
       {filterPopup}
 
       {/* ── Popup sens d'un caractère ── */}
-      <Popup visible={!!charInfo} onClose={() => setCharInfo(null)} maxWidth={280}>
+      <Popup visible={!!charInfo} onClose={() => setCharInfo(null)} maxWidth={340}>
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 52, fontWeight: '800', color: '#1a1a2e' }}>{charInfo?.char}</Text>
+          {/* HSK en pastille verte, en haut à droite. */}
+          {charInfo?.data?.hsk ? (
+            <View style={{ alignSelf: 'flex-end', backgroundColor: '#d8ebd9', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 6 }}>
+              <Text style={{ color: '#5c8163', fontSize: 16, fontWeight: '600' }}>hsk {charInfo.data.hsk}</Text>
+            </View>
+          ) : null}
+
+          {/* Héros : le caractère ANIMÉ (ordre des traits, tap pour rejouer) pour un
+              hanzi ; sinon le glyphe statique. */}
+          {isHanChar(charInfo?.char) ? (
+            <View style={{ alignItems: 'center', marginTop: charInfo?.data?.hsk ? 0 : 8 }}>
+              <HanziStroke char={charInfo.char} size={150} />
+            </View>
+          ) : (
+            <Text style={{ fontSize: 52, fontWeight: '800', color: '#1a1a2e', marginTop: 8 }}>{charInfo?.char}</Text>
+          )}
+
           {charInfo?.loading ? (
             <View style={{ marginTop: 12, alignItems: 'center' }}><CatLoader size={80} /></View>
           ) : charInfo?.data ? (
             <>
-              <View style={{ backgroundColor: COLORS.jiayouContainer, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4, marginTop: 12 }}>
-                <Text style={{ color: '#1976d2', fontWeight: '600' }}>{charInfo.data.pinyin || 'N/A'}</Text>
+              {/* Pinyin (petit, noir) + audio, puis traduction (gros, bleu). */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                {charInfo.data.pinyin ? (
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#1a1a2e' }}>{charInfo.data.pinyin}</Text>
+                ) : null}
+                <Pressable onPress={() => play(charInfo?.char, 'zh-CN', 'char')}
+                  style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: COLORS.jiayouContainer, alignItems: 'center', justifyContent: 'center' }}>
+                  {speakingKey === 'char'
+                    ? <ActivityIndicator size="small" color={COLORS.jiayou} />
+                    : <Ionicons name="volume-medium" size={16} color={COLORS.jiayou} />}
+                </Pressable>
               </View>
-              <Text style={{ color: COLORS.muted, marginTop: 8, textAlign: 'center' }}>{charInfo.data.english || tr('co_no_translation')}</Text>
-              {charInfo.data.hsk ? (
-                <View style={{ backgroundColor: '#e8f5e8', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3, marginTop: 8 }}>
-                  <Text style={{ color: '#2e7d32', fontSize: 12, fontWeight: '600' }}>HSK {charInfo.data.hsk}</Text>
+              <Text style={{ fontSize: 30, fontWeight: '800', color: COLORS.jiayou, marginTop: 8, textAlign: 'center' }}>{charInfo.data.english || tr('co_no_translation')}</Text>
+
+              {/* Capture : si le caractère existe en base mais n'est PAS possédé. */}
+              {charInfo.data.id && !charInfo.data.owned ? (
+                <Pressable onPress={captureCurrentChar} disabled={capturingChar}
+                  style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 22, opacity: capturingChar ? 0.7 : 1 }}>
+                  {capturingChar ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="add-circle" size={18} color="#fff" />}
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{tr('wc_capture')}</Text>
+                </Pressable>
+              ) : charInfo.data.id && charInfo.data.owned ? (
+                <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="checkmark-circle" size={16} color="#198754" />
+                  <Text style={{ color: '#198754', fontWeight: '700', fontSize: 13 }}>{tr('wc_in_collection')}</Text>
                 </View>
               ) : null}
+
+              {/* Carte grise : Étymologie uniquement. */}
+              {(() => {
+                const e = charInfo.data.etymology;
+                const picto = e && e.type === 'pictophonetic' && (e.semantic || e.phonetic);
+                if (!e || (!picto && !e.hint)) return null;
+                return (
+                  <View style={{ marginTop: 24, width: '100%', backgroundColor: '#f1f3f5', borderRadius: 20, padding: 20 }}>
+                    <Text style={{ fontSize: 20, fontWeight: '800', color: '#1a1a2e', marginBottom: 8 }}>{tr('co_etymology')}</Text>
+                    {picto ? (
+                      <>
+                        {e.semantic ? (
+                          <Text style={{ fontSize: 16, color: '#333', lineHeight: 23 }}>
+                            {tr('co_ety_meaning')}: <Text style={{ fontWeight: '700', color: '#1a1a2e' }}>{e.semantic}</Text>{e.hint ? ` (${e.hint})` : ''}
+                          </Text>
+                        ) : null}
+                        {e.phonetic ? (
+                          <Text style={{ fontSize: 16, color: '#333', lineHeight: 23, marginTop: 2 }}>
+                            {tr('co_ety_sound')}: <Text style={{ fontWeight: '700', color: '#1a1a2e' }}>{e.phonetic}</Text>
+                          </Text>
+                        ) : null}
+                      </>
+                    ) : (
+                      <Text style={{ fontSize: 16, color: '#333', lineHeight: 23 }}>{e.hint}</Text>
+                    )}
+                  </View>
+                );
+              })()}
+
+              {/* Composition : ligne SOUS la carte — label à gauche, chips ronds à droite. */}
+              {(() => {
+                const comps = [];
+                if (charInfo.data.radical) comps.push(charInfo.data.radical);
+                (charInfo.data.components || []).forEach((c) => { if (!comps.includes(c)) comps.push(c); });
+                if (!comps.length) return null;
+                return (
+                  <View style={{ marginTop: 20, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                    <Text style={{ fontSize: 18, color: '#1a1a2e' }}>{tr('co_composition')}</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-end', flexShrink: 1 }}>
+                      {comps.map((c) => (
+                        <Pressable key={c} onPress={() => openChar(c)}
+                          style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#e8f0ff', alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ fontSize: 26, color: COLORS.jiayou, fontWeight: '600' }}>{c}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                );
+              })()}
             </>
           ) : (
-            <Text style={{ color: COLORS.mutedLight, marginTop: 12 }}>{tr('co_char_not_registered')}</Text>
+            <>
+              <Text style={{ color: COLORS.mutedLight, marginTop: 12 }}>{tr('co_char_not_registered')}</Text>
+              <Pressable onPress={() => play(charInfo?.char, 'zh-CN', 'char')} style={[circleBtn, { marginTop: 16 }]}>
+                {speakingKey === 'char'
+                  ? <ActivityIndicator size="small" color={COLORS.jiayou} />
+                  : <Ionicons name="volume-medium" size={20} color={COLORS.jiayou} />}
+              </Pressable>
+            </>
           )}
-          <Pressable onPress={() => play(charInfo?.char, 'zh-CN', 'char')} style={[circleBtn, { marginTop: 16 }]}>
-            {speakingKey === 'char'
-              ? <ActivityIndicator size="small" color={COLORS.jiayou} />
-              : <Ionicons name="volume-medium" size={20} color={COLORS.jiayou} />}
-          </Pressable>
         </View>
       </Popup>
 

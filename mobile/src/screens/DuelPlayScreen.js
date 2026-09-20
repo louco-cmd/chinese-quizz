@@ -296,6 +296,9 @@ export default function DuelPlayScreen({ duelId, onExit }) {
           <View style={{ alignItems: 'center', marginVertical: 22 }}>
             <Text style={{ fontSize: 16, color: COLORS.muted, textAlign: 'center' }}>{promptLine}</Text>
             <Text style={{ fontSize: promptWordSize, fontWeight: '800', color: '#1a1a2e', marginTop: 10, textAlign: 'center' }}>{promptWord}</Text>
+            {w.tr_missing ? (
+              <Text style={{ fontSize: 12, color: COLORS.mutedLight, textAlign: 'center', marginTop: 6 }}>{tr('dp_tr_fallback')}</Text>
+            ) : null}
           </View>
 
           {feedback && (
