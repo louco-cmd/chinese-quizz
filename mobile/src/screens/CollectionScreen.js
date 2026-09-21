@@ -908,15 +908,19 @@ export default function CollectionScreen({ onNavigate }) {
                 </View>
               ) : null}
 
-              {/* Carte grise : Étymologie uniquement. */}
+              {/* Carte grise : Étymologie. On préfère `etym_note` (explication enrichie,
+                  prête à afficher) ; à défaut on retombe sur l'ancien rendu type-aware. */}
               {(() => {
+                const note = charInfo.data.etym_note;
                 const e = charInfo.data.etymology;
                 const picto = e && e.type === 'pictophonetic' && (e.semantic || e.phonetic);
-                if (!e || (!picto && !e.hint)) return null;
+                if (!note && (!e || (!picto && !e.hint))) return null;
                 return (
                   <View style={{ marginTop: 24, width: '100%', backgroundColor: '#f1f3f5', borderRadius: 20, padding: 20 }}>
                     <Text style={{ fontSize: 20, fontWeight: '800', color: '#1a1a2e', marginBottom: 8 }}>{tr('co_etymology')}</Text>
-                    {picto ? (
+                    {note ? (
+                      <Text style={{ fontSize: 16, color: '#333', lineHeight: 23 }}>{note}</Text>
+                    ) : picto ? (
                       <>
                         {e.semantic ? (
                           <Text style={{ fontSize: 16, color: '#333', lineHeight: 23 }}>

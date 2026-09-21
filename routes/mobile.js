@@ -1727,7 +1727,7 @@ router.get('/api/m/character/:char', requireToken, async (req, res) => {
                 EXISTS(SELECT 1 FROM user_mots um WHERE um.user_id = $3 AND um.mot_id = m.id) AS owned
          FROM mots m WHERE m.chinese = $1 AND m.lang = 'zh' ORDER BY m.id ASC LIMIT 1`,
         [ch, nat, uid]),
-      pool.query('SELECT radical, decomposition, etymology FROM hanzi WHERE char = $1', [ch]),
+      pool.query('SELECT radical, decomposition, etymology, etym_note, pinyin FROM hanzi WHERE char = $1', [ch]),
     ]);
     const mot = motQ.rows[0] || null;
     const hz = hanziQ.rows[0] || null;
@@ -1738,13 +1738,17 @@ router.get('/api/m/character/:char', requireToken, async (req, res) => {
       meaning_id: mot ? mot.meaning_id : null,
       owned: mot ? mot.owned : false,
       chinese: (mot && mot.chinese) || ch,
-      pinyin: mot ? mot.pinyin : null,
+      // Pinyin : celui de la collection/mots d'abord, sinon la lecture makemeahanzi
+      // (utile pour un composant tapé qui n'est pas un mot à part entière).
+      pinyin: (mot && mot.pinyin) || (hz && hz.pinyin) || null,
       english: mot ? mot.english : null,
       hsk: mot ? mot.hsk : null,
       radical: hz ? hz.radical : null,
       decomposition: hz ? hz.decomposition : null,
       components: hz ? parseHanziComponents(hz.decomposition, ch) : [],
       etymology: hz ? hz.etymology : null,
+      // Explication prête à afficher (enrichie) ; l'app la préfère au hint brut.
+      etym_note: hz ? hz.etym_note : null,
     };
     res.json({ character });
   } catch (e) {

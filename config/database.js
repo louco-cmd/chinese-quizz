@@ -212,6 +212,11 @@ const pool = new Pool({
         decomposition text,
         etymology jsonb
       )`);
+    // Enrichissement (scripts/enrich-hanzi.js) : lecture principale + explication
+    // d'étymologie prête à afficher (déterministe pour les phono-sémantiques, LLM
+    // pour les trous). Colonnes additives, remplies hors-ligne.
+    await pool.query('ALTER TABLE hanzi ADD COLUMN IF NOT EXISTS pinyin text');
+    await pool.query('ALTER TABLE hanzi ADD COLUMN IF NOT EXISTS etym_note text');
 
     // ── Migration: word_review_enabled sur users ──────────────────────────────
     await pool.query(`
