@@ -1,12 +1,38 @@
 import { useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ActivityIndicator, FlatList, ScrollView,
-  KeyboardAvoidingView,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { importPreview, importCommit } from '../api';
 import { COLORS, SHADOW_CARD } from '../theme';
+
+// Sélection de fichier (.txt / .xml Pleco, CSV…). WEB UNIQUEMENT pour l'instant :
+// input DOM natif, zéro dépendance → sûr en OTA. Le picker natif (mobile) demandera
+// expo-document-picker (non installé) + un rebuild ; en attendant, sur mobile on
+// masque le bouton et le COLLAGE du contenu du fichier marche déjà (parse serveur).
+// ⚠️ NE PAS ajouter de require('expo-document-picker') ici sans l'installer : Metro
+// résout les require() statiquement → l'export web casserait et un build natif < rebuild
+// crasherait à l'ouverture de l'écran.
+const CAN_PICK_FILE = Platform.OS === 'web';
+
+function pickFileWeb() {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt,.xml,.csv,.tsv,text/plain,text/xml,application/xml';
+    input.onchange = () => {
+      const file = input.files && input.files[0];
+      if (!file) return resolve(null);
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: file.name, content: String(reader.result || '') });
+      reader.onerror = () => resolve(null);
+      reader.readAsText(file);
+    };
+    input.click();
+  });
+}
 
 const STATUS = {
   new: { label: 'New', color: COLORS.jiayou, bg: '#e8f0ff' },
@@ -32,15 +58,27 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
+  const [fileName, setFileName] = useState('');
 
   const learningChinese = direction !== 'zh→en';
   // Le champ « traduction » (éditable) dépend de la langue apprise.
   const transKey = learningChinese ? 'english' : 'chinese';
 
-  async function runPreview() {
+  async function pickFile() {
+    setError('');
+    try {
+      const picked = await pickFileWeb();
+      if (!picked) return;
+      setText(picked.content);
+      setFileName(picked.name || '');
+    } catch (e) { setError(e?.message || 'Could not read the file.'); }
+  }
+
+  async function runPreview(srcText) {
+    const payload = typeof srcText === 'string' ? srcText : text;
     setBusy(true); setError('');
     try {
-      const d = await importPreview(text, forcedDir);
+      const d = await importPreview(payload, forcedDir);
       if (!d.rows.length) {
         setError((d.direction || 'en→zh') !== 'zh→en'
           ? 'No Chinese words found in your text.'
@@ -95,14 +133,25 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
           <View style={{ backgroundColor: '#eef4ff', borderRadius: 12, padding: 12, marginBottom: 14, flexDirection: 'row', gap: 8 }}>
             <Ionicons name="information-circle" size={18} color={COLORS.jiayou} />
             <Text style={{ flex: 1, fontSize: 12.5, color: '#33415c', lineHeight: 18 }}>
-              Paste <Text style={{ fontWeight: '700' }}>Chinese words</Text>, one per line. Only the Chinese is read —
-              pinyin and English are filled automatically from the dictionary. Review and edit everything in the next
-              step before importing.
+              Paste <Text style={{ fontWeight: '700' }}>Chinese words</Text> (one per line) or import a{' '}
+              <Text style={{ fontWeight: '700' }}>Pleco export</Text> (.txt or .xml). Only the Chinese is read —
+              pinyin and English are filled automatically. Review and edit everything in the next step before importing.
             </Text>
           </View>
+          {CAN_PICK_FILE ? (
+            <Pressable
+              onPress={pickFile}
+              style={{ marginBottom: 12, borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.jiayou, borderStyle: 'dashed', paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: '#f5f8ff' }}
+            >
+              <Ionicons name="document-attach" size={18} color={COLORS.jiayou} />
+              <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 14 }}>
+                {fileName ? `Loaded: ${fileName}` : 'Import a file (.txt / .xml)'}
+              </Text>
+            </Pressable>
+          ) : null}
           <TextInput
             value={text}
-            onChangeText={setText}
+            onChangeText={(t) => { setText(t); if (fileName) setFileName(''); }}
             placeholder={PLACEHOLDER}
             placeholderTextColor={COLORS.mutedLight}
             multiline

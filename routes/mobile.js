@@ -1210,11 +1210,115 @@ function fragmentsFrom(line) {
   return { chinese, pinyin, latin };
 }
 
-// Parse le texte collé en fragments { chinese, pinyin, latin }. Gère le format
-// CC-CEDICT/Pleco sur 2 lignes (caractère seul, puis « pinyin ⇥ définition »)
-// en fusionnant la paire, et le format tout-en-un sur une ligne.
+// ── Exports Pleco (fichiers flashcards) ──────────────────────────────────────
+// Les exports Pleco arrivent en 2 formats. Le parseur générique ci-dessus les
+// gère mal (XML sur peu de lignes → 1 mot par ligne ; TXT → pinyin/glose pollués
+// par les phrases d'exemple). On détecte donc ces formats et on les parse à part.
+
+// Décode les entités XML/HTML courantes d'une définition Pleco.
+function decodeEntities(s) {
+  return String(s || '')
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, n) => { try { return String.fromCodePoint(+n); } catch { return ''; } })
+    .replace(/&amp;/g, '&');
+}
+
+// Glose anglaise concise : une définition Pleco/CC-CEDICT met TOUJOURS la glose
+// AVANT les exemples (中文 pinyin traduction). On coupe donc au 1er caractère Han,
+// on nettoie (crochets, CL:/M:), et on plafonne la longueur.
+function plecoGloss(defn) {
+  let s = decodeEntities(defn).replace(/\s+/g, ' ').trim();
+  const m = s.match(HAN_RE);
+  if (m) s = s.slice(0, s.indexOf(m[0]));
+  s = cleanDefinition(s).replace(/\b(?:M|CL):\s*$/i, '').trim();
+  return s.length > 90 ? s.slice(0, 90).trim() : s;
+}
+
+// Pinyin numéroté Pleco (yi1xia4, lu:3) → diacritique (yīxià, lǚ).
+const PY_TONE_MARKS = { a: 'āáǎà', e: 'ēéěè', i: 'īíǐì', o: 'ōóǒò', u: 'ūúǔù', ü: 'ǖǘǚǜ' };
+function sylToDiacritic(syl) {
+  const m = syl.match(/^([a-zü:]+?)([1-5])$/i);
+  if (!m) return syl.replace(/u:/gi, 'ü');
+  const base = m[1].replace(/u:/gi, 'ü'); const tone = +m[2];
+  if (tone === 5) return base;
+  const low = base.toLowerCase();
+  let idx = -1;
+  if (low.includes('a')) idx = low.indexOf('a');
+  else if (low.includes('e')) idx = low.indexOf('e');
+  else if (low.includes('ou')) idx = low.indexOf('o');
+  else for (let k = low.length - 1; k >= 0; k--) if ('iouü'.includes(low[k])) { idx = k; break; }
+  if (idx < 0) return base;
+  const mark = PY_TONE_MARKS[low[idx]] ? PY_TONE_MARKS[low[idx]][tone - 1] : low[idx];
+  const cased = base[idx] === base[idx].toUpperCase() ? mark.toUpperCase() : mark;
+  return base.slice(0, idx) + cased + base.slice(idx + 1);
+}
+function numberedPinyin(s) {
+  const parts = String(s || '').match(/[a-zü:]+[1-5]?/gi);
+  return parts ? parts.map(sylToDiacritic).join('') : '';
+}
+
+// Pleco XML (<plecoflash>) : un fragment par <card>, headword simplifié (sc).
+function parsePlecoXml(text) {
+  const out = [];
+  const cards = text.match(/<card\b[\s\S]*?<\/card>/gi) || [];
+  for (const c of cards) {
+    const sc = c.match(/<headword[^>]*charset="sc"[^>]*>([\s\S]*?)<\/headword>/i)
+            || c.match(/<headword[^>]*>([\s\S]*?)<\/headword>/i);
+    const chinese = sc ? decodeEntities(sc[1]).replace(/\s+/g, '').trim() : '';
+    if (!chinese) continue;
+    const pr = c.match(/<pron[^>]*>([\s\S]*?)<\/pron>/i);
+    const df = c.match(/<defn>([\s\S]*?)<\/defn>/i);
+    const gloss = df ? plecoGloss(df[1]) : '';
+    out.push({ chinese, pinyin: pr ? numberedPinyin(pr[1]) : '', latin: gloss, gloss });
+    if (out.length >= 2000) break;
+  }
+  return out;
+}
+
+// Pleco TXT : "一下[一下]⇥yi1xia4⇥définition" (tabulé, un mot par ligne).
+function parsePlecoTxt(text) {
+  const out = [];
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line.includes('\t')) continue;
+    const cols = line.split('\t');
+    const chinese = (cols[0] || '').replace(/\[[^\]]*\]/g, '').replace(/\s+/g, '').trim();
+    if (!HAN_RE.test(chinese)) continue;
+    const gloss = plecoGloss(cols.slice(2).join(' '));
+    out.push({ chinese, pinyin: numberedPinyin(cols[1] || ''), latin: gloss, gloss });
+    if (out.length >= 2000) break;
+  }
+  return out;
+}
+
+// Une majorité de lignes « <han…>⇥<pinyin numéroté>⇥<def> » → export TXT Pleco.
+function looksLikePlecoTxt(text) {
+  const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 40);
+  if (lines.length < 2) return false;
+  let hits = 0;
+  for (const l of lines) {
+    const cols = l.split('\t');
+    if (cols.length >= 3 && HAN_RE.test(cols[0]) && /\d/.test(cols[1]) && /^[a-zü1-5:·'’\s]+$/i.test(cols[1].trim())) hits++;
+  }
+  return hits >= Math.ceil(lines.length * 0.6);
+}
+
+// Parse le texte collé en fragments { chinese, pinyin, latin }. Détecte d'abord
+// les exports Pleco (XML flashcards, TXT tabulé), sinon retombe sur le parseur
+// générique : format CC-CEDICT sur 2 lignes (caractère seul puis « pinyin ⇥ déf »)
+// et format tout-en-un sur une ligne.
 function parseImportText(text) {
-  const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const src = String(text || '');
+  if (/<plecoflash|<card\b/i.test(src)) {
+    const p = parsePlecoXml(src);
+    if (p.length) return p;
+  }
+  if (looksLikePlecoTxt(src)) {
+    const p = parsePlecoTxt(src);
+    if (p.length) return p;
+  }
+  const lines = src.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const out = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -1304,9 +1408,10 @@ router.post('/api/m/import/preview', requireToken, async (req, res) => {
         //  • Mot inconnu → pinyin toujours généré par pinyin-pro ; l'anglais est
         //    auto-rempli via CC-CEDICT s'il existe, sinon laissé VIDE.
         const pinyin = d?.pinyin || (toPinyin ? toPinyin(r.chinese, { toneType: 'symbol' }) : '');
-        // Anglais : base d'abord, sinon CEDICT (mot à créer), sinon vide.
+        // Anglais : base d'abord, sinon CEDICT (mot à créer), sinon glose fournie
+        // par le fichier importé (Pleco), sinon vide.
         const cedictEn = d?.english ? '' : cedict.translate(r.chinese);
-        const english = d?.english || cedictEn || '';
+        const english = d?.english || cedictEn || r.gloss || '';
         // owned : déjà dans ta collection · known : trad de la base (lecture seule)
         // new : rempli via CEDICT (mot créé, éditable) · needs_translation : à saisir.
         const status = d?.owned ? 'owned'
@@ -4000,20 +4105,32 @@ router.post('/api/m/duels/:id/submit', requireToken, async (req, res) => {
 router.get('/api/m/quiz/packs', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
+    // Parcours-conscient : les mots du pack sont résolus par CONCEPT (lexeme_senses →
+    // meaning_id) puis matchés à la collection de l'utilisateur DANS SA LANGUE APPRISE.
+    // Une jointure directe um.mot_id = i.mot_id ne marcherait que si l'apprenant
+    // pratique la langue de stockage des items (zh) ; un apprenant en←zh possède
+    // les mots ANGLAIS du même concept, pas les mot_id chinois du pack.
+    const langs = await getUserLangs(uid);
     const { rows } = await pool.query(
       `SELECT wp.id, wp.title, wp.cover_key, wp.is_official,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
-              (SELECT COUNT(*) FROM word_pack_items i
-                 JOIN user_mots um ON um.mot_id = i.mot_id AND um.user_id = $1
-               WHERE i.pack_id = wp.id)::int AS word_count,
-              (SELECT COALESCE(ROUND(AVG(um.score)), 0) FROM word_pack_items i
-                 JOIN user_mots um ON um.mot_id = i.mot_id AND um.user_id = $1
-               WHERE i.pack_id = wp.id)::int AS mastery
+              (SELECT COUNT(*) FROM user_mots um
+                 JOIN mots mo ON mo.id = um.mot_id AND mo.lang = $2
+               WHERE um.user_id = $1 AND um.meaning_id IN (
+                 SELECT lp.meaning_id FROM word_pack_items i
+                 JOIN lexeme_senses lp ON lp.mot_id = i.mot_id
+                 WHERE i.pack_id = wp.id))::int AS word_count,
+              (SELECT COALESCE(ROUND(AVG(um.score)), 0) FROM user_mots um
+                 JOIN mots mo ON mo.id = um.mot_id AND mo.lang = $2
+               WHERE um.user_id = $1 AND um.meaning_id IN (
+                 SELECT lp.meaning_id FROM word_pack_items i
+                 JOIN lexeme_senses lp ON lp.mot_id = i.mot_id
+                 WHERE i.pack_id = wp.id))::int AS mastery
        FROM word_packs wp
        LEFT JOIN users u ON u.id = wp.creator_id
        WHERE wp.creator_id = $1
           OR wp.id IN (SELECT pack_id FROM pack_purchases WHERE buyer_id = $1)
-       ORDER BY wp.created_at DESC`, [uid]);
+       ORDER BY wp.created_at DESC`, [uid, langs.learning]);
     res.json({ packs: rows.filter((p) => p.word_count > 0) });
   } catch (e) {
     console.error('m/quiz packs error:', e);
@@ -4055,12 +4172,17 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
     if (packId) {
       const type = String(req.query.type || 'pinyin');
       const scoreCol = type === 'character' ? 'score_character' : type === 'reading' ? 'score_reading' : 'score';
+      // Parcours-conscient (cf. /api/m/quiz/packs) : on résout les items du pack par
+      // CONCEPT puis on tire les mots possédés dans la LANGUE APPRISE. Indispensable
+      // pour un apprenant en←zh (ses mots sont anglais, pas les mot_id chinois du pack).
       const { rows } = await pool.query(
         `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $4) AS english, m.hsk, um.description, COALESCE(um.${scoreCol}, 0) AS score
-         FROM word_pack_items i
-         JOIN user_mots um ON um.mot_id = i.mot_id AND um.user_id = $1
-         JOIN mots m ON m.id = i.mot_id
-         WHERE i.pack_id = $2 AND m.lang = $5
+         FROM user_mots um
+         JOIN mots m ON m.id = um.mot_id AND m.lang = $5
+         WHERE um.user_id = $1 AND um.meaning_id IN (
+           SELECT lp.meaning_id FROM word_pack_items i
+           JOIN lexeme_senses lp ON lp.mot_id = i.mot_id
+           WHERE i.pack_id = $2)
          ORDER BY RANDOM() * (COALESCE(um.${scoreCol}, 0) + 15)
          LIMIT $3`, [userId, packId, requestedCount, langs.native, langs.learning]);
       if (!rows.length) return res.status(400).json({ error: 'not_enough_words' });
