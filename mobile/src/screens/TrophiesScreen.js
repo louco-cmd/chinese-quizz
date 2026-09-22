@@ -8,8 +8,9 @@ import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
 import useAndroidBack from '../useAndroidBack';
 
-// Icône + couleur d'accent par catégorie de trophée.
-const CAT_META = {
+// Icône + couleur d'accent par catégorie de trophée. Exporté : réutilisé par
+// TrophyUnlockedSheet (drawer d'obtention de trophée).
+export const CAT_META = {
   captures:    { icon: 'albums',        color: '#0d6efd' },
   mastered:    { icon: 'ribbon',        color: '#6f42c1' },
   streak:      { icon: 'flame',         color: '#e8590c' },

@@ -327,6 +327,7 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
             <SettingsRow icon="document-text" iconColor="#555" iconBg="#f0f0f0" label={t('set_terms')} onPress={() => onOpen?.('terms')} />
             <SettingsRow icon="shield-checkmark" iconColor="#555" iconBg="#f0f0f0" label={t('set_privacy_policy')} onPress={() => onOpen?.('privacy')} />
             <SettingsRow icon="help-buoy" iconColor="#555" iconBg="#f0f0f0" label={t('set_support')} onPress={() => onOpen?.('support')} />
+            <SettingsRow icon="ribbon" iconColor="#555" iconBg="#f0f0f0" label={t('set_credits')} onPress={() => onOpen?.('credits')} />
           </SettingsGroup>
 
           {/* ── Danger zone ── */}

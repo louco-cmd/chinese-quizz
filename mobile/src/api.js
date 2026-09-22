@@ -364,6 +364,11 @@ export function getTrophies() {
   return request('/api/m/trophies');
 }
 
+// Drawer « suivez-nous sur Instagram » : marque comme vu (1×/user).
+export function markIgPromoSeen() {
+  return request('/api/m/promo/instagram/seen', { method: 'POST' });
+}
+
 export async function getCollection({ force = false } = {}) {
   const now = Date.now();
   if (!force && _collectionCache && now - _collectionCache.ts < COLLECTION_TTL_MS) {

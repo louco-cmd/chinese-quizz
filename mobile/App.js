@@ -1,9 +1,9 @@
 import './global.css';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { View, ActivityIndicator, AppState, BackHandler, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef, setUpgradeHandler, setCoinsHandler, setUnauthorizedHandler } from './src/api';
+import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef, setUpgradeHandler, setCoinsHandler, setUnauthorizedHandler, getTrophies, markIgPromoSeen } from './src/api';
 import { configurePurchases } from './src/purchases';
 import { registerForPush, configureNotificationHandler, addNotificationResponseListener } from './src/push';
 import { LangContext, makeT } from './src/i18n';
@@ -32,7 +32,7 @@ import CreatePackScreen from './src/screens/CreatePackScreen';
 import ImportWordsScreen from './src/screens/ImportWordsScreen';
 import SupportScreen from './src/screens/SupportScreen';
 import LegalScreen from './src/screens/LegalScreen';
-import { TERMS_BLOCKS, PRIVACY_BLOCKS } from './src/data/legalContent';
+import { TERMS_BLOCKS, PRIVACY_BLOCKS, CREDITS_BLOCKS } from './src/data/legalContent';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TutorialScreen from './src/screens/TutorialScreen';
 import TeacherHome from './src/screens/teacher/TeacherHome';
@@ -45,6 +45,8 @@ import { RedEnvelopeReceivedPopup } from './src/components/RedEnvelopePopups';
 import PremiumLimitPopup from './src/components/PremiumLimitPopup';
 import EarnCoinsPopup from './src/components/EarnCoinsPopup';
 import UpdateAvailablePopup from './src/components/UpdateAvailablePopup';
+import TrophyUnlockedSheet from './src/components/TrophyUnlockedSheet';
+import InstagramPromoSheet from './src/components/InstagramPromoSheet';
 import { checkStoreUpdate } from './src/appUpdate';
 import CatLoader from './src/components/CatLoader';
 
@@ -76,6 +78,9 @@ function App() {
   const [envelopes, setEnvelopes] = useState([]); // red envelopes non vues
   const [paywall, setPaywall] = useState(null); // feature de la limite atteinte → popup Go Premium
   const [needCoins, setNeedCoins] = useState(false); // solde insuffisant → popup « gagner des pièces »
+  const [trophyQueue, setTrophyQueue] = useState([]); // trophées fraîchement débloqués → drawer
+  const [showIg, setShowIg] = useState(false); // drawer « suivez-nous sur Instagram » (1×/user)
+  const igHandledRef = useRef(false);
   const [updateUrl, setUpdateUrl] = useState(null); // build store plus récent → popup incitative
   const [lang, setLang] = useState('en'); // langue de l'interface (en | zh | fr)
   const [refCode, setRefCode] = useState(null); // code de parrainage capté (?ref=)
@@ -139,8 +144,39 @@ function App() {
       .catch(() => {});
   }, []);
 
+  // Trophées : /api/m/trophies débloque à la lecture et renvoie `newlyUnlocked`.
+  // On enrichit chaque nouveau trophée de son unité (pour le libellé) et on ouvre
+  // le drawer d'obtention. Appelé après une activité (fin de quiz/duel) et au boot.
+  const checkTrophies = useCallback(async () => {
+    try {
+      const d = await getTrophies();
+      const fresh = d?.newlyUnlocked || [];
+      if (!fresh.length) return;
+      const unitByCat = Object.fromEntries((d.categories || []).map((c) => [c.key, c.unit]));
+      setTrophyQueue(fresh.map((x) => ({ ...x, unit: x.unit || unitByCat[x.cat] })));
+      if (d.balance != null) setProfile((p) => (p ? { ...p, balance: d.balance } : p));
+    } catch { /* silencieux */ }
+  }, []);
+
   // À chaque navigation (changement d'onglet) et au retour au premier plan.
   useEffect(() => { if (authed) refreshBalance(); }, [tab, authed, refreshBalance]);
+  // Au boot (une fois connecté) : ramasse les trophées débloqués hors-session.
+  useEffect(() => { if (authed) checkTrophies(); }, [authed, checkTrophies]);
+
+  // Drawer Instagram : éligible côté serveur (showIgPromo = compte ≥ 3 j, jamais vu).
+  // On l'affiche une fois, hors onboarding et sans empiler d'autres overlays.
+  const dismissIg = useCallback(() => {
+    setShowIg(false);
+    markIgPromoSeen().catch(() => {});
+    setProfile((p) => (p ? { ...p, showIgPromo: false } : p));
+  }, []);
+  useEffect(() => {
+    if (igHandledRef.current || !authed || flow) return;
+    if (!profile?.showIgPromo || !profile?.onboarding_done) return;
+    if (trophyQueue.length || envelopes.length || showWelcome) return;
+    igHandledRef.current = true;
+    setShowIg(true);
+  }, [authed, flow, profile, trophyQueue, envelopes, showWelcome]);
   useEffect(() => {
     const sub = AppState.addEventListener('change', (s) => { if (s === 'active' && authed) refreshBalance(); });
     return () => sub.remove();
@@ -285,6 +321,8 @@ function App() {
     if (Platform.OS === 'web') return undefined;
     const onBack = () => {
       // 1) Overlays d'abord.
+      if (showIg) { dismissIg(); return true; }
+      if (trophyQueue.length > 0) { setTrophyQueue([]); return true; }
       if (envelopes.length > 0) { markEnvelopesSeen().catch(() => {}); setEnvelopes([]); return true; }
       if (showWelcome) return true; // page de bienvenue paiement : on reste
       // 2) Onboarding / tutoriel : on ne quitte jamais l'app par erreur.
@@ -294,9 +332,9 @@ function App() {
       // 4) Plateforme prof : ses onglets gèrent leur propre retour.
       if (profile?.role === 'teacher') return false;
       // 5) Sous-écrans → parent (miroir de leurs boutons onBack).
-      const PARENTS = { settings: 'account', account: 'add', writing: 'settings', trophies: 'settings', 'create-pack': 'store' };
+      const PARENTS = { settings: 'account', account: 'add', writing: 'settings', 'create-pack': 'store' };
       if (PARENTS[tab]) { setTab(PARENTS[tab]); return true; }
-      if (['bank', 'pricing', 'teachers', 'import', 'support', 'legal', 'terms', 'privacy'].includes(tab)) {
+      if (['bank', 'pricing', 'teachers', 'import', 'support', 'legal', 'terms', 'privacy', 'credits', 'trophies'].includes(tab)) {
         setTab(bankReturn || 'add'); return true;
       }
       // 6) Onglet principal (store/collection/quiz/duels) → accueil (Add Word).
@@ -306,18 +344,18 @@ function App() {
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
     return () => sub.remove();
-  }, [tab, flow, flowFromSettings, authed, profile, showWelcome, envelopes, bankReturn]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tab, flow, flowFromSettings, authed, profile, showWelcome, envelopes, bankReturn, trophyQueue, showIg]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function renderScreen() {
     switch (tab) {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
-      case 'collection': return <CollectionScreen onNavigate={setTab} />;
+      case 'collection': return <CollectionScreen onNavigate={setTab} onOpenCredits={() => { setBankReturn('collection'); setTab('credits'); }} />;
       case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
-      case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} onNavigate={setTab} />;
-      case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} emailVerified={profile?.emailVerified} onCapture={() => setTab('add')} onOpenStore={() => { setBankReturn('duels'); setTab('store'); }} initialDetailDuelId={duelDeepLink} onDeepLinkConsumed={() => setDuelDeepLink(null)} />;
-      case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} />;
+      case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} onNavigate={setTab} onActivityDone={checkTrophies} />;
+      case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} emailVerified={profile?.emailVerified} onCapture={() => setTab('add')} onOpenStore={() => { setBankReturn('duels'); setTab('store'); }} initialDetailDuelId={duelDeepLink} onDeepLinkConsumed={() => setDuelDeepLink(null)} onActivityDone={checkTrophies} />;
+      case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} onOpenTrophies={() => { setBankReturn('account'); setTab('trophies'); }} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onBack={() => setTab('account')} isPremium={!!profile?.isPremium} />;
-      case 'trophies': return <TrophiesScreen onBack={() => setTab('settings')} />;
+      case 'trophies': return <TrophiesScreen onBack={() => setTab(bankReturn || 'settings')} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} onPurchased={() => loadProfile({ route: false })} />;
       case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} canCreate onStartQuiz={startPackQuiz} onEditPack={startEditPack} onUpgrade={() => { setBankReturn('store'); setTab('pricing'); }} />;
@@ -328,6 +366,7 @@ function App() {
       case 'legal': return <LegalScreen onBack={() => setTab(bankReturn)} />;
       case 'terms': return <LegalScreen onBack={() => setTab(bankReturn)} title={makeT(lang)('set_terms')} blocks={TERMS_BLOCKS} />;
       case 'privacy': return <LegalScreen onBack={() => setTab(bankReturn)} title={makeT(lang)('set_privacy_policy')} blocks={PRIVACY_BLOCKS} />;
+      case 'credits': return <LegalScreen onBack={() => setTab(bankReturn)} title={makeT(lang)('set_credits')} blocks={CREDITS_BLOCKS} />;
       default: return <CollectionScreen />;
     }
   }
@@ -411,7 +450,7 @@ function App() {
             recherche est en HAUT : masquer toute la barre + le chat à chaque focus
             donnait l'impression que la nav-bar « disparaissait » par intermittence. */}
         {(kbOpen && tab !== 'add') || tab === 'settings' || tab === 'import'
-          || tab === 'legal' || tab === 'terms' || tab === 'privacy' || tab === 'support' ? null : (
+          || tab === 'legal' || tab === 'terms' || tab === 'privacy' || tab === 'support' || tab === 'credits' ? null : (
           // On garde la nav-bar sur Add Word même clavier ouvert, mais on masque
           // le CHAT (showChar) tant que le clavier est là : sinon il chevauche le
           // champ de recherche (surtout en web mobile) et gêne la saisie.
@@ -441,6 +480,13 @@ function App() {
         />
         <EarnCoinsPopup visible={needCoins} onClose={() => setNeedCoins(false)} />
         <UpdateAvailablePopup url={updateUrl} onClose={() => setUpdateUrl(null)} />
+        <TrophyUnlockedSheet
+          visible={trophyQueue.length > 0}
+          trophies={trophyQueue}
+          onClose={() => setTrophyQueue([])}
+          onViewAll={() => { setTrophyQueue([]); setBankReturn(tab); setTab('trophies'); }}
+        />
+        <InstagramPromoSheet visible={showIg} onClose={dismissIg} onFollow={dismissIg} />
       </SafeAreaProvider>
     </LangContext.Provider>
   );

@@ -31,6 +31,13 @@ function Block({ block }) {
           <Text className="text-[#2a3242] text-[13.5px] leading-[20px]">{block.text}</Text>
         </View>
       );
+    case 'link':
+      return (
+        <Pressable onPress={() => Linking.openURL(block.url)} className="flex-row items-center gap-2 mb-2.5">
+          <Ionicons name="open-outline" size={15} color={COLORS.jiayou} />
+          <Text className="text-jiayou text-[14px] leading-[20px] underline flex-1">{block.label}</Text>
+        </Pressable>
+      );
     case 'table':
       return (
         <View className="my-2.5" style={{ rowGap: 8 }}>

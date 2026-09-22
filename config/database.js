@@ -217,6 +217,9 @@ const pool = new Pool({
     // pour les trous). Colonnes additives, remplies hors-ligne.
     await pool.query('ALTER TABLE hanzi ADD COLUMN IF NOT EXISTS pinyin text');
     await pool.query('ALTER TABLE hanzi ADD COLUMN IF NOT EXISTS etym_note text');
+    // Définition anglaise makemeahanzi : fallback de traduction dans le popup quand
+    // le caractère n'est pas (encore) dans `mots` (sinon « unknown »).
+    await pool.query('ALTER TABLE hanzi ADD COLUMN IF NOT EXISTS definition text');
 
     // ── Migration: word_review_enabled sur users ──────────────────────────────
     await pool.query(`
@@ -224,6 +227,12 @@ const pool = new Pool({
       ADD COLUMN IF NOT EXISTS word_review_enabled BOOLEAN NOT NULL DEFAULT FALSE
     `);
     console.log("✅ Colonne 'word_review_enabled' vérifiée ou créée sur 'users'.");
+
+    // ── Migration: ig_promo_seen (drawer « suivez-nous sur Instagram », 1×/user) ──
+    await pool.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS ig_promo_seen BOOLEAN NOT NULL DEFAULT FALSE
+    `);
 
     // ── Migration: has_seen_tutorial (aiguillage du tutoriel) ─────────────────
     // Utilisée par le web (server.js) et l'app mobile (routes/mobile.js) ;

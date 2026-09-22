@@ -27,7 +27,7 @@ function Empty({ text }) {
 // à étoffer sa collection (capture / pack) — même logique que le quiz.
 const MIN_DUEL_WORDS = 10;
 
-export default function DuelsScreen({ onDefeat, emailVerified, onCapture, onOpenStore, initialDetailDuelId, onDeepLinkConsumed }) {
+export default function DuelsScreen({ onDefeat, emailVerified, onCapture, onOpenStore, initialDetailDuelId, onDeepLinkConsumed, onActivityDone }) {
   const { t } = useT();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
@@ -117,7 +117,7 @@ export default function DuelsScreen({ onDefeat, emailVerified, onCapture, onOpen
   }
 
   if (playingDuel) {
-    return <DuelPlayScreen duelId={playingDuel} onExit={() => { setPlayingDuel(null); load(); }} />;
+    return <DuelPlayScreen duelId={playingDuel} onExit={() => { setPlayingDuel(null); load(); onActivityDone?.(); }} />;
   }
 
   if (detailDuel) {

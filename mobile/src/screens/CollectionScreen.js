@@ -100,7 +100,7 @@ const circleBtn = {
   shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 12,
 };
 
-export default function CollectionScreen({ onNavigate }) {
+export default function CollectionScreen({ onNavigate, onOpenCredits }) {
   const { t: tr } = useT();
   const { width, height } = useWindowDimensions();
   const cardW = Math.min(width * 0.86, 340);
@@ -892,7 +892,10 @@ export default function CollectionScreen({ onNavigate }) {
                     : <Ionicons name="volume-medium" size={16} color={COLORS.jiayou} />}
                 </Pressable>
               </View>
-              <Text style={{ fontSize: 30, fontWeight: '800', color: COLORS.jiayou, marginTop: 8, textAlign: 'center' }}>{charInfo.data.english || tr('co_no_translation')}</Text>
+              <Text style={{ fontSize: charInfo.data.english_fallback ? 19 : 30, fontWeight: '800', color: COLORS.jiayou, marginTop: 8, textAlign: 'center' }}>{charInfo.data.english || tr('co_no_translation')}</Text>
+              {charInfo.data.english_fallback ? (
+                <Text style={{ fontSize: 11, color: COLORS.mutedLight, marginTop: 4, textAlign: 'center' }}>{tr('co_en_gloss')}</Text>
+              ) : null}
 
               {/* Capture : si le caractère existe en base mais n'est PAS possédé. */}
               {charInfo.data.id && !charInfo.data.owned ? (
@@ -960,6 +963,13 @@ export default function CollectionScreen({ onNavigate }) {
                   </View>
                 );
               })()}
+
+              {/* Attribution discrète des sources (makemeahanzi, etc.) → page Credits. */}
+              {(charInfo.data.etym_note || charInfo.data.radical || (charInfo.data.components || []).length) ? (
+                <Pressable onPress={() => { setCharInfo(null); onOpenCredits?.(); }} hitSlop={6} style={{ marginTop: 18 }}>
+                  <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, textAlign: 'center' }}>{tr('co_credits_link')}</Text>
+                </Pressable>
+              ) : null}
             </>
           ) : (
             <>

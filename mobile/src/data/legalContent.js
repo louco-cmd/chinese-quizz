@@ -208,3 +208,29 @@ const CONTACT_BLOCKS = [
 const _privacyStart = LEGAL_BLOCKS.findIndex((b) => b.t === 'label' && b.text === 'Privacy Policy');
 export const TERMS_BLOCKS = [...LEGAL_BLOCKS.slice(0, _privacyStart), ...CONTACT_BLOCKS];
 export const PRIVACY_BLOCKS = LEGAL_BLOCKS.slice(_privacyStart);
+
+// ── Crédits & sources externes ───────────────────────────────────────────────
+// Attribution des jeux de données et bibliothèques open-source utilisés (exigé
+// par leurs licences). Le type de bloc `link` rend une ligne tappable (ouvre l'URL).
+export const CREDITS_BLOCKS = [
+  { t: 'h2', text: 'Credits & data sources' },
+  { t: 'p', text: 'Jiayou stands on the shoulders of several open-source projects and datasets. Huge thanks to their authors and contributors — these resources remain the property of their respective owners and are used under their licenses.' },
+
+  { t: 'h3', text: 'Character decomposition & etymology' },
+  { t: 'p', text: 'Radicals, decomposition and etymology of Chinese characters come from Make Me a Hanzi, itself derived from the Arphic fonts (Arphic Public License) and CC-CEDICT.' },
+  { t: 'link', label: 'Make Me a Hanzi — github.com/skishore/makemeahanzi', url: 'https://github.com/skishore/makemeahanzi' },
+
+  { t: 'h3', text: 'Stroke order animation' },
+  { t: 'p', text: 'Animated stroke order is rendered with Hanzi Writer (MIT), using stroke data derived from Make Me a Hanzi.' },
+  { t: 'link', label: 'Hanzi Writer — hanziwriter.org', url: 'https://hanziwriter.org' },
+
+  { t: 'h3', text: 'Dictionary' },
+  { t: 'p', text: 'Chinese–English definitions draw on CC-CEDICT, a community dictionary licensed under Creative Commons Attribution-ShareAlike (CC BY-SA).' },
+  { t: 'link', label: 'CC-CEDICT — cc-cedict.org', url: 'https://cc-cedict.org/wiki/' },
+
+  { t: 'h3', text: 'Pinyin conversion' },
+  { t: 'p', text: 'Automatic pinyin readings use the pinyin-pro library (MIT).' },
+  { t: 'link', label: 'pinyin-pro — github.com/zh-lx/pinyin-pro', url: 'https://github.com/zh-lx/pinyin-pro' },
+
+  { t: 'note', text: 'If you believe something is miscredited or should be added, please reach out — we will fix it promptly.' },
+];

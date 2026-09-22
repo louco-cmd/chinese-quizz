@@ -22,17 +22,21 @@ import { COLORS, TAB_CLEARANCE } from '../theme';
 import CatLoader from '../components/CatLoader';
 
 // Tuile de stat d'utilisation (série, jours actifs…) en tête de la carte stats.
-function UsageTile({ icon, value, label }) {
+function UsageTile({ icon, value, label, onPress }) {
+  const Wrap = onPress ? Pressable : View;
   return (
-    <View style={{ flex: 1, backgroundColor: '#f6f8fb', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center' }}>
+    <Wrap onPress={onPress} style={{ flex: 1, backgroundColor: '#f6f8fb', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center' }}>
+      {onPress ? (
+        <Ionicons name="arrow-forward-circle" size={18} color="#c4ccd6" style={{ position: 'absolute', top: 8, right: 8 }} />
+      ) : null}
       <Text style={{ fontSize: 20 }}>{icon}</Text>
       <Text style={{ fontSize: 26, fontWeight: '800', color: '#111', lineHeight: 30, marginTop: 2 }}>{value}</Text>
       <Text style={{ fontSize: 11, color: '#999', marginTop: 2, textAlign: 'center' }}>{label}</Text>
-    </View>
+    </Wrap>
   );
 }
 
-export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
+export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpenTrophies }) {
   const { t } = useT();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -169,8 +173,9 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz }) {
                   <UsageTile icon="📖" value={data.wordsKnown ?? 0} label={data.wordsKnown === 1 ? t('ac_word_known') : t('ac_words_known')} />
                   <UsageTile
                     icon="🏆"
-                    value={data.duelRank ? `#${data.duelRank}` : '—'}
-                    label={data.duelRank ? `${t('ac_duel_rank')} ${data.duelRankTotal}` : t('ac_unranked')}
+                    value={data.trophiesEarned ?? 0}
+                    label={(data.trophiesEarned ?? 0) === 1 ? t('ac_trophy_earned') : t('ac_trophies_earned')}
+                    onPress={() => onOpenTrophies?.()}
                   />
                 </View>
 

@@ -609,6 +609,7 @@ router.get('/api/m/me', requireToken, async (req, res) => {
               u.quiz_direction, u.interface_lang, u.learning_lang, u.native_lang, u.special_guest,
               u.onboarding_done, u.has_seen_tutorial, u.email_verified, u.provider,
               u.avatar_icon, u.avatar_color,
+              (u.created_at <= NOW() - INTERVAL '3 days' AND COALESCE(u.ig_promo_seen, FALSE) = FALSE) AS show_ig_promo,
               u.rc_expires_at, u.rc_will_renew,
               us.plan_name, us.status AS sub_status, us.stripe_status,
               us.cancel_at_period_end, us.current_period_end
@@ -652,6 +653,8 @@ router.get('/api/m/me', requireToken, async (req, res) => {
       isPremium,
       isSpecialGuest,
       plan, // 'premium' | 'guest' | 'free'
+      // Drawer « suivez-nous sur Instagram » : après 3 j d'ancienneté, 1×/user.
+      showIgPromo: row.show_ig_promo === true,
       // Annulation programmée : l'accès premium reste jusqu'à la fin de période.
       cancelAtPeriodEnd: rcActive ? (row.rc_will_renew === false) : (row.cancel_at_period_end === true),
       currentPeriodEnd: rcActive
@@ -660,6 +663,18 @@ router.get('/api/m/me', requireToken, async (req, res) => {
     });
   } catch (e) {
     console.error('me error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── POST /api/m/promo/instagram/seen : marque le drawer Instagram comme vu ────
+// (affiché une seule fois par utilisateur, cf. showIgPromo dans /api/m/me).
+router.post('/api/m/promo/instagram/seen', requireToken, async (req, res) => {
+  try {
+    await pool.query('UPDATE users SET ig_promo_seen = TRUE WHERE id = $1', [req.tokenUser.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('ig promo seen error:', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1711,6 +1726,15 @@ function parseHanziComponents(decomposition, self) {
   return out;
 }
 
+// Raccourcit une définition makemeahanzi (souvent multi-sens) pour l'affichage :
+// on garde les 3 premiers sens et on plafonne la longueur.
+function trimGloss(def) {
+  const parts = String(def || '').split(/\s*[;/]\s*/).map((s) => s.trim()).filter(Boolean);
+  let s = parts.slice(0, 3).join('; ');
+  if (s.length > 80) s = s.slice(0, 80).replace(/[;,\s]+\S*$/, '') + '…';
+  return s;
+}
+
 // ── GET /api/m/character/:char : sens d'un caractère seul (tap sur la carte) ──
 // Fusionne NOTRE donnée (pinyin/trad/HSK depuis `mots`, langue native) avec la
 // décomposition makemeahanzi (radical, décompo IDS, composants, étymologie).
@@ -1727,7 +1751,7 @@ router.get('/api/m/character/:char', requireToken, async (req, res) => {
                 EXISTS(SELECT 1 FROM user_mots um WHERE um.user_id = $3 AND um.mot_id = m.id) AS owned
          FROM mots m WHERE m.chinese = $1 AND m.lang = 'zh' ORDER BY m.id ASC LIMIT 1`,
         [ch, nat, uid]),
-      pool.query('SELECT radical, decomposition, etymology, etym_note, pinyin FROM hanzi WHERE char = $1', [ch]),
+      pool.query('SELECT radical, decomposition, etymology, etym_note, pinyin, definition FROM hanzi WHERE char = $1', [ch]),
     ]);
     const mot = motQ.rows[0] || null;
     const hz = hanziQ.rows[0] || null;
@@ -1741,7 +1765,11 @@ router.get('/api/m/character/:char', requireToken, async (req, res) => {
       // Pinyin : celui de la collection/mots d'abord, sinon la lecture makemeahanzi
       // (utile pour un composant tapé qui n'est pas un mot à part entière).
       pinyin: (mot && mot.pinyin) || (hz && hz.pinyin) || null,
-      english: mot ? mot.english : null,
+      // Traduction : celle de la collection/mots (langue native) d'abord ; sinon
+      // repli sur la définition ANGLAISE makemeahanzi (sinon « unknown »).
+      english: (mot && mot.english) || (hz && hz.definition ? trimGloss(hz.definition) : null),
+      // Signale que la trad affichée est un repli anglais (le mot n'est pas dans mots).
+      english_fallback: !(mot && mot.english) && !!(hz && hz.definition),
       hsk: mot ? mot.hsk : null,
       radical: hz ? hz.radical : null,
       decomposition: hz ? hz.decomposition : null,
@@ -2990,7 +3018,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
       COUNT(*) FILTER (WHERE COALESCE(um.${col},0) >= 60 AND COALESCE(um.${col},0) < 85)::int AS ${col}_learning,
       COUNT(*) FILTER (WHERE COALESCE(um.${col},0) >= 30 AND COALESCE(um.${col},0) < 60)::int AS ${col}_medium,
       COUNT(*) FILTER (WHERE COALESCE(um.${col},0) < 30)::int AS ${col}_novice`;
-    const [me, distAgg, hskAgg, quizzes, duels, contrib, recent, duelRank] = await Promise.all([
+    const [me, distAgg, hskAgg, quizzes, duels, contrib, recent, duelRank, trophies] = await Promise.all([
       pool.query('SELECT name, balance, tagline, country, quiz_direction, learning_lang, native_lang, avatar_icon, avatar_color FROM users WHERE id = $1', [uid]),
       pool.query(
         `SELECT COUNT(*)::int AS total,
@@ -3047,6 +3075,8 @@ router.get('/api/m/account', requireToken, async (req, res) => {
          )
          SELECT r.rank::int AS rank, (SELECT COUNT(*) FROM wins)::int AS total
          FROM ranked r WHERE r.uid = $1`, [uid, L]),
+      // Trophées débloqués (global, tous parcours) — affiché dans la tuile account.
+      pool.query('SELECT COUNT(*)::int AS n FROM user_trophies WHERE user_id = $1', [uid]),
     ]);
 
     // Distribution de maîtrise (mêmes seuils que l'EJS), lue depuis l'agrégat SQL.
@@ -3100,6 +3130,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
       duels: duels.rows[0].n,
       duelRank: duelRank.rows[0]?.rank || null,
       duelRankTotal: duelRank.rows[0]?.total || 0,
+      trophiesEarned: trophies.rows[0]?.n || 0,
       mastery: { pinyin: pinyinDist, character: charDist, reading: readingDist, total: totalWords },
       hsk,
       recentQuizzes: recent.rows.map((r) => ({
