@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, Pressable, TextInput, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,12 +11,18 @@ import { COLORS } from '../theme';
 // `navOverlaps` : true si la nav bar est en position absolute et recouvre le
 // contenu (côté étudiant) → le FAB doit la franchir. False si la nav est un frère
 // flex sous le contenu (côté prof) → le FAB n'a besoin que d'un petit écart.
-export default function StoreScreen({ onBack, onCreate, canCreate = true, onStartQuiz, onEditPack, onUpgrade, navOverlaps = true }) {
+export default function StoreScreen({ onBack, onCreate, canCreate = true, onStartQuiz, onEditPack, onUpgrade, navOverlaps = true, initialSort, onSortConsumed }) {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState('featured');
+  const [sort, setSort] = useState(initialSort || 'featured');
+  // Tri imposé à l'ouverture (ex. notif « nouveau pack » → tri `recent`). On
+  // l'applique même si l'écran est déjà monté, puis on le « consomme » (App le
+  // remet à null) pour ne pas re-forcer le tri quand l'utilisateur en change.
+  useEffect(() => {
+    if (initialSort) { setSort(initialSort); onSortConsumed?.(); }
+  }, [initialSort]); // eslint-disable-line react-hooks/exhaustive-deps
   // Même largeur de colonne que la grille (PackMarket) → en-tête + FAB centrés
   // sur le contenu au lieu de s'étirer à toute la fenêtre en desktop.
   const contentMaxWidth = width >= 992 ? 980 : 720;

@@ -4002,6 +4002,12 @@ router.get('/api/m/duels/:id', requireToken, async (req, res) => {
     const qd = typeof d.quiz_data === 'string' ? JSON.parse(d.quiz_data || '{}') : (d.quiz_data || {});
     const myScore = isChallenger ? d.challenger_score : d.opponent_score;
     const oppScore = isChallenger ? d.opponent_score : d.challenger_score;
+    // Un joueur qui n'a pas encore joué ouvre ce duel en attente → on note l'ouverture.
+    // Le cron de forfait épargne les duels ouverts récemment (anti « expiré en pleine
+    // partie »). Fire-and-forget, ne bloque pas la réponse.
+    if (d.status === 'pending' && myScore === null) {
+      pool.query('UPDATE duels SET opened_at = NOW() WHERE id = $1', [id]).catch(() => {});
+    }
     // Enrichit les mots (snapshot) avec, POUR CE JOUEUR : meaning_id (sens primaire)
     // + owned → permet de capturer depuis l'écran de résultat un mot rencontré non
     // possédé (duels aléatoires). Le snapshot ne stocke que l'id du mot.

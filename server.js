@@ -2336,6 +2336,9 @@ cron.schedule('0 17 * * *', async () => {
       JOIN users uo ON uo.id = d.opponent_id
       WHERE d.status = 'pending' AND d.created_at <= NOW() - INTERVAL '8 days'
         AND COALESCE(d.reminder_stage, 0) >= 3   -- la « dernière chance » a déjà été envoyée
+        -- Épargne un duel qu'un joueur vient d'ouvrir : ne jamais expirer une partie
+        -- EN COURS (le cron ne doit pas frapper pendant qu'on joue).
+        AND (d.opened_at IS NULL OR d.opened_at < NOW() - INTERVAL '6 hours')
       LIMIT 500
     `);
     let expired = 0;

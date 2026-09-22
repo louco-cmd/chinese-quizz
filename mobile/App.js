@@ -58,6 +58,7 @@ function App() {
   const [quizPack, setQuizPack] = useState(null); // pack à quizzer (depuis store/account)
   const [editPack, setEditPack] = useState(null); // pack à éditer (create-pack pré-rempli)
   const [duelDeepLink, setDuelDeepLink] = useState(null); // id de duel à ouvrir en détail (depuis une notif)
+  const [storeSort, setStoreSort] = useState(null); // tri imposé au JiaStore (notif « nouveau pack » → recent)
 
   // Lance un quiz sur un pack possédé → onglet Quiz, popup de réglages pré-rempli.
   const startPackQuiz = (pack) => { setQuizPack(pack); setTab('quiz'); };
@@ -229,7 +230,10 @@ function App() {
         setTab('duels');
       } else if (type === 'duel_new' || type === 'duel_expired') {
         setTab('duels');
-      } else if (type === 'pack_sold' || type === 'pack_new') {
+      } else if (type === 'pack_new') {
+        setStoreSort('recent'); // atterrit sur le JiaStore, tri « nouveautés »
+        setTab('store');
+      } else if (type === 'pack_sold') {
         setTab('store');
       } else if (type === 'red_envelope' || type === 'reengage') {
         setTab('add'); // enveloppes en popup / relance inactif → home
@@ -358,7 +362,7 @@ function App() {
       case 'trophies': return <TrophiesScreen onBack={() => setTab(bankReturn || 'settings')} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} onPurchased={() => loadProfile({ route: false })} />;
-      case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} canCreate onStartQuiz={startPackQuiz} onEditPack={startEditPack} onUpgrade={() => { setBankReturn('store'); setTab('pricing'); }} />;
+      case 'store': return <StoreScreen onCreate={() => { setEditPack(null); setTab('create-pack'); }} canCreate onStartQuiz={startPackQuiz} onEditPack={startEditPack} onUpgrade={() => { setBankReturn('store'); setTab('pricing'); }} initialSort={storeSort} onSortConsumed={() => setStoreSort(null)} />;
       case 'create-pack': return <CreatePackScreen editPack={editPack} learningLang={profile?.learning_lang || 'zh'} nativeLang={profile?.native_lang || 'en'} onBack={() => { setEditPack(null); setTab('store'); }} onCreated={() => { setEditPack(null); setTab('store'); }} />;
       case 'import': return <ImportWordsScreen onBack={() => setTab(bankReturn)} onDone={() => setTab('add')} />;
       case 'writing': return <WritingPracticeScreen onBack={() => setTab('settings')} />;

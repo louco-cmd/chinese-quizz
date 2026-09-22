@@ -200,6 +200,10 @@ const pool = new Pool({
     // palier de rappel envoyé (0=aucun, 1=2j, 2=4j, 3=7j « dernière chance ») ;
     // évite de renvoyer le même rappel. Au-delà, le duel est forfait (both lose bet).
     await pool.query(`ALTER TABLE duels ADD COLUMN IF NOT EXISTS reminder_stage SMALLINT NOT NULL DEFAULT 0`);
+    // opened_at : dernière ouverture du duel par un joueur qui n'a pas encore joué.
+    // Le cron de forfait épargne les duels ouverts récemment → un duel EN COURS de
+    // partie ne peut pas passer 'expired' pendant qu'on y joue.
+    await pool.query(`ALTER TABLE duels ADD COLUMN IF NOT EXISTS opened_at timestamptz`);
 
     // ── Décomposition des caractères (makemeahanzi, dictionary.txt) ──
     // Sert la popup « tap sur un caractère » : radical, décomposition (IDS ⿰⿱…) et

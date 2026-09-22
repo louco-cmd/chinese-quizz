@@ -266,6 +266,7 @@ export const TRANSLATIONS = {
     du_create: 'Create duel',
     // ── Duel (play/detail) ──
     dp_no_words: 'This duel has no words.',
+    dp_expired: 'This duel has expired.',
     dp_tr_fallback: 'Not available in your language — showing English',
     dp_already_played: 'Already played',
     dp_waiting_round: 'Waiting for {name} to play their round.',
@@ -750,6 +751,7 @@ export const TRANSLATIONS = {
     du_create: 'Créer le duel',
     // ── Duel (play/detail) ──
     dp_no_words: 'Ce duel n’a aucun mot.',
+    dp_expired: 'Ce duel a expiré.',
     dp_tr_fallback: 'Traduction indispo dans ta langue — affichée en anglais',
     dp_already_played: 'Déjà joué',
     dp_waiting_round: 'En attente que {name} joue sa manche.',
@@ -1232,6 +1234,7 @@ export const TRANSLATIONS = {
     du_create: '创建对战',
     // ── 对战（进行/详情）──
     dp_no_words: '这场对战没有词。',
+    dp_expired: '这场对战已过期。',
     dp_tr_fallback: '你的语言暂无翻译 — 显示英文',
     dp_already_played: '已完成本轮',
     dp_waiting_round: '等待 {name} 完成他的一轮。',

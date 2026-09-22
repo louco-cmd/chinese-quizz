@@ -14,7 +14,12 @@ import { isZhLearning, ttsFor } from '../langs';
 // Voix TTS = toujours le mot appris, dans la langue apprise.
 // `emphasizeTranslation` (bonne réponse en lecture chinois) : inverse la hiérarchie
 // → traduction en GROS, pinyin en secondaire (au lieu de pinyin gros + trad petite).
-export default function RevealAnswerCard({ word, learningLang = 'zh', type, emphasizeTranslation = false }) {
+export default function RevealAnswerCard({ word, learningLang = 'zh', type, emphasizeTranslation = false, success = false }) {
+  // Picto de succès (bonne réponse en lecture) accolé au mot traduit : les users
+  // ne voyaient pas toujours que leur réponse était juste.
+  const Check = success ? (
+    <Ionicons name="checkmark-circle" size={22} color={COLORS.success} style={{ marginLeft: 8 }} />
+  ) : null;
   const isZh = isZhLearning(learningLang);
   const isReading = type === 'reading';
   const readingBase = !isZh && isReading; // non-zh lecture → réponse = traduction
@@ -33,11 +38,17 @@ export default function RevealAnswerCard({ word, learningLang = 'zh', type, emph
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <View style={{ flex: 1 }}>
           {readingBase ? (
-            <Text style={{ fontSize: 22, fontWeight: '800', color: '#1a1a2e' }}>{word.english}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ fontSize: 22, fontWeight: '800', color: '#1a1a2e' }}>{word.english}</Text>
+              {Check}
+            </View>
           ) : readingZh ? (
             emphasizeTranslation ? (
               <>
-                <Text style={{ fontSize: 24, fontWeight: '800', color: '#1a1a2e' }}>{word.english || word.pinyin || word.chinese}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 24, fontWeight: '800', color: '#1a1a2e' }}>{word.english || word.pinyin || word.chinese}</Text>
+                  {Check}
+                </View>
                 {word.pinyin ? <Text style={{ fontSize: 14.5, color: COLORS.muted, marginTop: 2 }}>{word.pinyin}</Text> : null}
               </>
             ) : (

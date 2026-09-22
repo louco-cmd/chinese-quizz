@@ -97,6 +97,8 @@ export default function DuelPlayScreen({ duelId, onExit }) {
       const [me, d] = await Promise.all([getMe().catch(() => ({})), getDuel(duelId)]);
       if (me.learning_lang) setLearningLang(me.learning_lang);
       setDuel(d);
+      // Duel expiré (forfait J+8) → non jouable : message clair, pas de partie.
+      if (d.status === 'expired') { setWords([]); setError(tr('dp_expired')); return; }
       if (d.already_played) { setWords([]); return; } // déjà joué → écran d'attente
       const ws = shuffle(d.words || []);
       if (!ws.length) { setError(tr('dp_no_words')); return; }

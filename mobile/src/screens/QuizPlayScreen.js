@@ -506,8 +506,8 @@ function SuccessRevealCard({ word, learningLang, type, durationMs = 2000, onDone
 
   return (
     <View>
-      {/* Carte de réponse identique au cas « faux », mais traduction en gros. */}
-      <RevealAnswerCard word={word} learningLang={learningLang} type={type} emphasizeTranslation />
+      {/* Carte de réponse identique au cas « faux », mais traduction en gros + check vert. */}
+      <RevealAnswerCard word={word} learningLang={learningLang} type={type} emphasizeTranslation success />
       {/* Barre verte du timer en dessous — maintenir pour mettre en pause. */}
       <Pressable onPressIn={pause} onPressOut={resume} style={{ marginTop: -6, marginBottom: 16, paddingVertical: 8 }}>
         <View style={{ height: 6, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.08)', overflow: 'hidden' }}>
