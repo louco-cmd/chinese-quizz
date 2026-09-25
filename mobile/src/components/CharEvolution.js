@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { View, Text, Image, PanResponder } from 'react-native';
 import { API_BASE } from '../api';
 import { COLORS } from '../theme';
@@ -50,23 +50,34 @@ export function EvolutionHero({ char, stops, value, size = 200 }) {
 }
 
 export function EraSlider({ stops, value, onChange }) {
-  const [w, setW] = useState(0);
   const N = stops.length;
-  const wRef = useRef(0); wRef.current = w;
+  // Handlers créés UNE fois → ils lisent des refs (toujours à jour) pour éviter les
+  // closures périmées (N change selon le caractère). On calcule la valeur à partir de
+  // coordonnées ABSOLUES (moveX) moins la position mesurée de la piste : `locationX`
+  // est relatif à la sous-vue touchée sur natif → sautes « épileptiques » + stack à gauche.
+  const trackRef = useRef(null);
+  const geo = useRef({ x: 0, w: 0 });
+  const nRef = useRef(N); nRef.current = N;
   const valRef = useRef(value); valRef.current = value;
+  const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
 
-  const setFromX = (x) => {
-    const width = wRef.current; if (width <= 0) return;
-    const v = Math.max(0, Math.min(N - 1, (x / width) * (N - 1)));
-    onChange(v);
+  const measure = () => {
+    trackRef.current?.measureInWindow?.((x, y, w) => { if (w) geo.current = { x, w }; });
+  };
+  const setFromAbs = (absX) => {
+    const { x, w } = geo.current; const n = nRef.current;
+    if (w <= 0 || n <= 1) return;
+    const v = Math.max(0, Math.min(n - 1, ((absX - x) / w) * (n - 1)));
+    onChangeRef.current(v);
   };
   const pan = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => setFromX(e.nativeEvent.locationX),
-      onPanResponderMove: (e) => setFromX(e.nativeEvent.locationX),
-      onPanResponderRelease: () => onChange(Math.round(valRef.current)), // snap au stop
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: (e, g) => { measure(); setFromAbs(g.x0); },
+      onPanResponderMove: (e, g) => setFromAbs(g.moveX),
+      onPanResponderRelease: () => onChangeRef.current(Math.round(valRef.current)), // snap au stop
     })
   ).current;
 
@@ -79,8 +90,9 @@ export function EraSlider({ stops, value, onChange }) {
       {/* Marge intérieure = rayon de la poignée → les points/poignée aux extrémités
           ne sont jamais rognés par le bord de la carte. */}
       <View
+        ref={trackRef}
         {...pan.panHandlers}
-        onLayout={(e) => setW(e.nativeEvent.layout.width)}
+        onLayout={measure}
         style={{ height: 34, justifyContent: 'center', marginHorizontal: 13 }}
       >
         {/* piste */}
