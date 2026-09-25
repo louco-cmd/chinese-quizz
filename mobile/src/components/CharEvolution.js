@@ -21,12 +21,23 @@ export function evoStops(eras) {
 }
 
 export function EvolutionHero({ char, stops, value, size = 200 }) {
+  // Fondu croisé resserré : seuls les deux stops adjacents (f, c) sont visibles, avec
+  // une fraction ADOUCIE (smootherstep) → chaque forme tient nette plus longtemps et la
+  // bascule se fait vite au milieu (fenêtre de superposition courte). Somme = 1 (jamais
+  // de trou). Une petite bande morte aux extrémités coupe les traces sub-pixel.
+  const N = stops.length;
+  const clamped = Math.max(0, Math.min(N - 1, value));
+  const f = Math.floor(clamped);
+  const c = Math.min(N - 1, f + 1);
+  let t = clamped - f;
+  t = t * t * t * (t * (t * 6 - 15) + 10); // smootherstep
+  const opacityOf = (i) => (i === f ? (c === f ? 1 : 1 - t) : i === c ? t : 0);
+
   return (
     <View style={{ width: size, height: size }}>
       {stops.map((era, i) => {
-        // Opacité en toit : 1 au stop i, 0 dès qu'on est à ±1 stop → fondu croisé.
-        const opacity = Math.max(0, 1 - Math.abs(value - i));
-        if (opacity <= 0.001) return null;
+        const opacity = opacityOf(i);
+        if (opacity <= 0.02) return null;
         if (era === 99) {
           // Moderne = l'animation make-me-a-hanzi (ordre des traits). Montée seulement
           // près du stop moderne → se (re)dessine à l'arrivée sur le présent.
