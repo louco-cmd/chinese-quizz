@@ -225,6 +225,19 @@ const pool = new Pool({
     // le caractère n'est pas (encore) dans `mots` (sinon « unknown »).
     await pool.query('ALTER TABLE hanzi ADD COLUMN IF NOT EXISTS definition text');
 
+    // ── Évolution historique des caractères (EVOBC, « time machine ») ──────────
+    // Une image nettoyée par (caractère, era) : 0=OBC 甲骨 · 1=BI 金文 · 2=SS 篆 ·
+    // 3=SAC · 4=WSC · 5=CS 隶. Images auto-hébergées (HF bloqué en Chine). Servies
+    // par /api/m/evolution/:char/:era ; la liste des eras dispo est jointe au popup.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS hanzi_evolution (
+        char text NOT NULL,
+        era smallint NOT NULL,
+        image bytea NOT NULL,
+        mime text NOT NULL DEFAULT 'image/png',
+        PRIMARY KEY (char, era)
+      )`);
+
     // ── Migration: word_review_enabled sur users ──────────────────────────────
     await pool.query(`
       ALTER TABLE users

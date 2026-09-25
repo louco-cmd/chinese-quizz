@@ -8,6 +8,7 @@ import * as Speech from 'expo-speech';
 import { Loading, ErrorRetry } from '../components/ErrorRetry';
 import Popup from '../components/Popup';
 import HanziStroke from '../components/HanziStroke';
+import { evoStops, EvolutionHero, EraSlider } from '../components/CharEvolution';
 import { COLORS, SHADOW_CARD_FLAT, TAB_CLEARANCE } from '../theme';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
@@ -141,6 +142,12 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
   const [titleLines, setTitleLines] = useState(1);
   const [descLines, setDescLines] = useState(1);
   const [charInfo, setCharInfo] = useState(null); // { char, loading, data }
+  const [eraValue, setEraValue] = useState(0); // position du slider « time machine »
+  // À l'ouverture d'un caractère : slider positionné sur le MODERNE (dernier stop).
+  useEffect(() => {
+    const evo = charInfo?.data?.evolution;
+    if (evo && evo.length) setEraValue(evo.length); // stops = [...eras, modern] → index moderne = evo.length
+  }, [charInfo?.char, charInfo?.data]);
   const [busy, setBusy] = useState(false);
   const [speakingKey, setSpeakingKey] = useState(null); // bouton audio en cours ('card'|'char')
 
@@ -866,9 +873,14 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
             </View>
           ) : null}
 
-          {/* Héros : le caractère ANIMÉ (ordre des traits, tap pour rejouer) pour un
-              hanzi ; sinon le glyphe statique. */}
-          {isHanChar(charInfo?.char) ? (
+          {/* Héros : si des formes historiques existent (EVOBC) → glyphe « time machine »
+              piloté par le slider (cross-fade). Sinon le caractère animé (ordre des
+              traits) pour un hanzi, ou le glyphe statique. */}
+          {charInfo?.data?.evolution?.length ? (
+            <View style={{ alignItems: 'center', marginTop: charInfo?.data?.hsk ? 0 : 8 }}>
+              <EvolutionHero char={charInfo.char} stops={evoStops(charInfo.data.evolution)} value={eraValue} size={150} />
+            </View>
+          ) : isHanChar(charInfo?.char) ? (
             <View style={{ alignItems: 'center', marginTop: charInfo?.data?.hsk ? 0 : 8 }}>
               <HanziStroke char={charInfo.char} size={150} />
             </View>
@@ -897,17 +909,10 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
                 <Text style={{ fontSize: 11, color: COLORS.mutedLight, marginTop: 4, textAlign: 'center' }}>{tr('co_en_gloss')}</Text>
               ) : null}
 
-              {/* Capture : si le caractère existe en base mais n'est PAS possédé. */}
-              {charInfo.data.id && !charInfo.data.owned ? (
-                <Pressable onPress={captureCurrentChar} disabled={capturingChar}
-                  style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 22, opacity: capturingChar ? 0.7 : 1 }}>
-                  {capturingChar ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="add-circle" size={18} color="#fff" />}
-                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{tr('wc_capture')}</Text>
-                </Pressable>
-              ) : charInfo.data.id && charInfo.data.owned ? (
-                <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="checkmark-circle" size={16} color="#198754" />
-                  <Text style={{ color: '#198754', fontWeight: '700', fontSize: 13 }}>{tr('wc_in_collection')}</Text>
+              {/* Slider « time machine » : remonte le caractère vers ses formes anciennes. */}
+              {charInfo.data.evolution?.length ? (
+                <View style={{ width: '100%', marginTop: 14 }}>
+                  <EraSlider stops={evoStops(charInfo.data.evolution)} value={eraValue} onChange={setEraValue} />
                 </View>
               ) : null}
 
@@ -919,45 +924,46 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
                 const picto = e && e.type === 'pictophonetic' && (e.semantic || e.phonetic);
                 if (!note && (!e || (!picto && !e.hint))) return null;
                 return (
-                  <View style={{ marginTop: 24, width: '100%', backgroundColor: '#f1f3f5', borderRadius: 20, padding: 20 }}>
-                    <Text style={{ fontSize: 20, fontWeight: '800', color: '#1a1a2e', marginBottom: 8 }}>{tr('co_etymology')}</Text>
+                  <View style={{ marginTop: 16, width: '100%', backgroundColor: '#f1f3f5', borderRadius: 18, padding: 16 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e', marginBottom: 6 }}>{tr('co_etymology')}</Text>
                     {note ? (
-                      <Text style={{ fontSize: 16, color: '#333', lineHeight: 23 }}>{note}</Text>
+                      <Text style={{ fontSize: 15, color: '#333', lineHeight: 21 }}>{note}</Text>
                     ) : picto ? (
                       <>
                         {e.semantic ? (
-                          <Text style={{ fontSize: 16, color: '#333', lineHeight: 23 }}>
+                          <Text style={{ fontSize: 15, color: '#333', lineHeight: 21 }}>
                             {tr('co_ety_meaning')}: <Text style={{ fontWeight: '700', color: '#1a1a2e' }}>{e.semantic}</Text>{e.hint ? ` (${e.hint})` : ''}
                           </Text>
                         ) : null}
                         {e.phonetic ? (
-                          <Text style={{ fontSize: 16, color: '#333', lineHeight: 23, marginTop: 2 }}>
+                          <Text style={{ fontSize: 15, color: '#333', lineHeight: 21, marginTop: 2 }}>
                             {tr('co_ety_sound')}: <Text style={{ fontWeight: '700', color: '#1a1a2e' }}>{e.phonetic}</Text>
                           </Text>
                         ) : null}
                       </>
                     ) : (
-                      <Text style={{ fontSize: 16, color: '#333', lineHeight: 23 }}>{e.hint}</Text>
+                      <Text style={{ fontSize: 15, color: '#333', lineHeight: 21 }}>{e.hint}</Text>
                     )}
                   </View>
                 );
               })()}
 
-              {/* Composition : ligne SOUS la carte — label à gauche, chips ronds à droite. */}
+              {/* Composition : DISCRÈTE et non-cliquable (façon maquette) — label + petits
+                  glyphes séparés par des points. */}
               {(() => {
                 const comps = [];
                 if (charInfo.data.radical) comps.push(charInfo.data.radical);
                 (charInfo.data.components || []).forEach((c) => { if (!comps.includes(c)) comps.push(c); });
                 if (!comps.length) return null;
                 return (
-                  <View style={{ marginTop: 20, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                    <Text style={{ fontSize: 18, color: '#1a1a2e' }}>{tr('co_composition')}</Text>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-end', flexShrink: 1 }}>
-                      {comps.map((c) => (
-                        <Pressable key={c} onPress={() => openChar(c)}
-                          style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#e8f0ff', alignItems: 'center', justifyContent: 'center' }}>
-                          <Text style={{ fontSize: 26, color: COLORS.jiayou, fontWeight: '600' }}>{c}</Text>
-                        </Pressable>
+                  <View style={{ marginTop: 14, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 15, color: COLORS.muted }}>{tr('co_composition')}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1, justifyContent: 'flex-end' }}>
+                      {comps.map((c, i) => (
+                        <View key={c} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          {i > 0 ? <Text style={{ fontSize: 13, color: '#c4c9d2', marginHorizontal: 8 }}>·</Text> : null}
+                          <Text style={{ fontSize: 22, color: '#1a1a2e', fontWeight: '600' }}>{c}</Text>
+                        </View>
                       ))}
                     </View>
                   </View>

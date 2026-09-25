@@ -1744,7 +1744,7 @@ router.get('/api/m/character/:char', requireToken, async (req, res) => {
     if (!ch) return res.status(400).json({ error: 'Missing character' });
     const nat = (await getUserLangs(req.tokenUser.id)).native;
     const uid = req.tokenUser.id;
-    const [motQ, hanziQ] = await Promise.all([
+    const [motQ, hanziQ, evoQ] = await Promise.all([
       pool.query(
         `SELECT m.id, m.chinese, m.pinyin, mot_tr(m.id, $2) AS english, m.hsk,
                 (SELECT min(meaning_id) FROM lexeme_senses ls WHERE ls.mot_id = m.id) AS meaning_id,
@@ -1752,6 +1752,7 @@ router.get('/api/m/character/:char', requireToken, async (req, res) => {
          FROM mots m WHERE m.chinese = $1 AND m.lang = 'zh' ORDER BY m.id ASC LIMIT 1`,
         [ch, nat, uid]),
       pool.query('SELECT radical, decomposition, etymology, etym_note, pinyin, definition FROM hanzi WHERE char = $1', [ch]),
+      pool.query('SELECT era FROM hanzi_evolution WHERE char = $1 ORDER BY era', [ch]),
     ]);
     const mot = motQ.rows[0] || null;
     const hz = hanziQ.rows[0] || null;
@@ -1777,11 +1778,33 @@ router.get('/api/m/character/:char', requireToken, async (req, res) => {
       etymology: hz ? hz.etymology : null,
       // Explication prête à afficher (enrichie) ; l'app la préfère au hint brut.
       etym_note: hz ? hz.etym_note : null,
+      // « Time machine » : liste des eras historiques disponibles (EVOBC). Les
+      // images sont servies par /api/m/evolution/:char/:era.
+      evolution: evoQ.rows.map((r) => r.era),
     };
     res.json({ character });
   } catch (e) {
     console.error('m/character error:', e);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── GET /api/m/evolution/:char/:era : image historique d'un caractère (EVOBC) ─
+// PUBLIC (une balise <Image> n'envoie pas le token) ; immutable → mis en cache
+// une fois pour toutes par le client. Sert le bytea depuis hanzi_evolution.
+router.get('/api/m/evolution/:char/:era', async (req, res) => {
+  try {
+    const ch = decodeURIComponent(req.params.char || '').trim();
+    const era = parseInt(req.params.era, 10);
+    if (!ch || !Number.isInteger(era)) return res.status(400).end();
+    const { rows } = await pool.query('SELECT image, mime FROM hanzi_evolution WHERE char = $1 AND era = $2', [ch, era]);
+    if (!rows.length) return res.status(404).end();
+    res.set('Content-Type', rows[0].mime || 'image/png');
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(rows[0].image);
+  } catch (e) {
+    console.error('m/evolution error:', e);
+    res.status(500).end();
   }
 });
 

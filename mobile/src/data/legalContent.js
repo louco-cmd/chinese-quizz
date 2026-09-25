@@ -232,5 +232,9 @@ export const CREDITS_BLOCKS = [
   { t: 'p', text: 'Automatic pinyin readings use the pinyin-pro library (MIT).' },
   { t: 'link', label: 'pinyin-pro — github.com/zh-lx/pinyin-pro', url: 'https://github.com/zh-lx/pinyin-pro' },
 
+  { t: 'h3', text: 'Historical character evolution' },
+  { t: 'p', text: 'The ancient character forms (oracle bone, bronze, seal, clerical scripts) shown in the character time-machine come from the EVOBC dataset (Guan et al., 2024), used with the kind permission of its authors. We are grateful for their work.' },
+  { t: 'link', label: 'EVOBC — an open dataset for the evolution of oracle bone characters', url: 'https://github.com/RomanticGodVAN/character-Evolution-Dataset' },
+
   { t: 'note', text: 'If you believe something is miscredited or should be added, please reach out — we will fix it promptly.' },
 ];
