@@ -924,39 +924,51 @@ router.get('/api/m/search', requireToken, async (req, res) => {
          FROM pairs
          WHERE english IS NOT NULL
          ORDER BY lower(chinese), lower(coalesce(english,'')), owned DESC, meaning_id ASC
-       )
-       SELECT d.id, d.chinese, d.pinyin, d.hsk, d.meaning_id, d.english, d.owned
-       FROM deduped d
-       -- Qualité P2P : le crawler externe note des PAIRES dirigées dans
-       -- lexeme_pair_scores (src_mot_id, tgt_mot_id, meaning_id + confidence/
-       -- possession/trust). On récupère le MEILLEUR score reliant le mot appris
-       -- (d.id) à un mot de la langue native ($4) pour ce sens, dans les DEUX
-       -- directions. Absent → COALESCE score NEUTRE (0.325). Sert UNIQUEMENT de
-       -- tie-breaker APRÈS la pertinence : un résultat pertinent mais non jugé
-       -- reste visible.
-       -- Tri à paliers « safe/populaire d'abord » :
-       --  1) match EXACT (chinois ou traduction identique au terme) ;
-       --  2) vocabulaire DÉJÀ POSSÉDÉ : l'app est centrée collection (on ne
-       --     pratique que ses mots), donc tes mots capturés remontent — jamais
-       --     enterrés par la démotion ci-dessous ;
-       --  3) vocabulaire HSK d'abord : meilleur signal de popularité « curé »
-       --     (5k mots), dispo tout de suite et indépendant du crawler ;
-       --  4) qualité/popularité P2P (lexeme_rank) ; neutre 0.325 si non noté ;
-       --  5) DÉMOTION des mono-caractères hors HSK (les ~8,7k hanzi importés en
-       --     masse, souvent niches/non notés) → poussés en fin, mais trouvables ;
-       --  6) id pour un ordre stable.
-       ORDER BY (d.chinese = $3 OR lower(d.english) = lower($3)) DESC,
-                d.owned DESC,
-                (d.hsk IS NOT NULL) DESC,
+       ),
+       -- Score qualité P2P calculé UNE fois par ligne : le crawler externe note des
+       -- PAIRES dirigées dans lexeme_pair_scores (src_mot_id, tgt_mot_id, meaning_id
+       -- + confidence/possession/trust). On prend le MEILLEUR score reliant le mot
+       -- appris (d.id) à un mot de la langue native ($4) pour ce sens, dans les DEUX
+       -- directions. Absent → NEUTRE (0.325).
+       scored AS (
+         SELECT d.*,
+                (d.chinese = $3 OR lower(d.english) = lower($3)) AS exactm,
                 COALESCE((
                   SELECT MAX(lexeme_rank(ps.confidence, ps.possession_count, ps.trust))
                   FROM lexeme_pair_scores ps
                   WHERE ps.meaning_id = d.meaning_id
                     AND ((ps.src_mot_id = d.id AND ps.tgt_lang = $4)
                       OR (ps.tgt_mot_id = d.id AND ps.src_lang = $4))
-                ), 0.325) DESC,
-                (char_length(d.chinese) = 1 AND d.hsk IS NULL) ASC,
-                d.id ASC
+                ), 0.325) AS rk,
+                (char_length(d.chinese) = 1 AND d.hsk IS NULL) AS niche
+         FROM deduped d
+       ),
+       -- Numérote les mots POSSÉDÉS par désirabilité → on n'en remonte qu'un nombre
+       -- limité en tête (cap), le reste du vocab capturé se trie comme la découverte.
+       ranked AS (
+         SELECT s.*,
+                CASE WHEN s.owned THEN ROW_NUMBER() OVER (
+                  PARTITION BY s.owned
+                  ORDER BY s.exactm DESC, (s.hsk IS NOT NULL) DESC, s.rk DESC, s.niche ASC, s.id ASC
+                ) END AS own_pos
+         FROM scored s
+       )
+       -- Tri à paliers « safe/populaire d'abord » :
+       --  1) match EXACT ;
+       --  2) jusqu'à 3 mots DÉJÀ POSSÉDÉS en tête (app centrée collection) ; au-delà,
+       --     les possédés se trient normalement (pas de monopole du haut de liste) ;
+       --  3) vocabulaire HSK d'abord (meilleur signal « populaire » curé) ;
+       --  4) qualité/popularité P2P (lexeme_rank) ;
+       --  5) DÉMOTION des mono-caractères hors HSK (imports de masse niches) ;
+       --  6) id (ordre stable).
+       SELECT id, chinese, pinyin, hsk, meaning_id, english, owned
+       FROM ranked
+       ORDER BY exactm DESC,
+                (owned AND own_pos <= 3) DESC,
+                (hsk IS NOT NULL) DESC,
+                rk DESC,
+                niche ASC,
+                id ASC
        LIMIT 8`,
       params
     );
