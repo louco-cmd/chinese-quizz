@@ -146,7 +146,10 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
   // À l'ouverture d'un caractère : slider positionné sur le MODERNE (dernier stop).
   useEffect(() => {
     const evo = charInfo?.data?.evolution;
-    if (evo && evo.length) setEraValue(evo.length); // stops = [...eras, modern] → index moderne = evo.length
+    if (evo && evo.length) {
+      const hasTrad = !!charInfo?.data?.traditional;
+      setEraValue(evo.length + (hasTrad ? 1 : 0)); // stops = [...eras, (trad?), modern] → index du dernier (moderne)
+    }
   }, [charInfo?.char, charInfo?.data]);
   const [busy, setBusy] = useState(false);
   const [speakingKey, setSpeakingKey] = useState(null); // bouton audio en cours ('card'|'char')
@@ -878,7 +881,7 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
               traits) pour un hanzi, ou le glyphe statique. */}
           {charInfo?.data?.evolution?.length ? (
             <View style={{ alignItems: 'center', marginTop: charInfo?.data?.hsk ? 0 : 8 }}>
-              <EvolutionHero char={charInfo.char} stops={evoStops(charInfo.data.evolution)} value={eraValue} size={150} />
+              <EvolutionHero char={charInfo.char} trad={charInfo.data.traditional} stops={evoStops(charInfo.data.evolution, !!charInfo.data.traditional)} value={eraValue} size={150} />
             </View>
           ) : isHanChar(charInfo?.char) ? (
             <View style={{ alignItems: 'center', marginTop: charInfo?.data?.hsk ? 0 : 8 }}>
@@ -912,7 +915,7 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
               {/* Slider « time machine » : remonte le caractère vers ses formes anciennes. */}
               {charInfo.data.evolution?.length ? (
                 <View style={{ width: '100%', marginTop: 14 }}>
-                  <EraSlider stops={evoStops(charInfo.data.evolution)} value={eraValue} onChange={setEraValue} />
+                  <EraSlider stops={evoStops(charInfo.data.evolution, !!charInfo.data.traditional)} value={eraValue} onChange={setEraValue} />
                 </View>
               ) : null}
 

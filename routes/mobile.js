@@ -15,6 +15,25 @@ const { registerLimiter, loginLimiter, validateSignupEmail } = require('../middl
 const { rewardPendingReferral } = require('../lib/referral');
 const { SIGNUP_GRANT } = require('../lib/economy');
 const cedict = require('../lib/cedict');
+const simptrad = require('../lib/simptrad');
+
+// ── Shim DEV « time machine » ────────────────────────────────────────────────
+// En local on peut servir les images d'évolution depuis un DOSSIER (cache du
+// pipeline d'extraction) au lieu de la base, pour tout valider AVANT d'importer
+// en prod. Activé par EXPO… non : par la variable d'env EVOLUTION_LOCAL_DIR.
+// INERTE en prod (variable non définie sur Render) → on sert depuis hanzi_evolution.
+const fs = require('fs');
+const path = require('path');
+const EVO_DIR = process.env.EVOLUTION_LOCAL_DIR || null;
+function localEvoEras(ch) {
+  const eras = [];
+  try {
+    for (let e = 0; e <= 5; e++) {
+      if (fs.existsSync(path.join(EVO_DIR, `${ch}_${e}.webp`))) eras.push(e);
+    }
+  } catch { /* ignore */ }
+  return eras;
+}
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const router = express.Router();
@@ -1780,7 +1799,10 @@ router.get('/api/m/character/:char', requireToken, async (req, res) => {
       etym_note: hz ? hz.etym_note : null,
       // « Time machine » : liste des eras historiques disponibles (EVOBC). Les
       // images sont servies par /api/m/evolution/:char/:era.
-      evolution: evoQ.rows.map((r) => r.era),
+      evolution: EVO_DIR ? localEvoEras(ch) : evoQ.rows.map((r) => r.era),
+      // Forme traditionnelle (si différente) → stop 繁 inséré avant le moderne dans
+      // la frise. Seulement utile quand il y a une évolution à remonter.
+      traditional: (EVO_DIR ? localEvoEras(ch).length : evoQ.rows.length) ? simptrad.toTrad(ch) : null,
     };
     res.json({ character });
   } catch (e) {
@@ -1797,6 +1819,16 @@ router.get('/api/m/evolution/:char/:era', async (req, res) => {
     const ch = decodeURIComponent(req.params.char || '').trim();
     const era = parseInt(req.params.era, 10);
     if (!ch || !Number.isInteger(era)) return res.status(400).end();
+    // DEV : sert le WebP local si EVOLUTION_LOCAL_DIR est défini (cf. shim en tête).
+    if (EVO_DIR) {
+      const fp = path.join(EVO_DIR, `${ch}_${era}.webp`);
+      if (fs.existsSync(fp)) {
+        res.set('Content-Type', 'image/webp');
+        res.set('Cache-Control', 'no-store');
+        return res.send(fs.readFileSync(fp));
+      }
+      return res.status(404).end();
+    }
     const { rows } = await pool.query('SELECT image, mime FROM hanzi_evolution WHERE char = $1 AND era = $2', [ch, era]);
     if (!rows.length) return res.status(404).end();
     res.set('Content-Type', rows[0].mime || 'image/png');

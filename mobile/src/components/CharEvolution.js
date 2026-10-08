@@ -11,16 +11,23 @@ import HanziStroke from './HanziStroke';
 // = le hanzi actuel (texte vectoriel). Les images raster ne se morphent pas vraiment →
 // on fait un fondu croisé, ce qui donne la sensation « remonter le temps ».
 
-const ERA_LABEL = { 0: '甲骨文', 1: '金文', 2: '篆书', 3: '春秋', 4: '战国', 5: '隶书' };
-const ERA_SUB = { 0: 'Oracle bone', 1: 'Bronze', 2: 'Seal', 3: 'Spring & Autumn', 4: 'Warring States', 5: 'Clerical' };
+// Eras dans l'ORDRE CHRONOLOGIQUE (codes alignés sur l'extraction EVOBC) :
+// 0 OBC 甲骨 → 1 BI 金文 → 2 SAC 春秋 → 3 WSC 战国 → 4 SS 篆 → 5 CS 隶.
+const ERA_LABEL = { 0: '甲骨文', 1: '金文', 2: '春秋', 3: '战国', 4: '篆书', 5: '隶书' };
+const ERA_SUB = { 0: 'Oracle bone', 1: 'Bronze', 2: 'Spring & Autumn', 3: 'Warring States', 4: 'Seal', 5: 'Clerical' };
 
-// Liste ordonnée des stops : eras historiques + le moderne (sentinelle 99).
-export function evoStops(eras) {
+// Sentinelles de fin de frise : 98 = forme TRADITIONNELLE (glyphe), 99 = MODERNE
+// (le caractère tel qu'affiché, simplifié). Le stop trad n'apparaît que si le
+// caractère simplifié diffère de son traditionnel (hasTrad).
+const TRAD = 98, MODERN = 99;
+
+// Liste ordonnée des stops : eras historiques → [trad] → moderne.
+export function evoStops(eras, hasTrad = false) {
   const sorted = [...(eras || [])].sort((a, b) => a - b);
-  return [...sorted, 99];
+  return [...sorted, ...(hasTrad ? [TRAD] : []), MODERN];
 }
 
-export function EvolutionHero({ char, stops, value, size = 200 }) {
+export function EvolutionHero({ char, trad, stops, value, size = 200 }) {
   // Fondu croisé resserré : seuls les deux stops adjacents (f, c) sont visibles, avec
   // une fraction ADOUCIE (smootherstep) → chaque forme tient nette plus longtemps et la
   // bascule se fait vite au milieu (fenêtre de superposition courte). Somme = 1 (jamais
@@ -38,12 +45,14 @@ export function EvolutionHero({ char, stops, value, size = 200 }) {
       {stops.map((era, i) => {
         const opacity = opacityOf(i);
         if (opacity <= 0.02) return null;
-        if (era === 99) {
-          // Moderne = l'animation make-me-a-hanzi (ordre des traits). Montée seulement
-          // près du stop moderne → se (re)dessine à l'arrivée sur le présent.
+        if (era === 99 || era === 98) {
+          // 99 = moderne (caractère affiché, simplifié) = animation make-me-a-hanzi
+          // (ordre des traits). 98 = forme traditionnelle, même rendu mais sur le
+          // glyphe traditionnel → la frise passe par 繁 juste avant le simplifié.
+          const g = era === 98 ? (trad || char) : char;
           return (
-            <View key="modern" style={{ position: 'absolute', width: size, height: size, alignItems: 'center', justifyContent: 'center', opacity }}>
-              <HanziStroke char={char} size={size} />
+            <View key={era === 98 ? 'trad' : 'modern'} style={{ position: 'absolute', width: size, height: size, alignItems: 'center', justifyContent: 'center', opacity }}>
+              <HanziStroke char={g} size={size} />
             </View>
           );
         }
@@ -123,6 +132,8 @@ export function EraSlider({ stops, value, onChange }) {
       <Text style={{ textAlign: 'center', marginTop: 6, fontSize: 13, color: COLORS.muted }}>
         {era === 99
           ? <Text style={{ fontWeight: '700', color: '#1a1a2e' }}>今 楷书 · Modern</Text>
+          : era === 98
+          ? <Text style={{ fontWeight: '700', color: '#1a1a2e' }}>繁 · Traditional</Text>
           : <><Text style={{ fontWeight: '700', color: '#1a1a2e' }}>{ERA_LABEL[era]}</Text>{`  ·  ${ERA_SUB[era]}`}</>}
       </Text>
     </View>
