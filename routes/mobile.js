@@ -934,8 +934,17 @@ router.get('/api/m/search', requireToken, async (req, res) => {
        -- directions. Absent → COALESCE score NEUTRE (0.325). Sert UNIQUEMENT de
        -- tie-breaker APRÈS la pertinence : un résultat pertinent mais non jugé
        -- reste visible.
+       -- Tri à paliers « safe/populaire d'abord » :
+       --  1) match EXACT (chinois ou traduction identique au terme) ;
+       --  2) vocabulaire HSK d'abord : le HSK est notre meilleur signal de
+       --     popularité « curé » (5k mots), dispo tout de suite et indépendant du
+       --     crawler → remonte le courant au-dessus des imports de masse ;
+       --  3) qualité/popularité P2P (lexeme_rank) ; neutre 0.325 si non noté ;
+       --  4) DÉMOTION des mono-caractères hors HSK (les ~8,7k hanzi importés en
+       --     masse, souvent niches/non notés) → poussés en fin, mais trouvables ;
+       --  5) id pour un ordre stable.
        ORDER BY (d.chinese = $3 OR lower(d.english) = lower($3)) DESC,
-                (d.english IS NOT NULL) DESC,
+                (d.hsk IS NOT NULL) DESC,
                 COALESCE((
                   SELECT MAX(lexeme_rank(ps.confidence, ps.possession_count, ps.trust))
                   FROM lexeme_pair_scores ps
@@ -943,6 +952,7 @@ router.get('/api/m/search', requireToken, async (req, res) => {
                     AND ((ps.src_mot_id = d.id AND ps.tgt_lang = $4)
                       OR (ps.tgt_mot_id = d.id AND ps.src_lang = $4))
                 ), 0.325) DESC,
+                (char_length(d.chinese) = 1 AND d.hsk IS NULL) ASC,
                 d.id ASC
        LIMIT 8`,
       params
