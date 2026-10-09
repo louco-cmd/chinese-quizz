@@ -490,6 +490,12 @@ export function deleteAccount() {
   return request('/api/m/account/delete', { method: 'DELETE' });
 }
 
+// Export RGPD (portabilité). Renvoie l'objet JSON des données perso — SANS la
+// collection de vocabulaire (exclusion volontaire côté serveur).
+export function exportAccountData() {
+  return request('/api/m/account/export');
+}
+
 // Langues apprenables (réactif : reflète les langues enregistrées ayant du contenu).
 export function getLanguages() {
   return request('/api/m/languages');

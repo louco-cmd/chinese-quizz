@@ -3726,6 +3726,60 @@ router.post('/api/m/learning-paths/:id/activate', requireToken, async (req, res)
   }
 });
 
+// ── GET /api/m/account/export : export des données perso (RGPD, portabilité) ──
+// IMPORTANT : on EXCLUT volontairement la COLLECTION de vocabulaire (user_mots) et
+// tout champ qui la révélerait (quiz_history.words_used, duels.quiz_data) → protection
+// anti-migration de plateforme. Une vraie demande d'accès (Art. 15) incluant la
+// collection reste traitable manuellement via info@jiayou.fr (mention dans le JSON).
+router.get('/api/m/account/export', requireToken, async (req, res) => {
+  const uid = req.tokenUser.id;
+  try {
+    const [u, qh, tx, dz, tr, sub] = await Promise.all([
+      pool.query(
+        `SELECT id, email, name, tagline, country, provider, created_at, last_login, balance,
+                email_verified, role, interface_lang, native_lang, learning_lang, quiz_direction,
+                referral_code, avatar_icon, avatar_color, notifications_enabled,
+                notif_duels, notif_packs, notif_social, notif_reminders, rc_expires_at, rc_will_renew
+           FROM users WHERE id = $1`, [uid]),
+      // historique quiz SANS words_used (ne pas divulguer les mots pratiqués)
+      pool.query(
+        `SELECT score, total_questions, ratio, quiz_type, lang, coins_earned, date_completed
+           FROM quiz_history WHERE user_id = $1 ORDER BY date_completed`, [uid]),
+      pool.query(
+        `SELECT amount, type, description, created_at
+           FROM transactions WHERE user_id = $1 ORDER BY created_at`, [uid]),
+      // duels SANS quiz_data (qui contient les mots)
+      pool.query(
+        `SELECT id, duel_type, quiz_type, challenger_id, opponent_id, challenger_score,
+                opponent_score, status, winner_id, bet_amount, word_count, lang, created_at, completed_at
+           FROM duels WHERE challenger_id = $1 OR opponent_id = $1 ORDER BY created_at`, [uid]),
+      pool.query(
+        `SELECT trophy_id, coins_awarded, unlocked_at
+           FROM user_trophies WHERE user_id = $1 ORDER BY unlocked_at`, [uid]),
+      pool.query(
+        `SELECT plan_name, status, current_period_start, current_period_end, cancel_at_period_end, created_at
+           FROM user_subscriptions WHERE user_id = $1 ORDER BY created_at`, [uid]),
+    ]);
+    if (!u.rows.length) return res.status(404).json({ error: 'User not found' });
+    const payload = {
+      _about: 'Jiayou personal data export (GDPR Art. 20). Your vocabulary collection is intentionally NOT included. To request a full access copy including your collection (GDPR Art. 15), email info@jiayou.fr.',
+      _generated_at: new Date().toISOString(),
+      profile: u.rows[0],
+      quiz_history: qh.rows,
+      transactions: tx.rows,
+      duels: dz.rows,
+      trophies: tr.rows,
+      subscription: sub.rows,
+    };
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="jiayou-data-export.json"');
+    res.send(JSON.stringify(payload, null, 2));
+  } catch (e) {
+    console.error('m/account export error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ── DELETE /api/m/account/delete : supprimer le compte (danger zone) ─────────
 router.delete('/api/m/account/delete', requireToken, async (req, res) => {
   const uid = req.tokenUser.id;
@@ -3742,6 +3796,12 @@ router.delete('/api/m/account/delete', requireToken, async (req, res) => {
     }
     await client.query('DELETE FROM user_mots WHERE user_id = $1', [uid]);
     await client.query('DELETE FROM user_subscriptions WHERE user_id = $1', [uid]);
+    // RGPD — effacement complet : le dictionnaire collaboratif garde des liens vers
+    // l'auteur des éditions (mots.last_edited_by, edit_log.user_id, sans FK → non
+    // cascadés). On les ANONYMISE (NULL) pour ne pas laisser l'id d'un compte
+    // supprimé traîner dans l'historique, tout en conservant l'intégrité de l'audit.
+    await client.query('UPDATE mots SET last_edited_by = NULL WHERE last_edited_by = $1', [uid]);
+    await client.query('UPDATE edit_log SET user_id = NULL WHERE user_id = $1', [uid]);
     const del = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [uid]);
     if (!del.rowCount) {
       await client.query('ROLLBACK');

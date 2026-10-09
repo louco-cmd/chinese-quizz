@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, ActivityIndicator, Pressable,
-  useWindowDimensions, Animated, PanResponder, Platform,
+  useWindowDimensions, Animated, PanResponder, Platform, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SettingsGroup from '../components/settings/SettingsGroup';
@@ -10,7 +10,7 @@ import Toggle from '../components/Toggle';
 import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
 import UpdateFooter from '../components/settings/UpdateFooter';
-import { getSettings, getCachedSettings, updateSettings, deleteAccount, getLearningPaths, activateLearningPath } from '../api';
+import { getSettings, getCachedSettings, updateSettings, deleteAccount, exportAccountData, getLearningPaths, activateLearningPath } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 import CatLoader from '../components/CatLoader';
@@ -49,6 +49,7 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
 
   // Parcours d'apprentissage (multi-langues).
@@ -152,6 +153,33 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
       setConfirmDelete(false);
     } finally {
       setDeleting(false);
+    }
+  }
+
+  // Export RGPD : récupère les données perso (hors collection) et les remet à
+  // l'utilisateur — téléchargement d'un .json sur le web, copie presse-papier sur natif.
+  async function doExport() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const data = await exportAccountData();
+      const json = JSON.stringify(data, null, 2);
+      if (Platform.OS === 'web') {
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'jiayou-data-export.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      } else {
+        const Clipboard = require('expo-clipboard');
+        await Clipboard.setStringAsync(json);
+        Alert.alert(t('set_export'), t('set_export_copied'));
+      }
+    } catch (e) {
+      Alert.alert(t('set_export'), e.message || 'Could not export.');
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -332,6 +360,7 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
 
           {/* ── Danger zone ── */}
           <SettingsGroup title={t('set_grp_danger')}>
+            <SettingsRow icon="download-outline" label={exporting ? t('set_export_wait') : t('set_export')} onPress={doExport} />
             <SettingsRow icon="log-out" danger label={t('set_logout')} onPress={() => setConfirmLogout(true)} />
             <SettingsRow icon="trash" danger label={t('set_delete')} onPress={() => setConfirmDelete(true)} />
           </SettingsGroup>
