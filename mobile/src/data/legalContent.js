@@ -227,6 +227,8 @@ export const CREDITS_BLOCKS = [
   { t: 'h3', text: 'Dictionary' },
   { t: 'p', text: 'Chinese–English definitions draw on CC-CEDICT, a community dictionary licensed under Creative Commons Attribution-ShareAlike (CC BY-SA).' },
   { t: 'link', label: 'CC-CEDICT — cc-cedict.org', url: 'https://cc-cedict.org/wiki/' },
+  { t: 'p', text: 'Chinese–French definitions draw on CFDICT, a community dictionary also licensed under Creative Commons Attribution-ShareAlike (CC BY-SA).' },
+  { t: 'link', label: 'CFDICT — chine.in', url: 'https://chine.in/mandarin/dictionnaire/CFDICT/' },
 
   { t: 'h3', text: 'Pinyin conversion' },
   { t: 'p', text: 'Automatic pinyin readings use the pinyin-pro library (MIT).' },
