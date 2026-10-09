@@ -1,18 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import Popup from './Popup';
+import BottomSheet from './BottomSheet';
 import { searchUsers, sendRedEnvelope } from '../api';
 import { COLORS } from '../theme';
 
-const RED = '#d4373e';
+// Les red envelopes passent au format DRAWER (comme les trophées), sobre : pas de
+// fond rouge, palette de l'app. L'emoji 🧧 suffit à porter la symbolique.
 const inputStyle = {
   backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.line,
-  paddingHorizontal: 14, paddingVertical: 10, fontSize: 15,
+  paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#1a1a2e',
 };
+const GOLD_BG = '#fff8e1', GOLD_FG = '#856404';
 
-// ── Composer & envoyer une red envelope ──
+// ── Composer & envoyer une red envelope (drawer) ──
 export function SendRedEnvelopePopup({ visible, onClose, balance, onSent }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -55,23 +56,23 @@ export function SendRedEnvelopePopup({ visible, onClose, balance, onSent }) {
   }
 
   return (
-    <Popup visible={visible} onClose={close} maxWidth={420}>
+    <BottomSheet visible={visible} onClose={close} avoidKeyboard dismissable={!sending}>
       {done ? (
-        <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-          <Text style={{ fontSize: 46 }}>🧧</Text>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e', marginTop: 8 }}>Red envelope sent!</Text>
-          <Text style={{ fontSize: 14, color: COLORS.muted, marginTop: 4, textAlign: 'center' }}>
+        <View style={{ alignItems: 'center', paddingVertical: 6 }}>
+          <Text style={{ fontSize: 52 }}>🧧</Text>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: '#1a1a2e', marginTop: 10 }}>Red envelope sent!</Text>
+          <Text style={{ fontSize: 14, color: COLORS.muted, marginTop: 6, textAlign: 'center' }}>
             {selected?.name} will see it on their next visit.
           </Text>
-          <Pressable onPress={close} style={{ marginTop: 20, backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 32 }}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Done</Text>
+          <Pressable onPress={close} style={{ marginTop: 22, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, paddingHorizontal: 40 }}>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Done</Text>
           </Pressable>
         </View>
       ) : (
         <View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <Text style={{ fontSize: 22 }}>🧧</Text>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>Send a red envelope</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <Text style={{ fontSize: 26 }}>🧧</Text>
+            <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e' }}>Send a red envelope</Text>
           </View>
 
           {/* Destinataire */}
@@ -114,7 +115,7 @@ export function SendRedEnvelopePopup({ visible, onClose, balance, onSent }) {
           {error ? <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '600', marginBottom: 10 }}>{error}</Text> : null}
 
           <Pressable onPress={send} disabled={!canSend}
-            style={{ borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: canSend ? RED : '#e9ecef' }}>
+            style={{ borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: canSend ? COLORS.jiayou : '#e9ecef' }}>
             {sending ? <ActivityIndicator color="#fff" /> : (
               <>
                 <Ionicons name="gift" size={16} color={canSend ? '#fff' : COLORS.muted} />
@@ -126,42 +127,44 @@ export function SendRedEnvelopePopup({ visible, onClose, balance, onSent }) {
           </Pressable>
         </View>
       )}
-    </Popup>
+    </BottomSheet>
   );
 }
 
-// ── Réception : révélée à la prochaine connexion ──
+// ── Réception : drawer sobre (révélé à l'ouverture / au retour au premier plan) ──
 export function RedEnvelopeReceivedPopup({ visible, envelopes = [], onClose }) {
   const total = envelopes.reduce((s, e) => s + Number(e.amount || 0), 0);
   const first = envelopes[0];
   const multiple = envelopes.length > 1;
 
   return (
-    <Popup visible={visible} onClose={onClose} maxWidth={380}>
-      <LinearGradient colors={[RED, '#a51b22']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ borderRadius: 16, padding: 22, alignItems: 'center' }}>
-        <Text style={{ fontSize: 52 }}>🧧</Text>
-        <Text style={{ color: '#ffe08a', fontSize: 13, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginTop: 8 }}>
+    <BottomSheet visible={visible} onClose={onClose}>
+      <View style={{ alignItems: 'center', marginBottom: 6 }}>
+        <Text style={{ fontSize: 56 }}>🧧</Text>
+        <Text style={{ fontSize: 12, fontWeight: '800', color: GOLD_FG, letterSpacing: 1, textTransform: 'uppercase', marginTop: 12, textAlign: 'center' }}>
           {multiple ? `${envelopes.length} red envelopes` : 'A red envelope'}
         </Text>
-        <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700', textAlign: 'center', marginTop: 6 }}>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e', textAlign: 'center', marginTop: 6 }}>
           {multiple
-            ? `Your friends sent you gifts!`
+            ? 'Your friends sent you gifts!'
             : `${first?.sender_name || 'A friend'} sent you a red envelope!`}
         </Text>
         {!multiple && first?.message ? (
-          <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13.5, fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>
+          <Text style={{ color: COLORS.muted, fontSize: 14, fontStyle: 'italic', textAlign: 'center', marginTop: 8 }}>
             “{first.message}”
           </Text>
         ) : null}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginTop: 14 }}>
-          <Text style={{ color: '#fff', fontSize: 40, fontWeight: '800', lineHeight: 44 }}>+{total.toLocaleString()}</Text>
-          <Text style={{ color: '#ffe08a', fontSize: 22, fontWeight: '700', marginLeft: 4, marginBottom: 3 }}>₵</Text>
+
+        {/* Récompense (pastille dorée sobre, même langage que le drawer trophée) */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: GOLD_BG, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 10, marginTop: 18 }}>
+          <Ionicons name="add-circle" size={18} color="#d97706" />
+          <Text style={{ color: GOLD_FG, fontWeight: '800', fontSize: 18 }}>{total.toLocaleString()} ₵</Text>
         </View>
-      </LinearGradient>
-      <Pressable onPress={onClose} style={{ marginTop: 16, backgroundColor: RED, borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
+      </View>
+
+      <Pressable onPress={onClose} style={{ marginTop: 22, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
         <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Awesome! 🎉</Text>
       </Pressable>
-    </Popup>
+    </BottomSheet>
   );
 }

@@ -145,6 +145,15 @@ function App() {
       .catch(() => {});
   }, []);
 
+  // Révèle les red envelopes non vues (drawer). Appelé au boot, au RETOUR AU PREMIER
+  // PLAN et au TAP sur la notif → la popup apparaît quasi instantanément au lieu
+  // d'attendre le prochain démarrage complet de l'app.
+  const checkEnvelopes = useCallback(() => {
+    getUnseenEnvelopes()
+      .then((d) => { if (d.envelopes?.length) setEnvelopes(d.envelopes); })
+      .catch(() => {});
+  }, []);
+
   // Trophées : /api/m/trophies débloque à la lecture et renvoie `newlyUnlocked`.
   // On enrichit chaque nouveau trophée de son unité (pour le libellé) et on ouvre
   // le drawer d'obtention. Appelé après une activité (fin de quiz/duel) et au boot.
@@ -179,9 +188,9 @@ function App() {
     setShowIg(true);
   }, [authed, flow, profile, trophyQueue, envelopes, showWelcome]);
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (s) => { if (s === 'active' && authed) refreshBalance(); });
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active' && authed) { refreshBalance(); checkEnvelopes(); } });
     return () => sub.remove();
-  }, [authed, refreshBalance]);
+  }, [authed, refreshBalance, checkEnvelopes]);
 
   // Détecte les entrées par URL sur web (lien email de reset, retour de paiement Stripe).
   useEffect(() => {
@@ -237,10 +246,11 @@ function App() {
         setTab('store');
       } else if (type === 'red_envelope' || type === 'reengage') {
         setTab('add'); // enveloppes en popup / relance inactif → home
+        if (type === 'red_envelope') checkEnvelopes(); // révèle tout de suite au tap
       }
     });
     return cleanup;
-  }, []);
+  }, [checkEnvelopes]);
 
   useEffect(() => {
     getToken().then((t) => {

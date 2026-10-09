@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, View, Pressable, Animated, Easing, StyleSheet, PanResponder, useWindowDimensions } from 'react-native';
+import { Modal, View, Pressable, Animated, Easing, StyleSheet, PanResponder, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -13,6 +13,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 // Usage : <BottomSheet visible={x} onClose={...}>{contenu}</BottomSheet>
 export default function BottomSheet({
   visible, onClose, children, dismissable = true, maxHeightRatio = 0.9, maxWidth = 480,
+  avoidKeyboard = false, // remonte le drawer au-dessus du clavier (drawers avec champs)
 }) {
   const { height: screenH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -52,7 +53,10 @@ export default function BottomSheet({
 
   return (
     <Modal visible transparent statusBarTranslucent animationType="none" onRequestClose={close}>
-      <View style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}
+        behavior={avoidKeyboard ? (Platform.OS === 'ios' ? 'padding' : 'height') : undefined}
+      >
         <AnimatedPressable
           onPress={close}
           style={[StyleSheet.absoluteFill, { backgroundColor: '#000', opacity: backdropOpacity }]}
@@ -73,7 +77,7 @@ export default function BottomSheet({
           <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 999, backgroundColor: '#e2e6ee', marginBottom: 14 }} />
           {children}
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
