@@ -8,14 +8,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { importPreview, importCommit } from '../api';
 import { COLORS, SHADOW_CARD } from '../theme';
 
-// Sélection de fichier (.txt / .xml Pleco, CSV…). WEB UNIQUEMENT pour l'instant :
-// input DOM natif, zéro dépendance → sûr en OTA. Le picker natif (mobile) demandera
-// expo-document-picker (non installé) + un rebuild ; en attendant, sur mobile on
-// masque le bouton et le COLLAGE du contenu du fichier marche déjà (parse serveur).
-// ⚠️ NE PAS ajouter de require('expo-document-picker') ici sans l'installer : Metro
-// résout les require() statiquement → l'export web casserait et un build natif < rebuild
-// crasherait à l'ouverture de l'écran.
-const CAN_PICK_FILE = Platform.OS === 'web';
+// Sélection de fichier (.txt / .xml Pleco, CSV…).
+//  • WEB : input DOM natif, zéro dépendance.
+//  • NATIF : expo-document-picker (choix) + expo-file-system (lecture texte), chargés
+//    de façon PARESSEUSE + gardée. Sur un build qui n'embarque pas encore ces modules
+//    natifs (OTA), les require échouent → CAN_PICK_FILE reste false → bouton masqué,
+//    et le COLLAGE du texte marche toujours. Le bouton apparaît au prochain build natif.
+let DocumentPicker = null, FSFile = null;
+if (Platform.OS !== 'web') {
+  try { DocumentPicker = require('expo-document-picker'); } catch { DocumentPicker = null; }
+  try { FSFile = require('expo-file-system').File; } catch { FSFile = null; } // SDK 57 : new File(uri).text()
+}
+const CAN_PICK_FILE = Platform.OS === 'web' || (!!DocumentPicker && !!FSFile);
 
 function pickFileWeb() {
   return new Promise((resolve) => {
@@ -32,6 +36,18 @@ function pickFileWeb() {
     };
     input.click();
   });
+}
+
+async function pickFileNative() {
+  const res = await DocumentPicker.getDocumentAsync({
+    type: ['text/plain', 'text/xml', 'application/xml', 'text/csv', 'text/comma-separated-values', 'text/tab-separated-values', '*/*'],
+    copyToCacheDirectory: true,
+  });
+  if (res.canceled) return null;
+  const asset = res.assets && res.assets[0];
+  if (!asset || !asset.uri) return null;
+  const content = await new FSFile(asset.uri).text();
+  return { name: asset.name || 'file', content: String(content || '') };
 }
 
 const STATUS = {
@@ -67,7 +83,7 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
   async function pickFile() {
     setError('');
     try {
-      const picked = await pickFileWeb();
+      const picked = Platform.OS === 'web' ? await pickFileWeb() : await pickFileNative();
       if (!picked) return;
       setText(picked.content);
       setFileName(picked.name || '');
