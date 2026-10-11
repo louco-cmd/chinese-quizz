@@ -20,10 +20,11 @@ export const CAT_META = {
   money:       { icon: 'cash',          color: '#198754' },
   pack_create: { icon: 'create',        color: '#e83e8c' },
   pack_buy:    { icon: 'cart',          color: '#0dcaf0' },
-  // Trophées « échec » (anti-héros) — tons sombres/ironiques.
-  comeback:    { icon: 'skull',         color: '#6c757d' },
-  duel_loss:   { icon: 'sad',           color: '#c0392b' },
-  goose_egg:   { icon: 'ellipse-outline', color: '#d6336c' },
+  // Trophées « échec » (anti-héros) — tons sombres/ironiques. `failure` → la popup
+  // d'obtention célèbre le NOM de la catégorie plutôt que le palier.
+  comeback:    { icon: 'skull',         color: '#6c757d', failure: true },
+  duel_loss:   { icon: 'sad',           color: '#c0392b', failure: true },
+  goose_egg:   { icon: 'ellipse-outline', color: '#d6336c', failure: true },
 };
 
 function TrophyRow({ tr: trophy, t, last }) {

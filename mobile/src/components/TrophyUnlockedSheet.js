@@ -16,6 +16,15 @@ function unitLabel(t, unit) {
   const label = t(key);
   return label === key ? String(unit || '').replace(/_/g, ' ') : label;
 }
+// Trophées « échec » (anti-héros) : on célèbre le NOM accrocheur de la catégorie
+// (« Le revenant »…) plutôt que le palier, c'est plus marrant. Marqués `failure`
+// dans CAT_META. Repli humanisé si la clé manque (décalage OTA).
+function isFail(cat) { return !!(CAT_META[cat] || {}).failure; }
+function failName(t, cat) {
+  const key = 'trc_' + cat;
+  const label = t(key);
+  return label === key ? String(cat || '').replace(/_/g, ' ') : label;
+}
 
 export default function TrophyUnlockedSheet({ visible, trophies = [], onClose, onViewAll }) {
   const { t } = useT();
@@ -34,10 +43,10 @@ export default function TrophyUnlockedSheet({ visible, trophies = [], onClose, o
         {!multi && list[0] ? (
           <>
             <Text style={{ fontSize: 12, fontWeight: '800', color: hero.color, letterSpacing: 1, textTransform: 'uppercase', marginTop: 14, textAlign: 'center' }}>
-              {t('tsheet_title')}
+              {isFail(list[0].cat) ? t('tsheet_fail') : t('tsheet_title')}
             </Text>
             <Text style={{ fontSize: 22, fontWeight: '800', color: '#1a1a2e', marginTop: 4, textAlign: 'center' }}>
-              {list[0].target} {unitLabel(t, list[0].unit)}
+              {isFail(list[0].cat) ? failName(t, list[0].cat) : `${list[0].target} ${unitLabel(t, list[0].unit)}`}
             </Text>
           </>
         ) : (
@@ -57,7 +66,9 @@ export default function TrophyUnlockedSheet({ visible, trophies = [], onClose, o
                 <View style={{ width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: m.color }}>
                   <Ionicons name={m.icon} size={20} color="#fff" />
                 </View>
-                <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: '#1a1a2e' }}>{x.target} {unitLabel(t, x.unit)}</Text>
+                <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: '#1a1a2e' }}>
+                  {isFail(x.cat) ? `${failName(t, x.cat)} · ${x.target}` : `${x.target} ${unitLabel(t, x.unit)}`}
+                </Text>
                 <Text style={{ fontSize: 13, fontWeight: '800', color: '#856404' }}>+{x.reward} ₵</Text>
               </View>
             );
