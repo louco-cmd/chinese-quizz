@@ -18,6 +18,7 @@ import VerifyEmailBanner from './src/components/VerifyEmailBanner';
 import TabBar from './src/components/TabBar';
 import LoginScreen from './src/screens/LoginScreen';
 import TeachersScreen from './src/screens/TeachersScreen';
+import MyClassesScreen from './src/screens/MyClassesScreen';
 import CollectionScreen from './src/screens/CollectionScreen';
 import AddWordScreen from './src/screens/AddWordScreen';
 import QuizScreen from './src/screens/QuizScreen';
@@ -348,7 +349,7 @@ function App() {
       // 5) Sous-écrans → parent (miroir de leurs boutons onBack).
       const PARENTS = { settings: 'account', account: 'add', writing: 'settings', 'create-pack': 'store' };
       if (PARENTS[tab]) { setTab(PARENTS[tab]); return true; }
-      if (['bank', 'pricing', 'teachers', 'import', 'support', 'legal', 'terms', 'privacy', 'credits', 'trophies'].includes(tab)) {
+      if (['bank', 'pricing', 'teachers', 'myclasses', 'import', 'support', 'legal', 'terms', 'privacy', 'credits', 'trophies'].includes(tab)) {
         setTab(bankReturn || 'add'); return true;
       }
       // 6) Onglet principal (store/collection/quiz/duels) → accueil (Add Word).
@@ -363,6 +364,7 @@ function App() {
   function renderScreen() {
     switch (tab) {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
+      case 'myclasses': return <MyClassesScreen onBack={() => setTab(bankReturn)} />;
       case 'collection': return <CollectionScreen onNavigate={setTab} onOpenCredits={() => { setBankReturn('collection'); setTab('credits'); }} />;
       case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
       case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} onNavigate={setTab} onActivityDone={checkTrophies} />;

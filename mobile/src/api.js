@@ -447,6 +447,11 @@ export function getLesson(lessonId) {
   return request(`/api/m/student/lessons/${lessonId}`);
 }
 
+// Historique complet des cours reçus (terminés + profs quittés) — page « Mes cours ».
+export function getStudentHistory() {
+  return request('/api/m/student/history');
+}
+
 export function leaveMentor(teacherId) {
   return request(`/api/m/student/mentors/${teacherId}/leave`, { method: 'POST' });
 }

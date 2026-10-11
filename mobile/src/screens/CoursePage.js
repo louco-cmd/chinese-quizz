@@ -9,7 +9,7 @@ import CatLoader from '../components/CatLoader';
 
 // Page d'une task / cours (copie de student-course.ejs) : titre + notes + mots,
 // et bouton "Practice these words" qui lance le quiz sur les mots du cours.
-export default function CoursePage({ lessonId, onBack }) {
+export default function CoursePage({ lessonId, onBack, readOnly = false }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -98,7 +98,7 @@ export default function CoursePage({ lessonId, onBack }) {
             )}
           </View>
 
-          {words.length > 0 && (
+          {words.length > 0 && !readOnly && (
             <Pressable
               onPress={practice}
               disabled={starting}

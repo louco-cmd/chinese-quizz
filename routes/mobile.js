@@ -2954,15 +2954,55 @@ router.get('/api/m/student/classes', requireToken, async (req, res) => {
   }
 });
 
+// ── GET /api/m/student/history : TOUS les cours reçus (terminés inclus, profs
+// quittés inclus) → la page « Mes cours » (Settings). Contrairement à
+// /student/classes (profs actifs + tasks en cours), ne filtre NI sur la complétion
+// NI sur le statut d'adhésion. `completed` = connaissance ≥ 100 ; `membership` =
+// 'active' | 'removed' (un prof quitté/retiré → cours en lecture seule côté app).
+router.get('/api/m/student/history', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const { rows } = await pool.query(
+      `SELECT l.id, l.title, l.created_at,
+              c.name AS class_name, t.id AS teacher_id,
+              COALESCE(NULLIF(TRIM(t.name), ''), 'Your teacher') AS teacher_name,
+              cs.status AS membership,
+              (SELECT COUNT(*) FROM lesson_words lw WHERE lw.lesson_id = l.id)::int AS word_count,
+              (SELECT COALESCE(ROUND(AVG(COALESCE(um.score, 0))), 0)
+                 FROM lesson_words lw
+                 LEFT JOIN user_mots um ON um.mot_id = lw.mot_id AND um.user_id = $1
+                 WHERE lw.lesson_id = l.id)::int AS knowledge
+       FROM lessons l
+       JOIN classrooms c ON c.id = l.classroom_id
+       JOIN users t ON t.id = c.teacher_id
+       JOIN classroom_students cs ON cs.classroom_id = c.id AND cs.student_id = $1
+       WHERE l.created_at >= COALESCE(cs.joined_at, 'epoch')
+       ORDER BY (cs.status = 'active') DESC, t.name ASC, l.created_at DESC`, [uid]);
+    const lessons = rows
+      .filter((r) => r.word_count > 0)
+      .map((r) => ({
+        id: r.id, title: r.title, class_name: r.class_name,
+        teacher_id: r.teacher_id, teacher_name: r.teacher_name, membership: r.membership,
+        word_count: r.word_count, knowledge: r.knowledge, completed: r.knowledge >= 100,
+      }));
+    res.json({ lessons });
+  } catch (e) {
+    console.error('m/student history error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ── GET /api/m/student/lessons/:id : détail d'un cours (notes + mots) ─────────
 router.get('/api/m/student/lessons/:id', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
     const lessonId = parseInt(req.params.id, 10);
+    // Lecture autorisée à tout membre (même adhésion 'removed') → consultation de
+    // l'historique des cours ; la PRATIQUE (start/result) reste réservée aux profs actifs.
     const access = await pool.query(
       `SELECT l.id FROM lessons l
        JOIN classroom_students cs ON cs.classroom_id = l.classroom_id
-       WHERE l.id = $1 AND cs.student_id = $2 AND cs.status = 'active'`, [lessonId, uid]);
+       WHERE l.id = $1 AND cs.student_id = $2`, [lessonId, uid]);
     if (!access.rows.length) return res.status(404).json({ error: 'Course not found' });
     const nat = (await getUserLangs(uid)).native;
 
