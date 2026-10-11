@@ -8,8 +8,15 @@
 // action utilisateur — jamais atteinte sur un build sans le natif (bouton masqué).
 import { Platform } from 'react-native';
 
+// 🔒 MASTER-SWITCH. La share card part DORMANTE dans ce build : son visuel est encore
+// un placeholder. On l'activera plus tard, par simple OTA (passer à true), une fois le
+// design définitif prêt — aucun rebuild requis. Tant que false, le bouton Share reste
+// masqué PARTOUT, même si le module natif est bien embarqué dans le binaire.
+const SHARE_CARD_ENABLED = false;
+
 // Le partage image est-il disponible sur CE build ? (affiche/masque l'entrée UI)
 export function imageShareAvailable() {
+  if (!SHARE_CARD_ENABLED) return false; // kill-switch tant que le design n'est pas prêt
   if (Platform.OS === 'web') return false; // capture image = natif pour l'instant
   try {
     const core = require('expo-modules-core');
