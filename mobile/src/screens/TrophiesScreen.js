@@ -30,7 +30,10 @@ function TrophyRow({ tr: trophy, t, last }) {
   const meta = CAT_META[trophy._cat] || { icon: 'ribbon', color: COLORS.jiayou };
   const on = trophy.unlocked;
   const pct = trophy.target > 0 ? Math.min(100, Math.round((trophy.value / trophy.target) * 100)) : 0;
-  const title = `${trophy.target} ${t('tru_' + trophy.unit)}`;
+  // Repli robuste aux décalages d'OTA : clé manquante → unité humanisée.
+  const unitKey = 'tru_' + trophy.unit;
+  const unitLabel = t(unitKey) === unitKey ? String(trophy.unit || '').replace(/_/g, ' ') : t(unitKey);
+  const title = `${trophy.target} ${unitLabel}`;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: last ? 0 : 1, borderColor: '#f2f4f7', opacity: on ? 1 : 0.92 }}>
       {/* Pastille : colorée si atteint, grisée sinon */}

@@ -8,6 +8,15 @@ import { COLORS } from '../theme';
 // Premier usage du BottomSheet : célébrer l'obtention d'un (ou plusieurs) trophée(s).
 // `trophies` = liste { cat, target, unit, reward } (issue de newlyUnlocked, enrichie
 // de l'unité). onViewAll → page Trophées. onClose → fermer.
+// Repli robuste aux décalages d'OTA : si la clé de traduction manque (le backend peut
+// attribuer une catégorie que le bundle client ne connaît pas encore), on humanise
+// l'unité (days_away → « days away ») plutôt que d'afficher « tru_days_away ».
+function unitLabel(t, unit) {
+  const key = 'tru_' + unit;
+  const label = t(key);
+  return label === key ? String(unit || '').replace(/_/g, ' ') : label;
+}
+
 export default function TrophyUnlockedSheet({ visible, trophies = [], onClose, onViewAll }) {
   const { t } = useT();
   const list = trophies || [];
@@ -28,7 +37,7 @@ export default function TrophyUnlockedSheet({ visible, trophies = [], onClose, o
               {t('tsheet_title')}
             </Text>
             <Text style={{ fontSize: 22, fontWeight: '800', color: '#1a1a2e', marginTop: 4, textAlign: 'center' }}>
-              {list[0].target} {t('tru_' + list[0].unit)}
+              {list[0].target} {unitLabel(t, list[0].unit)}
             </Text>
           </>
         ) : (
@@ -48,7 +57,7 @@ export default function TrophyUnlockedSheet({ visible, trophies = [], onClose, o
                 <View style={{ width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: m.color }}>
                   <Ionicons name={m.icon} size={20} color="#fff" />
                 </View>
-                <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: '#1a1a2e' }}>{x.target} {t('tru_' + x.unit)}</Text>
+                <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: '#1a1a2e' }}>{x.target} {unitLabel(t, x.unit)}</Text>
                 <Text style={{ fontSize: 13, fontWeight: '800', color: '#856404' }}>+{x.reward} ₵</Text>
               </View>
             );
