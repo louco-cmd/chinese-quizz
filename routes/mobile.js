@@ -3366,6 +3366,11 @@ const TROPHY_CATALOG = [
   { cat: 'money',        unit: 'coins_bank',    tiers: [[1000, 100], [5000, 200], [10000, 300], [25000, 500], [50000, 800], [100000, 1500]] },
   { cat: 'pack_create',  unit: 'packs_created', tiers: [[1, 50], [5, 150], [10, 300]] },
   { cat: 'pack_buy',     unit: 'packs_bought',  tiers: [[1, 20], [5, 80], [20, 200]] },
+  // ── Trophées « échec » (anti-héros) : badges d'honneur, 0 ₵ (pas de récompense
+  // → aucun intérêt à sous-performer exprès). reward 0 → pastille masquée côté UI.
+  { cat: 'comeback',     unit: 'days_away',         tiers: [[7, 0], [30, 0], [90, 0]] },
+  { cat: 'duel_loss',    unit: 'duels_lost_streak', tiers: [[5, 0], [10, 0], [20, 0]] },
+  { cat: 'goose_egg',    unit: 'zero_quiz',         tiers: [[10, 0], [20, 0], [30, 0], [100, 0]] },
 ];
 
 router.get('/api/m/trophies', requireToken, async (req, res) => {
@@ -3374,7 +3379,7 @@ router.get('/api/m/trophies', requireToken, async (req, res) => {
   // id de trophée : daté pour les catégories annuelles (reset au 1er janvier).
   const trophyId = (cat, target, yearly) => (yearly ? `${cat}_${target}_${year}` : `${cat}_${target}`);
   try {
-    const [wordsQ, masteredQ, quizQ, duelQ, meQ, packCreateQ, packBuyQ, daysQ] = await Promise.all([
+    const [wordsQ, masteredQ, quizQ, duelQ, meQ, packCreateQ, packBuyQ, daysQ, comebackQ, lossStreakQ, gooseQ] = await Promise.all([
       pool.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1', [uid]),
       pool.query('SELECT COUNT(*)::int AS n FROM user_mots WHERE user_id = $1 AND COALESCE(score,0) >= 85', [uid]),
       pool.query('SELECT COUNT(*)::int AS n FROM quiz_history WHERE user_id = $1', [uid]),
@@ -3398,6 +3403,34 @@ router.get('/api/m/trophies', requireToken, async (req, res) => {
              AND (CASE WHEN challenger_id = $1 THEN created_at ELSE completed_at END) IS NOT NULL
              AND EXTRACT(YEAR FROM (CASE WHEN challenger_id = $1 THEN created_at ELSE completed_at END)) = $2
          ) days`, [uid, year]),
+      // ── Trophées « échec » (anti-héros) ──────────────────────────────────────
+      // comeback : plus grand ÉCART (jours) entre deux jours d'activité — on ajoute
+      // CURRENT_DATE pour que « revenu après X jours d'absence » compte dès l'ouverture.
+      pool.query(
+        `WITH days AS (
+           SELECT DISTINCT d FROM (
+             SELECT DATE(date_completed) AS d FROM quiz_history WHERE user_id = $1
+             UNION SELECT DATE(created_at) FROM duels WHERE challenger_id = $1
+             UNION SELECT DATE(completed_at) FROM duels WHERE opponent_id = $1 AND status = 'completed' AND completed_at IS NOT NULL
+             UNION SELECT CURRENT_DATE
+           ) x WHERE d IS NOT NULL
+         ), g AS (SELECT (d - LAG(d) OVER (ORDER BY d)) AS gap FROM days)
+         SELECT COALESCE(MAX(gap), 0)::int AS n FROM g`, [uid]),
+      // duel_loss : plus longue série de défaites consécutives (gaps-and-islands).
+      pool.query(
+        `WITH d AS (
+           SELECT (winner_id IS NOT NULL AND winner_id <> $1) AS lost,
+                  COALESCE(completed_at, created_at) AS ts
+           FROM duels WHERE status = 'completed' AND (challenger_id = $1 OR opponent_id = $1)
+         ), r AS (SELECT lost, ROW_NUMBER() OVER (ORDER BY ts) rn FROM d),
+         grp AS (SELECT lost, rn - ROW_NUMBER() OVER (PARTITION BY lost ORDER BY rn) AS island FROM r)
+         SELECT COALESCE(MAX(cnt), 0)::int AS n FROM (
+           SELECT COUNT(*) cnt FROM grp WHERE lost GROUP BY island
+         ) s`, [uid]),
+      // goose_egg : plus grand quiz terminé à 0 bonne réponse (0/N).
+      pool.query(
+        `SELECT COALESCE(MAX(total_questions), 0)::int AS n
+         FROM quiz_history WHERE user_id = $1 AND COALESCE(score, 0) = 0 AND total_questions IS NOT NULL`, [uid]),
     ]);
     const stats = {
       captures: wordsQ.rows[0].n,
@@ -3409,6 +3442,9 @@ router.get('/api/m/trophies', requireToken, async (req, res) => {
       pack_create: packCreateQ.rows[0].n,
       pack_buy: packBuyQ.rows[0].n,
       streak: daysQ.rows[0].n,
+      comeback: comebackQ.rows[0].n,
+      duel_loss: lossStreakQ.rows[0].n,
+      goose_egg: gooseQ.rows[0].n,
     };
 
     // Trophées déjà débloqués.

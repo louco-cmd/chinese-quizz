@@ -20,6 +20,10 @@ export const CAT_META = {
   money:       { icon: 'cash',          color: '#198754' },
   pack_create: { icon: 'create',        color: '#e83e8c' },
   pack_buy:    { icon: 'cart',          color: '#0dcaf0' },
+  // Trophées « échec » (anti-héros) — tons sombres/ironiques.
+  comeback:    { icon: 'skull',         color: '#6c757d' },
+  duel_loss:   { icon: 'sad',           color: '#c0392b' },
+  goose_egg:   { icon: 'ellipse-outline', color: '#d6336c' },
 };
 
 function TrophyRow({ tr: trophy, t, last }) {
@@ -46,11 +50,18 @@ function TrophyRow({ tr: trophy, t, last }) {
           </View>
         )}
       </View>
-      {/* Récompense : chip coloré si atteint, grisé sinon */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: on ? '#fff8e1' : '#f6f8fb', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
-        {on ? <Ionicons name="checkmark-circle" size={13} color="#d97706" /> : null}
-        <Text style={{ fontSize: 12.5, fontWeight: '800', color: on ? '#856404' : '#adb5bd' }}>+{trophy.reward} ₵</Text>
-      </View>
+      {/* Récompense : chip ₵ si récompensé ; sinon (badge « échec », 0 ₵) une simple
+          médaille d'« honneur » sans pièces. */}
+      {trophy.reward > 0 ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: on ? '#fff8e1' : '#f6f8fb', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
+          {on ? <Ionicons name="checkmark-circle" size={13} color="#d97706" /> : null}
+          <Text style={{ fontSize: 12.5, fontWeight: '800', color: on ? '#856404' : '#adb5bd' }}>+{trophy.reward} ₵</Text>
+        </View>
+      ) : (
+        <View style={{ alignItems: 'center', justifyContent: 'center', backgroundColor: on ? '#f1f3f5' : '#f6f8fb', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 }}>
+          <Ionicons name="medal" size={14} color={on ? meta.color : '#adb5bd'} />
+        </View>
+      )}
     </View>
   );
 }
