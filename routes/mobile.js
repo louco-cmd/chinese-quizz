@@ -3366,11 +3366,12 @@ const TROPHY_CATALOG = [
   { cat: 'money',        unit: 'coins_bank',    tiers: [[1000, 100], [5000, 200], [10000, 300], [25000, 500], [50000, 800], [100000, 1500]] },
   { cat: 'pack_create',  unit: 'packs_created', tiers: [[1, 50], [5, 150], [10, 300]] },
   { cat: 'pack_buy',     unit: 'packs_bought',  tiers: [[1, 20], [5, 80], [20, 200]] },
-  // ── Trophées « échec » (anti-héros) : badges d'honneur, 0 ₵ (pas de récompense
-  // → aucun intérêt à sous-performer exprès). reward 0 → pastille masquée côté UI.
-  { cat: 'comeback',     unit: 'days_away',         tiers: [[7, 0], [30, 0], [90, 0]] },
-  { cat: 'duel_loss',    unit: 'duels_lost_streak', tiers: [[5, 0], [10, 0], [20, 0]] },
-  { cat: 'goose_egg',    unit: 'zero_quiz',         tiers: [[10, 0], [20, 0], [30, 0], [100, 0]] },
+  // ── Trophées « échec » (anti-héros) : lot de CONSOLATION (récompenses modestes).
+  // Pas d'exploit de farm : chaque palier se débloque UNE seule fois (ON CONFLICT).
+  // comeback = en plus un petit « welcome back » qui sert la rétention.
+  { cat: 'comeback',     unit: 'days_away',         tiers: [[7, 50], [30, 120], [90, 250]] },
+  { cat: 'duel_loss',    unit: 'duels_lost_streak', tiers: [[5, 30], [10, 60], [20, 120]] },
+  { cat: 'goose_egg',    unit: 'zero_quiz',         tiers: [[10, 25], [20, 50], [30, 80], [100, 300]] },
 ];
 
 router.get('/api/m/trophies', requireToken, async (req, res) => {
