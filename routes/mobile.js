@@ -4374,16 +4374,22 @@ router.get('/api/m/quiz/packs', requireToken, async (req, res) => {
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM user_mots um
                  JOIN mots mo ON mo.id = um.mot_id AND mo.lang = $2
-               WHERE um.user_id = $1 AND um.meaning_id IN (
-                 SELECT lp.meaning_id FROM word_pack_items i
-                 JOIN lexeme_senses lp ON lp.mot_id = i.mot_id
-                 WHERE i.pack_id = wp.id))::int AS word_count,
+               WHERE um.user_id = $1 AND (
+                 um.mot_id IN (SELECT mot_id FROM word_pack_items WHERE pack_id = wp.id)
+                 OR um.meaning_id IN (
+                   SELECT lp.meaning_id FROM word_pack_items i
+                   JOIN mots pm ON pm.id = i.mot_id AND pm.lang <> $2
+                   JOIN lexeme_senses lp ON lp.mot_id = i.mot_id
+                   WHERE i.pack_id = wp.id)))::int AS word_count,
               (SELECT COALESCE(ROUND(AVG(um.score)), 0) FROM user_mots um
                  JOIN mots mo ON mo.id = um.mot_id AND mo.lang = $2
-               WHERE um.user_id = $1 AND um.meaning_id IN (
-                 SELECT lp.meaning_id FROM word_pack_items i
-                 JOIN lexeme_senses lp ON lp.mot_id = i.mot_id
-                 WHERE i.pack_id = wp.id))::int AS mastery
+               WHERE um.user_id = $1 AND (
+                 um.mot_id IN (SELECT mot_id FROM word_pack_items WHERE pack_id = wp.id)
+                 OR um.meaning_id IN (
+                   SELECT lp.meaning_id FROM word_pack_items i
+                   JOIN mots pm ON pm.id = i.mot_id AND pm.lang <> $2
+                   JOIN lexeme_senses lp ON lp.mot_id = i.mot_id
+                   WHERE i.pack_id = wp.id)))::int AS mastery
        FROM word_packs wp
        LEFT JOIN users u ON u.id = wp.creator_id
        WHERE wp.creator_id = $1
@@ -4433,14 +4439,23 @@ router.get('/api/m/quiz/words', requireToken, async (req, res) => {
       // Parcours-conscient (cf. /api/m/quiz/packs) : on résout les items du pack par
       // CONCEPT puis on tire les mots possédés dans la LANGUE APPRISE. Indispensable
       // pour un apprenant en←zh (ses mots sont anglais, pas les mot_id chinois du pack).
+      // Appartenance au pack SANS fuite inter-concepts : un mot possédé compte pour le
+      // pack s'il EST un item du pack (match direct mot_id — exact dans la langue des
+      // items), OU — uniquement pour les items d'une AUTRE langue — s'il partage leur
+      // concept (bridge par meaning, indispensable au cross-langue en←zh). Résoudre
+      // TOUT par meaning fuitait : des synonymes zh distincts partageant un même concept
+      // (ex. 到 tiré par 达到) remontaient dans le quiz d'un pack dont ils ne font pas partie.
       const { rows } = await pool.query(
         `SELECT m.id, m.chinese, m.pinyin, mot_tr_sense(m.id, um.meaning_id, $4) AS english, m.hsk, um.description, COALESCE(um.${scoreCol}, 0) AS score
          FROM user_mots um
          JOIN mots m ON m.id = um.mot_id AND m.lang = $5
-         WHERE um.user_id = $1 AND um.meaning_id IN (
-           SELECT lp.meaning_id FROM word_pack_items i
-           JOIN lexeme_senses lp ON lp.mot_id = i.mot_id
-           WHERE i.pack_id = $2)
+         WHERE um.user_id = $1 AND (
+           um.mot_id IN (SELECT mot_id FROM word_pack_items WHERE pack_id = $2)
+           OR um.meaning_id IN (
+             SELECT lp.meaning_id FROM word_pack_items i
+             JOIN mots pm ON pm.id = i.mot_id AND pm.lang <> $5
+             JOIN lexeme_senses lp ON lp.mot_id = i.mot_id
+             WHERE i.pack_id = $2))
          ORDER BY RANDOM() * (COALESCE(um.${scoreCol}, 0) + 15)
          LIMIT $3`, [userId, packId, requestedCount, langs.native, langs.learning]);
       if (!rows.length) return res.status(400).json({ error: 'not_enough_words' });
