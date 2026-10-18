@@ -249,6 +249,24 @@ async function logEdit(client, userId, motId, action, surface, before, after) {
   await client.query('UPDATE mots SET last_edited_by = $1, last_edited_at = NOW() WHERE id = $2', [userId || null, motId]);
 }
 
+// GARDE-FOU ANTI SUR-FUSION. Un concept ne doit PAS accumuler des synonymes
+// distincts de la MÊME langue (ex. 极/无比/极其 tous « extremely » écrasés en un
+// seul « meaning ») : ça rend ces mots inapprenables séparément et les fait fuiter
+// entre packs/quiz. On plafonne donc le merge-on-save : rejoindre un concept
+// existant n'est permis que s'il compte STRICTEMENT moins de SAME_LANG_MERGE_CAP
+// lexèmes de la langue du mot courant ; au-delà, on fabrique une boîte neuve
+// (le mot devient son propre concept). Non destructif : les concepts déjà
+// sur-fusionnés ne sont pas touchés, ils cessent juste de grossir.
+const SAME_LANG_MERGE_CAP = 2;
+async function sameLangLexemeCount(client, meaningId, lang, excludeMotId) {
+  const r = await client.query(
+    `SELECT COUNT(DISTINCT ls.mot_id)::int AS n
+     FROM lexeme_senses ls JOIN mots m ON m.id = ls.mot_id
+     WHERE ls.meaning_id = $1 AND m.lang = $2 AND ls.mot_id <> $3`,
+    [meaningId, lang, excludeMotId]);
+  return r.rows[0].n;
+}
+
 // À exécuter DANS la transaction de l'appelant (client).
 async function syncConceptSiblings(client, motId, gloss, nativeLang, { replace = false, meaningId: explicitMeaning = null, freshBox = false, userId = null } = {}) {
   const uniq = splitSenses(gloss);
@@ -298,12 +316,20 @@ async function syncConceptSiblings(client, motId, gloss, nativeLang, { replace =
       if (!nat.rows.length) continue;
       const n = nat.rows[0];
       // (2a) rejoint le concept PRIMAIRE (canonique) du lexème natif s'il en a un.
-      if (n.meaning_id) { meaningId = n.meaning_id; break; }
-      // (2b) sinon, s'il n'a qu'un seul sens non ambigu, on le rejoint.
+      //      GARDE-FOU : refusé si ce concept est déjà saturé en lexèmes de la
+      //      langue du mot courant (anti sur-fusion de synonymes) → boîte neuve.
+      if (n.meaning_id) {
+        if (await sameLangLexemeCount(client, n.meaning_id, selfLang, motId) < SAME_LANG_MERGE_CAP) { meaningId = n.meaning_id; break; }
+        continue;
+      }
+      // (2b) sinon, s'il n'a qu'un seul sens non ambigu, on le rejoint (même garde-fou).
       const one = await client.query(
         'SELECT min(meaning_id) AS meaning_id FROM lexeme_senses WHERE mot_id = $1 HAVING count(*) = 1',
         [n.id]);
-      if (one.rows.length) { meaningId = one.rows[0].meaning_id; break; }
+      if (one.rows.length) {
+        if (await sameLangLexemeCount(client, one.rows[0].meaning_id, selfLang, motId) < SAME_LANG_MERGE_CAP) { meaningId = one.rows[0].meaning_id; break; }
+        continue;
+      }
     }
   }
   if (!meaningId) {
@@ -2828,6 +2854,63 @@ router.post('/api/m/admin/reconcile-packs', requireToken, async (req, res) => {
   } catch (e) {
     console.error('m/admin reconcile-packs error:', e);
     res.status(500).json({ error: 'Reconcile failed' });
+  }
+});
+
+// ── GET /api/m/admin/integrity : audit d'intégrité du graphe concept/lexème ──
+// Garde-fou de MONITORING (admin). Mesure la corruption : références pendantes
+// (normalement 0, protégées par FK), pointeurs de sens « fantômes » (risque de
+// résurrection), sens de possession cassés, DOUBLONS de lexèmes, et SUR-FUSION
+// (concepts avec trop de lexèmes d'une même langue — cause de fuite inter-packs).
+// La corruption DURE (dangling/résurrection/ownership) est loggée en WARN (visible
+// dans les logs Render) pour repérage précoce. À appeler à la main ou via un cron.
+async function computeIntegrity() {
+  const scalar = async (s) => (await pool.query(s)).rows[0].n;
+  const [
+    danglingLsMot, danglingLsMeaning, danglingMotMeaning, resurrection,
+    brokenOwnership, danglingUmMot, danglingPackMot, dupMotGroups, overmerge, biggest,
+  ] = await Promise.all([
+    scalar(`SELECT COUNT(*)::int n FROM lexeme_senses ls LEFT JOIN mots m ON m.id=ls.mot_id WHERE m.id IS NULL`),
+    scalar(`SELECT COUNT(*)::int n FROM lexeme_senses ls LEFT JOIN meanings mn ON mn.id=ls.meaning_id WHERE mn.id IS NULL`),
+    scalar(`SELECT COUNT(*)::int n FROM mots m WHERE m.meaning_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM meanings mn WHERE mn.id=m.meaning_id)`),
+    scalar(`SELECT COUNT(*)::int n FROM mots m WHERE m.meaning_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM lexeme_senses ls WHERE ls.mot_id=m.id AND ls.meaning_id=m.meaning_id)`),
+    scalar(`SELECT COUNT(*)::int n FROM user_mots um WHERE um.meaning_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM lexeme_senses ls WHERE ls.mot_id=um.mot_id AND ls.meaning_id=um.meaning_id)`),
+    scalar(`SELECT COUNT(*)::int n FROM user_mots um LEFT JOIN mots m ON m.id=um.mot_id WHERE m.id IS NULL`),
+    scalar(`SELECT COUNT(*)::int n FROM word_pack_items i LEFT JOIN mots m ON m.id=i.mot_id WHERE m.id IS NULL`),
+    scalar(`SELECT COUNT(*)::int n FROM (SELECT 1 FROM mots GROUP BY lower(chinese), lang HAVING COUNT(*)>1) t`),
+    pool.query(`SELECT m.lang, COUNT(*)::int n FROM (
+        SELECT ls.meaning_id, mo.lang FROM lexeme_senses ls JOIN mots mo ON mo.id=ls.mot_id
+        GROUP BY ls.meaning_id, mo.lang HAVING COUNT(DISTINCT ls.mot_id) >= 3
+      ) m GROUP BY m.lang ORDER BY n DESC`).then((r) => r.rows),
+    pool.query(`SELECT COUNT(DISTINCT ls.mot_id)::int lexemes FROM lexeme_senses ls GROUP BY ls.meaning_id ORDER BY lexemes DESC LIMIT 1`).then((r) => r.rows[0]?.lexemes || 0),
+  ]);
+  const hardCorruption = danglingLsMot + danglingLsMeaning + danglingMotMeaning + resurrection + brokenOwnership + danglingUmMot + danglingPackMot;
+  return {
+    dangling: { lexeme_senses_mot: danglingLsMot, lexeme_senses_meaning: danglingLsMeaning, mots_meaning: danglingMotMeaning, user_mots_mot: danglingUmMot, pack_items_mot: danglingPackMot },
+    resurrection_risk: resurrection,
+    broken_ownership_sense: brokenOwnership,
+    duplicate_mot_groups: dupMotGroups,
+    overmerge_concepts_ge3_samelang: overmerge,
+    biggest_concept_lexemes: biggest,
+    hard_corruption_total: hardCorruption,
+  };
+}
+router.get('/api/m/admin/integrity', requireToken, async (req, res) => {
+  const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'locochet.08@gmail.com').toLowerCase();
+  if ((req.tokenUser.email || '').toLowerCase() !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const report = await computeIntegrity();
+    // Alerte précoce : toute corruption DURE est anormale (les FK l'empêchent déjà
+    // en théorie) → on la remonte dans les logs pour investigation immédiate.
+    if (report.hard_corruption_total > 0) {
+      console.warn('[integrity] HARD CORRUPTION DETECTED:', JSON.stringify(report));
+    }
+    res.json({ ok: true, at: new Date().toISOString(), report });
+  } catch (e) {
+    console.error('m/admin integrity error:', e);
+    res.status(500).json({ error: 'Integrity check failed' });
   }
 });
 
