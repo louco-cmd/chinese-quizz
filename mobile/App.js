@@ -48,6 +48,8 @@ import EarnCoinsPopup from './src/components/EarnCoinsPopup';
 import UpdateAvailablePopup from './src/components/UpdateAvailablePopup';
 import TrophyUnlockedSheet from './src/components/TrophyUnlockedSheet';
 import InstagramPromoSheet from './src/components/InstagramPromoSheet';
+import ReviewPromptSheet from './src/components/ReviewPromptSheet';
+import { setReviewPromptHandler } from './src/reviewPrompt';
 import { checkStoreUpdate } from './src/appUpdate';
 import CatLoader from './src/components/CatLoader';
 
@@ -82,6 +84,7 @@ function App() {
   const [needCoins, setNeedCoins] = useState(false); // solde insuffisant → popup « gagner des pièces »
   const [trophyQueue, setTrophyQueue] = useState([]); // trophées fraîchement débloqués → drawer
   const [showIg, setShowIg] = useState(false); // drawer « suivez-nous sur Instagram » (1×/user)
+  const [showReview, setShowReview] = useState(false); // pré-prompt « note l'app » (deux temps)
   const igHandledRef = useRef(false);
   const [updateUrl, setUpdateUrl] = useState(null); // build store plus récent → popup incitative
   const [lang, setLang] = useState('en'); // langue de l'interface (en | zh | fr)
@@ -192,6 +195,13 @@ function App() {
     const sub = AppState.addEventListener('change', (s) => { if (s === 'active' && authed) { refreshBalance(); checkEnvelopes(); } });
     return () => sub.remove();
   }, [authed, refreshBalance, checkEnvelopes]);
+
+  // Pré-prompt « note l'app » : reviewPrompt.js délègue l'affichage ici quand un
+  // moment positif réunit les conditions (3 bons moments, cooldown 120 j, dispo OS).
+  useEffect(() => {
+    setReviewPromptHandler(() => setShowReview(true));
+    return () => setReviewPromptHandler(null);
+  }, []);
 
   // Détecte les entrées par URL sur web (lien email de reset, retour de paiement Stripe).
   useEffect(() => {
@@ -503,6 +513,7 @@ function App() {
           onViewAll={() => { setTrophyQueue([]); setBankReturn(tab); setTab('trophies'); }}
         />
         <InstagramPromoSheet visible={showIg} onClose={dismissIg} onFollow={dismissIg} />
+        <ReviewPromptSheet visible={showReview} onClose={() => setShowReview(false)} />
       </SafeAreaProvider>
     </LangContext.Provider>
   );

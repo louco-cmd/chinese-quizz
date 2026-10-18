@@ -66,10 +66,34 @@ const MIN_POSITIVE_MOMENTS = 3;                        // au moins 3 bons moment
 const COOLDOWN_MS = 120 * 24 * 60 * 60 * 1000;         // 120 jours entre deux demandes
 const DEFAULT_MIN_SCORE_RATIO = 0.6;                   // quiz « réussi » = ≥ 60 %
 
+// ── Pré-prompt en deux temps ────────────────────────────────────────────────
+// On N'ouvre PAS la feuille native directement : d'abord un petit sheet maison
+// « Tu aimes Jiayou ? ». Seuls les gens CONTENTS (😍) déclenchent la vraie
+// notation store → on ne gaspille pas le quota rare (Apple ~3/an) sur des avis
+// tièdes, et on intercepte le mécontentement en privé (mailto support). C'est le
+// standard du secteur pour maximiser les notes 4-5★.
+//
+// App.js enregistre un handler via setReviewPromptHandler ; quand les conditions
+// sont réunies, registerPositiveMoment appelle ce handler qui affiche le sheet.
+let _showPrePrompt = null;
+export function setReviewPromptHandler(fn) { _showPrePrompt = typeof fn === 'function' ? fn : null; }
+
+// Ouvre la VRAIE feuille de notation in-app native (chemin 😍 du sheet). No-op
+// silencieux si le module/OS ne la propose pas. Renvoie true si on l'a ouverte.
+export async function requestNativeReview() {
+  try {
+    const SR = nativeStoreReview();
+    if (!SR) return false;
+    await SR.requestReview();
+    return true;
+  } catch { return false; }
+}
+
 // À appeler sur un MOMENT POSITIF (quiz réussi, duel gagné…). Incrémente un
-// compteur et, une fois les conditions réunies, ouvre la revue in-app native.
-// `scoreRatio` (0..1) qualifie la positivité du moment ; en dessous du seuil on
-// ne compte même pas l'évènement (on ne demande pas d'avis après un échec).
+// compteur et, une fois les conditions réunies, AFFICHE le pré-prompt (pas la
+// feuille native directement). `scoreRatio` (0..1) qualifie la positivité du
+// moment ; en dessous du seuil on ne compte même pas l'évènement (jamais d'avis
+// après un échec).
 export async function registerPositiveMoment({ scoreRatio = 1, minScoreRatio = DEFAULT_MIN_SCORE_RATIO } = {}) {
   try {
     if (!REVIEW_PROMPT_ENABLED) return;                // interrupteur maître OFF → dormant
@@ -87,6 +111,7 @@ export async function registerPositiveMoment({ scoreRatio = 1, minScoreRatio = D
     if (positive < MIN_POSITIVE_MOMENTS) return;
 
     // L'API in-app review est-elle réellement disponible sur cet appareil/OS ?
+    // Inutile de demander « tu aimes ? » si on n'a rien à ouvrir derrière.
     let available = true;
     try {
       if (typeof SR.isAvailableAsync === 'function') available = await SR.isAvailableAsync();
@@ -94,8 +119,12 @@ export async function registerPositiveMoment({ scoreRatio = 1, minScoreRatio = D
     } catch { available = false; }
     if (!available) return;
 
-    await SR.requestReview();
-    await writeFlag(ASKED_AT_KEY, String(Date.now()));  // ne redemandera pas avant le cooldown
+    // On marque la demande MAINTENANT : même si l'utilisateur ferme le pré-prompt,
+    // on ne le re-sollicitera pas avant le cooldown (pas de harcèlement).
+    await writeFlag(ASKED_AT_KEY, String(Date.now()));
+
+    if (_showPrePrompt) _showPrePrompt();              // → App.js affiche le sheet
+    else await SR.requestReview();                     // repli : pas de handler → feuille native directe
   } catch {
     /* silencieux : la revue est un bonus, elle ne doit JAMAIS bloquer ni crasher */
   }
