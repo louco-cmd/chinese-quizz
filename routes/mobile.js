@@ -49,6 +49,27 @@ const TOKEN_TTL = '30d';
 
 // Limites du plan gratuit (le premium lève tout). maxWords appliqué ailleurs (600).
 const FREE_LIMITS = { quizPerDay: 3, duelPerDay: 1, packsMax: 3 };
+
+// GARDE-FOU ANTI-VANDALISME : plafond d'éditions de la base PARTAGÉE par
+// jour/utilisateur. Chaque mutation partagée est journalisée dans edit_log ; au-delà
+// de la limite on refuse, ce qui casse toute modification malveillante en masse
+// (script). Les users légitimes n'approchent pas ce seuil. L'admin (ADMIN_EMAIL) en
+// est exempt (imports/corrections de masse). Premium ne lève PAS cette limite : elle
+// protège le contenu partagé, ce n'est pas une limite de confort.
+const DAILY_EDIT_LIMIT = 25;
+async function editQuotaReached(tokenUser) {
+  const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'locochet.08@gmail.com').toLowerCase();
+  if ((tokenUser?.email || '').toLowerCase() === ADMIN_EMAIL) return false;
+  // On ne compte QUE les éditions de contenu partagé existant (surface + sens) —
+  // PAS les créations de mots (POST, coûtent déjà des pièces, ajoutent à SA propre
+  // collection) : un gros contributeur légitime ne doit pas être bloqué.
+  const { rows } = await pool.query(
+    `SELECT COUNT(*)::int AS n FROM edit_log
+     WHERE user_id = $1 AND action IN ('edit_surface', 'edit_meaning')
+       AND created_at::date = CURRENT_DATE`,
+    [tokenUser.id]);
+  return (rows[0]?.n || 0) >= DAILY_EDIT_LIMIT;
+}
 // Packs verrouillés au premium (niveaux avancés), repérés par cover_key.
 const PREMIUM_PACK_COVERS = ['hsk4', 'hsk5', 'hsk6'];
 
@@ -1660,6 +1681,10 @@ router.put('/api/m/words/:motId', requireToken, async (req, res) => {
     // Gate anti-faux-comptes : modifier un mot (édite la base partagée) exige un
     // email vérifié, pour éviter qu'un compte non vérifié pollue le contenu.
     if (!(await isVerified(req.tokenUser.id))) return verifyRequired(res);
+    // Garde-fou anti-vandalisme : plafond d'éditions partagées par jour.
+    if (await editQuotaReached(req.tokenUser)) {
+      return res.status(429).json({ error: `Daily edit limit reached (${DAILY_EDIT_LIMIT}/day).`, limitReached: true, feature: 'edit' });
+    }
     const motId = parseInt(req.params.motId, 10);
     if (!motId) return res.status(400).json({ error: 'Invalid word' });
     const { chinese, pinyin, english, description } = req.body || {};
@@ -2911,6 +2936,54 @@ router.get('/api/m/admin/integrity', requireToken, async (req, res) => {
   } catch (e) {
     console.error('m/admin integrity error:', e);
     res.status(500).json({ error: 'Integrity check failed' });
+  }
+});
+
+// ── GET /api/m/admin/edit-activity : détection d'anomalies d'édition (admin) ──
+// Garde-fou DÉTECTIF contre le vandalisme : qui édite la base partagée, à quel
+// rythme, et quoi. Remonte les top éditeurs (24h/7j), les éditions de SURFACE
+// récentes (chinese/pinyin — les plus sensibles) avec before/after, et logue une
+// alerte WARN si un user a atteint/dépassé le plafond quotidien (signal d'abus).
+router.get('/api/m/admin/edit-activity', requireToken, async (req, res) => {
+  const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'locochet.08@gmail.com').toLowerCase();
+  if ((req.tokenUser.email || '').toLowerCase() !== ADMIN_EMAIL) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const [top24, top7, recentSurface, totals] = await Promise.all([
+      pool.query(
+        `SELECT el.user_id, u.email, u.name, COUNT(*)::int AS edits,
+                COUNT(*) FILTER (WHERE el.action='edit_surface')::int AS surface,
+                COUNT(*) FILTER (WHERE el.action='edit_meaning')::int AS meaning
+         FROM edit_log el LEFT JOIN users u ON u.id = el.user_id
+         WHERE el.action IN ('edit_surface','edit_meaning') AND el.created_at >= NOW() - INTERVAL '24 hours'
+         GROUP BY el.user_id, u.email, u.name ORDER BY edits DESC LIMIT 20`).then((r) => r.rows),
+      pool.query(
+        `SELECT el.user_id, u.email, COUNT(*)::int AS edits
+         FROM edit_log el LEFT JOIN users u ON u.id = el.user_id
+         WHERE el.action IN ('edit_surface','edit_meaning') AND el.created_at >= NOW() - INTERVAL '7 days'
+         GROUP BY el.user_id, u.email ORDER BY edits DESC LIMIT 20`).then((r) => r.rows),
+      pool.query(
+        `SELECT el.id, el.user_id, el.mot_id, el.surface, el.before, el.after, el.created_at
+         FROM edit_log el WHERE el.action='edit_surface'
+         ORDER BY el.created_at DESC LIMIT 30`).then((r) => r.rows),
+      pool.query(
+        `SELECT COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::int AS d1,
+                COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::int AS d7
+         FROM edit_log WHERE action IN ('edit_surface','edit_meaning')`).then((r) => r.rows[0]),
+    ]);
+    // Alerte précoce : un user qui a atteint le plafond quotidien est suspect.
+    const flagged = top24.filter((u) => u.edits >= DAILY_EDIT_LIMIT);
+    if (flagged.length) {
+      console.warn('[edit-activity] users at/over daily edit cap:', JSON.stringify(flagged.map((u) => ({ user_id: u.user_id, email: u.email, edits: u.edits }))));
+    }
+    res.json({
+      ok: true, at: new Date().toISOString(), daily_edit_limit: DAILY_EDIT_LIMIT,
+      totals, flagged, top_editors_24h: top24, top_editors_7d: top7, recent_surface_edits: recentSurface,
+    });
+  } catch (e) {
+    console.error('m/admin edit-activity error:', e);
+    res.status(500).json({ error: 'Edit activity check failed' });
   }
 });
 
