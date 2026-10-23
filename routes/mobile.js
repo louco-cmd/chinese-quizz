@@ -926,7 +926,24 @@ router.get('/api/m/search', requireToken, async (req, res) => {
     const useWordBoundary = !hasCJK && /[a-z]/i.test(raw);
     // Terme échappé pour la regex, borné par une frontière de mot AU DÉBUT
     // seulement (`\ycat`) → « hol » remonte « holiday » (saisie progressive).
-    const wbTerm = '\\y' + raw.replace(/[^a-zA-Z0-9]/g, '\\$&');
+    //
+    // TOLÉRANCE SINGULIER/PLURIEL (occidental) : en plus du terme saisi, on cherche
+    // aussi sa forme « dé-pluralisée » (retrait d'un -s / -es final). Taper « cat »
+    // trouve déjà « cat »/« category » (préfixe), mais taper « poubelles » (plus long
+    // que le mot stocké « poubelle ») échouait. En ajoutant le radical « poubelle » à
+    // l'alternance `\y(poubelles|poubelle)`, le mot stocké « poubelle » matche. Le
+    // radical le plus court préfixe-matche aussi le pluriel → les deux sens couverts,
+    // sans bruit notable.
+    const escapeRe = (s) => s.replace(/[^a-zA-Z0-9]/g, '\\$&');
+    const wbVariants = (() => {
+      const set = new Set([raw]);
+      if (/[a-z]$/i.test(raw)) {
+        if (raw.length >= 4 && /s$/i.test(raw)) set.add(raw.slice(0, -1));   // chats→chat, poubelles→poubelle
+        if (raw.length >= 5 && /es$/i.test(raw)) set.add(raw.slice(0, -2));  // boxes→box
+      }
+      return [...set];
+    })();
+    const wbTerm = '\\y(' + wbVariants.map(escapeRe).join('|') + ')';
     const matchCol = (col) => (useWordBoundary ? `${col} ~* $1` : `${col} ILIKE $1 ESCAPE '\\'`);
 
     // $1=terme (regex mot-entier OU like)  $2=uid  $3=raw  $4=native  $5=learning
