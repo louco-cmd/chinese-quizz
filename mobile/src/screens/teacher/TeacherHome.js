@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TeacherDashboardScreen from './TeacherDashboardScreen';
 import TeacherClassScreen from './TeacherClassScreen';
 import TeacherTaskScreen from './TeacherTaskScreen';
-import TeacherStudentsScreen from './TeacherStudentsScreen';
 import TeacherAgendaScreen from './TeacherAgendaScreen';
 import TeacherProfileScreen from './TeacherProfileScreen';
 import TeacherSettingsScreen from './TeacherSettingsScreen';
@@ -23,7 +22,6 @@ const TABS = [
   { key: 'store', icon: 'storefront', label: 'JiaStore' },
   { key: 'classes', icon: 'easel', label: 'Classes' },
   { key: 'agenda', icon: 'calendar', label: 'Agenda' },
-  { key: 'students', icon: 'bar-chart', label: 'Students' },
   { key: 'profile', icon: 'person-circle', label: 'Profile' },
 ];
 
@@ -150,12 +148,10 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow }) {
     );
   } else if (tab === 'agenda') {
     content = <TeacherAgendaScreen />;
-  } else if (tab === 'students') {
-    content = <TeacherStudentsScreen />;
   } else if (tab === 'profile') {
     content = <TeacherProfileScreen />;
   } else {
-    content = <TeacherDashboardScreen teacherName={profile?.name} onOpenClass={(id) => setView({ type: 'class', id })} />;
+    content = <TeacherDashboardScreen teacherName={profile?.name} onOpenClass={(id) => setView({ type: 'class', id })} onOpenAgenda={() => { setView(null); setTab('agenda'); }} />;
   }
 
   // Un tap sur un onglet quitte la sous-vue classe/task.

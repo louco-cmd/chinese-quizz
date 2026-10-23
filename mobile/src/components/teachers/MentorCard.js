@@ -15,15 +15,16 @@ function initials(name) {
 
 // Carte mentor : avatar (initiales) + nom bleu + langues enseignées + CTA contact,
 // bio, puis pied de carte (prix / session + stats). Calquée sur .mentor-card EJS.
-export default function MentorCard({ mentor: m }) {
+export default function MentorCard({ mentor: m, onPress }) {
   const teaches = (m.teaching_languages || []).join(', ') || m.languages_spoken;
   const bits = [`${m.student_count} student${m.student_count === 1 ? '' : 's'}`];
   if (m.task_count != null) bits.push(`${m.task_count} course${m.task_count === 1 ? '' : 's'}`);
   if (m.years_experience != null) bits.push(`${m.years_experience} yr${m.years_experience === 1 ? '' : 's'}`);
   const url = m.link && m.link.url;
+  const Wrapper = onPress ? Pressable : View;
 
   return (
-    <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12, ...SHADOW_CARD }}>
+    <Wrapper onPress={onPress} style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12, ...SHADOW_CARD }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
         <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 16 }}>{initials(m.name)}</Text>
@@ -56,6 +57,6 @@ export default function MentorCard({ mentor: m }) {
         ) : null}
         <Text style={{ color: '#8a97ac', fontSize: 12.5, flexShrink: 1 }} numberOfLines={1}>{bits.join(' · ')}</Text>
       </View>
-    </View>
+    </Wrapper>
   );
 }

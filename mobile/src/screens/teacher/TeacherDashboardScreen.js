@@ -1,28 +1,33 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, TextInput, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, TextInput, useWindowDimensions, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import Popup from '../../components/Popup';
 import { ErrorRetry } from '../../components/ErrorRetry';
-import { teacherOverview, teacherClasses, teacherCreateClass } from '../../api';
+import { teacherOverview, teacherClasses, teacherCreateClass, teacherStudents, getUpcomingSessions } from '../../api';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import CatLoader from '../../components/CatLoader';
 
-function StatPill({ n, label, wide }) {
-  return (
-    <View className={`bg-surface-page border border-line-soft rounded-xl py-2.5 px-1.5 items-center ${wide ? 'w-full' : 'flex-1'}`}>
-      <Text className="text-jiayou font-extrabold text-[20px] leading-none">{n}</Text>
-      <Text className="text-muted-light text-[10px] uppercase tracking-wide mt-1 text-center">{label}</Text>
-    </View>
-  );
+function initials(name) {
+  return (name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
+}
+function hhmm(d) { return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
+function fmtWhen(iso) {
+  const d = new Date(iso);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const dd = new Date(d); dd.setHours(0, 0, 0, 0);
+  const prefix = dd.getTime() === today.getTime() ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' });
+  return `${prefix} ${hhmm(d)}`;
 }
 
-export default function TeacherDashboardScreen({ teacherName, onOpenClass }) {
+export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpenAgenda }) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
   const [ov, setOv] = useState(null);
   const [classes, setClasses] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [upcoming, setUpcoming] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -34,8 +39,9 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass }) {
   const load = useCallback(async () => {
     setError('');
     try {
-      const [o, c] = await Promise.all([teacherOverview(), teacherClasses()]);
-      setOv(o); setClasses(c.classrooms || []);
+      const [o, c, s, u] = await Promise.all([teacherOverview(), teacherClasses(), teacherStudents(), getUpcomingSessions()]);
+      setOv(o); setClasses(c.classrooms || []); setStudents(s.students || []);
+      setUpcoming((u.sessions || []).filter((x) => x.i_am_teacher).slice(0, 2));
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -43,13 +49,9 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass }) {
   async function create() {
     if (!name.trim()) { setCErr('Class name required'); return; }
     setSaving(true); setCErr('');
-    try {
-      await teacherCreateClass(name.trim());
-      setCreating(false); setName('');
-      load();
-    } catch (e) { setCErr(e.message); } finally { setSaving(false); }
+    try { await teacherCreateClass(name.trim()); setCreating(false); setName(''); load(); }
+    catch (e) { setCErr(e.message); } finally { setSaving(false); }
   }
-
   async function copyCode(code) {
     try { await Clipboard.setStringAsync(code); setCopied(code); setTimeout(() => setCopied(null), 1400); } catch { /* ignore */ }
   }
@@ -57,73 +59,115 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass }) {
   if (loading) return <View className="flex-1 items-center justify-center bg-surface-page"><CatLoader size={110} /></View>;
   if (error) return <View className="flex-1 bg-surface-page"><ErrorRetry error={error} onRetry={load} /></View>;
 
-  const statsCard = (
+  // ── Colonne gauche : nom + liste des élèves + « See calendar » ──────────────
+  const sidebar = (
     <View className="bg-white rounded-2xl p-5" style={SHADOW_CARD}>
-      <Text className="text-jiayou font-extrabold text-[17px]">{teacherName || 'Teacher'}</Text>
-      <Text className="text-muted-light text-[12px] mb-3">Your teaching at a glance</Text>
-      <View className="flex-row gap-2 mb-2">
-        <StatPill n={ov?.classes ?? 0} label="Classes" />
-        <StatPill n={ov?.students ?? 0} label="Students" />
-        <StatPill n={ov?.tasks ?? 0} label="Tasks" />
+      <Text className="text-ink font-extrabold text-[20px] mb-4">{teacherName || 'Teacher'}</Text>
+      <View className="flex-row items-center justify-between mb-2">
+        <Text className="text-ink font-bold text-[15px]">Students</Text>
+        <Text className="text-muted-light font-bold text-[14px]">{students.length}</Text>
       </View>
-      <StatPill n={`${ov?.avg_knowledge ?? 0}%`} label="Student average knowledge" wide />
+      {students.length === 0 ? (
+        <Text className="text-muted-light text-[12.5px] py-3">No students yet — invite them from a class.</Text>
+      ) : students.map((s) => (
+        <View key={s.id} className="flex-row items-center gap-2.5 py-2">
+          <View className="rounded-full bg-[#e7edf7] items-center justify-center" style={{ width: 34, height: 34 }}>
+            <Text className="text-jiayou font-extrabold text-[12px]">{initials(s.name)}</Text>
+          </View>
+          <View className="flex-1">
+            <Text className="text-ink font-bold text-[13.5px]" numberOfLines={1}>{s.name || 'Student'}</Text>
+            <Text className="text-muted-light text-[11px]">{s.class_count} class{s.class_count === 1 ? '' : 'es'} · {s.word_count} words</Text>
+          </View>
+        </View>
+      ))}
+      <Pressable onPress={onOpenAgenda} className="bg-jiayou rounded-full py-3 items-center mt-4 active:opacity-90">
+        <Text className="text-white font-bold text-[14px]">See calendar</Text>
+      </Pressable>
     </View>
   );
 
-  const rightColumn = (
-    <>
-      {/* New class CTA */}
-      <Pressable onPress={() => { setCErr(''); setName(''); setCreating(true); }} className="mb-4 active:opacity-90">
-        <LinearGradient colors={['#0d6efd', '#0a58ca']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 16, paddingVertical: 18, paddingHorizontal: 16 }}>
-          <Ionicons name="arrow-forward-circle" size={20} color="rgba(255,255,255,0.7)" style={{ position: 'absolute', top: 10, right: 12 }} />
-          <View className="items-center">
-            <Text className="text-white font-bold text-[17px]">New class</Text>
-            <Text className="text-white/80 text-[13px] mt-0.5">Create a class and invite students</Text>
-          </View>
+  // ── Haut droite : CTA nouvelle classe + mini-carte « Next lesson » ──────────
+  const topRow = (
+    <View className={isDesktop ? 'flex-row gap-4 mb-4' : 'mb-4'}>
+      <Pressable onPress={() => { setCErr(''); setName(''); setCreating(true); }} className={`active:opacity-90 ${isDesktop ? 'flex-1' : 'mb-3'}`}>
+        <LinearGradient colors={['#1a73ff', '#0a3fc4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 16, paddingVertical: 22, paddingHorizontal: 16, minHeight: 92, alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name="rocket" size={20} color="#fff" style={{ marginBottom: 6 }} />
+          <Text className="text-white font-bold text-[16px]">Open a new class</Text>
+          <Text className="text-white/80 text-[12.5px] mt-0.5">Invite students to a new class</Text>
         </LinearGradient>
       </Pressable>
+      <View className="bg-white rounded-2xl p-4" style={[SHADOW_CARD, isDesktop ? { width: 260 } : null]}>
+        <Text className="text-ink font-extrabold text-[14px] mb-2">Next lesson</Text>
+        {upcoming.length === 0 ? (
+          <Text className="text-muted-light text-[12.5px]">No upcoming lesson.</Text>
+        ) : upcoming.map((u, i) => (
+          <View key={u.id} className="flex-row items-center justify-between py-1.5">
+            <Text className="text-ink text-[13px] font-semibold">{fmtWhen(u.starts_at)}</Text>
+            {i === 0 ? (
+              <Pressable onPress={() => Alert.alert('', 'Video call coming soon — your lesson is confirmed.')} className="bg-jiayou rounded-full px-3 py-1.5">
+                <Text className="text-white font-bold text-[11.5px]">Start class</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
 
+  // ── Ligne de classe ─────────────────────────────────────────────────────────
+  const classRow = (c) => (
+    <View key={c.id} className="bg-white rounded-2xl px-4 py-3.5 mb-3" style={SHADOW_CARD}>
+      <View className="flex-row items-center gap-3">
+        <View className="rounded-full bg-jiayou-soft items-center justify-center" style={{ width: 38, height: 38 }}>
+          <Ionicons name="easel" size={18} color={COLORS.jiayou} />
+        </View>
+        <View className="flex-1">
+          <Text className="text-ink font-extrabold text-[15px]" numberOfLines={1}>{c.name}</Text>
+          <Text className="text-muted-light text-[12px] mt-0.5">
+            {c.student_count} student{c.student_count === 1 ? '' : 's'} · {c.lesson_count} task{c.lesson_count === 1 ? '' : 's'}
+          </Text>
+        </View>
+      </View>
+      <View className="flex-row items-center justify-between mt-3">
+        <View className="flex-row items-center gap-1.5">
+          <Text className="text-muted-light text-[11px]">Class code</Text>
+          <Text className="font-extrabold text-jiayou tracking-[2px] text-[13px]">{c.join_code}</Text>
+          <Pressable onPress={() => copyCode(c.join_code)} hitSlop={8} className="w-7 h-7 rounded-lg bg-jiayou-soft items-center justify-center">
+            <Ionicons name={copied === c.join_code ? 'checkmark' : 'copy-outline'} size={14} color={COLORS.jiayou} />
+          </Pressable>
+        </View>
+        <Pressable onPress={() => onOpenClass(c.id)} className="bg-jiayou rounded-full px-4 py-2 active:opacity-90">
+          <Text className="text-white font-bold text-[12.5px]">See class details</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  const main = (
+    <>
+      {topRow}
       {classes.length === 0 ? (
         <View className="items-center py-10">
           <Ionicons name="easel-outline" size={30} color="#c4c9d0" />
           <Text className="text-muted mt-2 text-[13px]">No classes yet. Create your first one!</Text>
         </View>
-      ) : (
-        classes.map((c) => (
-          <Pressable key={c.id} onPress={() => onOpenClass(c.id)} className="bg-white rounded-2xl p-4 mb-3 active:opacity-95" style={SHADOW_CARD}>
-            <View className="flex-row items-start justify-between">
-              <Text className="text-jiayou font-extrabold text-[17px] flex-1 pr-2">{c.name}</Text>
-              <Ionicons name="chevron-forward" size={18} color="#9aa4b2" />
-            </View>
-            <View className="flex-row flex-wrap gap-2 mt-2.5">
-              <View className="bg-jiayou-soft border border-[#dbe3f1] rounded-full px-3 py-1"><Text className="text-[12px] text-[#5a6b8a]"><Text className="text-jiayou font-bold">{c.student_count}</Text> student{c.student_count === 1 ? '' : 's'}</Text></View>
-              <View className="bg-jiayou-soft border border-[#dbe3f1] rounded-full px-3 py-1"><Text className="text-[12px] text-[#5a6b8a]"><Text className="text-jiayou font-bold">{c.lesson_count}</Text> task{c.lesson_count === 1 ? '' : 's'}</Text></View>
-            </View>
-            <View className="flex-row items-center gap-2 mt-3">
-              <Text className="font-extrabold text-jiayou bg-surface-page border border-dashed border-[#a9c0e8] px-3 py-1 rounded-lg tracking-[3px]">{c.join_code}</Text>
-              <Pressable onPress={() => copyCode(c.join_code)} hitSlop={8} className="w-9 h-9 rounded-lg bg-jiayou-soft items-center justify-center">
-                <Ionicons name={copied === c.join_code ? 'checkmark' : 'copy-outline'} size={16} color={COLORS.jiayou} />
-              </Pressable>
-            </View>
-          </Pressable>
-        ))
-      )}
+      ) : classes.map(classRow)}
     </>
   );
 
   return (
     <View className="flex-1 bg-surface-page">
       <ScrollView contentContainerStyle={{ paddingVertical: 16 }}>
-        <View style={{ width: '100%', maxWidth: 1100, alignSelf: 'center', paddingHorizontal: isDesktop ? 24 : 16 }}>
+        <View style={{ width: '100%', maxWidth: 1180, alignSelf: 'center', paddingHorizontal: isDesktop ? 24 : 16 }}>
           {isDesktop ? (
             <View className="flex-row items-start gap-6">
-              <View style={[{ flex: 4 }, Platform.OS === 'web' ? { position: 'sticky', top: 16 } : null]}>{statsCard}</View>
-              <View style={{ flex: 8 }}>{rightColumn}</View>
+              <View style={{ width: 300 }}>{sidebar}</View>
+              <View style={{ flex: 1 }}>{main}</View>
             </View>
           ) : (
             <>
-              <View className="mb-4">{statsCard}</View>
-              {rightColumn}
+              {main}
+              <View className="mt-2">{sidebar}</View>
             </>
           )}
         </View>

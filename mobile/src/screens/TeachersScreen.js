@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import CtaCard from '../components/duels/CtaCard';
 import MentorCard from '../components/teachers/MentorCard';
+import MentorProfileScreen from './MentorProfileScreen';
 import MentorFilters from '../components/teachers/MentorFilters';
 import JoinClassPopup from '../components/teachers/JoinClassPopup';
 import Popup from '../components/Popup';
@@ -29,6 +30,7 @@ export default function TeachersScreen({ onBack }) {
 
   const [activeLang, setActiveLang] = useState('');
   const [activePrice, setActivePrice] = useState('any');
+  const [openMentor, setOpenMentor] = useState(null); // prof ouvert (page profil)
 
   const [showJoin, setShowJoin] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
@@ -77,6 +79,9 @@ export default function TeachersScreen({ onBack }) {
     try { await Clipboard.setStringAsync(inviteLink); setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2000); } catch { /* noop */ }
   }
 
+  if (openMentor) {
+    return <MentorProfileScreen id={openMentor.id} initial={openMentor} onBack={() => setOpenMentor(null)} />;
+  }
   if (loading) {
     return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}><CatLoader size={110} /></View>;
   }
@@ -124,7 +129,7 @@ export default function TeachersScreen({ onBack }) {
               <Text style={{ color: COLORS.muted, marginTop: 8, fontSize: 13 }}>No teacher matches these filters.</Text>
             </View>
           ) : (
-            filtered.map((m) => <MentorCard key={m.id} mentor={m} />)
+            filtered.map((m) => <MentorCard key={m.id} mentor={m} onPress={() => setOpenMentor(m)} />)
           )}
         </View>
       </ScrollView>

@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
+import VideoCallScreen from './VideoCallScreen';
 import { getStudentSlots, getUpcomingSessions, bookSlot, cancelSlotBooking } from '../api';
 import { useT } from '../i18n';
 import { COLORS, TAB_CLEARANCE, SHADOW_CARD } from '../theme';
@@ -20,7 +21,9 @@ export default function StudentAgendaScreen({ onBack }) {
   const [slots, setSlots] = useState(null);
   const [upcoming, setUpcoming] = useState([]);
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(null); // id en cours d'action
+  const [busy, setBusy] = useState(null); // clé du créneau en cours d'action
+  const [callLesson, setCallLesson] = useState(null); // id du cours dont on ouvre la visio
+  const slotKey = (s) => `${s.teacher_id}|${s.starts_at}`;
 
   const load = useCallback(async () => {
     setError('');
@@ -43,8 +46,8 @@ export default function StudentAgendaScreen({ onBack }) {
   }, [slots]);
 
   async function book(s) {
-    setBusy(s.id);
-    try { await bookSlot(s.id); Alert.alert('', t('ag_booked_ok')); await load(); }
+    setBusy(slotKey(s));
+    try { await bookSlot(s.teacher_id, s.starts_at); Alert.alert('', t('ag_booked_ok')); await load(); }
     catch (e) { Alert.alert('', e.taken || /available/i.test(e.message || '') ? t('ag_taken') : (e.message || 'Error')); await load(); }
     finally { setBusy(null); }
   }
@@ -65,6 +68,7 @@ export default function StudentAgendaScreen({ onBack }) {
     </Pressable>
   );
 
+  if (callLesson) return <VideoCallScreen lessonId={callLesson} onBack={() => setCallLesson(null)} />;
   if (slots === null && !error) {
     return <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>{BackBtn}<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><CatLoader size={110} /></View></View>;
   }
@@ -93,8 +97,12 @@ export default function StudentAgendaScreen({ onBack }) {
                     <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e' }}>{fmtDay(s, lang)} · {hhmm(s)}</Text>
                     <Text style={{ fontSize: 12.5, color: COLORS.muted, marginTop: 2 }}>{t('ag_with').replace('{name}', u.other_name || '—')}</Text>
                   </View>
-                  <Pressable onPress={() => cancel(u)} disabled={busy === u.id} hitSlop={8} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: '#f6f8fb' }}>
-                    <Text style={{ color: COLORS.danger, fontWeight: '700', fontSize: 13 }}>{t('ag_cancel_mine')}</Text>
+                  <Pressable onPress={() => setCallLesson(u.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: COLORS.jiayou }}>
+                    <Ionicons name="videocam" size={14} color="#fff" />
+                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12.5 }}>{t('ag_join')}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => cancel(u)} disabled={busy === u.id} hitSlop={8} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 999, backgroundColor: '#f6f8fb' }}>
+                    <Text style={{ color: COLORS.danger, fontWeight: '700', fontSize: 12.5 }}>{t('ag_cancel_mine')}</Text>
                   </Pressable>
                 </View>
               );
@@ -112,14 +120,14 @@ export default function StudentAgendaScreen({ onBack }) {
             {grp.items.map((s) => {
               const st = new Date(s.starts_at), en = new Date(s.ends_at);
               return (
-                <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderColor: '#f2f4f7' }}>
+                <View key={slotKey(s)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderColor: '#f2f4f7' }}>
                   <Ionicons name="time-outline" size={18} color={COLORS.mutedLight} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 14, fontWeight: '700', color: '#1a1a2e' }}>{fmtDay(st, lang)}</Text>
                     <Text style={{ fontSize: 12.5, color: COLORS.muted, marginTop: 1 }}>{hhmm(st)} – {hhmm(en)}</Text>
                   </View>
-                  <Pressable onPress={() => book(s)} disabled={busy === s.id} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8, opacity: busy === s.id ? 0.6 : 1 }}>
-                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>{busy === s.id ? '…' : t('ag_book')}</Text>
+                  <Pressable onPress={() => book(s)} disabled={busy === slotKey(s)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8, opacity: busy === slotKey(s) ? 0.6 : 1 }}>
+                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>{busy === slotKey(s) ? '…' : t('ag_book')}</Text>
                   </Pressable>
                 </View>
               );

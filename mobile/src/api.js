@@ -636,25 +636,53 @@ export function saveQuiz(payload) {
   return request('/api/m/quiz/save', { method: 'POST', body: payload });
 }
 
-// ── Agenda prof : créneaux de dispo + réservation élève ──────────────────────
-export function getTeacherSlots() {
-  return request('/api/m/teacher/slots');
+// ── Agenda prof — modèle « semaine type » ────────────────────────────────────
+// Prof : édite sa semaine type (dispos récurrentes) + voit ses cours à venir.
+export function getTeacherAvailability() {
+  return request('/api/m/teacher/availability');
 }
-export function createTeacherSlot(starts_at, ends_at, note) {
-  return request('/api/m/teacher/slots', { method: 'POST', body: { starts_at, ends_at, note } });
+export function setTeacherAvailability(blocks) {
+  return request('/api/m/teacher/availability', { method: 'PUT', body: { blocks } });
 }
-export function deleteTeacherSlot(id) {
-  return request(`/api/m/teacher/slots/${id}`, { method: 'DELETE' });
+export function getTeacherLessons() {
+  return request('/api/m/teacher/lessons');
 }
+export function deleteTeacherLesson(id) {
+  return request(`/api/m/teacher/lessons/${id}`, { method: 'DELETE' });
+}
+// Élève : créneaux réservables dérivés + réservation / annulation.
 export function getStudentSlots(teacherId) {
   return request(`/api/m/student/slots${teacherId ? `?teacherId=${teacherId}` : ''}`);
 }
-export function bookSlot(id) {
-  return request(`/api/m/student/slots/${id}/book`, { method: 'POST' });
+export function bookSlot(teacherId, startsAt) {
+  return request('/api/m/student/slots/book', { method: 'POST', body: { teacher_id: teacherId, starts_at: startsAt } });
 }
 export function cancelSlotBooking(id) {
   return request(`/api/m/student/slots/${id}/cancel`, { method: 'POST' });
 }
 export function getUpcomingSessions() {
   return request('/api/m/agenda/upcoming');
+}
+
+// Stats prof (page Profil) : élèves, cours donnés, note moyenne.
+export function getTeacherStats() {
+  return request('/api/m/teacher/stats');
+}
+
+// Dispos ponctuelles (par date) — s'ajoutent à la semaine type.
+export function getTeacherDateSlots(date) {
+  return request(`/api/m/teacher/date-slots?date=${encodeURIComponent(date)}`);
+}
+export function setTeacherDateSlots(date, hours) {
+  return request('/api/m/teacher/date-slots', { method: 'PUT', body: { date, hours } });
+}
+
+// Détail d'un mentor (page profil côté élève) : profil complet + stats.
+export function getMentor(id) {
+  return request(`/api/m/mentors/${id}`);
+}
+
+// Visio : URL de la room Jitsi d'un cours (participants, dans la fenêtre horaire).
+export function getLessonRoom(id) {
+  return request(`/api/m/lesson/${id}/room`);
 }

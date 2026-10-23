@@ -68,6 +68,7 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState('paste'); // paste | preview | done
   const [text, setText] = useState('');
+  const [fileContent, setFileContent] = useState(''); // contenu du fichier (non affiché)
   const [rows, setRows] = useState([]);
   const [stats, setStats] = useState(null);
   const [direction, setDirection] = useState('en→zh');
@@ -79,19 +80,24 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
   const learningChinese = direction !== 'zh→en';
   // Le champ « traduction » (éditable) dépend de la langue apprise.
   const transKey = learningChinese ? 'english' : 'chinese';
+  const hasInput = !!(fileContent || text.trim());
 
   async function pickFile() {
     setError('');
     try {
       const picked = Platform.OS === 'web' ? await pickFileWeb() : await pickFileNative();
       if (!picked) return;
-      setText(picked.content);
-      setFileName(picked.name || '');
+      // On NE déverse PAS le contenu brut (un XML Pleco = un énorme bloc) dans le
+      // champ : on le garde à part et on n'affiche que le nom du fichier.
+      setFileContent(picked.content || '');
+      setFileName(picked.name || 'file');
+      setText('');
     } catch (e) { setError(e?.message || 'Could not read the file.'); }
   }
+  function clearFile() { setFileContent(''); setFileName(''); }
 
   async function runPreview(srcText) {
-    const payload = typeof srcText === 'string' ? srcText : text;
+    const payload = typeof srcText === 'string' ? srcText : (fileContent || text);
     setBusy(true); setError('');
     try {
       const d = await importPreview(payload, forcedDir);
@@ -154,39 +160,53 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
               pinyin and English are filled automatically. Review and edit everything in the next step before importing.
             </Text>
           </View>
-          {CAN_PICK_FILE ? (
+          {CAN_PICK_FILE && !fileContent ? (
             <Pressable
               onPress={pickFile}
               style={{ marginBottom: 12, borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.jiayou, borderStyle: 'dashed', paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: '#f5f8ff' }}
             >
               <Ionicons name="document-attach" size={18} color={COLORS.jiayou} />
-              <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 14 }}>
-                {fileName ? `Loaded: ${fileName}` : 'Import a file (.txt / .xml)'}
-              </Text>
+              <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 14 }}>Import a file (.txt / .xml)</Text>
             </Pressable>
           ) : null}
-          <TextInput
-            value={text}
-            onChangeText={(t) => { setText(t); if (fileName) setFileName(''); }}
-            placeholder={PLACEHOLDER}
-            placeholderTextColor={COLORS.mutedLight}
-            multiline
-            autoCapitalize="none"
-            style={{
-              minHeight: 220, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1.5, borderColor: COLORS.line,
-              padding: 14, fontSize: 15, lineHeight: 22, textAlignVertical: 'top',
-            }}
-          />
+          {fileContent ? (
+            // Fichier chargé → on affiche une carte (nom + taille), pas le contenu brut.
+            <View style={{ marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1.5, borderColor: COLORS.jiayou, padding: 14 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#e8f0ff', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="document-text" size={20} color={COLORS.jiayou} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e' }} numberOfLines={1}>{fileName}</Text>
+                <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>{(fileContent.length / 1024).toFixed(1)} KB · ready to preview</Text>
+              </View>
+              <Pressable onPress={clearFile} hitSlop={8} style={{ width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f6f8fb' }}>
+                <Ionicons name="close" size={17} color={COLORS.danger} />
+              </Pressable>
+            </View>
+          ) : (
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder={PLACEHOLDER}
+              placeholderTextColor={COLORS.mutedLight}
+              multiline
+              autoCapitalize="none"
+              style={{
+                minHeight: 220, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1.5, borderColor: COLORS.line,
+                padding: 14, fontSize: 15, lineHeight: 22, textAlignVertical: 'top',
+              }}
+            />
+          )}
           {error ? <Text style={{ color: COLORS.danger, fontSize: 13, marginTop: 10, fontWeight: '600' }}>{error}</Text> : null}
           <Pressable
             onPress={runPreview}
-            disabled={busy || !text.trim()}
-            style={{ marginTop: 16, borderRadius: 999, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: text.trim() ? COLORS.jiayou : '#e9ecef' }}
+            disabled={busy || !hasInput}
+            style={{ marginTop: 16, borderRadius: 999, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: hasInput ? COLORS.jiayou : '#e9ecef' }}
           >
             {busy ? <ActivityIndicator color="#fff" /> : (
               <>
-                <Ionicons name="eye" size={17} color={text.trim() ? '#fff' : COLORS.muted} />
-                <Text style={{ color: text.trim() ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>Preview</Text>
+                <Ionicons name="eye" size={17} color={hasInput ? '#fff' : COLORS.muted} />
+                <Text style={{ color: hasInput ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>Preview</Text>
               </>
             )}
           </Pressable>

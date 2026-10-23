@@ -424,6 +424,54 @@ const pool = new Pool({
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_teacher_slots_student ON teacher_slots(student_id)`);
     console.log("✅ Table 'teacher_slots' vérifiée ou créée.");
 
+    // ── Table teacher_availability : « semaine type » récurrente du prof ────────
+    // Un bloc = un créneau HORAIRE d'1h ouvert un jour de semaine donné
+    // (weekday 0=lundi … 6=dimanche, hour 0..23). Les créneaux réservables des
+    // élèves se DÉRIVENT de ce modèle (horizon glissant), moins ce qui est déjà
+    // réservé (teacher_slots). teacher_slots ne contient donc QUE des cours réservés.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS teacher_availability (
+        teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        weekday SMALLINT NOT NULL,
+        hour SMALLINT NOT NULL,
+        PRIMARY KEY (teacher_id, weekday, hour)
+      )
+    `);
+    // Un seul cours réservé par (prof, horaire) → anti double-booking au niveau DB.
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_teacher_slot_booked ON teacher_slots(teacher_id, starts_at) WHERE status = 'booked'`);
+    console.log("✅ Table 'teacher_availability' vérifiée ou créée.");
+
+    // ── Table teacher_ratings : notes données par les élèves (1 note / élève / prof) ─
+    // La soumission des notes se fera plus tard ; la table est prête + la moyenne est
+    // déjà exposée dans les stats prof.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS teacher_ratings (
+        id SERIAL PRIMARY KEY,
+        teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+        comment TEXT,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (teacher_id, student_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_teacher_ratings_teacher ON teacher_ratings(teacher_id)`);
+    console.log("✅ Table 'teacher_ratings' vérifiée ou créée.");
+
+    // ── Table teacher_date_slots : dispos PONCTUELLES sur une date précise ──────
+    // S'AJOUTENT à la semaine type (teacher_availability). Un bloc = 1h ouverte un
+    // jour donné. Permet d'ouvrir/retirer des créneaux pour une date spécifique.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS teacher_date_slots (
+        teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        day DATE NOT NULL,
+        hour SMALLINT NOT NULL,
+        PRIMARY KEY (teacher_id, day, hour)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_teacher_date_slots ON teacher_date_slots(teacher_id, day)`);
+    console.log("✅ Table 'teacher_date_slots' vérifiée ou créée.");
+
     // ── Migration: profil professeur (annuaire mentor) ────────────────────────
     // (mentor_listed / mentor_bio / mentor_link existent déjà)
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS years_experience INT`);
@@ -433,7 +481,8 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS teaching_languages TEXT`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS session_price NUMERIC(8,2)`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS session_currency VARCHAR(3) DEFAULT 'EUR'`);
-    console.log("✅ Colonnes profil prof (years_experience/languages_spoken/mentor_links/teaching_languages/session_price) vérifiées.");
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS presentation_video TEXT`);
+    console.log("✅ Colonnes profil prof (years_experience/languages_spoken/mentor_links/teaching_languages/session_price/presentation_video) vérifiées.");
 
     // ── Migration: parrainage (referral) ──────────────────────────────────────
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(12)`);
