@@ -404,6 +404,26 @@ const pool = new Pool({
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_lqr_student ON lesson_quiz_results(student_id)`);
     console.log("✅ Table 'lesson_quiz_results' vérifiée ou créée.");
 
+    // ── Table teacher_slots : agenda prof (créneaux de dispo + réservation élève) ─
+    // La réservation est REPLIÉE dans le créneau : student_id NULL = créneau LIBRE.
+    // Réserver = UPDATE atomique (WHERE student_id IS NULL) → pas de double-booking.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS teacher_slots (
+        id SERIAL PRIMARY KEY,
+        teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        starts_at TIMESTAMPTZ NOT NULL,
+        ends_at TIMESTAMPTZ NOT NULL,
+        student_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        status VARCHAR(12) NOT NULL DEFAULT 'open',
+        note TEXT,
+        booked_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_teacher_slots_teacher ON teacher_slots(teacher_id, starts_at)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_teacher_slots_student ON teacher_slots(student_id)`);
+    console.log("✅ Table 'teacher_slots' vérifiée ou créée.");
+
     // ── Migration: profil professeur (annuaire mentor) ────────────────────────
     // (mentor_listed / mentor_bio / mentor_link existent déjà)
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS years_experience INT`);

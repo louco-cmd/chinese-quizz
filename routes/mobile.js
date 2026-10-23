@@ -5272,6 +5272,167 @@ router.post('/api/m/teacher/profile', requireToken, requireTeacher, async (req, 
   } catch (e) { console.error('m/teacher save profile:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// AGENDA PROF : créneaux de disponibilité + réservation élève (table teacher_slots).
+// La réservation est repliée dans le créneau (student_id NULL = libre) ; réserver =
+// UPDATE atomique WHERE student_id IS NULL → aucun double-booking possible.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Un élève est-il ACTIVEMENT rattaché à ce prof ? (membre actif d'une de ses classes)
+async function studentLinkedToTeacher(studentId, teacherId) {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM classroom_students cs JOIN classrooms c ON c.id = cs.classroom_id
+     WHERE cs.student_id = $1 AND c.teacher_id = $2 AND cs.status = 'active' LIMIT 1`,
+    [studentId, teacherId]);
+  return rows.length > 0;
+}
+
+const MAX_FUTURE_OPEN_SLOTS = 200; // garde-fou anti-abus
+
+// ── POST /api/m/teacher/slots : créer un créneau de dispo ─────────────────────
+router.post('/api/m/teacher/slots', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const start = new Date(req.body?.starts_at);
+    const end = new Date(req.body?.ends_at);
+    if (isNaN(start) || isNaN(end)) return res.status(400).json({ error: 'Invalid dates' });
+    if (end <= start) return res.status(400).json({ error: 'End must be after start' });
+    if (start.getTime() < Date.now() - 60 * 1000) return res.status(400).json({ error: 'Slot is in the past' });
+    const durMin = (end - start) / 60000;
+    if (durMin > 8 * 60) return res.status(400).json({ error: 'Slot too long (max 8h)' });
+    if (start.getTime() > Date.now() + 365 * 24 * 60 * 60 * 1000) return res.status(400).json({ error: 'Too far in the future' });
+
+    const cnt = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM teacher_slots WHERE teacher_id = $1 AND status = 'open' AND starts_at > NOW()`,
+      [req.teacher.id]);
+    if (cnt.rows[0].n >= MAX_FUTURE_OPEN_SLOTS) return res.status(429).json({ error: 'Too many open slots' });
+
+    // Pas de chevauchement avec un autre créneau non annulé du prof.
+    const overlap = await pool.query(
+      `SELECT 1 FROM teacher_slots WHERE teacher_id = $1 AND status <> 'cancelled'
+         AND tstzrange(starts_at, ends_at) && tstzrange($2, $3) LIMIT 1`,
+      [req.teacher.id, start.toISOString(), end.toISOString()]);
+    if (overlap.rows.length) return res.status(409).json({ error: 'Overlaps an existing slot' });
+
+    const note = (req.body?.note || '').toString().trim().slice(0, 200) || null;
+    const { rows } = await pool.query(
+      `INSERT INTO teacher_slots (teacher_id, starts_at, ends_at, note)
+       VALUES ($1, $2, $3, $4) RETURNING id, starts_at, ends_at, status, note`,
+      [req.teacher.id, start.toISOString(), end.toISOString(), note]);
+    res.json({ slot: rows[0] });
+  } catch (e) { console.error('m/teacher slots create:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── GET /api/m/teacher/slots : mes créneaux à venir (libres + réservés) ───────
+router.get('/api/m/teacher/slots', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ts.id, ts.starts_at, ts.ends_at, ts.status, ts.note, ts.student_id, ts.booked_at,
+              u.name AS student_name, u.avatar_icon AS student_avatar, u.avatar_color AS student_color
+       FROM teacher_slots ts LEFT JOIN users u ON u.id = ts.student_id
+       WHERE ts.teacher_id = $1 AND ts.status <> 'cancelled' AND ts.ends_at > NOW() - INTERVAL '2 hours'
+       ORDER BY ts.starts_at ASC`,
+      [req.teacher.id]);
+    res.json({ slots: rows });
+  } catch (e) { console.error('m/teacher slots list:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── DELETE /api/m/teacher/slots/:id : libre → supprimé ; réservé → annulé ─────
+router.delete('/api/m/teacher/slots/:id', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid slot' });
+    const { rows } = await pool.query(
+      `SELECT status, student_id FROM teacher_slots WHERE id = $1 AND teacher_id = $2`,
+      [id, req.teacher.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    if (rows[0].status === 'booked') {
+      // Réservé → annulation douce (l'élève le verra annulé) plutôt que suppression.
+      await pool.query(`UPDATE teacher_slots SET status = 'cancelled' WHERE id = $1`, [id]);
+      return res.json({ ok: true, cancelled: true });
+    }
+    await pool.query(`DELETE FROM teacher_slots WHERE id = $1 AND teacher_id = $2`, [id, req.teacher.id]);
+    res.json({ ok: true, deleted: true });
+  } catch (e) { console.error('m/teacher slots delete:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── GET /api/m/student/slots : créneaux LIBRES des profs où je suis actif ─────
+router.get('/api/m/student/slots', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const teacherId = parseInt(req.query.teacherId, 10) || null;
+    const { rows } = await pool.query(
+      `SELECT ts.id, ts.starts_at, ts.ends_at, ts.note, ts.teacher_id,
+              u.name AS teacher_name, u.avatar_icon AS teacher_avatar, u.avatar_color AS teacher_color
+       FROM teacher_slots ts JOIN users u ON u.id = ts.teacher_id
+       WHERE ts.status = 'open' AND ts.student_id IS NULL AND ts.starts_at > NOW()
+         AND ($2::int IS NULL OR ts.teacher_id = $2)
+         AND EXISTS (
+           SELECT 1 FROM classroom_students cs JOIN classrooms c ON c.id = cs.classroom_id
+           WHERE cs.student_id = $1 AND c.teacher_id = ts.teacher_id AND cs.status = 'active')
+       ORDER BY ts.starts_at ASC`,
+      [uid, teacherId]);
+    res.json({ slots: rows });
+  } catch (e) { console.error('m/student slots list:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── POST /api/m/student/slots/:id/book : réserver (atomique, anti double-booking) ─
+router.post('/api/m/student/slots/:id/book', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid slot' });
+    // Le prof du créneau doit m'avoir comme élève actif.
+    const slot = await pool.query(`SELECT teacher_id, status, student_id FROM teacher_slots WHERE id = $1`, [id]);
+    if (!slot.rows.length) return res.status(404).json({ error: 'Not found' });
+    if (!(await studentLinkedToTeacher(uid, slot.rows[0].teacher_id))) {
+      return res.status(403).json({ error: 'You are not an active student of this teacher' });
+    }
+    // UPDATE conditionnel → une seule réservation gagne la course.
+    const { rowCount } = await pool.query(
+      `UPDATE teacher_slots SET student_id = $1, status = 'booked', booked_at = NOW()
+       WHERE id = $2 AND student_id IS NULL AND status = 'open' AND starts_at > NOW()`,
+      [uid, id]);
+    if (!rowCount) return res.status(409).json({ error: 'Slot no longer available', taken: true });
+    res.json({ ok: true });
+  } catch (e) { console.error('m/student slots book:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── POST /api/m/student/slots/:id/cancel : annuler MA réservation (libère le créneau) ─
+router.post('/api/m/student/slots/:id/cancel', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid slot' });
+    const { rowCount } = await pool.query(
+      `UPDATE teacher_slots SET student_id = NULL, status = 'open', booked_at = NULL
+       WHERE id = $1 AND student_id = $2 AND status = 'booked' AND starts_at > NOW()`,
+      [id, uid]);
+    if (!rowCount) return res.status(409).json({ error: 'Cannot cancel this booking' });
+    res.json({ ok: true });
+  } catch (e) { console.error('m/student slots cancel:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── GET /api/m/agenda/upcoming : mes sessions réservées à venir (prof OU élève) ─
+router.get('/api/m/agenda/upcoming', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const { rows } = await pool.query(
+      `SELECT ts.id, ts.starts_at, ts.ends_at, ts.note,
+              (ts.teacher_id = $1) AS i_am_teacher,
+              CASE WHEN ts.teacher_id = $1 THEN su.name ELSE tu.name END AS other_name,
+              CASE WHEN ts.teacher_id = $1 THEN su.avatar_icon ELSE tu.avatar_icon END AS other_avatar,
+              CASE WHEN ts.teacher_id = $1 THEN su.avatar_color ELSE tu.avatar_color END AS other_color
+       FROM teacher_slots ts
+       JOIN users tu ON tu.id = ts.teacher_id
+       LEFT JOIN users su ON su.id = ts.student_id
+       WHERE ts.status = 'booked' AND ts.ends_at > NOW()
+         AND (ts.teacher_id = $1 OR ts.student_id = $1)
+       ORDER BY ts.starts_at ASC LIMIT 50`,
+      [uid]);
+    res.json({ sessions: rows });
+  } catch (e) { console.error('m/agenda upcoming:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
 // Resync live d'un abonnement depuis Stripe → user_subscriptions. Fiabilité si
 // le webhook n'est pas arrivé (annulation via le portail non répercutée). Lit la
 // période au niveau item (API récente) avec fallback top-level. Renvoie l'état,
