@@ -635,3 +635,26 @@ export function saveQuiz(payload) {
   invalidateCollection();
   return request('/api/m/quiz/save', { method: 'POST', body: payload });
 }
+
+// ── Agenda prof : créneaux de dispo + réservation élève ──────────────────────
+export function getTeacherSlots() {
+  return request('/api/m/teacher/slots');
+}
+export function createTeacherSlot(starts_at, ends_at, note) {
+  return request('/api/m/teacher/slots', { method: 'POST', body: { starts_at, ends_at, note } });
+}
+export function deleteTeacherSlot(id) {
+  return request(`/api/m/teacher/slots/${id}`, { method: 'DELETE' });
+}
+export function getStudentSlots(teacherId) {
+  return request(`/api/m/student/slots${teacherId ? `?teacherId=${teacherId}` : ''}`);
+}
+export function bookSlot(id) {
+  return request(`/api/m/student/slots/${id}/book`, { method: 'POST' });
+}
+export function cancelSlotBooking(id) {
+  return request(`/api/m/student/slots/${id}/cancel`, { method: 'POST' });
+}
+export function getUpcomingSessions() {
+  return request('/api/m/agenda/upcoming');
+}

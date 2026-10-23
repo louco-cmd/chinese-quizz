@@ -6,6 +6,7 @@ import TeacherDashboardScreen from './TeacherDashboardScreen';
 import TeacherClassScreen from './TeacherClassScreen';
 import TeacherTaskScreen from './TeacherTaskScreen';
 import TeacherStudentsScreen from './TeacherStudentsScreen';
+import TeacherAgendaScreen from './TeacherAgendaScreen';
 import TeacherProfileScreen from './TeacherProfileScreen';
 import TeacherSettingsScreen from './TeacherSettingsScreen';
 import SupportScreen from '../SupportScreen';
@@ -21,6 +22,7 @@ import useKeyboardOpen from '../../useKeyboardOpen';
 const TABS = [
   { key: 'store', icon: 'storefront', label: 'JiaStore' },
   { key: 'classes', icon: 'easel', label: 'Classes' },
+  { key: 'agenda', icon: 'calendar', label: 'Agenda' },
   { key: 'students', icon: 'bar-chart', label: 'Students' },
   { key: 'profile', icon: 'person-circle', label: 'Profile' },
 ];
@@ -146,6 +148,8 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow }) {
         onUpgrade={() => setView({ type: 'pricing' })}
       />
     );
+  } else if (tab === 'agenda') {
+    content = <TeacherAgendaScreen />;
   } else if (tab === 'students') {
     content = <TeacherStudentsScreen />;
   } else if (tab === 'profile') {
