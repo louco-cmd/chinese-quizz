@@ -34,20 +34,22 @@ function StatTile({ icon, value, label, accent }) {
 // correctes (sinon les composants pleine taille sont écrasés/« zoomés »).
 const PHONE_W = 300, PHONE_H = 620, BEZEL = 10;
 const INNER_W = PHONE_W - 2 * BEZEL;            // 280
-const INNER_H = PHONE_H - 2 * BEZEL;            // 600
 const LOGICAL_W = 375;                          // largeur logique iPhone
-const SCALE = INNER_W / LOGICAL_W;              // ≈ 0.747
-const LOGICAL_H = Math.round(INNER_H / SCALE);  // hauteur logique correspondante
+const SCALE = INNER_W / LOGICAL_W;              // ≈ 0.747 (dépend de la largeur, fixe)
 
-function PhonePreview({ mentor, others }) {
+// `height` (optionnel) : hauteur flexible du téléphone pour que la preview + le
+// bouton Publish tiennent sans scroll sur un écran peu haut.
+function PhonePreview({ mentor, others, height }) {
   const [fl, setFl] = useState('');   // filtre langue (preview, non fonctionnel)
   const [fp, setFp] = useState('any');
+  const H = Math.max(360, height || PHONE_H);
+  const logicalH = Math.round((H - 2 * BEZEL) / SCALE); // hauteur logique correspondante
   return (
     <View style={{ width: PHONE_W, alignSelf: 'center' }}>
-      <View style={{ width: PHONE_W, height: PHONE_H, borderRadius: 46, backgroundColor: '#0b0e12', padding: BEZEL, shadowColor: '#000', shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.22, shadowRadius: 34, elevation: 10 }}>
+      <View style={{ width: PHONE_W, height: H, borderRadius: 46, backgroundColor: '#0b0e12', padding: BEZEL, shadowColor: '#000', shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.22, shadowRadius: 34, elevation: 10 }}>
         <View style={{ flex: 1, borderRadius: 38, backgroundColor: '#f1f3f7', overflow: 'hidden' }}>
           {/* Contenu rendu en 375px logiques puis scalé depuis le coin haut-gauche. */}
-          <View style={{ width: LOGICAL_W, height: LOGICAL_H, transform: [{ scale: SCALE }], transformOrigin: 'top left' }}>
+          <View style={{ width: LOGICAL_W, height: logicalH, transform: [{ scale: SCALE }], transformOrigin: 'top left' }}>
             {/* Header app (bleu) — 加油! + avatar */}
             <View style={{ backgroundColor: COLORS.jiayou, paddingTop: 26, paddingBottom: 14, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text style={{ color: '#fff', fontWeight: '800', fontSize: 24 }}>加油!</Text>
@@ -72,8 +74,10 @@ function PhonePreview({ mentor, others }) {
 }
 
 export default function TeacherProfileScreen() {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isDesktop = width >= 992;
+  // Hauteur dispo pour le téléphone = écran − (offset sticky + bouton Publish + marges).
+  const phoneH = Math.max(380, Math.min(PHONE_H, height - 16 - 56 - 24 - 16));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -254,7 +258,7 @@ export default function TeacherProfileScreen() {
               <View style={{ flex: 1, maxWidth: 600 }}>{form}</View>
               {/* Colonne droite STICKY : téléphone + Publish */}
               <View style={[{ width: PHONE_W }, Platform.OS === 'web' ? { position: 'sticky', top: 16 } : null]}>
-                <PhonePreview mentor={previewMentor} others={others} />
+                <PhonePreview mentor={previewMentor} others={others} height={phoneH} />
                 <View className="mt-4">{saveBtn}</View>
               </View>
             </View>

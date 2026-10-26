@@ -22,11 +22,12 @@ function toEmbedUrl(url) {
   try {
     const u = new URL(url);
     const host = u.hostname.toLowerCase();
-    if (host.includes('youtu.be')) { const id = u.pathname.slice(1); return id ? `https://www.youtube.com/embed/${id}` : null; }
+    const yt = (id) => `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1`;
+    if (host.includes('youtu.be')) { const id = u.pathname.slice(1); return id ? yt(id) : null; }
     if (host.includes('youtube.com')) {
-      const v = u.searchParams.get('v'); if (v) return `https://www.youtube.com/embed/${v}`;
-      const sh = u.pathname.match(/\/shorts\/([^/?]+)/); if (sh) return `https://www.youtube.com/embed/${sh[1]}`;
-      if (u.pathname.startsWith('/embed/')) return url;
+      const v = u.searchParams.get('v'); if (v) return yt(v);
+      const sh = u.pathname.match(/\/shorts\/([^/?]+)/); if (sh) return yt(sh[1]);
+      const em = u.pathname.match(/\/embed\/([^/?]+)/); if (em) return yt(em[1]);
       return null;
     }
     if (host.includes('bilibili.com')) { const m = u.pathname.match(/\/video\/(BV[\w]+)/i); return m ? `https://player.bilibili.com/player.html?bvid=${m[1]}&autoplay=0` : null; }
@@ -40,7 +41,9 @@ function VideoEmbed({ url }) {
   const embed = toEmbedUrl(url);
   if (Platform.OS === 'web' && embed) {
     return React.createElement('iframe', {
-      src: embed, allowFullScreen: true, title: 'Presentation', loading: 'lazy',
+      src: embed, title: 'Presentation', loading: 'lazy',
+      allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen',
+      allowFullScreen: true, referrerPolicy: 'strict-origin-when-cross-origin',
       style: { width: '100%', aspectRatio: '16 / 9', minHeight: 200, border: 'none', borderRadius: 12, display: 'block' },
     });
   }

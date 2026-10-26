@@ -592,10 +592,15 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
   // ── Vue LISTE ──
   if (view === 'list') {
     const q = query.trim().toLowerCase();
+    // Pinyin insensible aux TONS et aux ESPACES : « nihao » / « ni hao » matchent
+    // « nǐ hǎo ». On normalise (NFD → retrait des diacritiques, puis a-z only) des
+    // deux côtés — même logique que le moteur de recherche global.
+    const normPy = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+    const qpy = normPy(query);
     const searchMatch = (x) => !q
       || (x.chinese || '').toLowerCase().includes(q)
-      || (x.pinyin || '').toLowerCase().includes(q)
-      || (x.english || '').toLowerCase().includes(q);
+      || (x.english || '').toLowerCase().includes(q)
+      || (!!qpy && normPy(x.pinyin).includes(qpy));
     const filtered = deck.filter(searchMatch);
     return (
       <Animated.View style={{ flex: 1, backgroundColor: COLORS.page, opacity: screenFade, transform: [{ scale: screenScale }] }}>
