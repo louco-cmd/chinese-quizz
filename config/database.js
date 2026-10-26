@@ -565,6 +565,7 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS boosted_until TIMESTAMPTZ`);
     await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS boosted_from TIMESTAMPTZ`);
     await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS discount_pct SMALLINT NOT NULL DEFAULT 0`);
+    await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS hidden_until TIMESTAMPTZ`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_word_packs_boosted ON word_packs(boosted_until)`);
 
     // ── Migration : modèle concept many-to-many (lexeme_senses) + mot_tr ───────

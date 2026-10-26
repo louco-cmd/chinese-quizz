@@ -1971,6 +1971,7 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     const langs = { learning: qLearn || stored.learning, native: qNative || stored.native };
     const params = [uid, min, max, langs.learning, langs.native];
     let where = `wp.published = TRUE AND wp.price >= $2 AND wp.price <= $3
+      AND (wp.hidden_until IS NULL OR wp.hidden_until <= NOW())
       AND ((wp.lang = $4 AND wp.native_lang = $5) OR (wp.lang = $5 AND wp.native_lang = $4))
       AND NOT EXISTS (
         SELECT 1 FROM word_pack_items i2 JOIN mots pm ON pm.id = i2.mot_id
@@ -2897,6 +2898,47 @@ router.post('/api/m/admin/reconcile-packs', requireToken, async (req, res) => {
     console.error('m/admin reconcile-packs error:', e);
     res.status(500).json({ error: 'Reconcile failed' });
   }
+});
+
+// ── Masquer/afficher un pack du JiaStore (admin) — utile pour une démo/présentation ─
+// Masqué = exclu du listing du store (les propriétaires gardent l'accès). Réapparaît
+// automatiquement une fois `hidden_until` dépassé, ou via unhide.
+function isAdminReq(req) {
+  const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'locochet.08@gmail.com').toLowerCase();
+  return (req.tokenUser.email || '').toLowerCase() === ADMIN_EMAIL;
+}
+// POST /api/m/admin/packs/:id/hide  body { hours? | until? }  → masque le pack.
+router.post('/api/m/admin/packs/:id/hide', requireToken, async (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid pack' });
+    let until;
+    if (req.body?.until) { until = new Date(req.body.until); if (isNaN(until)) return res.status(400).json({ error: 'Invalid until' }); }
+    else { const hours = Math.min(24 * 365, Math.max(1, parseInt(req.body?.hours, 10) || 24)); until = new Date(Date.now() + hours * 3600 * 1000); }
+    const { rowCount } = await pool.query('UPDATE word_packs SET hidden_until = $1 WHERE id = $2', [until.toISOString(), id]);
+    if (!rowCount) return res.status(404).json({ error: 'Pack not found' });
+    res.json({ ok: true, id, hidden_until: until.toISOString() });
+  } catch (e) { console.error('m/admin hide pack:', e); res.status(500).json({ error: 'Server error' }); }
+});
+// POST /api/m/admin/packs/:id/unhide → ré-affiche immédiatement.
+router.post('/api/m/admin/packs/:id/unhide', requireToken, async (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid pack' });
+    await pool.query('UPDATE word_packs SET hidden_until = NULL WHERE id = $1', [id]);
+    res.json({ ok: true, id });
+  } catch (e) { console.error('m/admin unhide pack:', e); res.status(500).json({ error: 'Server error' }); }
+});
+// GET /api/m/admin/packs/hidden → packs actuellement masqués (pour vérifier).
+router.get('/api/m/admin/packs/hidden', requireToken, async (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, title, to_char(hidden_until,'YYYY-MM-DD HH24:MI') AS hidden_until FROM word_packs WHERE hidden_until > NOW() ORDER BY hidden_until`);
+    res.json({ packs: rows });
+  } catch (e) { console.error('m/admin hidden packs:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
 // ── GET /api/m/admin/integrity : audit d'intégrité du graphe concept/lexème ──
