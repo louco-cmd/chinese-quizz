@@ -569,6 +569,10 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS hidden_until TIMESTAMPTZ`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_word_packs_boosted ON word_packs(boosted_until)`);
 
+    // ── Migration : personnalisation visuelle des packs (couleur + icône du header)
+    await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS cover_color VARCHAR(20)`);
+    await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS cover_icon  VARCHAR(60)`);
+
     // ── Migration : modèle concept many-to-many (lexeme_senses) + mot_tr ───────
     // Un lexème peut appartenir à plusieurs sens → dédup des lexèmes tout en
     // gardant les concepts fidèles. Guardé : ne s'exécute que si `meanings` existe.

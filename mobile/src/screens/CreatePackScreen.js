@@ -8,6 +8,7 @@ import Popup from '../components/Popup';
 import { planPack, createPack, getSettings, getCachedSettings } from '../api';
 import { LANG_META } from '../langs';
 import { COLORS, SHADOW_CARD } from '../theme';
+import { COVER_PALETTES, DEFAULT_PALETTE, COVER_ICONS } from '../components/PackDetailPopup';
 
 const langName = (code) => LANG_META[code]?.endonym || String(code || '').toUpperCase();
 
@@ -77,6 +78,10 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
   const [title, setTitle] = useState(editPack?.title || '');
   const [description, setDescription] = useState(editPack?.description || '');
   const [price, setPrice] = useState(editPack?.price != null ? String(editPack.price) : '');
+  // Personnalisation visuelle du header : couleur de fond + icône.
+  const initPalette = COVER_PALETTES.find((c) => c.bg === editPack?.cover_color) || DEFAULT_PALETTE;
+  const [coverPalette, setCoverPalette] = useState(initPalette);
+  const [coverIcon, setCoverIcon] = useState(editPack?.cover_icon || null);
   // Édition : on réinjecte la surface RÉELLE de chaque item du pack (`w.raw` = le
   // lexème curé), PAS l'agrégat du concept (`w.chinese`/`w.zh` = « A / B » quand un
   // concept a des synonymes). Réinjecter l'agrégat produisait une ligne « A / B »
@@ -136,7 +141,11 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
   // Envoie la création (avec ou sans acquisition).
   async function doCreate(acquire, translations) {
     try {
-      await createPack({ title: title.trim(), description: description.trim(), price: priceNum, text, translations, acquire, packId: editPack?.id, swap: swapped, lang: packLang });
+      await createPack({
+        title: title.trim(), description: description.trim(), price: priceNum, text,
+        translations, acquire, packId: editPack?.id, swap: swapped, lang: packLang,
+        cover_color: coverPalette.bg, cover_icon: coverIcon || undefined,
+      });
       onCreated?.();
     } catch (e) {
       throw e;
@@ -231,6 +240,69 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
           <TextInput value={description} onChangeText={setDescription} maxLength={300} multiline onFocus={focusScroll}
             placeholder="What's inside this pack?" placeholderTextColor={COLORS.mutedLight}
             style={{ ...inputStyle, minHeight: 72, textAlignVertical: 'top' }} />
+        </Field>
+
+        {/* ── Preview de la cover en temps réel ── */}
+        <View style={{ height: 72, borderRadius: 14, backgroundColor: coverPalette.bg, alignItems: 'center', justifyContent: 'center', marginBottom: 16, overflow: 'hidden' }}>
+          {coverIcon
+            ? <Ionicons name={coverIcon} size={34} color={coverPalette.fg} />
+            : <Text style={{ fontSize: 34, fontWeight: '700', color: coverPalette.fg }}>汉</Text>}
+        </View>
+
+        {/* ── Personnalisation : couleur de fond ── */}
+        <Field label="Cover color">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {COVER_PALETTES.map((pal) => {
+              const active = pal.bg === coverPalette.bg;
+              return (
+                <Pressable
+                  key={pal.bg}
+                  onPress={() => setCoverPalette(pal)}
+                  style={{
+                    width: 38, height: 38, borderRadius: 12, backgroundColor: pal.bg,
+                    alignItems: 'center', justifyContent: 'center',
+                    borderWidth: 2.5, borderColor: active ? pal.fg : 'transparent',
+                  }}
+                >
+                  {active ? <Ionicons name="checkmark" size={18} color={pal.fg} /> : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        </Field>
+
+        {/* ── Personnalisation : icône ── */}
+        <Field label="Cover icon" hint="(optional — leave empty for 汉)">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {/* Option "aucune icône" = retour au glyphe 汉 */}
+            <Pressable
+              onPress={() => setCoverIcon(null)}
+              style={{
+                width: 42, height: 42, borderRadius: 12, backgroundColor: coverIcon === null ? coverPalette.bg : '#f1f3f5',
+                alignItems: 'center', justifyContent: 'center',
+                borderWidth: 2, borderColor: coverIcon === null ? coverPalette.fg : 'transparent',
+              }}
+            >
+              <Text style={{ fontSize: 18, fontWeight: '700', color: coverIcon === null ? coverPalette.fg : COLORS.muted }}>汉</Text>
+            </Pressable>
+            {COVER_ICONS.map((icon) => {
+              const active = coverIcon === icon;
+              return (
+                <Pressable
+                  key={icon}
+                  onPress={() => setCoverIcon(icon)}
+                  style={{
+                    width: 42, height: 42, borderRadius: 12,
+                    backgroundColor: active ? coverPalette.bg : '#f1f3f5',
+                    alignItems: 'center', justifyContent: 'center',
+                    borderWidth: 2, borderColor: active ? coverPalette.fg : 'transparent',
+                  }}
+                >
+                  <Ionicons name={icon} size={20} color={active ? coverPalette.fg : COLORS.muted} />
+                </Pressable>
+              );
+            })}
+          </View>
         </Field>
 
         <Field label="Price" hint="in coins (₵)">

@@ -23,6 +23,46 @@ export const glyphOf = (k) => HSK_GLYPH[k] || '汉';
 export const COVER_BG = '#e8f0ff';
 export const COVER_FG = '#5b8def';
 
+// Palettes prédéfinies pour la personnalisation du header.
+// Chaque entrée : { bg, fg } — la couleur de l'icône dérive du fond.
+export const COVER_PALETTES = [
+  { bg: '#e8f0ff', fg: '#5b8def' }, // bleu (défaut)
+  { bg: '#fce8ff', fg: '#a855f7' }, // violet
+  { bg: '#ffeaea', fg: '#ef4444' }, // rouge
+  { bg: '#fff3e0', fg: '#f97316' }, // orange
+  { bg: '#e8fff0', fg: '#22c55e' }, // vert
+  { bg: '#e8fffe', fg: '#06b6d4' }, // cyan
+  { bg: '#fef9c3', fg: '#ca8a04' }, // jaune
+  { bg: '#f1f5f9', fg: '#64748b' }, // gris
+];
+export const DEFAULT_PALETTE = COVER_PALETTES[0];
+// Résout la palette d'un pack : utilise cover_color si fourni, sinon la palette par défaut.
+export function packPalette(pack) {
+  if (pack?.cover_color) {
+    const p = COVER_PALETTES.find((c) => c.bg === pack.cover_color);
+    return p || DEFAULT_PALETTE;
+  }
+  return DEFAULT_PALETTE;
+}
+
+// Icônes disponibles pour la cover d'un pack (Ionicons).
+export const COVER_ICONS = [
+  'book-outline', 'school-outline', 'globe-outline', 'language-outline',
+  'chatbubble-outline', 'mic-outline', 'headset-outline', 'pencil-outline',
+  'star-outline', 'heart-outline', 'rocket-outline', 'flash-outline',
+  'leaf-outline', 'pizza-outline', 'cafe-outline', 'restaurant-outline',
+  'airplane-outline', 'car-outline', 'business-outline', 'home-outline',
+  'people-outline', 'person-outline', 'briefcase-outline', 'medical-outline',
+  'musical-notes-outline', 'color-palette-outline', 'basketball-outline', 'football-outline',
+  'paw-outline', 'flower-outline', 'sunny-outline', 'moon-outline',
+];
+// Glyph de la cover : icône custom (Ionicons name) OU glyph HSK OU '汉'.
+export function packGlyph(pack) {
+  if (pack?.cover_icon && COVER_ICONS.includes(pack.cover_icon)) return { type: 'icon', name: pack.cover_icon };
+  const hskGlyph = glyphOf(pack?.cover_key);
+  return { type: 'text', char: hskGlyph };
+}
+
 // Packs réservés au premium (niveaux HSK avancés) — miroir de PREMIUM_PACK_COVERS
 // côté serveur (routes/mobile.js). Repérés par cover_key.
 export const PREMIUM_PACK_COVERS = ['hsk4', 'hsk5', 'hsk6'];
@@ -260,7 +300,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
           ) : null}
           {p.isMine && onEditPack ? (
             <Pressable
-              onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [] })}
+              onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [], cover_color: p.cover_color, cover_icon: p.cover_icon })}
               style={{ borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
             >
               <Ionicons name="create-outline" size={16} color={COLORS.jiayou} />
@@ -293,7 +333,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
               toujours l'éditer, et l'acquérir gratuitement. */}
           {isMine && onEditPack ? (
             <Pressable
-              onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [] })}
+              onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [], cover_color: p.cover_color, cover_icon: p.cover_icon })}
               style={{ borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
             >
               <Ionicons name="create-outline" size={16} color={COLORS.jiayou} />
@@ -401,22 +441,30 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
         </View>
       ) : (
         <View>
-          <View style={{ height: 84, borderRadius: 14, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>
-            <Text style={{ fontSize: 40, fontWeight: '700', color: COVER_FG }}>{glyphOf(p.cover_key)}</Text>
-            {isPremiumPack(p) ? (
-              <View style={{ position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f5b301', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
-                <Ionicons name="star" size={11} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{t('st_premium_tag')}</Text>
+          {(() => {
+            const pal = packPalette(p);
+            const glyph = packGlyph(p);
+            return (
+              <View style={{ height: 84, borderRadius: 14, backgroundColor: pal.bg, alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>
+                {glyph.type === 'icon'
+                  ? <Ionicons name={glyph.name} size={40} color={pal.fg} />
+                  : <Text style={{ fontSize: 40, fontWeight: '700', color: pal.fg }}>{glyph.char}</Text>}
+                {isPremiumPack(p) ? (
+                  <View style={{ position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f5b301', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+                    <Ionicons name="star" size={11} color="#fff" />
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{t('st_premium_tag')}</Text>
+                  </View>
+                ) : null}
+                {!owned ? <OwnedProgress owned={p.owned_words} total={p.word_count} /> : null}
+                {p.boosted ? (
+                  <View style={{ position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f5b301', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+                    <Ionicons name="megaphone" size={11} color="#fff" />
+                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{t('st_boosted_tag')}</Text>
+                  </View>
+                ) : null}
               </View>
-            ) : null}
-            {!owned ? <OwnedProgress owned={p.owned_words} total={p.word_count} /> : null}
-            {p.boosted ? (
-              <View style={{ position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f5b301', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
-                <Ionicons name="megaphone" size={11} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{t('st_boosted_tag')}</Text>
-              </View>
-            ) : null}
-          </View>
+            );
+          })()}
           <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e' }}>{p.title}</Text>
           <Text style={{ fontSize: 13, color: COLORS.muted, marginTop: 2 }}>
             {t('st_by')} {p.creator || '—'} · {p.word_count || 0} {t('st_words')} · {p.sales_count || 0} {t('st_bought')}

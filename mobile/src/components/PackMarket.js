@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getMe, getMarketPacks } from '../api';
 import { useT } from '../i18n';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
-import PackDetailPopup, { glyphOf, COVER_BG, COVER_FG, OwnedProgress, isPremiumPack } from './PackDetailPopup';
+import PackDetailPopup, { glyphOf, COVER_BG, COVER_FG, OwnedProgress, isPremiumPack, packPalette, packGlyph } from './PackDetailPopup';
 import CatLoader from './CatLoader';
 import { ErrorRetry } from './ErrorRetry';
 
@@ -14,27 +14,33 @@ function PackCard({ pack, onPress }) {
   return (
     <Pressable onPress={soon ? undefined : () => onPress(pack)} style={{ flex: 1, marginBottom: 18, opacity: soon ? 0.75 : 1 }}>
       <View style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', ...SHADOW_CARD }}>
-        <View style={{ height: 72, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 32, fontWeight: '700', color: COVER_FG }}>{glyphOf(pack.cover_key)}</Text>
-          {pack.owned ? (
-            <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: COLORS.success, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{t('st_owned')}</Text>
+        {(() => {
+          const pal = packPalette(pack);
+          const glyph = packGlyph(pack);
+          return (
+            <View style={{ height: 72, backgroundColor: pal.bg, alignItems: 'center', justifyContent: 'center' }}>
+              {glyph.type === 'icon'
+                ? <Ionicons name={glyph.name} size={32} color={pal.fg} />
+                : <Text style={{ fontSize: 32, fontWeight: '700', color: pal.fg }}>{glyph.char}</Text>}
+              {pack.owned ? (
+                <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: COLORS.success, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{t('st_owned')}</Text>
+                </View>
+              ) : null}
+              {isPremiumPack(pack) ? (
+                <View style={{ position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#f5b301', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                  <Ionicons name="star" size={10} color="#fff" />
+                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{t('st_premium_tag')}</Text>
+                </View>
+              ) : pack.is_new ? (
+                <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: '#ff6b35', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{t('st_new')}</Text>
+                </View>
+              ) : null}
+              {!pack.owned ? <OwnedProgress owned={pack.owned_words} total={pack.word_count} /> : null}
             </View>
-          ) : null}
-          {/* Coin haut-gauche : badge Premium (prioritaire) sinon Nouveauté (<7j). */}
-          {isPremiumPack(pack) ? (
-            <View style={{ position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#f5b301', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-              <Ionicons name="star" size={10} color="#fff" />
-              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{t('st_premium_tag')}</Text>
-            </View>
-          ) : pack.is_new ? (
-            <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: '#ff6b35', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{t('st_new')}</Text>
-            </View>
-          ) : null}
-          {/* Jauge de part possédée, bas-droite — masquée si le pack est déjà acheté. */}
-          {!pack.owned ? <OwnedProgress owned={pack.owned_words} total={pack.word_count} /> : null}
-        </View>
+          );
+        })()}
         <View style={{ padding: 11 }}>
           {/* Titre */}
           <Text numberOfLines={1} style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e' }}>{pack.title}</Text>

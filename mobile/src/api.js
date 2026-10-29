@@ -321,11 +321,11 @@ export function planPack(text, lang) {
   return request('/api/m/market/packs/plan', { method: 'POST', body: { text, lang } });
 }
 
-export function createPack({ title, description, price, text, translations, acquire, packId, swap, lang }) {
+export function createPack({ title, description, price, text, translations, acquire, packId, swap, lang, cover_color, cover_icon }) {
   if (acquire) invalidateCollection(); // « acquire » ajoute les mots à la collection
   return request('/api/m/market/packs', {
     method: 'POST',
-    body: { title, description, price, text, translations, acquire, packId, swap, lang },
+    body: { title, description, price, text, translations, acquire, packId, swap, lang, cover_color, cover_icon },
   });
 }
 
