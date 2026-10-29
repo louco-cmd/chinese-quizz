@@ -359,13 +359,12 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
     // Bloc branding réutilisé (logo + tagline manuscrite + titre d'étape).
     const wordsBranding = (
       <>
-        <Text className="text-jiayou font-extrabold" style={{ fontSize: isDesktop ? 58 : 44 }}>加油!</Text>
-        <AnimatedTagline
-          text={taglineText}
-          style={{ fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined, fontStyle: fontsLoaded ? 'normal' : 'italic', fontSize: isDesktop ? 36 : 27, lineHeight: isDesktop ? 46 : 36, color: COLORS.jiayou, marginTop: 6, textAlign: 'center' }}
-        />
-        <Text className="text-[20px] font-bold text-ink mt-4 text-center">{t('ob_words_title')}</Text>
-        <Text className="text-muted text-[14px] mt-1 text-center">{t(noPacks ? 'ob_words_sub_soon' : 'ob_words_sub')}</Text>
+        <Text className="text-jiayou font-extrabold text-center" style={{ fontSize: isDesktop ? 34 : 28 }}>{t('ob_words_title')}</Text>
+        <Text className="text-muted text-[14px] mt-2 text-center" style={{ maxWidth: 360 }}>
+          {noPacks ? t('ob_words_sub_soon') : (
+            <>{t('ob_words_sub')} <Text className="font-bold text-ink">{t('ob_coins_disclaimer')}</Text></>
+          )}
+        </Text>
       </>
     );
     const stickyBar = (
@@ -495,15 +494,17 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
   // formulaire à droite, sans scroll). L'étape 'role' garde le logo en tête +
   // les tuiles côte à côte.
   const twoCol = isDesktop && step !== 'role';
+  // Logo GRAND sur la page de choix du rôle (page 1) ET en desktop (page 2) ; plus
+  // compact sur mobile aux étapes formulaire. Le welcome n'est PLUS ici : il passe
+  // dans l'encart du formulaire (voir plus bas).
+  const bigLogo = step === 'role' || isDesktop;
   const branding = (
     <>
-      <Text className="text-jiayou font-extrabold" style={{ fontSize: twoCol ? 58 : 44 }}>加油!</Text>
+      <Text className="text-jiayou font-extrabold" style={{ fontSize: bigLogo ? 58 : 38 }}>加油!</Text>
       <AnimatedTagline
         text={taglineText}
-        style={{ fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined, fontStyle: fontsLoaded ? 'normal' : 'italic', fontSize: twoCol ? 36 : 27, lineHeight: twoCol ? 46 : 36, color: COLORS.jiayou, marginTop: 6, textAlign: 'center' }}
+        style={{ fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined, fontStyle: fontsLoaded ? 'normal' : 'italic', fontSize: bigLogo ? 36 : 23, lineHeight: bigLogo ? 46 : 30, color: COLORS.jiayou, marginTop: 4, textAlign: 'center' }}
       />
-      <Text className="text-[20px] font-bold text-ink mt-4">{t('ob_welcome').replace('{name}', firstName)}</Text>
-      <Text className="text-muted text-[14px] mt-1 text-center">{t('ob_welcome_sub')}</Text>
     </>
   );
 
@@ -522,7 +523,7 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
           <View style={twoCol ? { flexDirection: 'row', alignItems: 'center', gap: 56, marginTop: 8 } : undefined}>
 
             {/* Branding : logo + tagline (à gauche en desktop, en tête sinon) */}
-            <View style={twoCol ? { flex: 1, alignItems: 'center' } : { alignItems: 'center', marginBottom: 28, marginTop: onClose ? 0 : 12 }}>
+            <View style={twoCol ? { flex: 1, alignItems: 'center' } : { alignItems: 'center', marginBottom: 16, marginTop: onClose ? 0 : 4 }}>
               {branding}
             </View>
 
@@ -553,6 +554,8 @@ export default function OnboardingScreen({ initial, refCode, onDone, onClose }) 
           {/* Carte (étapes teacher / learner) */}
           {step !== 'role' && (
           <View className="bg-white rounded-3xl p-6" style={cardShadow}>
+            {/* Welcome {name} DANS l'encart du formulaire. */}
+            <Text className="text-[20px] font-extrabold text-ink mb-5 text-center">{t('ob_welcome').replace('{name}', firstName)}</Text>
 
             {step === 'teacher' && (
               <>

@@ -191,11 +191,16 @@ export default function PackMarket({
   // la grille pour ne pas apparaître deux fois).
   const featured = visiblePacks.filter((p) => p.boosted);
   const items = visiblePacks.filter((p) => !p.boosted);
+  // Aucun pack réel chargé (hors tuile injectée) → on montrera une carte info.
+  const noRealPacks = !loading && !error && items.length === 0;
   // La tuile injectée (ex. « import manuel » de l'onboarding) n'apparaît qu'une
   // fois les packs chargés → sinon elle s'affichait seule avant le reste (et des
   // users impatients cliquaient dessus). Pendant `loading`, la grille reste vide
   // → le CatLoader du ListEmptyComponent s'affiche.
   if (extraTile && !loading) items.splice(Math.min(extraTileAt ?? items.length, items.length), 0, { id: '__extra__', _extra: true });
+  // S'il n'y a AUCUN pack mais une tuile d'upload, on ajoute une carte « aucun pack »
+  // juste à côté (sinon l'écran n'affiche que la tuile d'upload, sans explication).
+  if (noRealPacks && extraTile) items.push({ id: '__nopacks__', _nopacks: true });
   const remainder = items.length % numColumns;
   const gridData = remainder === 0
     ? items
@@ -223,7 +228,14 @@ export default function PackMarket({
         renderItem={({ item }) =>
           item._spacer ? <View style={{ flex: 1 }} />
             : item._extra ? extraTile
-              : <PackCard pack={item} onPress={setSelected} />
+              : item._nopacks ? (
+                <View style={{ flex: 1, minHeight: 150, borderRadius: 18, borderWidth: 1.5, borderColor: '#e3e9f2', borderStyle: 'dashed', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
+                  <Ionicons name="cube-outline" size={26} color={COLORS.mutedLight} />
+                  <Text style={{ fontSize: 13.5, fontWeight: '800', color: '#1a1a2e', marginTop: 8, textAlign: 'center' }}>{t('pm_no_packs_title')}</Text>
+                  <Text style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 4, textAlign: 'center', lineHeight: 16 }}>{t('pm_no_packs_sub')}</Text>
+                </View>
+              )
+                : <PackCard pack={item} onPress={setSelected} />
         }
         ListEmptyComponent={
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60 }}>
