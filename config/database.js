@@ -482,6 +482,7 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS session_price NUMERIC(8,2)`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS session_currency VARCHAR(3) DEFAULT 'EUR'`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS presentation_video TEXT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone TEXT`); // fuseau IANA du prof (ex. Asia/Shanghai)
     console.log("✅ Colonnes profil prof (years_experience/languages_spoken/mentor_links/teaching_languages/session_price/presentation_video) vérifiées.");
 
     // ── Migration: parrainage (referral) ──────────────────────────────────────

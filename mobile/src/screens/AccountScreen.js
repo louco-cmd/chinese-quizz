@@ -13,10 +13,11 @@ import MyPacksCard from '../components/account/MyPacksCard';
 import PurchasedPacksCard from '../components/account/PurchasedPacksCard';
 import Popup from '../components/Popup';
 import CoursePage from './CoursePage';
+import VideoCallScreen from './VideoCallScreen';
 import ProgressShareCard from '../share/ProgressShareCard';
 import { imageShareAvailable, captureAndShare } from '../share/shareImage';
 import { ErrorRetry } from '../components/ErrorRetry';
-import { getAccount, getStudentClasses, leaveMentor, prefetchSettings } from '../api';
+import { getAccount, getStudentClasses, getUpcomingSessions, leaveMentor, prefetchSettings } from '../api';
 import { useT } from '../i18n';
 import { COLORS, TAB_CLEARANCE } from '../theme';
 import CatLoader from '../components/CatLoader';
@@ -44,9 +45,11 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
   const [classes, setClasses] = useState(null); // { mentors, tasks }
+  const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [leaving, setLeaving] = useState(null); // mentor à quitter
   const [leaveBusy, setLeaveBusy] = useState(false);
   const [courseId, setCourseId] = useState(null); // task ouverte
+  const [callLesson, setCallLesson] = useState(null); // visio depuis "My mentor"
   const [shareOpen, setShareOpen] = useState(false); // popup "partager ma progression"
   const [sharing, setSharing] = useState(false);
   const shareCardRef = useRef(null);
@@ -70,9 +73,14 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
   const load = useCallback(async () => {
     setError('');
     try {
-      const [acc, cls] = await Promise.all([getAccount(), getStudentClasses().catch(() => null)]);
+      const [acc, cls, upcoming] = await Promise.all([
+        getAccount(),
+        getStudentClasses().catch(() => null),
+        getUpcomingSessions().catch(() => ({ sessions: [] })),
+      ]);
       setData(acc);
       setClasses(cls);
+      setUpcomingSessions(upcoming?.sessions || []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -95,10 +103,9 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
     } catch { /* noop */ } finally { setLeaveBusy(false); }
   }
 
-  // Sous-vue : page d'un cours ouverte depuis une task
-  if (courseId) {
-    return <CoursePage lessonId={courseId} onBack={() => { setCourseId(null); load(); }} />;
-  }
+  // Sous-vues
+  if (callLesson) return <VideoCallScreen lessonId={callLesson} onBack={() => setCallLesson(null)} />;
+  if (courseId) return <CoursePage lessonId={courseId} onBack={() => { setCourseId(null); load(); }} />;
 
   if (loading) {
     return (
@@ -198,14 +205,16 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
 
             {/* ── Colonne droite : mentors + stats + quiz récents ── */}
             <View style={isDesktop ? { flex: 8 } : null}>
-              {classes && classes.mentors && classes.mentors.length > 0 && (
+              {(classes && classes.mentors && classes.mentors.length > 0) || upcomingSessions.filter((u) => !u.i_am_teacher).length > 0 ? (
                 <YourMentorsCard
-                  mentors={classes.mentors}
-                  tasks={classes.tasks || []}
+                  mentors={classes?.mentors || []}
+                  tasks={classes?.tasks || []}
+                  upcomingSessions={upcomingSessions}
                   onLeave={(m) => setLeaving(m)}
                   onOpenTask={(t) => setCourseId(t.id)}
+                  onJoinLesson={(id) => setCallLesson(id)}
                 />
-              )}
+              ) : null}
 
               {/* Statistiques par niveau HSK (mini-jauge de maîtrise par ligne) :
                   spécifique au chinois → masqué pour les autres langues apprises. */}

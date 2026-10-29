@@ -3166,6 +3166,58 @@ router.get('/api/m/mentors/:id', requireToken, async (req, res) => {
   } catch (e) { console.error('m/mentor detail error:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
+// ── GET /api/m/mentors/:id/slots : créneaux réservables d'un mentor (ESSAI) ───
+// Pas besoin d'être déjà élève du prof. Dérivé de sa semaine type dans SON fuseau ;
+// l'élève affiche les instants UTC dans le sien. Renvoie aussi le fuseau du prof.
+router.get('/api/m/mentors/:id/slots', requireToken, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid teacher' });
+    const t = await pool.query(`SELECT name, timezone FROM users WHERE id = $1 AND role = 'teacher' AND mentor_listed = TRUE`, [id]);
+    if (!t.rows.length) return res.status(404).json({ error: 'Teacher not found' });
+    const tz = validTz(t.rows[0].timezone) || 'UTC';
+    const [av, dav, booked] = await Promise.all([
+      pool.query(`SELECT weekday, hour FROM teacher_availability WHERE teacher_id = $1`, [id]),
+      pool.query(`SELECT to_char(day,'YYYY-MM-DD') AS day, hour FROM teacher_date_slots WHERE teacher_id = $1 AND day >= CURRENT_DATE`, [id]),
+      pool.query(`SELECT starts_at FROM teacher_slots WHERE teacher_id = $1 AND status = 'booked' AND starts_at > NOW()`, [id]),
+    ]);
+    const dateMap = new Map();
+    dav.rows.forEach((r) => { if (!dateMap.has(r.day)) dateMap.set(r.day, new Set()); dateMap.get(r.day).add(r.hour); });
+    const bookedSet = new Set(booked.rows.map((r) => new Date(r.starts_at).toISOString()));
+    const slots = deriveTeacherSlots({ tz, blocks: av.rows, dateMap, bookedSet, horizonDays: BOOKING_HORIZON_DAYS });
+    res.json({ teacher_name: t.rows[0].name, timezone: tz, slots: slots.slice(0, 200) });
+  } catch (e) { console.error('m/mentor slots:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── POST /api/m/mentors/:id/book-trial : réserver une séance d'essai ─────────
+// Ne nécessite PAS d'adhésion. Un seul cours d'essai à venir par (élève, prof).
+router.post('/api/m/mentors/:id/book-trial', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    const start = new Date(req.body?.starts_at);
+    if (!id || isNaN(start)) return res.status(400).json({ error: 'Invalid request' });
+    if (id === uid) return res.status(400).json({ error: 'Cannot book yourself' });
+    if (start.getTime() <= Date.now()) return res.status(400).json({ error: 'Slot is in the past' });
+    if (start.getUTCMinutes() !== 0 || start.getUTCSeconds() !== 0) return res.status(400).json({ error: 'Invalid slot time' });
+    const t = await pool.query(`SELECT 1 FROM users WHERE id = $1 AND role = 'teacher' AND mentor_listed = TRUE`, [id]);
+    if (!t.rows.length) return res.status(404).json({ error: 'Teacher not found' });
+    if (!(await slotOpenForTeacher(id, start))) return res.status(409).json({ error: 'Slot not available', taken: true });
+    // Déjà un cours à venir avec ce prof ? (évite le spam de réservations d'essai)
+    const dup = await pool.query(
+      `SELECT 1 FROM teacher_slots WHERE teacher_id = $1 AND student_id = $2 AND status = 'booked' AND starts_at > NOW() LIMIT 1`, [id, uid]);
+    if (dup.rows.length) return res.status(409).json({ error: 'You already have an upcoming lesson with this teacher.', already: true });
+    const end = new Date(start.getTime() + SLOT_MIN * 60000);
+    const ins = await pool.query(
+      `INSERT INTO teacher_slots (teacher_id, starts_at, ends_at, student_id, status, booked_at, note)
+       VALUES ($1, $2, $3, $4, 'booked', NOW(), 'trial')
+       ON CONFLICT (teacher_id, starts_at) WHERE status = 'booked' DO NOTHING RETURNING id`,
+      [id, start.toISOString(), end.toISOString(), uid]);
+    if (!ins.rows.length) return res.status(409).json({ error: 'Slot no longer available', taken: true });
+    res.json({ ok: true, id: ins.rows[0].id });
+  } catch (e) { console.error('m/mentor book-trial:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
 // ── GET /api/m/student/classes : mentors rejoints + tasks en cours ───────────
 // Miroir de /api/student/my-classes : sert à la page account ET au quiz.
 router.get('/api/m/student/classes', requireToken, async (req, res) => {
@@ -5407,6 +5459,81 @@ const BOOKING_HORIZON_DAYS = 28; // fenêtre de réservation glissante
 // weekday 0=lundi … 6=dimanche (JS getDay() : 0=dim → conversion (d+6)%7).
 const jsToMonday0 = (d) => (d.getDay() + 6) % 7;
 
+// ── Fuseaux horaires (sans dépendance, via Intl) ─────────────────────────────
+// Les heures de dispo du prof (hour 0..23 / weekday / date) sont des heures
+// LOCALES DU PROF. On les convertit en instant UTC exact → l'élève les affiche
+// ensuite dans SON fuseau (new Date(iso) → heure locale du device). Fallback 'UTC'.
+function validTz(v) { try { new Intl.DateTimeFormat('en-US', { timeZone: v }); return v; } catch { return null; } }
+const pad2 = (n) => String(n).padStart(2, '0');
+// Décalage (ms) tel que : heure_murale_du_fuseau = instant_utc + offset.
+function tzOffsetMs(utcDate, tz) {
+  const dtf = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const p = {}; for (const part of dtf.formatToParts(utcDate)) p[part.type] = part.value;
+  const asUTC = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour === 24 ? 0 : +p.hour, +p.minute, +p.second);
+  return asUTC - utcDate.getTime();
+}
+// Instant UTC pour une heure MURALE (y, m0, d, hour) dans `tz` (gère l'heure d'été).
+function wallToUtc(y, m0, d, hour, tz) {
+  const guess = Date.UTC(y, m0, d, hour, 0, 0);
+  const off1 = tzOffsetMs(new Date(guess), tz);
+  const off2 = tzOffsetMs(new Date(guess - off1), tz); // raffine (bord DST)
+  return new Date(guess - off2);
+}
+// Décompose un instant UTC en heure murale du fuseau : { weekday(Mon0), hour, y,m,d }.
+const WD_MON0 = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+function utcToWall(utcDate, tz) {
+  const dtf = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour12: false, weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit' });
+  const p = {}; for (const part of dtf.formatToParts(utcDate)) p[part.type] = part.value;
+  return { weekday: WD_MON0[p.weekday], hour: +p.hour === 24 ? 0 : +p.hour, year: +p.year, month: +p.month, day: +p.day };
+}
+
+// Dérive les créneaux RÉSERVABLES (instants UTC) à partir de la semaine type + des
+// overrides par date du prof, dans SON fuseau. `bookedSet` = Set d'ISO déjà réservés.
+function deriveTeacherSlots({ tz, blocks, dateMap, bookedSet, horizonDays }) {
+  const byWd = new Map(); // weekday -> Set(hours)
+  (blocks || []).forEach((b) => { if (!byWd.has(b.weekday)) byWd.set(b.weekday, new Set()); byWd.get(b.weekday).add(b.hour); });
+  const out = [];
+  const now = Date.now();
+  const today = utcToWall(new Date(), tz); // date locale du prof « aujourd'hui »
+  for (let i = 0; i <= horizonDays; i++) {
+    // Arithmétique de calendrier sur la date locale du prof (via UTC pour getUTCDay).
+    const base = new Date(Date.UTC(today.year, today.month - 1, today.day));
+    base.setUTCDate(base.getUTCDate() + i);
+    const y = base.getUTCFullYear(), m0 = base.getUTCMonth(), d = base.getUTCDate();
+    const dayKey = `${y}-${pad2(m0 + 1)}-${pad2(d)}`;
+    const wd = (base.getUTCDay() + 6) % 7;
+    const override = dateMap.get(dayKey);               // override ponctuel (remplace le récurrent)
+    const hours = override ? [...override] : [...(byWd.get(wd) || [])];
+    for (const hour of hours) {
+      const startUtc = wallToUtc(y, m0, d, hour, tz);
+      if (startUtc.getTime() <= now) continue;
+      const iso = startUtc.toISOString();
+      if (bookedSet && bookedSet.has(iso)) continue;
+      out.push({ starts_at: iso, ends_at: new Date(startUtc.getTime() + SLOT_MIN * 60000).toISOString() });
+    }
+  }
+  out.sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+  return out;
+}
+
+// Fuseau d'un prof (fallback UTC).
+async function teacherTz(teacherId) {
+  const r = await pool.query('SELECT timezone FROM users WHERE id = $1', [teacherId]);
+  return validTz(r.rows[0]?.timezone) || 'UTC';
+}
+// Un instant UTC correspond-il à un créneau OUVERT du prof (override ponctuel sinon
+// semaine type), évalué dans le fuseau du prof ?
+async function slotOpenForTeacher(teacherId, startUtc) {
+  const tz = await teacherTz(teacherId);
+  const w = utcToWall(startUtc, tz);
+  const dayKey = `${w.year}-${pad2(w.month)}-${pad2(w.day)}`;
+  const ov = await pool.query('SELECT 1 FROM teacher_date_slots WHERE teacher_id = $1 AND day = $2 LIMIT 1', [teacherId, dayKey]);
+  const ok = ov.rows.length
+    ? await pool.query('SELECT 1 FROM teacher_date_slots WHERE teacher_id = $1 AND day = $2 AND hour = $3', [teacherId, dayKey, w.hour])
+    : await pool.query('SELECT 1 FROM teacher_availability WHERE teacher_id = $1 AND weekday = $2 AND hour = $3', [teacherId, w.weekday, w.hour]);
+  return ok.rows.length > 0;
+}
+
 // Un élève est-il ACTIVEMENT rattaché à ce prof ? (membre actif d'une de ses classes)
 async function studentLinkedToTeacher(studentId, teacherId) {
   const { rows } = await pool.query(
@@ -5482,7 +5609,11 @@ router.put('/api/m/teacher/availability', requireToken, requireTeacher, async (r
       seen.add(k); blocks.push({ weekday: w, hour: h });
       if (blocks.length > 7 * 24) break;
     }
+    // Fuseau du prof (envoyé par le client) → les heures de dispo sont LOCALES à ce
+    // fuseau. On le mémorise pour convertir correctement en UTC à la dérivation.
+    const tz = validTz(req.body?.timezone);
     await client.query('BEGIN');
+    if (tz) await client.query('UPDATE users SET timezone = $1 WHERE id = $2', [tz, req.teacher.id]);
     await client.query('DELETE FROM teacher_availability WHERE teacher_id = $1', [req.teacher.id]);
     for (const b of blocks) {
       await client.query(
@@ -5530,7 +5661,7 @@ router.get('/api/m/student/slots', requireToken, async (req, res) => {
     const teacherId = parseInt(req.query.teacherId, 10) || null;
     // Profs actifs de l'élève + leur semaine type.
     const tq = await pool.query(
-      `SELECT DISTINCT c.teacher_id, u.name, u.avatar_icon, u.avatar_color
+      `SELECT DISTINCT c.teacher_id, u.name, u.timezone
        FROM classroom_students cs JOIN classrooms c ON c.id = cs.classroom_id
        JOIN users u ON u.id = c.teacher_id
        WHERE cs.student_id = $1 AND cs.status = 'active' AND ($2::int IS NULL OR c.teacher_id = $2)`,
@@ -5538,41 +5669,23 @@ router.get('/api/m/student/slots', requireToken, async (req, res) => {
     const teachers = tq.rows;
     if (!teachers.length) return res.json({ slots: [] });
     const ids = teachers.map((t) => t.teacher_id);
-    const [av, dav] = await Promise.all([
+    const [av, dav, booked] = await Promise.all([
       pool.query(`SELECT teacher_id, weekday, hour FROM teacher_availability WHERE teacher_id = ANY($1)`, [ids]),
       pool.query(`SELECT teacher_id, to_char(day,'YYYY-MM-DD') AS day, hour FROM teacher_date_slots WHERE teacher_id = ANY($1) AND day >= CURRENT_DATE`, [ids]),
+      pool.query(`SELECT teacher_id, starts_at FROM teacher_slots WHERE status = 'booked' AND teacher_id = ANY($1) AND starts_at > NOW()`, [ids]),
     ]);
-    // Heures ouvertes par (teacher, weekday) [récurrent] et (teacher, date) [ponctuel].
-    const byTw = new Map(); // `${teacher}|${weekday}` -> [hours]
-    av.rows.forEach((r) => { const k = `${r.teacher_id}|${r.weekday}`; if (!byTw.has(k)) byTw.set(k, []); byTw.get(k).push(r.hour); });
-    const byTd = new Map(); // `${teacher}|${YYYY-MM-DD}` -> [hours]
-    dav.rows.forEach((r) => { const k = `${r.teacher_id}|${r.day}`; if (!byTd.has(k)) byTd.set(k, []); byTd.get(k).push(r.hour); });
-    const booked = await pool.query(
-      `SELECT teacher_id, starts_at FROM teacher_slots WHERE status = 'booked' AND teacher_id = ANY($1) AND starts_at > NOW()`, [ids]);
-    const bookedSet = new Set(booked.rows.map((r) => `${r.teacher_id}|${new Date(r.starts_at).toISOString()}`));
+    // Regroupe par prof (semaine type + overrides + cours réservés), avec son fuseau.
+    const perTeacher = new Map();
+    teachers.forEach((t) => perTeacher.set(t.teacher_id, { tz: validTz(t.timezone) || 'UTC', name: t.name, blocks: [], dateMap: new Map(), bookedSet: new Set() }));
+    av.rows.forEach((r) => perTeacher.get(r.teacher_id)?.blocks.push({ weekday: r.weekday, hour: r.hour }));
+    dav.rows.forEach((r) => { const o = perTeacher.get(r.teacher_id); if (!o) return; if (!o.dateMap.has(r.day)) o.dateMap.set(r.day, new Set()); o.dateMap.get(r.day).add(r.hour); });
+    booked.rows.forEach((r) => perTeacher.get(r.teacher_id)?.bookedSet.add(new Date(r.starts_at).toISOString()));
 
-    // Génération dérivée.
     const out = [];
-    const now = Date.now();
-    const start = new Date(); start.setHours(0, 0, 0, 0);
-    for (let day = 0; day <= BOOKING_HORIZON_DAYS; day++) {
-      const base = new Date(start); base.setDate(start.getDate() + day);
-      const wd = jsToMonday0(base);
-      const dayKey = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`;
-      for (const tch of teachers) {
-        // OVERRIDE : si la date a des dispos ponctuelles, elles REMPLACENT la semaine
-        // type pour ce jour (le set ponctuel est le set effectif complet) ; sinon récurrent.
-        const dHours = byTd.get(`${tch.teacher_id}|${dayKey}`);
-        const hours = dHours || byTw.get(`${tch.teacher_id}|${wd}`) || [];
-        if (!hours.length) continue;
-        for (const hour of hours) {
-          const s = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hour, 0, 0, 0);
-          if (s.getTime() <= now) continue;
-          const iso = s.toISOString();
-          if (bookedSet.has(`${tch.teacher_id}|${iso}`)) continue;
-          out.push({ teacher_id: tch.teacher_id, teacher_name: tch.name, starts_at: iso, ends_at: new Date(s.getTime() + SLOT_MIN * 60000).toISOString() });
-        }
-      }
+    for (const t of teachers) {
+      const o = perTeacher.get(t.teacher_id);
+      deriveTeacherSlots({ tz: o.tz, blocks: o.blocks, dateMap: o.dateMap, bookedSet: o.bookedSet, horizonDays: BOOKING_HORIZON_DAYS })
+        .forEach((s) => out.push({ teacher_id: t.teacher_id, teacher_name: t.name, starts_at: s.starts_at, ends_at: s.ends_at }));
     }
     out.sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
     res.json({ slots: out.slice(0, 200) });
@@ -5591,15 +5704,8 @@ router.post('/api/m/student/slots/book', requireToken, async (req, res) => {
     if (!(await studentLinkedToTeacher(uid, teacherId))) {
       return res.status(403).json({ error: 'You are not an active student of this teacher' });
     }
-    // Le créneau doit être ouvert. OVERRIDE : si la date a des dispos ponctuelles,
-    // elles font foi ; sinon la semaine type (weekday). Heures/dates locales serveur.
-    const wd = jsToMonday0(start), hr = start.getHours();
-    const dayKey = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
-    const ov = await pool.query('SELECT 1 FROM teacher_date_slots WHERE teacher_id = $1 AND day = $2 LIMIT 1', [teacherId, dayKey]);
-    const ok = ov.rows.length
-      ? await pool.query('SELECT 1 FROM teacher_date_slots WHERE teacher_id = $1 AND day = $2 AND hour = $3', [teacherId, dayKey, hr])
-      : await pool.query('SELECT 1 FROM teacher_availability WHERE teacher_id = $1 AND weekday = $2 AND hour = $3', [teacherId, wd, hr]);
-    if (!ok.rows.length) return res.status(409).json({ error: 'Slot not available', taken: true });
+    // Le créneau doit être ouvert (évalué dans le fuseau du prof).
+    if (!(await slotOpenForTeacher(teacherId, start))) return res.status(409).json({ error: 'Slot not available', taken: true });
     const end = new Date(start.getTime() + SLOT_MIN * 60000);
     // Insert atomique : l'index unique partiel (teacher_id, starts_at) WHERE booked
     // empêche le double-booking → ON CONFLICT = créneau déjà pris.
@@ -5633,7 +5739,7 @@ router.get('/api/m/agenda/upcoming', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
     const { rows } = await pool.query(
-      `SELECT ts.id, ts.starts_at, ts.ends_at, ts.note,
+      `SELECT ts.id, ts.starts_at, ts.ends_at, ts.note, ts.teacher_id,
               (ts.teacher_id = $1) AS i_am_teacher,
               CASE WHEN ts.teacher_id = $1 THEN su.name ELSE tu.name END AS other_name,
               CASE WHEN ts.teacher_id = $1 THEN su.avatar_icon ELSE tu.avatar_icon END AS other_avatar,

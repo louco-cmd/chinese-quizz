@@ -642,7 +642,16 @@ export function getTeacherAvailability() {
   return request('/api/m/teacher/availability');
 }
 export function setTeacherAvailability(blocks) {
-  return request('/api/m/teacher/availability', { method: 'PUT', body: { blocks } });
+  // On envoie le fuseau du prof : ses heures de dispo sont locales à ce fuseau.
+  let timezone; try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* noop */ }
+  return request('/api/m/teacher/availability', { method: 'PUT', body: { blocks, timezone } });
+}
+// Essai : créneaux réservables d'un mentor + réservation (sans adhésion).
+export function getMentorSlots(id) {
+  return request(`/api/m/mentors/${id}/slots`);
+}
+export function bookTrial(id, startsAt) {
+  return request(`/api/m/mentors/${id}/book-trial`, { method: 'POST', body: { starts_at: startsAt } });
 }
 export function getTeacherLessons() {
   return request('/api/m/teacher/lessons');
