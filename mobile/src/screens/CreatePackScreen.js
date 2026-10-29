@@ -82,6 +82,8 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
   const initPalette = COVER_PALETTES.find((c) => c.bg === editPack?.cover_color) || DEFAULT_PALETTE;
   const [coverPalette, setCoverPalette] = useState(initPalette);
   const [coverIcon, setCoverIcon] = useState(editPack?.cover_icon || null);
+  const [colorPickerOpen, setColorPickerOpen] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
   // Édition : on réinjecte la surface RÉELLE de chaque item du pack (`w.raw` = le
   // lexème curé), PAS l'agrégat du concept (`w.chinese`/`w.zh` = « A / B » quand un
   // concept a des synonymes). Réinjecter l'agrégat produisait une ligne « A / B »
@@ -242,66 +244,29 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
             style={{ ...inputStyle, minHeight: 72, textAlignVertical: 'top' }} />
         </Field>
 
-        {/* ── Preview de la cover en temps réel ── */}
-        <View style={{ height: 72, borderRadius: 14, backgroundColor: coverPalette.bg, alignItems: 'center', justifyContent: 'center', marginBottom: 16, overflow: 'hidden' }}>
-          {coverIcon
-            ? <Ionicons name={coverIcon} size={34} color={coverPalette.fg} />
-            : <Text style={{ fontSize: 34, fontWeight: '700', color: coverPalette.fg }}>汉</Text>}
-        </View>
-
-        {/* ── Personnalisation : couleur de fond ── */}
-        <Field label="Cover color">
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-            {COVER_PALETTES.map((pal) => {
-              const active = pal.bg === coverPalette.bg;
-              return (
-                <Pressable
-                  key={pal.bg}
-                  onPress={() => setCoverPalette(pal)}
-                  style={{
-                    width: 38, height: 38, borderRadius: 12, backgroundColor: pal.bg,
-                    alignItems: 'center', justifyContent: 'center',
-                    borderWidth: 2.5, borderColor: active ? pal.fg : 'transparent',
-                  }}
-                >
-                  {active ? <Ionicons name="checkmark" size={18} color={pal.fg} /> : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        </Field>
-
-        {/* ── Personnalisation : icône ── */}
-        <Field label="Cover icon" hint="(optional — leave empty for 汉)">
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {/* Option "aucune icône" = retour au glyphe 汉 */}
+        {/* ── Personnalisation cover : deux boutons côte à côte ── */}
+        <Field label="Cover">
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {/* Bouton couleur */}
             <Pressable
-              onPress={() => setCoverIcon(null)}
-              style={{
-                width: 42, height: 42, borderRadius: 12, backgroundColor: coverIcon === null ? coverPalette.bg : '#f1f3f5',
-                alignItems: 'center', justifyContent: 'center',
-                borderWidth: 2, borderColor: coverIcon === null ? coverPalette.fg : 'transparent',
-              }}
+              onPress={() => setColorPickerOpen(true)}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.line, paddingHorizontal: 14, paddingVertical: 11 }}
             >
-              <Text style={{ fontSize: 18, fontWeight: '700', color: coverIcon === null ? coverPalette.fg : COLORS.muted }}>汉</Text>
+              <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: coverPalette.bg, borderWidth: 2, borderColor: coverPalette.fg }} />
+              <Text style={{ flex: 1, fontSize: 14, color: '#1a1a2e' }}>Color</Text>
+              <Ionicons name="chevron-down" size={14} color={COLORS.muted} />
             </Pressable>
-            {COVER_ICONS.map((icon) => {
-              const active = coverIcon === icon;
-              return (
-                <Pressable
-                  key={icon}
-                  onPress={() => setCoverIcon(icon)}
-                  style={{
-                    width: 42, height: 42, borderRadius: 12,
-                    backgroundColor: active ? coverPalette.bg : '#f1f3f5',
-                    alignItems: 'center', justifyContent: 'center',
-                    borderWidth: 2, borderColor: active ? coverPalette.fg : 'transparent',
-                  }}
-                >
-                  <Ionicons name={icon} size={20} color={active ? coverPalette.fg : COLORS.muted} />
-                </Pressable>
-              );
-            })}
+            {/* Bouton icône */}
+            <Pressable
+              onPress={() => setIconPickerOpen(true)}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.line, paddingHorizontal: 14, paddingVertical: 11 }}
+            >
+              {coverIcon
+                ? <Ionicons name={coverIcon} size={18} color={coverPalette.fg} />
+                : <Text style={{ fontSize: 16, fontWeight: '700', color: coverPalette.fg }}>汉</Text>}
+              <Text style={{ flex: 1, fontSize: 14, color: '#1a1a2e' }}>Icon</Text>
+              <Ionicons name="chevron-down" size={14} color={COLORS.muted} />
+            </Pressable>
           </View>
         </Field>
 
@@ -453,6 +418,53 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
             </View>
           </View>
         ) : null}
+      </Popup>
+
+      {/* ── Popup : sélecteur de couleur ── */}
+      <Popup visible={colorPickerOpen} onClose={() => setColorPickerOpen(false)} maxWidth={340}>
+        <Text style={{ fontSize: 16, fontWeight: '800', color: '#1a1a2e', marginBottom: 16 }}>Cover color</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+          {COVER_PALETTES.map((pal) => {
+            const active = pal.bg === coverPalette.bg;
+            return (
+              <Pressable
+                key={pal.bg}
+                onPress={() => { setCoverPalette(pal); setColorPickerOpen(false); }}
+                style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: pal.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 2.5, borderColor: active ? pal.fg : 'transparent' }}
+              >
+                {active ? <Ionicons name="checkmark" size={22} color={pal.fg} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </Popup>
+
+      {/* ── Popup : sélecteur d'icône ── */}
+      <Popup visible={iconPickerOpen} onClose={() => setIconPickerOpen(false)} maxWidth={340} scroll={false}>
+        <Text style={{ fontSize: 16, fontWeight: '800', color: '#1a1a2e', marginBottom: 16 }}>Cover icon</Text>
+        <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {/* Option "汉" (aucune icône) */}
+            <Pressable
+              onPress={() => { setCoverIcon(null); setIconPickerOpen(false); }}
+              style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: coverIcon === null ? coverPalette.bg : '#f1f3f5', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: coverIcon === null ? coverPalette.fg : 'transparent' }}
+            >
+              <Text style={{ fontSize: 20, fontWeight: '700', color: coverIcon === null ? coverPalette.fg : COLORS.muted }}>汉</Text>
+            </Pressable>
+            {COVER_ICONS.map((icon) => {
+              const active = coverIcon === icon;
+              return (
+                <Pressable
+                  key={icon}
+                  onPress={() => { setCoverIcon(icon); setIconPickerOpen(false); }}
+                  style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: active ? coverPalette.bg : '#f1f3f5', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: active ? coverPalette.fg : 'transparent' }}
+                >
+                  <Ionicons name={icon} size={22} color={active ? coverPalette.fg : COLORS.muted} />
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
       </Popup>
     </KeyboardAvoidingView>
   );
