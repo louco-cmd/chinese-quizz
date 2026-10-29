@@ -1954,7 +1954,9 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     // Le pack dont la promo est ACTIVE MAINTENANT (fenêtre from→until) remonte en
     // tête, quel que soit le tri. Le front l'isole en carte « mise en avant ».
     const ACTIVE = '(wp.boosted_until > NOW() AND (wp.boosted_from IS NULL OR wp.boosted_from <= NOW()))';
-    const orderBy = `${ACTIVE} DESC, ` + (sortMap[req.query.sort] || sortMap.featured);
+    // COALESCE évite que boosted_until IS NULL produise ACTIVE = NULL → les packs
+    // jamais boostés (NULL) ne doivent pas passer avant les packs à boost expiré (false).
+    const orderBy = `COALESCE(${ACTIVE}, false) DESC, ` + (sortMap[req.query.sort] || sortMap.featured);
 
     // Un pack couvre UNE PAIRE de langues (celle de son créateur). On le montre
     // uniquement aux apprenants de CETTE paire, dans un sens OU l'autre (réciprocité
