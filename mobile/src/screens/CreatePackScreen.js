@@ -40,7 +40,18 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
   // Langue DÉCLARÉE du contenu du pack. En édition : verrouillée sur la langue
   // réelle du pack. En création : défaut = langue apprise active, modifiable via
   // le sélecteur (tant que l'utilisateur n'y a pas touché, elle suit le parcours).
-  const [packLang, setPackLang] = useState(editPack?.lang || cached?.learning_lang || learningLang);
+  // Langue du contenu : explicitement stockée dans le pack (priorité absolue),
+  // sinon inférée depuis la surface des mots (anciens packs sans lang sauvegardé),
+  // sinon la langue apprise active.
+  const inferredPackLang = (() => {
+    if (editPack?.lang) return editPack.lang;
+    if (isEdit && editPack?.words?.length) {
+      const sample = (editPack.words[0]?.raw || editPack.words[0]?.zh || editPack.words[0]?.chinese || '');
+      if (/[一-鿿㐀-䶿]/.test(sample)) return 'zh';
+    }
+    return cached?.learning_lang || learningLang;
+  })();
+  const [packLang, setPackLang] = useState(inferredPackLang);
   const packLangTouched = useRef(false);
   useEffect(() => {
     let alive = true;

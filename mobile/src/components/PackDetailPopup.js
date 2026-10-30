@@ -300,7 +300,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
           ) : null}
           {p.isMine && onEditPack ? (
             <Pressable
-              onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [], cover_color: p.cover_color, cover_icon: p.cover_icon })}
+              onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [], cover_color: p.cover_color, cover_icon: p.cover_icon, lang: p.lang })}
               style={{ borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
             >
               <Ionicons name="create-outline" size={16} color={COLORS.jiayou} />
@@ -333,7 +333,7 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
               toujours l'éditer, et l'acquérir gratuitement. */}
           {isMine && onEditPack ? (
             <Pressable
-              onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [], cover_color: p.cover_color, cover_icon: p.cover_icon })}
+              onPress={() => onEditPack({ id: p.id, title: p.title, description: p.description, price: p.price, words: words || [], cover_color: p.cover_color, cover_icon: p.cover_icon, lang: p.lang })}
               style={{ borderWidth: 1.5, borderColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
             >
               <Ionicons name="create-outline" size={16} color={COLORS.jiayou} />
