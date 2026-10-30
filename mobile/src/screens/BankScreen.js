@@ -154,10 +154,6 @@ export default function BankScreen({ onBack }) {
       >
         {Hero}
 
-        <View style={{ backgroundColor: COLORS.jiayou, paddingVertical: 7, alignItems: 'center' }}>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.45)', letterSpacing: 2, textTransform: 'uppercase' }}>All in app money is fake</Text>
-        </View>
-
         <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 16, marginTop: 16 }}>
           {/* Résumé du mois */}
           <View style={{ flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, paddingVertical: 16, marginBottom: 18, ...SHADOW_CARD }}>

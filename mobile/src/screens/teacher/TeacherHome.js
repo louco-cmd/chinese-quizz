@@ -70,7 +70,7 @@ function TeacherTabBar({ active, onChange, insetBottom, maxWidth }) {
 
 // Conteneur de la plateforme prof : onglets (Classes/Students/Profile) +
 // sous-vues (classe → task, réglages, support).
-export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCall }) {
+export default function TeacherHome({ profile, onLogout, onReplayFlow }) {
   const insets = useSafeAreaInsets();
   const kbOpen = useKeyboardOpen(); // web mobile : clavier ouvert → on masque la TabBar
   const { width } = useWindowDimensions();
@@ -147,7 +147,7 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
       />
     );
   } else if (tab === 'agenda') {
-    content = <TeacherAgendaScreen onVideoCall={onVideoCall} />;
+    content = <TeacherAgendaScreen />;
   } else if (tab === 'profile') {
     content = <TeacherProfileScreen />;
   } else {

@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
+import VideoCallScreen from './VideoCallScreen';
 import { getStudentSlots, getUpcomingSessions, bookSlot, cancelSlotBooking } from '../api';
 import { useT } from '../i18n';
 import { COLORS, TAB_CLEARANCE, SHADOW_CARD } from '../theme';
@@ -14,13 +15,14 @@ function fmtDay(d, lang) {
 }
 function hhmm(d) { return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
 
-export default function StudentAgendaScreen({ onBack, onVideoCall }) {
+export default function StudentAgendaScreen({ onBack }) {
   const { t, lang } = useT();
   useAndroidBack(() => { onBack?.(); return true; }, true, [onBack]);
   const [slots, setSlots] = useState(null);
   const [upcoming, setUpcoming] = useState([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(null); // clé du créneau en cours d'action
+  const [callLesson, setCallLesson] = useState(null); // id du cours dont on ouvre la visio
   const slotKey = (s) => `${s.teacher_id}|${s.starts_at}`;
 
   const load = useCallback(async () => {
@@ -66,6 +68,7 @@ export default function StudentAgendaScreen({ onBack, onVideoCall }) {
     </Pressable>
   );
 
+  if (callLesson) return <VideoCallScreen lessonId={callLesson} onBack={() => setCallLesson(null)} />;
   if (slots === null && !error) {
     return <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>{BackBtn}<View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><CatLoader size={110} /></View></View>;
   }
@@ -94,7 +97,7 @@ export default function StudentAgendaScreen({ onBack, onVideoCall }) {
                     <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e' }}>{fmtDay(s, lang)} · {hhmm(s)}</Text>
                     <Text style={{ fontSize: 12.5, color: COLORS.muted, marginTop: 2 }}>{t('ag_with').replace('{name}', u.other_name || '—')}</Text>
                   </View>
-                  <Pressable onPress={() => onVideoCall?.(u.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: COLORS.jiayou }}>
+                  <Pressable onPress={() => setCallLesson(u.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: COLORS.jiayou }}>
                     <Ionicons name="videocam" size={14} color="#fff" />
                     <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12.5 }}>{t('ag_join')}</Text>
                   </Pressable>

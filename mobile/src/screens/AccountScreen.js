@@ -13,6 +13,7 @@ import MyPacksCard from '../components/account/MyPacksCard';
 import PurchasedPacksCard from '../components/account/PurchasedPacksCard';
 import Popup from '../components/Popup';
 import CoursePage from './CoursePage';
+import VideoCallScreen from './VideoCallScreen';
 import ProgressShareCard from '../share/ProgressShareCard';
 import { imageShareAvailable, captureAndShare } from '../share/shareImage';
 import { ErrorRetry } from '../components/ErrorRetry';
@@ -36,7 +37,7 @@ function UsageTile({ icon, value, label, onPress }) {
   );
 }
 
-export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpenTrophies, onVideoCall }) {
+export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpenTrophies }) {
   const { t } = useT();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
   const [leaving, setLeaving] = useState(null); // mentor à quitter
   const [leaveBusy, setLeaveBusy] = useState(false);
   const [courseId, setCourseId] = useState(null); // task ouverte
+  const [callLesson, setCallLesson] = useState(null); // visio depuis "My mentor"
   const [shareOpen, setShareOpen] = useState(false); // popup "partager ma progression"
   const [sharing, setSharing] = useState(false);
   const shareCardRef = useRef(null);
@@ -102,6 +104,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
   }
 
   // Sous-vues
+  if (callLesson) return <VideoCallScreen lessonId={callLesson} onBack={() => setCallLesson(null)} />;
   if (courseId) return <CoursePage lessonId={courseId} onBack={() => { setCourseId(null); load(); }} />;
 
   if (loading) {
@@ -209,7 +212,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
                   upcomingSessions={upcomingSessions}
                   onLeave={(m) => setLeaving(m)}
                   onOpenTask={(t) => setCourseId(t.id)}
-                  onJoinLesson={(id) => onVideoCall?.(id)}
+                  onJoinLesson={(id) => setCallLesson(id)}
                 />
               ) : null}
 
