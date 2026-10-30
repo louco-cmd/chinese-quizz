@@ -455,7 +455,16 @@ function App() {
 
     // Professeur : plateforme dédiée (onglets Classes/Students/Profile).
     if (profile?.role === 'teacher') {
-      return <TeacherHome profile={profile} onLogout={logout} onReplayFlow={handleSettingsOpen} onVideoCall={setVideoCallLesson} />;
+      return (
+        <View style={{ flex: 1 }}>
+          <TeacherHome profile={profile} onLogout={logout} onReplayFlow={handleSettingsOpen} onVideoCall={setVideoCallLesson} />
+          {videoCallLesson != null && (
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+              <VideoCallScreen lessonId={videoCallLesson} onBack={() => setVideoCallLesson(null)} />
+            </View>
+          )}
+        </View>
+      );
     }
 
     return (
