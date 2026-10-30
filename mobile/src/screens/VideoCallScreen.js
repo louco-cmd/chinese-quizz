@@ -50,7 +50,14 @@ export default function VideoCallScreen({ lessonId, displayName, onBack }) {
     );
   }
 
-  const src = state.url + (displayName ? `#userInfo.displayName=${encodeURIComponent(`"${displayName}"`)}` : '');
+  // Config overrides via URL hash — lobby disabled so teacher is auto-admitted
+  // as moderator without a waiting room blocking the call.
+  const hashParams = [
+    'config.lobby.enabled=false',
+    'config.prejoinPageEnabled=false',
+    ...(displayName ? [`userInfo.displayName=${encodeURIComponent(`"${displayName}"`)}`, `userInfo.moderator=${state.isHost ? 'true' : 'false'}`] : []),
+  ].join('&');
+  const src = `${state.url}#${hashParams}`;
 
   // Web : iframe plein écran.
   if (Platform.OS === 'web') {

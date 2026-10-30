@@ -5790,7 +5790,8 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
     if (now < start - JOIN_EARLY_MS) return res.json({ available: false, reason: 'too_early', starts_at: s.starts_at });
     if (now > end + JOIN_LATE_MS) return res.json({ available: false, reason: 'ended' });
     const room = lessonRoom(id);
-    res.json({ available: true, room, domain: JITSI_DOMAIN, url: `https://${JITSI_DOMAIN}/${room}` });
+    const isHost = uid === s.teacher_id;
+    res.json({ available: true, room, domain: JITSI_DOMAIN, isHost, url: `https://${JITSI_DOMAIN}/${room}` });
   } catch (e) { console.error('m/lesson room:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
