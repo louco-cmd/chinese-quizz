@@ -11,6 +11,7 @@ import CatLoader from '../components/CatLoader';
 import RevealAnswerCard from '../components/RevealAnswerCard';
 import { isZhLearning } from '../langs';
 import { registerPositiveMoment } from '../reviewPrompt';
+import { feedbackSuccess, feedbackError } from '../quizFeedback';
 
 // Helpers identiques à quiz-play.ejs
 function normalizePinyin(str) {
@@ -167,11 +168,13 @@ export default function DuelPlayScreen({ duelId, onExit }) {
     const answer = isPinyin ? w.pinyin : w.chinese;
     const bonus = 0; // saisie structurée (un mot par champ) → une seule réponse.
     if (ok) {
+      feedbackSuccess();
       if (!second) setCorrectCount((c) => c + 1 + bonus);
       setFeedback({ kind: 'success', text: tr('qp_correct') });
       setLocked(true);
       setTimeout(() => advance(idx + 1), 900);
     } else if (!second) {
+      feedbackError();
       // 1re erreur : on marque faux, on MONTRE la réponse, puis 2e chance (recopie).
       setWrongCount((c) => c + 1);
       setSecond(true);

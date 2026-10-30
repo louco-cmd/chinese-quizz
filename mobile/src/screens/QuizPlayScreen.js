@@ -10,6 +10,7 @@ import CatLoader from '../components/CatLoader';
 import RevealAnswerCard from '../components/RevealAnswerCard';
 import { isZhLearning } from '../langs';
 import { registerPositiveMoment } from '../reviewPrompt';
+import { feedbackSuccess, feedbackError } from '../quizFeedback';
 
 // ── Helpers (identiques à quiz-play.ejs) ──
 function normalizePinyin(str) {
@@ -233,6 +234,7 @@ export default function QuizPlayScreen({ config, onExit }) {
     const bonus = 0; // saisie structurée (un mot par champ) → une seule réponse.
 
     if (ok) {
+      feedbackSuccess();
       // Point (+ bonus) seulement si trouvé à la 1re tentative.
       if (results.current[idx].correct === null) { results.current[idx].correct = true; results.current[idx].bonus = bonus; }
       if (!second) setCorrectCount((c) => c + 1 + bonus);
@@ -246,6 +248,7 @@ export default function QuizPlayScreen({ config, onExit }) {
         setTimeout(() => advance(idx + 1, words), 1000);
       }
     } else if (!second) {
+      feedbackError();
       // 1re erreur : on marque faux, on MONTRE la réponse, puis 2e chance (recopie).
       results.current[idx].correct = false;
       setWrongCount((c) => c + 1);
