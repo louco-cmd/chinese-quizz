@@ -18,7 +18,7 @@ function PackCard({ pack, onPress }) {
           const pal = packPalette(pack);
           const glyph = packGlyph(pack);
           return (
-            <View style={{ height: 72, backgroundColor: pal.bg, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ height: 72, backgroundColor: pal.bg, alignItems: 'flex-start', justifyContent: 'center', paddingLeft: 14 }}>
               {glyph.type === 'icon'
                 ? <Ionicons name={glyph.name} size={32} color={pal.fg} />
                 : <Text style={{ fontSize: 32, fontWeight: '700', color: pal.fg }}>{glyph.char}</Text>}
