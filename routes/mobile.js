@@ -5766,6 +5766,7 @@ router.get('/api/m/agenda/upcoming', requireToken, async (req, res) => {
 // Nécessite DAILY_API_KEY dans les env vars (dashboard.daily.co → Developers).
 // Fallback : meet.jit.si (lobby bloque sans JWT — à éviter en prod).
 const DAILY_API_KEY = process.env.DAILY_API_KEY;
+console.log('[daily] API key', DAILY_API_KEY ? `set (${DAILY_API_KEY.slice(0, 8)}…)` : 'NOT SET — falling back to Jitsi');
 
 // Nom de room déterministe et NON-DEVINABLE (HMAC de l'id du créneau).
 function lessonRoom(slotId) {
@@ -5800,9 +5801,12 @@ async function dailyToken(roomName, { isOwner, userId, userName, expiresAt }) {
   const exp = Math.floor(new Date(expiresAt).getTime() / 1000) + JOIN_LATE_MS / 1000;
   const r = await fetch('https://api.daily.co/v1/meeting-tokens', {
     method: 'POST', headers,
-    body: JSON.stringify({ properties: { room_name: roomName, is_owner: isOwner, user_id: String(userId), user_name: userName, exp, enable_recording: 'none' } }),
+    body: JSON.stringify({ properties: { room_name: roomName, is_owner: isOwner, user_id: String(userId), user_name: userName, exp } }),
   });
-  if (!r.ok) throw new Error(`Daily token: ${r.status}`);
+  if (!r.ok) {
+    const body = await r.text();
+    throw new Error(`Daily token: ${r.status} — ${body}`);
+  }
   const { token } = await r.json();
   return token;
 }
@@ -5815,6 +5819,7 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
     const id = parseInt(req.params.id, 10);
+    console.log(`[lesson-room] hit — slotId=${id} uid=${uid} daily=${!!DAILY_API_KEY}`);
     if (!id) return res.status(400).json({ error: 'Invalid lesson' });
     const { rows } = await pool.query(
       `SELECT ts.teacher_id, ts.student_id, ts.starts_at, ts.ends_at,
@@ -5836,9 +5841,13 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
 
     // Daily.co (activé si DAILY_API_KEY est défini)
     if (DAILY_API_KEY) {
-      const roomUrl = await dailyRoom(room, s.ends_at);
-      const token = await dailyToken(room, { isOwner: isHost, userId: uid, userName: s.user_name, expiresAt: s.ends_at });
-      return res.json({ available: true, room, domain: 'daily.co', isHost, url: `${roomUrl}?t=${token}` });
+      try {
+        const roomUrl = await dailyRoom(room, s.ends_at);
+        const token = await dailyToken(room, { isOwner: isHost, userId: uid, userName: s.user_name, expiresAt: s.ends_at });
+        return res.json({ available: true, room, domain: 'daily.co', isHost, url: `${roomUrl}?t=${token}` });
+      } catch (dailyErr) {
+        console.error('[daily] room/token error — falling back to Jitsi:', dailyErr.message);
+      }
     }
 
     // Fallback meet.jit.si (sans JWT → lobby peut bloquer)

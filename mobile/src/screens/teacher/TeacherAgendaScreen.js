@@ -6,7 +6,6 @@ import BottomSheet from '../../components/BottomSheet';
 import CatLoader from '../../components/CatLoader';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import { getTeacherLessons, deleteTeacherLesson, getTeacherAvailability, setTeacherAvailability, getTeacherDateSlots, setTeacherDateSlots } from '../../api';
-import VideoCallScreen from '../VideoCallScreen';
 import { useT } from '../../i18n';
 import { COLORS, TAB_CLEARANCE, SHADOW_CARD } from '../../theme';
 
@@ -332,7 +331,7 @@ function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, wee
   );
 }
 
-export default function TeacherAgendaScreen() {
+export default function TeacherAgendaScreen({ onVideoCall }) {
   const { t, lang } = useT();
   const { width } = useWindowDimensions();
   const wide = width >= 900;
@@ -344,7 +343,6 @@ export default function TeacherAgendaScreen() {
   const [viewMode, setViewMode] = useState('week'); // week | day | month
   const [editingAvail, setEditingAvail] = useState(false);
   const [editingDay, setEditingDay] = useState(null); // date YYYY-MM-DD en cours d'édition
-  const [callLesson, setCallLesson] = useState(null); // id du cours dont on ouvre la visio
 
   const load = useCallback(async () => {
     setError('');
@@ -359,10 +357,13 @@ export default function TeacherAgendaScreen() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const now = new Date();
+  const upcomingLessons = useMemo(() => (lessons || []).filter((s) => new Date(s.ends_at) > now).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at)), [lessons]);
+
   const weekCount = useMemo(() => {
     const [a, b] = weekRange(new Date());
-    return (lessons || []).filter((s) => new Date(s.starts_at) >= a && new Date(s.starts_at) < b).length;
-  }, [lessons]);
+    return upcomingLessons.filter((s) => new Date(s.starts_at) >= a && new Date(s.starts_at) < b).length;
+  }, [upcomingLessons]);
 
   // Jours de semaine (0=lun) qui ont au moins une heure ouverte → fond bleu.
   const openWeekdays = useMemo(() => {
@@ -390,10 +391,9 @@ export default function TeacherAgendaScreen() {
       { text: t('ag_cancel_yes'), style: 'destructive', onPress: async () => { try { await deleteTeacherLesson(s.id); await load(); } catch (e) { setError(e.message); } } },
     ]);
   }
-  function editLesson(u) { setViewMode('month'); setSelected(localKey(new Date(u.starts_at))); }
-  function startClass(u) { if (u?.id) setCallLesson(u.id); }
+  function editLesson(u) { cancelLesson(u); }
+  function startClass(u) { if (u?.id) onVideoCall?.(u.id); }
 
-  if (callLesson) return <VideoCallScreen lessonId={callLesson} onBack={() => setCallLesson(null)} />;
   if (lessons === null && !error) {
     return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><CatLoader size={110} /></View>;
   }
@@ -501,7 +501,7 @@ export default function TeacherAgendaScreen() {
   );
 
   const Summary = (
-    <SummaryCard t={t} lang={lang} lessons={lessons || []} weekCount={weekCount}
+    <SummaryCard t={t} lang={lang} lessons={upcomingLessons} weekCount={weekCount}
       onEditAvail={() => setEditingAvail(true)} onEditLesson={editLesson} onStart={startClass} />
   );
 

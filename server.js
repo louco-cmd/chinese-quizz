@@ -2368,6 +2368,24 @@ const server = app.listen(PORT, () => {
   console.log(`🔗 Webhook endpoint: http://localhost:${PORT}/webhook`);
 });
 
+// ── Whiteboard Socket.io ────────────────────────────────────────────────────
+// Chaque room = identifiant de créneau (slotId). Deux participants max par room.
+// Events : draw (segment de trait) et clear (effacement total).
+const { Server: SocketServer } = require('socket.io');
+const wbio = new SocketServer(server, {
+  path: '/wb',
+  cors: { origin: '*' },
+  transports: ['websocket', 'polling'],
+});
+wbio.on('connection', (socket) => {
+  const room = socket.handshake.query.room;
+  if (!room) { socket.disconnect(); return; }
+  socket.join(room);
+  socket.on('draw', (seg) => socket.to(room).emit('draw', seg));
+  socket.on('clear', () => socket.to(room).emit('clear'));
+  socket.on('disconnect', () => {});
+});
+
 // Arrêt propre : à chaque déploiement, Render envoie SIGTERM. On arrête d'accepter
 // de nouvelles connexions, on laisse les requêtes en cours finir, puis on ferme le
 // pool PG proprement (évite les connexions coupées à la volée / erreurs transitoires).
