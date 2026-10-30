@@ -5761,15 +5761,49 @@ router.get('/api/m/agenda/upcoming', requireToken, async (req, res) => {
   } catch (e) { console.error('m/agenda upcoming:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
-// ── Visio (Jitsi) : room par cours ───────────────────────────────────────────
-// Domaine configurable (meet.jit.si par défaut → auto-hébergé/JaaS plus tard).
-const JITSI_DOMAIN = process.env.JITSI_DOMAIN || 'meet.jit.si';
+// ── Visio (JaaS / Jitsi) : room par cours ────────────────────────────────────
+// En production : JaaS (8x8.vc) avec JWT — nécessite JAAS_APP_ID, JAAS_KEY_ID,
+// JAAS_PRIVATE_KEY dans les env vars (clé RSA PEM, sauts de ligne = \n littéraux).
+// Fallback : meet.jit.si sans auth (lobby bloque sans JWT → utiliser JaaS).
+const JAAS_APP_ID  = process.env.JAAS_APP_ID;   // ex: vpaas-magic-cookie-abc123
+const JAAS_KEY_ID  = process.env.JAAS_KEY_ID;   // ex: abc123def456
+const JAAS_PRIVATE_KEY = process.env.JAAS_PRIVATE_KEY; // clé RSA PEM (\n = vrais sauts)
+const JITSI_DOMAIN = process.env.JITSI_DOMAIN || (JAAS_APP_ID ? '8x8.vc' : 'meet.jit.si');
+
 // Nom de room déterministe et NON-DEVINABLE (HMAC de l'id du créneau).
 function lessonRoom(slotId) {
   const mac = crypto.createHmac('sha256', process.env.JWT_SECRET || 'dev-only-insecure-secret')
     .update(`lesson:${slotId}`).digest('hex').slice(0, 24);
   return `jiayou-${slotId}-${mac}`;
 }
+
+// Génère un JWT JaaS signé RS256 pour un participant.
+// doc: https://developer.8x8.com/jaas/docs/api-keys-jwt
+function jaasToken({ appId, keyId, privateKey, room, userId, name, email, moderator }) {
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: 'chat',
+    aud: 'jitsi',
+    sub: '8x8.vc',
+    room: `${appId}/${room}`,
+    exp: now + 7200, // 2 h
+    nbf: now - 10,
+    context: {
+      user: {
+        id: String(userId),
+        name: name || 'User',
+        email: email || '',
+        moderator,
+        avatar: '',
+      },
+      features: { livestreaming: false, recording: false, transcription: false, 'outbound-call': false },
+    },
+  };
+  // Les sauts de ligne sont stockés comme \n littéraux dans Render → on les restaure.
+  const pem = privateKey.replace(/\\n/g, '\n');
+  return jwt.sign(payload, pem, { algorithm: 'RS256', header: { kid: `${appId}/${keyId}`, typ: 'JWT' } });
+}
+
 const JOIN_EARLY_MS = 15 * 60 * 1000;  // on peut rejoindre 15 min avant
 const JOIN_LATE_MS = 30 * 60 * 1000;   // et jusqu'à 30 min après la fin
 
@@ -5780,7 +5814,11 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ error: 'Invalid lesson' });
     const { rows } = await pool.query(
-      `SELECT teacher_id, student_id, starts_at, ends_at FROM teacher_slots WHERE id = $1 AND status = 'booked'`, [id]);
+      `SELECT ts.teacher_id, ts.student_id, ts.starts_at, ts.ends_at,
+              u.name AS user_name, u.email AS user_email
+       FROM teacher_slots ts
+       JOIN users u ON u.id = $2
+       WHERE ts.id = $1 AND ts.status = 'booked'`, [id, uid]);
     if (!rows.length) return res.status(404).json({ error: 'Lesson not found' });
     const s = rows[0];
     if (uid !== s.teacher_id && uid !== s.student_id) return res.status(403).json({ error: 'Not your lesson' });
@@ -5789,8 +5827,21 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
     const start = new Date(s.starts_at).getTime(), end = new Date(s.ends_at).getTime();
     if (now < start - JOIN_EARLY_MS) return res.json({ available: false, reason: 'too_early', starts_at: s.starts_at });
     if (now > end + JOIN_LATE_MS) return res.json({ available: false, reason: 'ended' });
+
     const room = lessonRoom(id);
     const isHost = uid === s.teacher_id;
+
+    // JaaS JWT auth (activé si JAAS_APP_ID est défini)
+    if (JAAS_APP_ID && JAAS_KEY_ID && JAAS_PRIVATE_KEY) {
+      const token = jaasToken({
+        appId: JAAS_APP_ID, keyId: JAAS_KEY_ID, privateKey: JAAS_PRIVATE_KEY,
+        room, userId: uid, name: s.user_name, email: s.user_email, moderator: isHost,
+      });
+      const url = `https://8x8.vc/${JAAS_APP_ID}/${room}?jwt=${token}`;
+      return res.json({ available: true, room, domain: '8x8.vc', isHost, url });
+    }
+
+    // Fallback meet.jit.si (sans JWT → lobby peut bloquer)
     res.json({ available: true, room, domain: JITSI_DOMAIN, isHost, url: `https://${JITSI_DOMAIN}/${room}` });
   } catch (e) { console.error('m/lesson room:', e); res.status(500).json({ error: 'Server error' }); }
 });

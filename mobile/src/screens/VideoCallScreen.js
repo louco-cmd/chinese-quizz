@@ -50,14 +50,12 @@ export default function VideoCallScreen({ lessonId, displayName, onBack }) {
     );
   }
 
-  // Config overrides via URL hash — lobby disabled so teacher is auto-admitted
-  // as moderator without a waiting room blocking the call.
-  const hashParams = [
-    'config.lobby.enabled=false',
-    'config.prejoinPageEnabled=false',
-    ...(displayName ? [`userInfo.displayName=${encodeURIComponent(`"${displayName}"`)}`, `userInfo.moderator=${state.isHost ? 'true' : 'false'}`] : []),
-  ].join('&');
-  const src = `${state.url}#${hashParams}`;
+  // JaaS: JWT already in URL (contains name + moderator role) — no hash needed.
+  // meet.jit.si fallback: pass displayName + disable lobby via hash (best-effort).
+  const isJaaS = state.url.includes('8x8.vc');
+  const src = isJaaS
+    ? state.url
+    : `${state.url}#config.lobby.enabled=false&config.prejoinPageEnabled=false${displayName ? `&userInfo.displayName=${encodeURIComponent(`"${displayName}"`)}` : ''}`;
 
   // Web : iframe plein écran.
   if (Platform.OS === 'web') {
