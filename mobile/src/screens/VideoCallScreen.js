@@ -5,8 +5,6 @@ import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getLessonRoom } from '../api';
 import { COLORS } from '../theme';
-import WhiteboardPanel from '../components/WhiteboardPanel';
-
 // Écran d'appel visio (Jitsi). Web → iframe embarquée. Natif → ouverture de la
 // room dans le navigateur / l'app Jitsi (Linking) — l'embed natif viendra avec le
 // SDK au prochain build.
@@ -61,8 +59,6 @@ export default function VideoCallScreen({ lessonId, displayName, onBack }) {
     ? state.url
     : `${state.url}#config.lobby.enabled=false&config.prejoinPageEnabled=false${displayName ? `&userInfo.displayName=${encodeURIComponent(`"${displayName}"`)}` : ''}`;
 
-  const wb = <WhiteboardPanel slotId={lessonId} isHost={!!state.isHost} />;
-
   // Web : iframe plein écran.
   if (Platform.OS === 'web') {
     return (
@@ -73,7 +69,6 @@ export default function VideoCallScreen({ lessonId, displayName, onBack }) {
             src, title: 'Lesson call', allow: 'camera; microphone; fullscreen; display-capture; autoplay',
             style: { width: '100%', height: '100%', border: 'none', flex: 1, minHeight: 400 },
           })}
-          {wb}
         </View>
       </View>
     );
@@ -96,7 +91,6 @@ export default function VideoCallScreen({ lessonId, displayName, onBack }) {
           <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Join the call</Text>
         </Pressable>
       </View>
-      {wb}
     </View>
   );
 }
