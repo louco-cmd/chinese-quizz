@@ -36,6 +36,25 @@ function weekdayShorts(lang) {
 }
 const HOURS = Array.from({ length: 16 }, (_, i) => i + 7); // 07:00 → 22:00
 
+// Fenêtre de visio : jouable de 15 min avant le début à 10 min après la fin.
+const START_EARLY_MS = 15 * 60 * 1000;
+const REJOIN_MS = 10 * 60 * 1000;
+function lessonJoinable(l, now) {
+  const s = new Date(l.starts_at).getTime(), e = new Date(l.ends_at).getTime();
+  return now >= s - START_EARLY_MS && now <= e + REJOIN_MS;
+}
+function lessonFinished(l, now) { return now > new Date(l.ends_at).getTime() + REJOIN_MS; }
+function isTrial(l) { return (l.note || '').toLowerCase() === 'trial'; }
+
+// Petit badge « Essai » pour les cours d'essai.
+function TrialBadge({ t }) {
+  return (
+    <View style={{ backgroundColor: '#fff4e5', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1.5 }}>
+      <Text style={{ fontSize: 9.5, fontWeight: '800', color: '#c77700', textTransform: 'uppercase', letterSpacing: 0.3 }}>{t('ag_trial')}</Text>
+    </View>
+  );
+}
+
 // ── Popup « semaine type » : heures ouvertes par jour ────────────────────────
 function AvailabilityEditor({ visible, onClose, onSaved, t, lang }) {
   const shorts = useMemo(() => weekdayShorts(lang), [lang]);
@@ -221,18 +240,24 @@ function SummaryCard({ t, lang, lessons, weekCount, onEditAvail, onEditLesson, o
         <Text style={{ fontSize: 13, color: COLORS.mutedLight, paddingVertical: 4 }}>{t('ag_no_upcoming')}</Text>
       ) : lessons.slice(0, 3).map((u, i) => {
         const s = new Date(u.starts_at);
+        const now = Date.now();
         const isToday = localKey(s) === localKey(new Date());
         const when = `${isToday ? t('ag_today') : dayLabel(s, lang)} ${hhmm(s)}`;
-        const first = i === 0;
+        const joinable = lessonJoinable(u, now);
+        const started = now >= s.getTime();
+        const trial = isTrial(u);
         return (
           <View key={u.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 7 }}>
             <View style={{ flex: 1, paddingRight: 10 }}>
-              <Text style={{ fontSize: 14, color: '#1a1a2e', fontWeight: '600' }}>{when}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 14, color: '#1a1a2e', fontWeight: '600' }}>{when}</Text>
+                {trial ? <TrialBadge t={t} /> : null}
+              </View>
               {u.student_name ? <Text style={{ fontSize: 11.5, color: COLORS.mutedLight }} numberOfLines={1}>{u.student_name}</Text> : null}
             </View>
-            {first ? (
+            {joinable ? (
               <Pressable onPress={() => onStart(u)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}>
-                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12.5 }}>{t('ag_start_class')}</Text>
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12.5 }}>{t(started ? 'ag_rejoin' : 'ag_start_class')}</Text>
               </Pressable>
             ) : (
               <Pressable onPress={() => onEditLesson(u)} style={{ backgroundColor: '#eef2f7', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}>
@@ -261,7 +286,7 @@ function keyToDate(k) { const [y, m, d] = k.split('-').map(Number); return new D
 function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function jsMon0(d) { return (d.getDay() + 6) % 7; }
 
-function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, week }) {
+function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, week, t }) {
   const loc = lang === 'zh' ? 'zh-CN' : lang === 'fr' ? 'fr-FR' : 'en-US';
   const todayK = localKey(new Date());
   return (
@@ -302,12 +327,15 @@ function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, wee
                 const st = new Date(les.starts_at), en = new Date(les.ends_at);
                 const top = Math.max(0, ((st.getHours() - 7) + st.getMinutes() / 60) * ROW_H);
                 const hgt = Math.max(26, ((en - st) / 3600000) * ROW_H - 3);
-                // Carte superposée : fond blanc, liseré bleu à gauche, nom + heure.
+                const finished = lessonFinished(les, Date.now());
+                const trial = isTrial(les);
+                // Carte superposée : liseré gauche (gris = terminé, orange = essai, bleu = à venir).
+                const accent = finished ? '#c4ccd6' : trial ? '#f59e0b' : COLORS.jiayou;
                 return (
                   <Pressable key={les.id} onPress={() => onCancel(les)}
-                    style={{ position: 'absolute', top: top + 1, left: 2, right: 2, height: hgt, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e3e9f2', borderLeftWidth: 3, borderLeftColor: COLORS.jiayou, paddingHorizontal: 6, paddingVertical: 3, overflow: 'hidden', ...SHADOW_CARD }}>
-                    {les.student_name ? <Text style={{ color: '#1a1a2e', fontSize: 10.5, fontWeight: '800' }} numberOfLines={1}>{les.student_name}</Text> : null}
-                    <Text style={{ color: COLORS.jiayou, fontSize: 9.5, fontWeight: '700', marginTop: 1 }} numberOfLines={1}>{hhmm(st)}–{hhmm(en)}</Text>
+                    style={{ position: 'absolute', top: top + 1, left: 2, right: 2, height: hgt, backgroundColor: finished ? '#f4f5f7' : '#fff', borderRadius: 8, borderWidth: 1, borderColor: finished ? '#e6e9ee' : '#e3e9f2', borderLeftWidth: 3, borderLeftColor: accent, paddingHorizontal: 6, paddingVertical: 3, overflow: 'hidden', ...SHADOW_CARD }}>
+                    {les.student_name ? <Text style={{ color: finished ? COLORS.mutedLight : '#1a1a2e', fontSize: 10.5, fontWeight: '800' }} numberOfLines={1}>{les.student_name}</Text> : null}
+                    <Text style={{ color: finished ? COLORS.mutedLight : accent, fontSize: 9.5, fontWeight: '700', marginTop: 1 }} numberOfLines={1}>{hhmm(st)}–{hhmm(en)}{trial ? ` · ${t('ag_trial')}` : ''}</Text>
                   </Pressable>
                 );
               })}
@@ -358,7 +386,8 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
   useEffect(() => { load(); }, [load]);
 
   const now = new Date();
-  const upcomingLessons = useMemo(() => (lessons || []).filter((s) => new Date(s.ends_at) > now).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at)), [lessons]);
+  // « À venir » inclut les cours encore rejoignables (jusqu'à 10 min après la fin).
+  const upcomingLessons = useMemo(() => (lessons || []).filter((s) => new Date(s.ends_at).getTime() + REJOIN_MS > now.getTime()).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at)), [lessons]);
 
   const weekCount = useMemo(() => {
     const [a, b] = weekRange(new Date());
@@ -439,12 +468,15 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
                       <Text style={{ fontSize: 12.5, fontWeight: isToday ? '800' : '600', textAlign: 'center', marginBottom: 2,
                         color: disabled ? '#ccd2da' : isToday ? COLORS.jiayou : '#1a1a2e' }}>{date.day}</Text>
                       {/* Cellule CTA par cours planifié (heure) */}
-                      {dayLes.slice(0, 2).map((les) => (
-                        <Pressable key={les.id} onPress={() => cancelLesson(les)}
-                          style={{ backgroundColor: COLORS.jiayou, borderRadius: 5, paddingHorizontal: 3, paddingVertical: 1.5, marginBottom: 2 }}>
-                          <Text style={{ color: '#fff', fontSize: 8.5, fontWeight: '800', textAlign: 'center' }} numberOfLines={1}>{hhmm(new Date(les.starts_at))}</Text>
-                        </Pressable>
-                      ))}
+                      {dayLes.slice(0, 2).map((les) => {
+                        const bg = lessonFinished(les, Date.now()) ? '#c4ccd6' : isTrial(les) ? '#f59e0b' : COLORS.jiayou;
+                        return (
+                          <Pressable key={les.id} onPress={() => cancelLesson(les)}
+                            style={{ backgroundColor: bg, borderRadius: 5, paddingHorizontal: 3, paddingVertical: 1.5, marginBottom: 2 }}>
+                            <Text style={{ color: '#fff', fontSize: 8.5, fontWeight: '800', textAlign: 'center' }} numberOfLines={1}>{hhmm(new Date(les.starts_at))}</Text>
+                          </Pressable>
+                        );
+                      })}
                       {dayLes.length > 2 ? <Text style={{ fontSize: 8, color: COLORS.muted, textAlign: 'center' }}>+{dayLes.length - 2}</Text> : null}
                     </View>
                   </Pressable>
@@ -478,7 +510,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
               <Pressable onPress={() => shift(1)} hitSlop={8} style={navBtn}><Ionicons name="chevron-forward" size={18} color={COLORS.jiayou} /></Pressable>
             </View>
             <View style={{ position: 'relative' }}>
-              <TimeGrid days={days} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={cancelLesson} onEditDay={setEditingDay} lang={lang} week={isWeek} />
+              <TimeGrid days={days} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={cancelLesson} onEditDay={setEditingDay} lang={lang} week={isWeek} t={t} />
               {/* Aucune dispo → incitation au centre du calendrier. */}
               {avail.size === 0 ? (
                 <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,249,250,0.72)' }}>

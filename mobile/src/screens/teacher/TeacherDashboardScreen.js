@@ -100,16 +100,30 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
         <Text className="text-ink font-extrabold text-[14px] mb-2">Next lesson</Text>
         {upcoming.length === 0 ? (
           <Text className="text-muted-light text-[12.5px]">No upcoming lesson.</Text>
-        ) : upcoming.map((u, i) => (
-          <View key={u.id} className="flex-row items-center justify-between py-1.5">
-            <Text className="text-ink text-[13px] font-semibold">{fmtWhen(u.starts_at)}</Text>
-            {i === 0 ? (
-              <Pressable onPress={() => onVideoCall?.(u.id)} className="bg-jiayou rounded-full px-3 py-1.5">
-                <Text className="text-white font-bold text-[11.5px]">Start class</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ))}
+        ) : upcoming.map((u) => {
+          const now = Date.now();
+          const st = new Date(u.starts_at).getTime(), en = new Date(u.ends_at).getTime();
+          const joinable = now >= st - 15 * 60000 && now <= en + 10 * 60000;
+          const started = now >= st;
+          const trial = (u.note || '').toLowerCase() === 'trial';
+          return (
+            <View key={u.id} className="flex-row items-center justify-between py-1.5">
+              <View className="flex-row items-center gap-1.5">
+                <Text className="text-ink text-[13px] font-semibold">{fmtWhen(u.starts_at)}</Text>
+                {trial ? (
+                  <View className="bg-[#fff4e5] rounded px-1.5 py-0.5">
+                    <Text className="text-[#c77700] font-extrabold text-[9px]">TRIAL</Text>
+                  </View>
+                ) : null}
+              </View>
+              {joinable ? (
+                <Pressable onPress={() => onVideoCall?.(u.id)} className="bg-jiayou rounded-full px-3 py-1.5">
+                  <Text className="text-white font-bold text-[11.5px]">{started ? 'Rejoin' : 'Start class'}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          );
+        })}
       </View>
     </View>
   );

@@ -5649,7 +5649,7 @@ router.get('/api/m/teacher/lessons', requireToken, requireTeacher, async (req, r
       `SELECT ts.id, ts.starts_at, ts.ends_at, ts.note, ts.student_id, ts.booked_at,
               u.name AS student_name, u.avatar_icon AS student_avatar, u.avatar_color AS student_color
        FROM teacher_slots ts LEFT JOIN users u ON u.id = ts.student_id
-       WHERE ts.teacher_id = $1 AND ts.status = 'booked' AND ts.ends_at > NOW() - INTERVAL '2 hours'
+       WHERE ts.teacher_id = $1 AND ts.status = 'booked' AND ts.ends_at > NOW() - INTERVAL '120 days'
        ORDER BY ts.starts_at ASC`,
       [req.teacher.id]);
     res.json({ lessons: rows });
@@ -5763,7 +5763,7 @@ router.get('/api/m/agenda/upcoming', requireToken, async (req, res) => {
        FROM teacher_slots ts
        JOIN users tu ON tu.id = ts.teacher_id
        LEFT JOIN users su ON su.id = ts.student_id
-       WHERE ts.status = 'booked' AND ts.ends_at > NOW()
+       WHERE ts.status = 'booked' AND ts.ends_at > NOW() - INTERVAL '10 minutes'
          AND (ts.teacher_id = $1 OR ts.student_id = $1)
        ORDER BY ts.starts_at ASC LIMIT 50`,
       [uid]);
@@ -5822,7 +5822,7 @@ async function dailyToken(roomName, { isOwner, userId, userName, expiresAt }) {
 }
 
 const JOIN_EARLY_MS = 15 * 60 * 1000;
-const JOIN_LATE_MS  = 30 * 60 * 1000;
+const JOIN_LATE_MS  = 10 * 60 * 1000; // rejoignable jusqu'à 10 min après la fin du cours
 
 // ── GET /api/m/lesson/:id/room : URL de visio du cours (participants only) ────
 router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
