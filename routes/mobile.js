@@ -5989,4 +5989,24 @@ router.get('/api/m/hanzi/:char', async (req, res) => {
   }
 });
 
+// ── TTS proxy ──────────────────────────────────────────────────────────────────
+// GET /api/m/tts?text=你好&lang=zh-CN
+// Public (no token) — returns cached MP3 audio via Edge neural voices.
+// Cache is on-disk per (lang, text) SHA-1; ~5-15 KB per word, persistent.
+const { synthesize: ttsSynthesize } = require('../lib/tts');
+router.get('/api/m/tts', async (req, res) => {
+  const text = (req.query.text || '').trim().slice(0, 300);
+  const lang = (req.query.lang || 'zh-CN').replace(/[^a-zA-Z-]/g, '');
+  if (!text) return res.status(400).json({ error: 'text required' });
+  try {
+    const stream = await ttsSynthesize(text, lang);
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    stream.pipe(res);
+  } catch (e) {
+    console.error('TTS error:', e.message);
+    res.status(502).json({ error: 'tts unavailable' });
+  }
+});
+
 module.exports = { router, requireToken };

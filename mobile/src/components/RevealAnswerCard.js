@@ -1,6 +1,6 @@
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Speech from 'expo-speech';
+import { speak as ttsspeak } from '../tts';
 import { COLORS, SHADOW_CARD } from '../theme';
 import { isZhLearning, ttsFor } from '../langs';
 
@@ -27,9 +27,7 @@ export default function RevealAnswerCard({ word, learningLang = 'zh', type, emph
   const spoken = word.chinese || '';
   const lang = ttsFor(learningLang);
 
-  const speak = () => {
-    try { Speech.stop(); Speech.speak(spoken, { language: lang, rate: 0.9 }); } catch { /* TTS indispo */ }
-  };
+  const speak = () => ttsspeak(spoken, lang, { rate: 0.9 });
 
   const note = (word.description || '').trim();
 

@@ -4,7 +4,7 @@ import {
   useWindowDimensions, Platform, ActivityIndicator, ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Speech from 'expo-speech';
+import { speak as ttsspeak, stop as ttsstop } from '../tts';
 import { Loading, ErrorRetry } from '../components/ErrorRetry';
 import Popup from '../components/Popup';
 import HanziStroke from '../components/HanziStroke';
@@ -17,46 +17,9 @@ import { langMeta } from '../langs';
 import CatLoader from '../components/CatLoader';
 import { ttsFor } from '../langs';
 
-// Sélection de la meilleure voix par langue (qualité "Enhanced" en priorité).
-// Gratuit : utilise les voix du moteur TTS du système (Google TTS sur Android,
-// AVSpeechSynthesizer sur iOS). Mis en cache après le 1er chargement.
-let _voiceCache = null;
-async function bestVoiceFor(lang) {
-  if (!_voiceCache) {
-    _voiceCache = {};
-    try {
-      const voices = await Speech.getAvailableVoicesAsync();
-      const byPrefix = {};
-      for (const v of voices) {
-        const prefix = (v.language || '').toLowerCase().split(/[-_]/)[0];
-        (byPrefix[prefix] = byPrefix[prefix] || []).push(v);
-      }
-      for (const prefix of Object.keys(byPrefix)) {
-        const list = byPrefix[prefix];
-        const enhanced = list.find((v) => v.quality === Speech.VoiceQuality.Enhanced);
-        _voiceCache[prefix] = (enhanced || list[0]).identifier;
-      }
-    } catch { /* pas de liste de voix : on garde la voix par défaut */ }
-  }
-  return _voiceCache[(lang || '').toLowerCase().split(/[-_]/)[0]];
-}
-
-// Lit un texte. `cbs.onStart/onDone` pour piloter un loader ; `cbs.rate` règle la
-// vitesse (1 = normal, <1 = plus lent). Coupe toute lecture en cours pour éviter
-// les chevauchements.
 async function speak(t, lang = 'zh-CN', cbs = {}) {
   if (!t) { cbs.onDone?.(); return; }
-  try { Speech.stop(); } catch { /* noop */ }
-  const voice = await bestVoiceFor(lang);
-  Speech.speak(t, {
-    language: lang,
-    voice, // undefined → voix par défaut
-    rate: cbs.rate ?? 1.0,
-    onStart: cbs.onStart,
-    onDone: cbs.onDone,
-    onStopped: cbs.onDone,
-    onError: cbs.onDone,
-  });
+  await ttsspeak(t, lang, { rate: cbs.rate ?? 1.0, onStart: cbs.onStart, onDone: cbs.onDone, onError: cbs.onDone });
 }
 
 // Majuscule sur la 1re lettre de l'anglais (cosmétique).
@@ -171,7 +134,7 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
   }
 
   // Coupe la lecture si on quitte l'écran.
-  useEffect(() => () => { try { Speech.stop(); } catch { /* noop */ } }, []);
+  useEffect(() => () => { ttsstop(); }, []);
 
   const fade = useRef(new Animated.Value(1)).current;        // change de carte
   const screenFade = useRef(new Animated.Value(1)).current;  // change de vue
