@@ -121,13 +121,13 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
   // spinner jusqu'à la fin (la 1re lecture est lente le temps d'init du moteur TTS).
   // Ré-appui rapide sur LE MÊME bouton (< 4 s) → relit plus lentement (aide à
   // distinguer les sons). Un appui après ce délai repart à vitesse normale.
-  const lastPlayRef = useRef({ key: null, at: 0 });
+  const lastPlayRef = useRef({ key: null, text: null, at: 0 });
   function play(text, lang, key) {
     if (!text) return;
     const now = Date.now();
     const prev = lastPlayRef.current;
-    const rapid = prev.key === key && now - prev.at < 4000;
-    lastPlayRef.current = { key, at: now };
+    const rapid = prev.key === key && prev.text === text && now - prev.at < 4000;
+    lastPlayRef.current = { key, text, at: now };
     setSpeakingKey(key);
     const clear = () => setSpeakingKey((k) => (k === key ? null : k));
     speak(text, lang, { rate: rapid ? 0.5 : 1.0, onDone: clear }).catch(clear);
