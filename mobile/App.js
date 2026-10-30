@@ -53,6 +53,7 @@ import ReviewPromptSheet from './src/components/ReviewPromptSheet';
 import { setReviewPromptHandler } from './src/reviewPrompt';
 import { checkStoreUpdate } from './src/appUpdate';
 import CatLoader from './src/components/CatLoader';
+import VideoCallScreen from './src/screens/VideoCallScreen';
 
 function App() {
   const [ready, setReady] = useState(false);
@@ -63,6 +64,7 @@ function App() {
   const [editPack, setEditPack] = useState(null); // pack à éditer (create-pack pré-rempli)
   const [duelDeepLink, setDuelDeepLink] = useState(null); // id de duel à ouvrir en détail (depuis une notif)
   const [storeSort, setStoreSort] = useState(null); // tri imposé au JiaStore (notif « nouveau pack » → recent)
+  const [videoCallLesson, setVideoCallLesson] = useState(null); // visio plein-écran (masque la TabBar)
 
   // Lance un quiz sur un pack possédé → onglet Quiz, popup de réglages pré-rempli.
   const startPackQuiz = (pack) => { setQuizPack(pack); setTab('quiz'); };
@@ -376,12 +378,12 @@ function App() {
     switch (tab) {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
       case 'myclasses': return <MyClassesScreen onBack={() => setTab(bankReturn)} />;
-      case 'agenda': return <StudentAgendaScreen onBack={() => setTab(bankReturn)} />;
+      case 'agenda': return <StudentAgendaScreen onBack={() => setTab(bankReturn)} onVideoCall={setVideoCallLesson} />;
       case 'collection': return <CollectionScreen onNavigate={setTab} onOpenCredits={() => { setBankReturn('collection'); setTab('credits'); }} />;
       case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
       case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} onNavigate={setTab} onActivityDone={checkTrophies} />;
       case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} emailVerified={profile?.emailVerified} onCapture={() => setTab('add')} onOpenStore={() => { setBankReturn('duels'); setTab('store'); }} initialDetailDuelId={duelDeepLink} onDeepLinkConsumed={() => setDuelDeepLink(null)} onActivityDone={checkTrophies} />;
-      case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} onOpenTrophies={() => { setBankReturn('account'); setTab('trophies'); }} />;
+      case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} onOpenTrophies={() => { setBankReturn('account'); setTab('trophies'); }} onVideoCall={setVideoCallLesson} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onBack={() => setTab('account')} isPremium={!!profile?.isPremium} />;
       case 'trophies': return <TrophiesScreen onBack={() => setTab(bankReturn || 'settings')} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
@@ -453,7 +455,7 @@ function App() {
 
     // Professeur : plateforme dédiée (onglets Classes/Students/Profile).
     if (profile?.role === 'teacher') {
-      return <TeacherHome profile={profile} onLogout={logout} onReplayFlow={handleSettingsOpen} />;
+      return <TeacherHome profile={profile} onLogout={logout} onReplayFlow={handleSettingsOpen} onVideoCall={setVideoCallLesson} />;
     }
 
     return (
@@ -483,6 +485,12 @@ function App() {
           // le CHAT (showChar) tant que le clavier est là : sinon il chevauche le
           // champ de recherche (surtout en web mobile) et gêne la saisie.
           <TabBar active={tab} onChange={setTab} showChar={tab === 'add' && !kbOpen} />
+        )}
+        {/* Visio plein-écran — overlay au-dessus de tout, TabBar masquée. */}
+        {videoCallLesson != null && (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+            <VideoCallScreen lessonId={videoCallLesson} onBack={() => setVideoCallLesson(null)} />
+          </View>
         )}
       </View>
     );
