@@ -21,7 +21,7 @@ function fmtWhen(iso) {
   return `${prefix} ${hhmm(d)}`;
 }
 
-export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpenAgenda }) {
+export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpenAgenda, onVideoCall }) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
   const [ov, setOv] = useState(null);
@@ -104,7 +104,7 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
           <View key={u.id} className="flex-row items-center justify-between py-1.5">
             <Text className="text-ink text-[13px] font-semibold">{fmtWhen(u.starts_at)}</Text>
             {i === 0 ? (
-              <Pressable onPress={() => Alert.alert('', 'Video call coming soon — your lesson is confirmed.')} className="bg-jiayou rounded-full px-3 py-1.5">
+              <Pressable onPress={() => onVideoCall?.(u.id)} className="bg-jiayou rounded-full px-3 py-1.5">
                 <Text className="text-white font-bold text-[11.5px]">Start class</Text>
               </Pressable>
             ) : null}

@@ -67,7 +67,7 @@ function StatTile({ icon, value, label, accent }) {
 
 // Popup de réservation d'essai : créneaux du prof affichés dans le fuseau de l'ÉLÈVE
 // (le device formate les instants UTC en heure locale), groupés par jour.
-function TrialBookingSheet({ mentorId, visible, onClose, onBooked }) {
+function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked }) {
   const [state, setState] = useState(null); // { slots, timezone, teacher_name }
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(null);
@@ -107,28 +107,46 @@ function TrialBookingSheet({ mentorId, visible, onClose, onBooked }) {
   const fmtDay = (d) => d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
   const fmtTime = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
+  // En-tête mentor commun aux deux étapes : avatar + nom + badge essai gratuit.
+  const name = mentorName || state?.teacher_name || 'Teacher';
+  const MentorHeader = (
+    <View style={{ alignItems: 'center', marginBottom: 20 }}>
+      <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 19 }}>{initials(name)}</Text>
+      </View>
+      <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e', marginTop: 10, textAlign: 'center' }}>{name}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: COLORS.jiayouSoft, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, marginTop: 8 }}>
+        <Ionicons name="gift" size={12} color={COLORS.jiayou} />
+        <Text style={{ color: COLORS.jiayou, fontSize: 12, fontWeight: '800' }}>Free trial · 1 hour</Text>
+      </View>
+    </View>
+  );
+
   // Étape 2 : écran de confirmation
   if (selected) {
     const d = new Date(selected.starts_at);
     return (
-      <BottomSheet visible={visible} onClose={() => { setSelected(null); onClose?.(); }} maxHeightRatio={0.55}>
-        <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e', textAlign: 'center' }}>Confirm your booking</Text>
-        <View style={{ backgroundColor: '#f0f5ff', borderRadius: 16, padding: 20, marginTop: 20, alignItems: 'center', gap: 4 }}>
-          <Ionicons name="calendar" size={28} color={COLORS.jiayou} style={{ marginBottom: 8 }} />
-          <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', textTransform: 'capitalize' }}>{fmtDay(d)}</Text>
-          <Text style={{ fontSize: 22, fontWeight: '800', color: COLORS.jiayou, marginTop: 2 }}>{fmtTime(selected.starts_at)}</Text>
+      <BottomSheet visible={visible} onClose={() => { setSelected(null); onClose?.(); }} maxHeightRatio={0.62}>
+        {MentorHeader}
+        <View style={{ backgroundColor: COLORS.jiayouSoft, borderRadius: 18, padding: 20, alignItems: 'center' }}>
+          <Ionicons name="calendar-outline" size={26} color={COLORS.jiayou} style={{ marginBottom: 8 }} />
+          <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', textTransform: 'capitalize', textAlign: 'center' }}>{fmtDay(d)}</Text>
+          <Text style={{ fontSize: 24, fontWeight: '800', color: COLORS.jiayou, marginTop: 2 }}>{fmtTime(selected.starts_at)}</Text>
           {localTz ? <Text style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 4 }}>{localTz}</Text> : null}
         </View>
-        <Text style={{ fontSize: 13, color: COLORS.muted, textAlign: 'center', marginTop: 14, lineHeight: 19 }}>
-          This is a free 1-hour trial session. You'll find the video link in your upcoming sessions once confirmed.
-        </Text>
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 22 }}>
-          <Pressable onPress={() => setSelected(null)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 16 }}>
+          <Ionicons name="videocam-outline" size={15} color={COLORS.mutedLight} style={{ marginTop: 1 }} />
+          <Text style={{ flex: 1, fontSize: 13, color: COLORS.muted, lineHeight: 19 }}>
+            The video link will appear in your upcoming sessions once confirmed.
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+          <Pressable onPress={() => setSelected(null)} style={{ flex: 1, backgroundColor: COLORS.page, borderWidth: 1, borderColor: COLORS.line, borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
             <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Back</Text>
           </Pressable>
           <Pressable onPress={confirm} disabled={!!busy} style={{ flex: 2, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, opacity: busy ? 0.6 : 1 }}>
             <Ionicons name="checkmark-circle" size={17} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{busy ? '…' : 'Confirm'}</Text>
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{busy ? '…' : 'Confirm booking'}</Text>
           </Pressable>
         </View>
       </BottomSheet>
@@ -137,21 +155,31 @@ function TrialBookingSheet({ mentorId, visible, onClose, onBooked }) {
 
   return (
     <BottomSheet visible={visible} onClose={onClose} maxHeightRatio={0.88}>
-      <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e', textAlign: 'center' }}>Book a trial class</Text>
-      {localTz ? <Text style={{ fontSize: 12, color: COLORS.muted, textAlign: 'center', marginTop: 4 }}>Times shown in your timezone · {localTz}</Text> : null}
+      {MentorHeader}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 2 }}>
+        <Ionicons name="time-outline" size={15} color="#1a1a2e" />
+        <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e' }}>Pick a time</Text>
+      </View>
+      {localTz ? <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, textAlign: 'center', marginTop: 2 }}>Shown in your timezone · {localTz}</Text> : null}
       <View style={{ marginTop: 14 }}>
         {err ? <ErrorRetry error={err} onRetry={reload} />
           : !state ? <View style={{ paddingVertical: 30, alignItems: 'center' }}><CatLoader size={80} /></View>
-            : groups.length === 0 ? <Text style={{ fontSize: 13.5, color: COLORS.mutedLight, textAlign: 'center', paddingVertical: 24 }}>No open slot right now. Check back later.</Text>
+            : groups.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingVertical: 28 }}>
+                <Ionicons name="calendar-clear-outline" size={30} color={COLORS.mutedLight} />
+                <Text style={{ fontSize: 13.5, color: COLORS.mutedLight, textAlign: 'center', marginTop: 10 }}>No open slot right now.{'\n'}Check back later.</Text>
+              </View>
+            )
               : (
                 <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
                   {groups.map((g, i) => (
-                    <View key={i} style={{ marginBottom: 14 }}>
-                      <Text style={{ fontSize: 13, fontWeight: '800', color: '#1a1a2e', marginBottom: 8, textTransform: 'capitalize' }}>{fmtDay(g.date)}</Text>
+                    <View key={i} style={{ marginBottom: 16 }}>
+                      <Text style={{ fontSize: 12.5, fontWeight: '800', color: COLORS.mutedLight, marginBottom: 9, textTransform: 'uppercase', letterSpacing: 0.4 }}>{fmtDay(g.date)}</Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                         {g.items.map((s) => (
                           <Pressable key={s.starts_at} onPress={() => setSelected(s)} disabled={busy === s.starts_at}
-                            style={{ paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, backgroundColor: '#e8f0ff', borderWidth: 1, borderColor: '#cfe0ff' }}>
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.jiayouSoft, borderWidth: 1, borderColor: '#cfe0ff' }}>
+                            <Ionicons name="time" size={13} color={COLORS.jiayou} />
                             <Text style={{ fontSize: 13.5, fontWeight: '800', color: COLORS.jiayou }}>{fmtTime(s.starts_at)}</Text>
                           </Pressable>
                         ))}
@@ -287,7 +315,7 @@ export default function MentorProfileScreen({ id, initial, onBack }) {
           )}
         </View>
       </ScrollView>
-      <TrialBookingSheet mentorId={m.id} visible={booking} onClose={() => setBooking(false)} onBooked={load} />
+      <TrialBookingSheet mentorId={m.id} mentorName={m.name} visible={booking} onClose={() => setBooking(false)} onBooked={load} />
     </View>
   );
 }

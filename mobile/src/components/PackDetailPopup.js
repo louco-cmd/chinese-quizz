@@ -17,9 +17,16 @@ const PROMOTE_DURATIONS = [
   { h: 24, label: '1d' }, { h: 72, label: '3d' }, { h: 168, label: '7d' },
 ];
 
-// Illustration fictive : fond bleu pâle + idéogramme du niveau HSK.
-const HSK_GLYPH = { hsk1: '一', hsk2: '二', hsk3: '三', hsk4: '四', hsk5: '五', hsk6: '六' };
-export const glyphOf = (k) => HSK_GLYPH[k] || '汉';
+// Illustration fictive : fond bleu pâle + idéogramme du niveau HSK, ou le code
+// de niveau CEFR (A1..C2) pour les packs en_/fr_, sinon le glyph générique 汉.
+const HSK_GLYPH = { hsk1: '一', hsk2: '二', hsk3: '三', hsk4: '四', hsk5: '五', hsk6: '六', hsk7: '七' };
+const CEFR_COVER_RE = /^[a-z]{2}_([abc][12])$/; // ex. en_a1, fr_b2
+export const glyphOf = (k) => {
+  if (HSK_GLYPH[k]) return HSK_GLYPH[k];
+  const m = CEFR_COVER_RE.exec(k || '');
+  if (m) return m[1].toUpperCase();
+  return '汉';
+};
 export const COVER_BG = '#e8f0ff';
 export const COVER_FG = '#5b8def';
 
@@ -65,7 +72,7 @@ export function packGlyph(pack) {
 
 // Packs réservés au premium (niveaux HSK avancés) — miroir de PREMIUM_PACK_COVERS
 // côté serveur (routes/mobile.js). Repérés par cover_key.
-export const PREMIUM_PACK_COVERS = ['hsk4', 'hsk5', 'hsk6'];
+export const PREMIUM_PACK_COVERS = ['hsk4', 'hsk5', 'hsk6', 'hsk7'];
 export const isPremiumPack = (pack) => PREMIUM_PACK_COVERS.includes(pack?.cover_key);
 
 // Jauge « part déjà possédée », posée en bas à droite de la cover bleue :

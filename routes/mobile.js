@@ -71,7 +71,7 @@ async function editQuotaReached(tokenUser) {
   return (rows[0]?.n || 0) >= DAILY_EDIT_LIMIT;
 }
 // Packs verrouillés au premium (niveaux avancés), repérés par cover_key.
-const PREMIUM_PACK_COVERS = ['hsk4', 'hsk5', 'hsk6'];
+const PREMIUM_PACK_COVERS = ['hsk4', 'hsk5', 'hsk6', 'hsk7'];
 
 // Dernier build natif publié par plateforme, pour la popup « mise à jour dispo »
 // (soft, non bloquante). Modifiable sans redéploiement via variables d'env :
@@ -1974,7 +1974,8 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
     const params = [uid, min, max, langs.learning, langs.native];
     let where = `wp.published = TRUE AND wp.price >= $2 AND wp.price <= $3
       AND (wp.hidden_until IS NULL OR wp.hidden_until <= NOW())
-      AND ((wp.lang = $4 AND wp.native_lang = $5) OR (wp.lang = $5 AND wp.native_lang = $4))
+      AND CASE WHEN wp.is_official THEN (wp.lang = $4 AND wp.native_lang = $5)
+               ELSE ((wp.lang = $4 AND wp.native_lang = $5) OR (wp.lang = $5 AND wp.native_lang = $4)) END
       AND NOT EXISTS (
         SELECT 1 FROM word_pack_items i2 JOIN mots pm ON pm.id = i2.mot_id
         WHERE i2.pack_id = wp.id
@@ -3458,7 +3459,7 @@ router.get('/api/m/account', requireToken, async (req, res) => {
       // Stats par niveau HSK : count + nb « maîtrisé » (≥85) par colonne de score,
       // groupé côté base → ~7 lignes.
       pool.query(
-        `SELECT COALESCE('HSK' || m.hsk::text, 'Street') AS lvl, COUNT(*)::int AS count,
+        `SELECT COALESCE(CASE WHEN $2 = 'zh' THEN 'HSK' || m.hsk::text ELSE m.hsk::text END, 'Street') AS lvl, COUNT(*)::int AS count,
                 COUNT(*) FILTER (WHERE COALESCE(um.score,0) >= 85)::int AS p_mast,
                 COUNT(*) FILTER (WHERE COALESCE(um.score_character,0) >= 85)::int AS c_mast,
                 COUNT(*) FILTER (WHERE COALESCE(um.score_reading,0) >= 85)::int AS r_mast
@@ -3523,19 +3524,23 @@ router.get('/api/m/account', requireToken, async (req, res) => {
     // Stats HSK : nombre + % maîtrisé PAR TYPE de quiz et par niveau, à partir des
     // compteurs agrégés en base (score='score', caractères='score_character',
     // lecture='score_reading'), même seuil « maîtrisé » (≥85) qu'ailleurs.
-    const HSK_ORDER = ['HSK1', 'HSK2', 'HSK3', 'HSK4', 'HSK5', 'HSK6', 'Street'];
+    const LEVEL_ORDER = L === 'zh'
+      ? ['HSK1', 'HSK2', 'HSK3', 'HSK4', 'HSK5', 'HSK6', 'HSK7', 'Street']
+      : ['A1', 'A2', 'B1', 'B2', 'Street'];
     const byLvl = {};
     hskAgg.rows.forEach((r) => { byLvl[r.lvl] = r; });
-    const hsk = HSK_ORDER.map((key) => {
+    const hsk = LEVEL_ORDER.map((key) => {
       const r = byLvl[key];
       if (!r || !r.count) return null;
       const pct = (n) => (r.count ? Math.round((n / r.count) * 100) : 0);
       const pinyinPct = pct(r.p_mast);
+      const label = key === 'Street' ? (L === 'zh' ? 'HSK Street' : 'Unclassified')
+        : L === 'zh' ? key.replace('HSK', 'HSK ') : `CEFR ${key}`;
       return {
         key,
-        label: key === 'Street' ? 'HSK Street' : key.replace('HSK', 'HSK '),
+        label,
         count: r.count,
-        masteredPct: pinyinPct, // conservé pour compat
+        masteredPct: pinyinPct,
         pinyinPct,
         characterPct: pct(r.c_mast),
         readingPct: pct(r.r_mast),
@@ -3636,7 +3641,7 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
          FROM user_mots um JOIN mots m ON m.id = um.mot_id
          WHERE um.user_id = $1 AND m.lang = $2`, [targetId, L]),
       pool.query(
-        `SELECT COALESCE('HSK' || m.hsk::text, 'Street') AS lvl, COUNT(*)::int AS count
+        `SELECT COALESCE(CASE WHEN $2 = 'zh' THEN 'HSK' || m.hsk::text ELSE m.hsk::text END, 'Street') AS lvl, COUNT(*)::int AS count
          FROM user_mots um JOIN mots m ON m.id = um.mot_id
          WHERE um.user_id = $1 AND m.lang = $2
          GROUP BY m.hsk`, [targetId, L]),
@@ -3664,13 +3669,18 @@ router.get('/api/m/users/:id', requireToken, async (req, res) => {
     const readingDist = dist('score_reading');
     const totalWords = d0.total || 0;
 
-    // Répartition HSK (nombre de mots par niveau)
-    const HSK_ORDER = ['HSK1', 'HSK2', 'HSK3', 'HSK4', 'HSK5', 'HSK6', 'Street'];
+    const LEVEL_ORDER = L === 'zh'
+      ? ['HSK1', 'HSK2', 'HSK3', 'HSK4', 'HSK5', 'HSK6', 'HSK7', 'Street']
+      : ['A1', 'A2', 'B1', 'B2', 'Street'];
     const byLvl = {};
     hskAgg.rows.forEach((r) => { byLvl[r.lvl] = r.count; });
-    const hsk = HSK_ORDER
+    const hsk = LEVEL_ORDER
       .filter((key) => byLvl[key])
-      .map((key) => ({ label: key === 'Street' ? 'Street' : key.replace('HSK', 'HSK '), count: byLvl[key] }));
+      .map((key) => ({
+        label: key === 'Street' ? (L === 'zh' ? 'Street' : 'Unclassified')
+          : L === 'zh' ? key.replace('HSK', 'HSK ') : `CEFR ${key}`,
+        count: byLvl[key],
+      }));
 
     res.json({
       id: u.id,
@@ -6055,13 +6065,14 @@ router.get('/api/m/hanzi/:char', async (req, res) => {
 // GET /api/m/tts?text=你好&lang=zh-CN
 // Public (no token) — returns cached MP3 audio via Edge neural voices.
 // Cache is on-disk per (lang, text) SHA-1; ~5-15 KB per word, persistent.
-const { synthesize: ttsSynthesize } = require('../lib/tts');
+let _ttsLib;
+function getTTS() { if (!_ttsLib) _ttsLib = require('../lib/tts'); return _ttsLib; }
 router.get('/api/m/tts', async (req, res) => {
   const text = (req.query.text || '').trim().slice(0, 300);
   const lang = (req.query.lang || 'zh-CN').replace(/[^a-zA-Z-]/g, '');
   if (!text) return res.status(400).json({ error: 'text required' });
   try {
-    const stream = await ttsSynthesize(text, lang);
+    const stream = await getTTS().synthesize(text, lang);
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     stream.pipe(res);

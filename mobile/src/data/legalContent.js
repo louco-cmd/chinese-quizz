@@ -238,5 +238,13 @@ export const CREDITS_BLOCKS = [
   { t: 'p', text: 'The ancient character forms (oracle bone, bronze, seal, clerical scripts) shown in the character time-machine come from the EVOBC dataset (Guan et al., 2024), used with the kind permission of its authors. We are grateful for their work.' },
   { t: 'link', label: 'EVOBC — an open dataset for the evolution of oracle bone characters', url: 'https://github.com/RomanticGodVAN/character-Evolution-Dataset' },
 
+  { t: 'h3', text: 'HSK vocabulary levels' },
+  { t: 'p', text: 'HSK 1–6 level labels for Chinese words are matched against the Complete HSK Vocabulary list by Yanis Zafirópulos (MIT License), which compiles the official HSK word lists.' },
+  { t: 'link', label: 'Complete HSK Vocabulary — github.com/drkameleon/complete-hsk-vocabulary', url: 'https://github.com/drkameleon/complete-hsk-vocabulary' },
+
+  { t: 'h3', text: 'CEFR vocabulary levels (English & French)' },
+  { t: 'p', text: 'English A1–B2 level labels come from the CEFR-J Vocabulary Profile, © Tono Laboratory, Tokyo University of Foreign Studies, distributed via Open Language Profiles and used with citation. French levels are derived from the same data, mapped through shared word meanings, and are therefore approximate.' },
+  { t: 'link', label: 'CEFR-J Vocabulary Profile — Open Language Profiles', url: 'https://github.com/openlanguageprofiles/olp-en-cefrj' },
+
   { t: 'note', text: 'If you believe something is miscredited or should be added, please reach out — we will fix it promptly.' },
 ];

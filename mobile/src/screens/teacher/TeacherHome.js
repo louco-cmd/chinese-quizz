@@ -151,7 +151,7 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
   } else if (tab === 'profile') {
     content = <TeacherProfileScreen />;
   } else {
-    content = <TeacherDashboardScreen teacherName={profile?.name} onOpenClass={(id) => setView({ type: 'class', id })} onOpenAgenda={() => { setView(null); setTab('agenda'); }} />;
+    content = <TeacherDashboardScreen teacherName={profile?.name} onOpenClass={(id) => setView({ type: 'class', id })} onOpenAgenda={() => { setView(null); setTab('agenda'); }} onVideoCall={onVideoCall} />;
   }
 
   // Un tap sur un onglet quitte la sous-vue classe/task.

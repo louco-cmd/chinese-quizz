@@ -213,11 +213,9 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
                 />
               ) : null}
 
-              {/* Statistiques par niveau HSK (mini-jauge de maîtrise par ligne) :
-                  spécifique au chinois → masqué pour les autres langues apprises. */}
-              {learningChinese && (
+              {data.hsk && data.hsk.length > 0 && (
                 <AccountCard icon="search-outline" title={t('ac_stats_on_words')}>
-                  <HskStatList items={data.hsk} />
+                  <HskStatList items={data.hsk} isChinese={learningChinese} />
                 </AccountCard>
               )}
 

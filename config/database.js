@@ -1008,6 +1008,12 @@ const pool = new Pool({
       console.log(`✅ JiaStore réconcilié (packs HSK 1→6) :`, r.counts.join(', '));
     } catch (e) { console.error('JiaStore reconcile failed:', e.message); }
 
+    // Réconciliation des packs officiels CEFR (en/fr A1→B2), idempotente.
+    try {
+      const r = await reconcileCefrPacks();
+      console.log(`✅ JiaStore réconcilié (packs CEFR en/fr) :`, r.counts.join(', '));
+    } catch (e) { console.error('JiaStore CEFR reconcile failed:', e.message); }
+
     // Backfill (idempotent) : synchronise les acheteurs avec l'état actuel de
     // chaque pack acheté. Rattrape les packs édités AVANT l'ajout de la
     // propagation à l'édition. Le NOT EXISTS rend les boots suivants sans effet.
@@ -1029,15 +1035,15 @@ const pool = new Pool({
 
 // Réconciliation des packs officiels HSK (idempotente, appelable à la demande).
 //  - retire les anciens packs de démo seedés (préserve les packs de vrais users) ;
-//  - garantit/renomme les 6 packs HSK 1→6 et synchronise leur prix ;
+//  - garantit/renomme les 7 packs HSK 1→7 (HSK 3.0) et synchronise leur prix ;
 //  - RE-SYNCHRONISE leurs mots : ajoute les nouveaux mots du niveau ET retire
 //    ceux qui n'en font plus partie (résilient aux changements de la table mots).
 //    `hsk::text` pour être agnostique au type (int ou text). Renvoie { counts }.
 async function reconcileHskPacks() {
   await pool.query(`DELETE FROM word_packs WHERE is_official = FALSE AND creator_id IS NULL`);
-  const HSK_PRICE = { 1: 180, 2: 380, 3: 600, 4: 800, 5: 1000, 6: 1200 };
+  const HSK_PRICE = { 1: 180, 2: 380, 3: 600, 4: 800, 5: 1000, 6: 1200, 7: 1400 };
   const counts = [];
-  for (let lvl = 1; lvl <= 6; lvl++) {
+  for (let lvl = 1; lvl <= 7; lvl++) {
     const cover = `hsk${lvl}`;
     const ex = await pool.query(`SELECT id FROM word_packs WHERE cover_key = $1 AND is_official = TRUE LIMIT 1`, [cover]);
     let packId;
@@ -1068,4 +1074,60 @@ async function reconcileHskPacks() {
   return { counts };
 }
 
-module.exports = { pool, reconcileHskPacks };
+// Réconciliation des packs officiels CEFR (idempotente, miroir de reconcileHskPacks).
+//  - Un pack CEFR = UN niveau (A1..B2) pour UNE langue de contenu, rattaché à la
+//    paire (lang de contenu, langue frère). On calque le modèle HSK (lang=zh,
+//    native_lang=en) : ici (fr,en) pour les packs français et (en,fr) pour les
+//    packs anglais → montrés aux apprenants en↔fr, dans les deux sens.
+//  - Les items sont les mots du niveau AYANT un frère de concept dans l'autre
+//    langue de la paire (sinon le filtre de réachabilité du store masquerait tout
+//    le pack). Re-synchro ajout+retrait à chaque boot, résilient aux retags.
+async function reconcileCefrPacks() {
+  const LEVELS = ['A1', 'A2', 'B1', 'B2'];
+  const PRICE = { A1: 180, A2: 380, B1: 600, B2: 800 };
+  // [langue de contenu, langue frère/native, préfixe cover]
+  const PACKS = [['fr', 'en', 'fr'], ['en', 'fr', 'en']];
+  const LABEL = { fr: 'French', en: 'English' };
+  const counts = [];
+  for (const [lang, sib, pref] of PACKS) {
+    for (const lvl of LEVELS) {
+      const cover = `${pref}_${lvl.toLowerCase()}`; // ex. fr_a1, en_b2
+      const ex = await pool.query(`SELECT id FROM word_packs WHERE cover_key = $1 AND is_official = TRUE LIMIT 1`, [cover]);
+      let packId;
+      if (ex.rows.length) packId = ex.rows[0].id;
+      else {
+        const ins = await pool.query(
+          `INSERT INTO word_packs (creator_name, title, description, price, cover_key, is_official, published, lang, native_lang)
+           VALUES ('JiaStore', $1, $2, $3, $4, TRUE, TRUE, $5, $6) RETURNING id`,
+          [`${LABEL[lang]} ${lvl} Pack`, `Essential ${LABEL[lang]} vocabulary at CEFR level ${lvl}.`, PRICE[lvl], cover, lang, sib]);
+        packId = ins.rows[0].id;
+      }
+      await pool.query(`UPDATE word_packs SET price = $1, lang = $2, native_lang = $3, published = TRUE WHERE id = $4`,
+        [PRICE[lvl], lang, sib, packId]);
+      // Ajoute les mots du niveau (langue de contenu) ayant un frère dans l'autre langue.
+      await pool.query(
+        `INSERT INTO word_pack_items (pack_id, mot_id)
+         SELECT $1, m.id FROM mots m
+         WHERE m.lang = $2 AND m.hsk = $3
+           AND EXISTS (SELECT 1 FROM lexeme_senses a
+                       JOIN lexeme_senses b ON b.meaning_id = a.meaning_id
+                       JOIN mots s ON s.id = b.mot_id
+                       WHERE a.mot_id = m.id AND s.lang = $4)
+         ON CONFLICT DO NOTHING`, [packId, lang, lvl, sib]);
+      // Retire les items qui ne correspondent plus (reclassés / langue changée).
+      await pool.query(
+        `DELETE FROM word_pack_items wpi USING mots m
+         WHERE wpi.pack_id = $1 AND wpi.mot_id = m.id
+           AND (m.lang IS DISTINCT FROM $2 OR m.hsk IS DISTINCT FROM $3)`, [packId, lang, lvl]);
+      // Nettoie les items dont le mot a disparu.
+      await pool.query(
+        `DELETE FROM word_pack_items wpi WHERE wpi.pack_id = $1
+           AND NOT EXISTS (SELECT 1 FROM mots m WHERE m.id = wpi.mot_id)`, [packId]);
+      const c = await pool.query(`SELECT COUNT(*)::int AS n FROM word_pack_items WHERE pack_id = $1`, [packId]);
+      counts.push(`${cover}=${c.rows[0].n}`);
+    }
+  }
+  return { counts };
+}
+
+module.exports = { pool, reconcileHskPacks, reconcileCefrPacks };
