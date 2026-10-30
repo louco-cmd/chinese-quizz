@@ -52,12 +52,11 @@ export default function VideoCallScreen({ lessonId, displayName, onBack }) {
     );
   }
 
-  // Daily.co: token already in URL (?t=...) — no extra config needed.
-  // meet.jit.si fallback: pass displayName + disable lobby via hash (best-effort).
   const isDaily = state.url.includes('daily.co');
+  const jitsiExtra = displayName ? '&userInfo.displayName=' + encodeURIComponent('"' + displayName + '"') : '';
   const src = isDaily
     ? state.url
-    : `${state.url}#config.lobby.enabled=false&config.prejoinPageEnabled=false${displayName ? `&userInfo.displayName=${encodeURIComponent(`"${displayName}"`)}` : ''}`;
+    : state.url + '#config.lobby.enabled=false&config.prejoinPageEnabled=false' + jitsiExtra;
 
   // Web : iframe plein écran.
   if (Platform.OS === 'web') {
