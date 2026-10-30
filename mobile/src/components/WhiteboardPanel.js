@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, Pressable, Animated, Platform, TextInput, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { io } from 'socket.io-client';
 import { API_BASE } from '../api';
 import { COLORS } from '../theme';
 
@@ -33,8 +32,15 @@ export default function WhiteboardPanel({ slotId, isHost }) {
   // Socket.io
   useEffect(() => {
     if (!slotId) return;
-    const base = API_BASE || (typeof location !== 'undefined' ? `${location.protocol}//${location.host}` : 'http://localhost:3000');
-    const s = io(base, { path: '/wb', query: { room: String(slotId) }, transports: ['websocket', 'polling'] });
+    let s;
+    try {
+      const { io } = require('socket.io-client');
+      const base = API_BASE || (typeof location !== 'undefined' ? `${location.protocol}//${location.host}` : 'http://localhost:3000');
+      s = io(base, { path: '/wb', query: { room: String(slotId) }, transports: ['websocket', 'polling'] });
+    } catch (e) {
+      console.warn('[whiteboard] socket.io-client unavailable:', e.message);
+      return;
+    }
     socketRef.current = s;
 
     s.on('text_update', (block) => setBlocks((prev) => {
