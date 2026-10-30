@@ -16,12 +16,19 @@
       "bundleIdentifier": "fr.jiayou.app",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Jiayou utilise la caméra pour vos cours de langue en visio.",
+        "NSMicrophoneUsageDescription": "Jiayou utilise le micro pour vos cours de langue en visio."
       }
     },
     "android": {
       "package": "fr.jiayou.app",
       "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#1a6ff7",
         "foregroundImage": "./assets/android-icon-foreground.png",

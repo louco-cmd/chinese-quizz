@@ -1,6 +1,20 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, Pressable, Linking, Platform } from 'react-native';
+import { View, Text, Pressable, Linking, Platform, PermissionsAndroid } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// Android : caméra/micro sont des permissions runtime. react-native-webview ne les
+// demande pas lui-même → on les requête avant d'afficher la WebView. No-op si le
+// manifeste ne les déclare pas encore (ancien binaire) : la visio tombe alors sur
+// le fallback navigateur.
+async function ensureMediaPermissions() {
+  if (Platform.OS !== 'android') return;
+  try {
+    await PermissionsAndroid.requestMultiple([
+      PermissionsAndroid.PERMISSIONS.CAMERA,
+      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+    ]);
+  } catch (e) { /* noop */ }
+}
 import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
@@ -25,6 +39,11 @@ export default function VideoCallScreen({ lessonId, displayName, onBack }) {
     catch (e) { setError(e.message); }
   }, [lessonId]);
   useEffect(() => { load(); }, [load]);
+
+  // Demande caméra/micro dès que l'appel est jouable (Android runtime perms).
+  useEffect(() => {
+    if (state && state.available) ensureMediaPermissions();
+  }, [state]);
 
   const Back = (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.jiayou, paddingHorizontal: 12, paddingVertical: 10, paddingTop: 10 + insets.top }}>
