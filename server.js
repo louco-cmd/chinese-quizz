@@ -2368,22 +2368,24 @@ const server = app.listen(PORT, () => {
   console.log(`🔗 Webhook endpoint: http://localhost:${PORT}/webhook`);
 });
 
-// ── Whiteboard Socket.io ────────────────────────────────────────────────────
-// Chaque room = identifiant de créneau (slotId). Deux participants max par room.
-// Events : draw (segment de trait) et clear (effacement total).
-const { Server: SocketServer } = require('socket.io');
-const wbio = new SocketServer(server, {
-  path: '/wb',
-  cors: { origin: '*' },
-  transports: ['websocket', 'polling'],
-});
-wbio.on('connection', (socket) => {
-  const room = socket.handshake.query.room;
-  if (!room) { socket.disconnect(); return; }
-  socket.join(room);
-  socket.on('draw', (seg) => socket.to(room).emit('draw', seg));
-  socket.on('clear', () => socket.to(room).emit('clear'));
-  socket.on('disconnect', () => {});
+// ── Whiteboard WebSocket ────────────────────────────────────────────────────
+// Chaque room = identifiant de créneau (?room=slotId). Relay brut : tout message
+// reçu d'un client est retransmis aux autres membres de la même room.
+const { WebSocketServer } = require('ws');
+const wbRooms = new Map(); // roomId → Set<ws>
+const wss = new WebSocketServer({ server, path: '/wb' });
+wss.on('connection', (ws, req) => {
+  const roomId = new URL(req.url, 'http://x').searchParams.get('room');
+  if (!roomId) { ws.close(); return; }
+  if (!wbRooms.has(roomId)) wbRooms.set(roomId, new Set());
+  wbRooms.get(roomId).add(ws);
+  ws.on('message', (data) => {
+    wbRooms.get(roomId)?.forEach((c) => { if (c !== ws && c.readyState === 1) c.send(data); });
+  });
+  ws.on('close', () => {
+    wbRooms.get(roomId)?.delete(ws);
+    if (!wbRooms.get(roomId)?.size) wbRooms.delete(roomId);
+  });
 });
 
 // Arrêt propre : à chaque déploiement, Render envoie SIGTERM. On arrête d'accepter

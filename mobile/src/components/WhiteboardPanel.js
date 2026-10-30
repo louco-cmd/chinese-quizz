@@ -7,7 +7,6 @@ import { COLORS } from '../theme';
 const PALETTE = ['#0d6efd', '#f97316', '#16a34a', '#dc2626', '#7c3aed'];
 const PANEL_H = 340;
 const BTN = 50;
-// Position initiale : droite / haut (loin des contrôles vidéo en bas)
 const INIT_BOTTOM = 120;
 const INIT_RIGHT = 16;
 
@@ -17,51 +16,61 @@ export default function WhiteboardPanel({ slotId, isHost }) {
   const [open, setOpen] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
-  // Position draggable de la bulle (stockée en bottom/right relatif à l'écran)
   const dragPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const basePos = useRef({ x: 0, y: 0 }); // valeurs absolues px accumulées entre drags
+  const basePos = useRef({ x: 0, y: 0 });
   const isDragging = useRef(false);
-  const socketRef = useRef(null);
+  const wsRef = useRef(null);
   const myColor = PALETTE[isHost ? 0 : 1];
 
-  // blocks: { id, x (0–1), y (0–1), text, color }
   const [blocks, setBlocks] = useState([]);
-  const boardRef = useRef(null);
   const boardSize = useRef({ w: 1, h: 1 });
 
-  // Socket.io
+  // Native WebSocket — zero deps, works on Hermes
   useEffect(() => {
     if (!slotId) return;
-    let s;
+    const base = API_BASE || (typeof location !== 'undefined' ? `${location.protocol}//${location.host}` : 'http://localhost:3000');
+    const wsUrl = base.replace(/^http/, 'ws') + `/wb?room=${slotId}`;
+    let ws;
     try {
-      const { io } = require('socket.io-client');
-      const base = API_BASE || (typeof location !== 'undefined' ? `${location.protocol}//${location.host}` : 'http://localhost:3000');
-      s = io(base, { path: '/wb', query: { room: String(slotId) }, transports: ['websocket', 'polling'] });
+      ws = new WebSocket(wsUrl);
     } catch (e) {
-      console.warn('[whiteboard] socket.io-client unavailable:', e.message);
+      console.warn('[whiteboard] WebSocket unavailable:', e.message);
       return;
     }
-    socketRef.current = s;
+    wsRef.current = ws;
 
-    s.on('text_update', (block) => setBlocks((prev) => {
-      const idx = prev.findIndex((b) => b.id === block.id);
-      if (idx >= 0) { const n = [...prev]; n[idx] = { ...n[idx], ...block }; return n; }
-      return [...prev, block];
-    }));
-    s.on('text_delete', ({ id }) => setBlocks((prev) => prev.filter((b) => b.id !== id)));
-    s.on('clear', () => setBlocks([]));
+    ws.onmessage = (e) => {
+      let msg;
+      try { msg = JSON.parse(e.data); } catch { return; }
+      if (msg.type === 'text_update') {
+        setBlocks((prev) => {
+          const idx = prev.findIndex((b) => b.id === msg.id);
+          if (idx >= 0) { const n = [...prev]; n[idx] = { ...n[idx], ...msg }; return n; }
+          return [...prev, msg];
+        });
+      } else if (msg.type === 'text_delete') {
+        setBlocks((prev) => prev.filter((b) => b.id !== msg.id));
+      } else if (msg.type === 'clear') {
+        setBlocks([]);
+      }
+    };
+    ws.onerror = (e) => console.warn('[whiteboard] ws error', e.message);
 
-    return () => s.disconnect();
+    return () => { ws.close(); wsRef.current = null; };
   }, [slotId]);
 
+  const wsSend = useCallback((obj) => {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+  }, []);
+
   const toggle = useCallback(() => {
-    if (isDragging.current) return; // ignore tap si c'était un drag
+    if (isDragging.current) return;
     const toValue = open ? 0 : 1;
     Animated.spring(slideAnim, { toValue, useNativeDriver: true, friction: 18, tension: 200 }).start();
     setOpen((v) => !v);
   }, [open, slideAnim]);
 
-  // PanResponder pour déplacer la bulle
   const panResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 4 || Math.abs(g.dy) > 4,
@@ -77,44 +86,37 @@ export default function WhiteboardPanel({ slotId, isHost }) {
     onPanResponderRelease: (_, g) => {
       dragPos.flattenOffset();
       basePos.current = { x: basePos.current.x + g.dx, y: basePos.current.y + g.dy };
-      // Petit délai pour distinguer tap de drag
       setTimeout(() => { isDragging.current = false; }, 80);
     },
   })).current;
 
   const clear = useCallback(() => {
-    socketRef.current?.emit('clear');
+    wsSend({ type: 'clear' });
     setBlocks([]);
-  }, []);
+  }, [wsSend]);
 
-  // Tap sur le board → nouveau bloc texte à cet endroit
   const onBoardPress = useCallback((e) => {
     const { locationX, locationY } = e.nativeEvent;
     const w = boardSize.current.w || 1;
     const h = boardSize.current.h || 1;
-    const x = locationX / w;
-    const y = locationY / h;
-    const block = { id: uid(), x, y, text: '', color: myColor };
+    const block = { id: uid(), x: locationX / w, y: locationY / h, text: '', color: myColor };
     setBlocks((prev) => [...prev, block]);
-    // Pas d'émission socket tant que le texte est vide
   }, [myColor]);
 
   const onBoardLayout = useCallback((e) => {
     boardSize.current = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height };
   }, []);
 
-  const updateBlock = useCallback((id, text) => {
+  const updateBlock = useCallback((id, text, currentBlocks) => {
     setBlocks((prev) => prev.map((b) => b.id === id ? { ...b, text } : b));
-    const block = blocks.find((b) => b.id === id);
-    if (!block) return;
-    const updated = { ...block, text };
-    socketRef.current?.emit('text_update', updated);
-  }, [blocks]);
+    const block = currentBlocks.find((b) => b.id === id);
+    if (block) wsSend({ type: 'text_update', ...block, text });
+  }, [wsSend]);
 
   const deleteBlock = useCallback((id) => {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
-    socketRef.current?.emit('text_delete', { id });
-  }, []);
+    wsSend({ type: 'text_delete', id });
+  }, [wsSend]);
 
   const panelTranslateY = slideAnim.interpolate({ inputRange: [0, 1], outputRange: [PANEL_H + 20, 0] });
 
@@ -150,25 +152,22 @@ export default function WhiteboardPanel({ slotId, isHost }) {
 
         {/* Zone de board */}
         <Pressable
-          ref={boardRef}
           onLayout={onBoardLayout}
           onPress={onBoardPress}
           style={{ flex: 1, backgroundColor: '#fafbfd', position: 'relative' }}
         >
-          {/* Hint si vide */}
           {blocks.length === 0 && (
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }} pointerEvents="none">
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
               <Ionicons name="create-outline" size={22} color="#c5cbdb" />
               <Text style={{ fontSize: 11.5, color: '#c5cbdb', marginTop: 6, textAlign: 'center' }}>Tape ici pour écrire</Text>
             </View>
           )}
 
-          {/* Blocs texte */}
           {blocks.map((b) => (
-            <View key={b.id} style={{ position: 'absolute', left: `${b.x * 100}%`, top: `${b.y * 100}%` }} pointerEvents="auto">
+            <View key={b.id} style={{ position: 'absolute', left: `${b.x * 100}%`, top: `${b.y * 100}%` }}>
               <TextInput
                 value={b.text}
-                onChangeText={(t) => updateBlock(b.id, t)}
+                onChangeText={(t) => updateBlock(b.id, t, blocks)}
                 onBlur={() => { if (!b.text.trim()) deleteBlock(b.id); }}
                 autoFocus={b.color === myColor && b.text === ''}
                 multiline
