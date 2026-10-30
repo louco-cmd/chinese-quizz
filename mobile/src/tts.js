@@ -41,7 +41,7 @@ export async function speak(text, lang = 'zh-CN', opts = {}) {
 
     const { sound } = await Audio.Sound.createAsync(
       { uri: url },
-      { shouldPlay: true, rate, volume: 1.0 },
+      { shouldPlay: true, rate, volume: 1.0, shouldCorrectPitch: true },
     );
     _sound = sound;
 
