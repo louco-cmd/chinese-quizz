@@ -1,31 +1,29 @@
-// TTS service — uses Edge neural voices via backend proxy (/api/m/tts).
-// Falls back to expo-speech if the request fails or on web without audio support.
+// TTS service.
+//  • Web   : neural Edge voice via the backend proxy (/api/m/tts), played with the
+//    browser's own Audio element — no native module, works everywhere.
+//  • Native: expo-speech (OS voice). We deliberately do NOT use expo-av here:
+//    expo-av is gone from SDK 57 and streaming a remote URL through it crashed the
+//    app (black screen). The neural voice returns on native once expo-audio ships
+//    in a native rebuild (see pending-native-rebuild).
 import { Platform } from 'react-native';
 import { API_BASE } from './api';
 
-// expo-av est un module natif : il n'existe pas tant que l'AAB ne l'embarque pas.
-// On le charge en lazy-require protégé pour qu'une OTA ne crashe pas sur un binaire
-// qui ne le contient pas encore (le TTS tombe alors sur expo-speech).
-var _Audio;
-function getAudio() {
-  if (_Audio !== undefined) return _Audio;
-  try { _Audio = require('expo-av').Audio; } catch (e) { _Audio = null; }
-  return _Audio;
-}
-
-var _sound = null;
-var _playing = false;
+var _webAudio = null; // single reused HTMLAudioElement on web
 
 export async function stop() {
-  _playing = false;
-  if (_sound) {
-    try { await _sound.stopAsync(); } catch (e) { /* noop */ }
+  if (Platform.OS === 'web') {
+    if (_webAudio) { try { _webAudio.pause(); } catch (e) { /* noop */ } }
+    return;
   }
+  try {
+    var Speech = require('expo-speech');
+    Speech.stop();
+  } catch (e) { /* noop */ }
 }
 
 // speak(text, lang, opts?)
 //   text : string to synthesize
-//   lang : locale code matching LANG_META.tts (e.g. 'zh-CN', 'fr-FR', 'en-US')
+//   lang : locale code (e.g. 'zh-CN', 'fr-FR', 'en-US')
 //   opts : { rate?: 0.5–2.0, onStart?, onDone?, onError? }
 export async function speak(text, lang, opts) {
   if (!lang) lang = 'zh-CN';
@@ -37,55 +35,41 @@ export async function speak(text, lang, opts) {
 
   if (!text || !text.trim()) return;
 
-  var url = API_BASE + '/api/m/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
-
-  var Audio = getAudio();
-  // Pas d'expo-av dans ce binaire → fallback direct expo-speech.
-  if (!Audio) {
+  // ── Web : neural MP3 via <audio> ────────────────────────────────────────────
+  if (Platform.OS === 'web') {
+    var url = API_BASE + '/api/m/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
     try {
-      var Speech = require('expo-speech');
+      if (_webAudio) { try { _webAudio.pause(); } catch (e) { /* noop */ } }
+      var audio = new Audio(url);
+      audio.playbackRate = rate;
+      _webAudio = audio;
       if (onStart) onStart();
-      Speech.speak(text, { language: lang, rate: rate, onDone: function() { if (onDone) onDone(); } });
-    } catch (e) { if (onError) onError(e); }
+      audio.onended = function () { if (onDone) onDone(); };
+      audio.onerror = function () { speakWithSpeech(text, lang, rate, onDone, onError); };
+      var p = audio.play();
+      if (p && p.catch) p.catch(function () { speakWithSpeech(text, lang, rate, onDone, onError); });
+    } catch (e) {
+      speakWithSpeech(text, lang, rate, onDone, onError);
+    }
     return;
   }
 
+  // ── Native : voix OS via expo-speech ────────────────────────────────────────
+  if (onStart) onStart();
+  speakWithSpeech(text, lang, rate, onDone, onError);
+}
+
+function speakWithSpeech(text, lang, rate, onDone, onError) {
   try {
-    await stop();
-    _playing = true;
-
-    if (_sound) {
-      try { await _sound.unloadAsync(); } catch (e) { /* noop */ }
-      _sound = null;
-    }
-
-    if (onStart) onStart();
-
-    var result = await Audio.Sound.createAsync(
-      { uri: url },
-      { shouldPlay: true, rate: rate, volume: 1.0, shouldCorrectPitch: true }
-    );
-    var sound = result.sound;
-    _sound = sound;
-
-    sound.setOnPlaybackStatusUpdate(function(status) {
-      if (!_playing) return;
-      if (status.didJustFinish) {
-        _playing = false;
-        if (onDone) onDone();
-        sound.unloadAsync().catch(function() {});
-        if (_sound === sound) _sound = null;
-      }
+    var Speech = require('expo-speech');
+    Speech.stop();
+    Speech.speak(text, {
+      language: lang,
+      rate: rate,
+      onDone: function () { if (onDone) onDone(); },
+      onError: function (e) { if (onError) onError(e); },
     });
   } catch (e) {
-    _playing = false;
-    // Fallback to expo-speech on error
-    try {
-      var Speech2 = require('expo-speech');
-      Speech2.speak(text, { language: lang, rate: rate });
-      if (onDone) onDone();
-    } catch (e2) {
-      if (onError) onError(e);
-    }
+    if (onError) onError(e);
   }
 }
