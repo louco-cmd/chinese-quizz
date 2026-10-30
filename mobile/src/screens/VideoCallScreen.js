@@ -50,10 +50,10 @@ export default function VideoCallScreen({ lessonId, displayName, onBack }) {
     );
   }
 
-  // JaaS: JWT already in URL (contains name + moderator role) — no hash needed.
+  // Daily.co: token already in URL (?t=...) — no extra config needed.
   // meet.jit.si fallback: pass displayName + disable lobby via hash (best-effort).
-  const isJaaS = state.url.includes('8x8.vc');
-  const src = isJaaS
+  const isDaily = state.url.includes('daily.co');
+  const src = isDaily
     ? state.url
     : `${state.url}#config.lobby.enabled=false&config.prejoinPageEnabled=false${displayName ? `&userInfo.displayName=${encodeURIComponent(`"${displayName}"`)}` : ''}`;
 

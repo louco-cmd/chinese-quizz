@@ -5761,14 +5761,11 @@ router.get('/api/m/agenda/upcoming', requireToken, async (req, res) => {
   } catch (e) { console.error('m/agenda upcoming:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
-// ── Visio (JaaS / Jitsi) : room par cours ────────────────────────────────────
-// En production : JaaS (8x8.vc) avec JWT — nécessite JAAS_APP_ID, JAAS_KEY_ID,
-// JAAS_PRIVATE_KEY dans les env vars (clé RSA PEM, sauts de ligne = \n littéraux).
-// Fallback : meet.jit.si sans auth (lobby bloque sans JWT → utiliser JaaS).
-const JAAS_APP_ID  = process.env.JAAS_APP_ID;   // ex: vpaas-magic-cookie-abc123
-const JAAS_KEY_ID  = process.env.JAAS_KEY_ID;   // ex: abc123def456
-const JAAS_PRIVATE_KEY = process.env.JAAS_PRIVATE_KEY; // clé RSA PEM (\n = vrais sauts)
-const JITSI_DOMAIN = process.env.JITSI_DOMAIN || (JAAS_APP_ID ? '8x8.vc' : 'meet.jit.si');
+// ── Visio (Daily.co) : room par cours ────────────────────────────────────────
+// Pricing: $0.004/participant/minute — ~$0.48 per 1h 1:1 session (vs $1000/mo JaaS).
+// Nécessite DAILY_API_KEY dans les env vars (dashboard.daily.co → Developers).
+// Fallback : meet.jit.si (lobby bloque sans JWT — à éviter en prod).
+const DAILY_API_KEY = process.env.DAILY_API_KEY;
 
 // Nom de room déterministe et NON-DEVINABLE (HMAC de l'id du créneau).
 function lessonRoom(slotId) {
@@ -5777,35 +5774,41 @@ function lessonRoom(slotId) {
   return `jiayou-${slotId}-${mac}`;
 }
 
-// Génère un JWT JaaS signé RS256 pour un participant.
-// doc: https://developer.8x8.com/jaas/docs/api-keys-jwt
-function jaasToken({ appId, keyId, privateKey, room, userId, name, email, moderator }) {
-  const now = Math.floor(Date.now() / 1000);
-  const payload = {
-    iss: 'chat',
-    aud: 'jitsi',
-    sub: '8x8.vc',
-    room: `${appId}/${room}`,
-    exp: now + 7200, // 2 h
-    nbf: now - 10,
-    context: {
-      user: {
-        id: String(userId),
-        name: name || 'User',
-        email: email || '',
-        moderator,
-        avatar: '',
-      },
-      features: { livestreaming: false, recording: false, transcription: false, 'outbound-call': false },
-    },
-  };
-  // Les sauts de ligne sont stockés comme \n littéraux dans Render → on les restaure.
-  const pem = privateKey.replace(/\\n/g, '\n');
-  return jwt.sign(payload, pem, { algorithm: 'RS256', header: { kid: `${appId}/${keyId}`, typ: 'JWT' } });
+// Crée (ou récupère) une room Daily.co et génère un meeting token.
+// rooms sont "private" (pas d'accès sans token) + expiry auto après le cours.
+async function dailyRoom(roomName, endsAt) {
+  const base = 'https://api.daily.co/v1';
+  const headers = { Authorization: `Bearer ${DAILY_API_KEY}`, 'Content-Type': 'application/json' };
+  const expTs = Math.floor(new Date(endsAt).getTime() / 1000) + JOIN_LATE_MS / 1000;
+
+  // Crée la room si elle n'existe pas encore (idempotent : 409 = déjà là).
+  let domainRes = await fetch(`${base}/rooms/${roomName}`, { headers });
+  if (domainRes.status === 404) {
+    const r = await fetch(`${base}/rooms`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ name: roomName, privacy: 'private', properties: { exp: expTs, enable_prejoin_ui: false } }),
+    });
+    if (!r.ok) throw new Error(`Daily create room: ${r.status}`);
+    domainRes = r;
+  }
+  const roomData = await domainRes.json();
+  return roomData.url; // https://{subdomain}.daily.co/{roomName}
 }
 
-const JOIN_EARLY_MS = 15 * 60 * 1000;  // on peut rejoindre 15 min avant
-const JOIN_LATE_MS = 30 * 60 * 1000;   // et jusqu'à 30 min après la fin
+async function dailyToken(roomName, { isOwner, userId, userName, expiresAt }) {
+  const headers = { Authorization: `Bearer ${DAILY_API_KEY}`, 'Content-Type': 'application/json' };
+  const exp = Math.floor(new Date(expiresAt).getTime() / 1000) + JOIN_LATE_MS / 1000;
+  const r = await fetch('https://api.daily.co/v1/meeting-tokens', {
+    method: 'POST', headers,
+    body: JSON.stringify({ properties: { room_name: roomName, is_owner: isOwner, user_id: String(userId), user_name: userName, exp, enable_recording: 'none' } }),
+  });
+  if (!r.ok) throw new Error(`Daily token: ${r.status}`);
+  const { token } = await r.json();
+  return token;
+}
+
+const JOIN_EARLY_MS = 15 * 60 * 1000;
+const JOIN_LATE_MS  = 30 * 60 * 1000;
 
 // ── GET /api/m/lesson/:id/room : URL de visio du cours (participants only) ────
 router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
@@ -5815,14 +5818,14 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
     if (!id) return res.status(400).json({ error: 'Invalid lesson' });
     const { rows } = await pool.query(
       `SELECT ts.teacher_id, ts.student_id, ts.starts_at, ts.ends_at,
-              u.name AS user_name, u.email AS user_email
+              u.name AS user_name
        FROM teacher_slots ts
        JOIN users u ON u.id = $2
        WHERE ts.id = $1 AND ts.status = 'booked'`, [id, uid]);
     if (!rows.length) return res.status(404).json({ error: 'Lesson not found' });
     const s = rows[0];
     if (uid !== s.teacher_id && uid !== s.student_id) return res.status(403).json({ error: 'Not your lesson' });
-    // Fenêtre de jonction.
+
     const now = Date.now();
     const start = new Date(s.starts_at).getTime(), end = new Date(s.ends_at).getTime();
     if (now < start - JOIN_EARLY_MS) return res.json({ available: false, reason: 'too_early', starts_at: s.starts_at });
@@ -5831,17 +5834,15 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
     const room = lessonRoom(id);
     const isHost = uid === s.teacher_id;
 
-    // JaaS JWT auth (activé si JAAS_APP_ID est défini)
-    if (JAAS_APP_ID && JAAS_KEY_ID && JAAS_PRIVATE_KEY) {
-      const token = jaasToken({
-        appId: JAAS_APP_ID, keyId: JAAS_KEY_ID, privateKey: JAAS_PRIVATE_KEY,
-        room, userId: uid, name: s.user_name, email: s.user_email, moderator: isHost,
-      });
-      const url = `https://8x8.vc/${JAAS_APP_ID}/${room}?jwt=${token}`;
-      return res.json({ available: true, room, domain: '8x8.vc', isHost, url });
+    // Daily.co (activé si DAILY_API_KEY est défini)
+    if (DAILY_API_KEY) {
+      const roomUrl = await dailyRoom(room, s.ends_at);
+      const token = await dailyToken(room, { isOwner: isHost, userId: uid, userName: s.user_name, expiresAt: s.ends_at });
+      return res.json({ available: true, room, domain: 'daily.co', isHost, url: `${roomUrl}?t=${token}` });
     }
 
     // Fallback meet.jit.si (sans JWT → lobby peut bloquer)
+    const JITSI_DOMAIN = process.env.JITSI_DOMAIN || 'meet.jit.si';
     res.json({ available: true, room, domain: JITSI_DOMAIN, isHost, url: `https://${JITSI_DOMAIN}/${room}` });
   } catch (e) { console.error('m/lesson room:', e); res.status(500).json({ error: 'Server error' }); }
 });
