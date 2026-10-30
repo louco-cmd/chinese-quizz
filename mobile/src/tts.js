@@ -1,8 +1,17 @@
 // TTS service — uses Edge neural voices via backend proxy (/api/m/tts).
 // Falls back to expo-speech if the request fails or on web without audio support.
-import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 import { API_BASE } from './api';
+
+// expo-av est un module natif : il n'existe pas tant que l'AAB ne l'embarque pas.
+// On le charge en lazy-require protégé pour qu'une OTA ne crashe pas sur un binaire
+// qui ne le contient pas encore (le TTS tombe alors sur expo-speech).
+let _Audio;
+function getAudio() {
+  if (_Audio !== undefined) return _Audio;
+  try { _Audio = require('expo-av').Audio; } catch { _Audio = null; }
+  return _Audio;
+}
 
 // One Sound instance reused across calls (replaces previous before playing)
 let _sound = null;
@@ -27,6 +36,17 @@ export async function speak(text, lang = 'zh-CN', opts = {}) {
   // Web: the backend URL is accessible same-origin; Audio.Sound works via <audio>
   // Native: expo-av plays HTTP URLs natively
   const url = `${API_BASE}/api/m/tts?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`;
+
+  const Audio = getAudio();
+  // Pas d'expo-av dans ce binaire → fallback direct expo-speech.
+  if (!Audio) {
+    try {
+      const Speech = await import('expo-speech');
+      onStart?.();
+      Speech.default.speak(text, { language: lang, rate, onDone: () => onDone?.() });
+    } catch (e) { onError?.(e); }
+    return;
+  }
 
   try {
     await stop();
