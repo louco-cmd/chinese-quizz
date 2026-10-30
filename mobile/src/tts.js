@@ -6,21 +6,20 @@ import { API_BASE } from './api';
 // expo-av est un module natif : il n'existe pas tant que l'AAB ne l'embarque pas.
 // On le charge en lazy-require protégé pour qu'une OTA ne crashe pas sur un binaire
 // qui ne le contient pas encore (le TTS tombe alors sur expo-speech).
-let _Audio;
+var _Audio;
 function getAudio() {
   if (_Audio !== undefined) return _Audio;
-  try { _Audio = require('expo-av').Audio; } catch { _Audio = null; }
+  try { _Audio = require('expo-av').Audio; } catch (e) { _Audio = null; }
   return _Audio;
 }
 
-// One Sound instance reused across calls (replaces previous before playing)
-let _sound = null;
-let _playing = false;
+var _sound = null;
+var _playing = false;
 
 export async function stop() {
   _playing = false;
   if (_sound) {
-    try { await _sound.stopAsync(); } catch { /* noop */ }
+    try { await _sound.stopAsync(); } catch (e) { /* noop */ }
   }
 }
 
@@ -28,23 +27,26 @@ export async function stop() {
 //   text : string to synthesize
 //   lang : locale code matching LANG_META.tts (e.g. 'zh-CN', 'fr-FR', 'en-US')
 //   opts : { rate?: 0.5–2.0, onStart?, onDone?, onError? }
-export async function speak(text, lang = 'zh-CN', opts = {}) {
-  const { rate = 1.0, onStart, onDone, onError } = opts;
+export async function speak(text, lang, opts) {
+  if (!lang) lang = 'zh-CN';
+  if (!opts) opts = {};
+  var rate = opts.rate || 1.0;
+  var onStart = opts.onStart;
+  var onDone = opts.onDone;
+  var onError = opts.onError;
 
-  if (!text?.trim()) return;
+  if (!text || !text.trim()) return;
 
-  // Web: the backend URL is accessible same-origin; Audio.Sound works via <audio>
-  // Native: expo-av plays HTTP URLs natively
-  const url = `${API_BASE}/api/m/tts?text=${encodeURIComponent(text)}&lang=${encodeURIComponent(lang)}`;
+  var url = API_BASE + '/api/m/tts?text=' + encodeURIComponent(text) + '&lang=' + encodeURIComponent(lang);
 
-  const Audio = getAudio();
+  var Audio = getAudio();
   // Pas d'expo-av dans ce binaire → fallback direct expo-speech.
   if (!Audio) {
     try {
-      const Speech = await import('expo-speech');
-      onStart?.();
-      Speech.default.speak(text, { language: lang, rate, onDone: () => onDone?.() });
-    } catch (e) { onError?.(e); }
+      var Speech = require('expo-speech');
+      if (onStart) onStart();
+      Speech.speak(text, { language: lang, rate: rate, onDone: function() { if (onDone) onDone(); } });
+    } catch (e) { if (onError) onError(e); }
     return;
   }
 
@@ -53,24 +55,25 @@ export async function speak(text, lang = 'zh-CN', opts = {}) {
     _playing = true;
 
     if (_sound) {
-      try { await _sound.unloadAsync(); } catch { /* noop */ }
+      try { await _sound.unloadAsync(); } catch (e) { /* noop */ }
       _sound = null;
     }
 
-    onStart?.();
+    if (onStart) onStart();
 
-    const { sound } = await Audio.Sound.createAsync(
+    var result = await Audio.Sound.createAsync(
       { uri: url },
-      { shouldPlay: true, rate, volume: 1.0, shouldCorrectPitch: true },
+      { shouldPlay: true, rate: rate, volume: 1.0, shouldCorrectPitch: true }
     );
+    var sound = result.sound;
     _sound = sound;
 
-    sound.setOnPlaybackStatusUpdate((status) => {
+    sound.setOnPlaybackStatusUpdate(function(status) {
       if (!_playing) return;
       if (status.didJustFinish) {
         _playing = false;
-        onDone?.();
-        sound.unloadAsync().catch(() => {});
+        if (onDone) onDone();
+        sound.unloadAsync().catch(function() {});
         if (_sound === sound) _sound = null;
       }
     });
@@ -78,11 +81,11 @@ export async function speak(text, lang = 'zh-CN', opts = {}) {
     _playing = false;
     // Fallback to expo-speech on error
     try {
-      const Speech = await import('expo-speech');
-      Speech.default.speak(text, { language: lang, rate });
-      onDone?.();
-    } catch {
-      onError?.(e);
+      var Speech2 = require('expo-speech');
+      Speech2.speak(text, { language: lang, rate: rate });
+      if (onDone) onDone();
+    } catch (e2) {
+      if (onError) onError(e);
     }
   }
 }
