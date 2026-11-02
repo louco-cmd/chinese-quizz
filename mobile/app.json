@@ -78,7 +78,8 @@
           "microphonePermission": false,
           "enableBackgroundPlayback": false
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "extra": {
       "eas": {
