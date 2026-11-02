@@ -2106,8 +2106,8 @@ async function expireFinishedSubscriptions() {
   }
 }
 
-// Exécuter toutes les heures
-setInterval(expireFinishedSubscriptions, 60 * 60 * 1000);
+// Toutes les 6 h (évite de réveiller le compute Neon 24×/jour pour rien).
+setInterval(expireFinishedSubscriptions, 6 * 60 * 60 * 1000);
 
 // ==========================================
 // 🔄 SYNCHRONISATION STRIPE
@@ -2156,8 +2156,8 @@ async function syncStripeSubscriptions() {
   }
 }
 
-// Exécuter toutes les heures
-setInterval(syncStripeSubscriptions, 60 * 60 * 1000);
+// Toutes les 6 h (évite de réveiller le compute Neon 24×/jour pour rien).
+setInterval(syncStripeSubscriptions, 6 * 60 * 60 * 1000);
 
 // ── Relance "long time no see" : email aux inactifs (14 j), 1x par absence ───
 cron.schedule('0 10 * * *', async () => {
