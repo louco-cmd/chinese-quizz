@@ -13,10 +13,11 @@ import MyPacksCard from '../components/account/MyPacksCard';
 import PurchasedPacksCard from '../components/account/PurchasedPacksCard';
 import Popup from '../components/Popup';
 import CoursePage from './CoursePage';
+import MyTeacherScreen from './MyTeacherScreen';
 import ProgressShareCard from '../share/ProgressShareCard';
 import { imageShareAvailable, captureAndShare } from '../share/shareImage';
 import { ErrorRetry } from '../components/ErrorRetry';
-import { getAccount, getStudentClasses, getUpcomingSessions, leaveMentor, prefetchSettings } from '../api';
+import { getAccount, getStudentClasses, getUpcomingSessions, prefetchSettings } from '../api';
 import { useT } from '../i18n';
 import { COLORS, TAB_CLEARANCE } from '../theme';
 import CatLoader from '../components/CatLoader';
@@ -45,8 +46,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
   const [editing, setEditing] = useState(false);
   const [classes, setClasses] = useState(null); // { mentors, tasks }
   const [upcomingSessions, setUpcomingSessions] = useState([]);
-  const [leaving, setLeaving] = useState(null); // mentor à quitter
-  const [leaveBusy, setLeaveBusy] = useState(false);
+  const [mentorView, setMentorView] = useState(null); // prof ouvert (page « mon prof »)
   const [courseId, setCourseId] = useState(null); // task ouverte
   const [shareOpen, setShareOpen] = useState(false); // popup "partager ma progression"
   const [sharing, setSharing] = useState(false);
@@ -91,17 +91,17 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
   // Précharge les réglages en arrière-plan → slide vers Settings instantané.
   useEffect(() => { prefetchSettings(); }, []);
 
-  async function confirmLeave() {
-    if (!leaving) return;
-    setLeaveBusy(true);
-    try {
-      await leaveMentor(leaving.id);
-      setLeaving(null);
-      load();
-    } catch { /* noop */ } finally { setLeaveBusy(false); }
-  }
-
   // Sous-vues
+  if (mentorView) {
+    return (
+      <MyTeacherScreen
+        teacherId={mentorView.teacher_id || mentorView.id}
+        teacherName={mentorView.name}
+        onBack={() => { setMentorView(null); load(); }}
+        onVideoCall={onVideoCall}
+      />
+    );
+  }
   if (courseId) return <CoursePage lessonId={courseId} onBack={() => { setCourseId(null); load(); }} />;
 
   if (loading) {
@@ -207,7 +207,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
                   mentors={classes?.mentors || []}
                   tasks={classes?.tasks || []}
                   upcomingSessions={upcomingSessions}
-                  onLeave={(m) => setLeaving(m)}
+                  onOpenMentor={(m) => setMentorView(m)}
                   onOpenTask={(t) => setCourseId(t.id)}
                   onJoinLesson={(id) => onVideoCall?.(id)}
                 />
@@ -268,22 +268,6 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
             </>
           )}
         </Pressable>
-      </Popup>
-
-      {/* Quitter un prof */}
-      <Popup visible={!!leaving} onClose={() => setLeaving(null)} maxWidth={380}>
-        <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{t('ac_leave_title').replace('{name}', leaving?.name || '')}</Text>
-        <Text style={{ fontSize: 14, color: COLORS.muted, lineHeight: 20, marginBottom: 20 }}>
-          {t('ac_leave_body')}
-        </Text>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setLeaving(null)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_cancel')}</Text>
-          </Pressable>
-          <Pressable onPress={confirmLeave} disabled={leaveBusy} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            {leaveBusy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{t('ac_leave')}</Text>}
-          </Pressable>
-        </View>
       </Popup>
     </View>
   );

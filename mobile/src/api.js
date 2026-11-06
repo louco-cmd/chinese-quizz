@@ -456,6 +456,14 @@ export function leaveMentor(teacherId) {
   return request(`/api/m/student/mentors/${teacherId}/leave`, { method: 'POST' });
 }
 
+// Page « mon prof » (côté élève) : identité + stats + classes + cours à venir + ma note.
+export function getStudentMentor(teacherId) {
+  return request(`/api/m/student/mentors/${teacherId}/overview`);
+}
+export function rateMentor(teacherId, rating, comment) {
+  return request(`/api/m/student/mentors/${teacherId}/rate`, { method: 'POST', body: { rating, comment } });
+}
+
 export function startTask(lessonId) {
   return request(`/api/m/student/tasks/${lessonId}/start`, { method: 'POST' });
 }
@@ -655,6 +663,9 @@ export function bookTrial(id, startsAt) {
 }
 export function getTeacherLessons() {
   return request('/api/m/teacher/lessons');
+}
+export function updateTeacherLesson(id, payload) {
+  return request(`/api/m/teacher/lessons/${id}`, { method: 'PUT', body: payload });
 }
 export function deleteTeacherLesson(id) {
   return request(`/api/m/teacher/lessons/${id}`, { method: 'DELETE' });

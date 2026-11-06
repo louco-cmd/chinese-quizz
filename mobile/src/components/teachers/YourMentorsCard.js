@@ -17,7 +17,7 @@ function fmtSession(iso) {
 
 // Carte "My mentor" de la page account : sessions à venir + profs rejoints +
 // profs trial (séance réservée mais pas encore enrolled) + tasks.
-export default function YourMentorsCard({ mentors, tasks, upcomingSessions, onLeave, onOpenTask, onJoinLesson }) {
+export default function YourMentorsCard({ mentors, tasks, upcomingSessions, onOpenMentor, onOpenTask, onJoinLesson }) {
   const myLessons = (upcomingSessions || []).filter((u) => !u.i_am_teacher);
 
   // Profs avec qui on a une séance à venir mais qui ne sont pas encore dans mentors.
@@ -88,7 +88,7 @@ export default function YourMentorsCard({ mentors, tasks, upcomingSessions, onLe
       {allMentors.map((m, i) => (
         <Pressable
           key={m.id}
-          onPress={() => onLeave?.(m)}
+          onPress={() => onOpenMentor?.(m)}
           style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             paddingVertical: 10, borderBottomWidth: i === allMentors.length - 1 ? 0 : 1, borderColor: '#f5f5f5',

@@ -3331,6 +3331,109 @@ router.get('/api/m/student/lessons/:id', requireToken, async (req, res) => {
   }
 });
 
+// ── GET /api/m/student/mentors/:teacherId/overview : page « mon prof » ────────
+// Vue côté élève d'un prof qu'il a rejoint : identité + stats, ses classes avec
+// ce prof, ses cours à venir, et sa propre note. Pas de filtre mentor_listed —
+// on autorise dès qu'un lien élève↔prof existe (classe ou cours réservé).
+router.get('/api/m/student/mentors/:teacherId/overview', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const teacherId = parseInt(req.params.teacherId, 10);
+    if (!teacherId) return res.status(400).json({ error: 'Invalid mentor' });
+
+    const [enroll, slotLink] = await Promise.all([
+      pool.query(
+        `SELECT 1 FROM classroom_students cs JOIN classrooms c ON c.id = cs.classroom_id
+         WHERE c.teacher_id = $1 AND cs.student_id = $2 LIMIT 1`, [teacherId, uid]),
+      pool.query(`SELECT 1 FROM teacher_slots WHERE teacher_id = $1 AND student_id = $2 LIMIT 1`, [teacherId, uid]),
+    ]);
+    if (!enroll.rows.length && !slotLink.rows.length) return res.status(404).json({ error: 'Teacher not found' });
+
+    const tq = await pool.query(
+      `SELECT u.id, COALESCE(NULLIF(TRIM(u.name), ''), 'Your teacher') AS name,
+              u.teaching_languages, u.session_price, u.session_currency,
+              (SELECT COUNT(DISTINCT cs.student_id) FROM classrooms c JOIN classroom_students cs ON cs.classroom_id = c.id
+                 WHERE c.teacher_id = u.id AND cs.status = 'active')::int AS student_count,
+              (SELECT COUNT(*) FROM teacher_slots ts WHERE ts.teacher_id = u.id AND ts.status = 'booked' AND ts.ends_at < NOW())::int AS courses_given,
+              (SELECT ROUND(AVG(rating)::numeric, 1) FROM teacher_ratings WHERE teacher_id = u.id) AS rating,
+              (SELECT COUNT(*) FROM teacher_ratings WHERE teacher_id = u.id)::int AS rating_count
+       FROM users u WHERE u.id = $1 AND u.role = 'teacher'`, [teacherId]);
+    if (!tq.rows.length) return res.status(404).json({ error: 'Teacher not found' });
+    const t = tq.rows[0];
+
+    const [classes, lessons, upcoming, mine] = await Promise.all([
+      pool.query(
+        `SELECT c.id, c.name, cs.status, MIN(cs.joined_at) AS since,
+                (SELECT COUNT(*) FROM lessons l WHERE l.classroom_id = c.id)::int AS task_count
+         FROM classroom_students cs JOIN classrooms c ON c.id = cs.classroom_id
+         WHERE c.teacher_id = $1 AND cs.student_id = $2
+         GROUP BY c.id, c.name, cs.status ORDER BY since ASC`, [teacherId, uid]),
+      // Cours reçus de ce prof (même forme que /student/history → composant partagé).
+      pool.query(
+        `SELECT l.id, l.title, l.created_at, c.name AS class_name, cs.status AS membership,
+                (SELECT COUNT(*) FROM lesson_words lw WHERE lw.lesson_id = l.id)::int AS word_count,
+                (SELECT COALESCE(ROUND(AVG(COALESCE(um.score, 0))), 0)
+                   FROM lesson_words lw
+                   LEFT JOIN user_mots um ON um.mot_id = lw.mot_id AND um.user_id = $2
+                   WHERE lw.lesson_id = l.id)::int AS knowledge
+         FROM lessons l
+         JOIN classrooms c ON c.id = l.classroom_id
+         JOIN classroom_students cs ON cs.classroom_id = c.id AND cs.student_id = $2
+         WHERE c.teacher_id = $1 AND l.created_at >= COALESCE(cs.joined_at, 'epoch')
+         ORDER BY l.created_at DESC`, [teacherId, uid]),
+      pool.query(
+        `SELECT ts.id, ts.starts_at, ts.ends_at, ts.note
+         FROM teacher_slots ts
+         WHERE ts.teacher_id = $1 AND ts.student_id = $2 AND ts.status = 'booked' AND ts.ends_at > NOW()
+         ORDER BY ts.starts_at ASC`, [teacherId, uid]),
+      pool.query(`SELECT rating, comment FROM teacher_ratings WHERE teacher_id = $1 AND student_id = $2`, [teacherId, uid]),
+    ]);
+
+    const isActive = classes.rows.some((c) => c.status === 'active');
+    res.json({
+      teacher: {
+        id: t.id, name: t.name,
+        teaching_languages: (t.teaching_languages || '').split(',').map((s) => s.trim()).filter(Boolean),
+        session_price: t.session_price != null ? Number(t.session_price) : null,
+        session_currency: t.session_currency || 'EUR',
+        student_count: t.student_count, courses_given: t.courses_given,
+        rating: t.rating != null ? Number(t.rating) : null, rating_count: t.rating_count,
+      },
+      is_active: isActive,
+      classes: classes.rows.map((c) => ({ id: c.id, name: c.name, status: c.status, since: c.since, task_count: c.task_count })),
+      lessons: lessons.rows
+        .filter((r) => r.word_count > 0)
+        .map((r) => ({
+          id: r.id, title: r.title, class_name: r.class_name, membership: r.membership,
+          word_count: r.word_count, knowledge: r.knowledge, completed: r.knowledge >= 100,
+        })),
+      upcoming_lessons: upcoming.rows,
+      my_rating: mine.rows[0] || null,
+    });
+  } catch (e) { console.error('m/student mentor overview error:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── POST /api/m/student/mentors/:teacherId/rate : noter un prof (1 note/élève) ─
+router.post('/api/m/student/mentors/:teacherId/rate', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const teacherId = parseInt(req.params.teacherId, 10);
+    const rating = parseInt(req.body?.rating, 10);
+    const comment = (req.body?.comment || '').trim().slice(0, 500) || null;
+    if (!teacherId) return res.status(400).json({ error: 'Invalid mentor' });
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    const link = await pool.query(
+      `SELECT 1 FROM classroom_students cs JOIN classrooms c ON c.id = cs.classroom_id
+       WHERE c.teacher_id = $1 AND cs.student_id = $2 LIMIT 1`, [teacherId, uid]);
+    if (!link.rows.length) return res.status(403).json({ error: 'You are not enrolled with this teacher' });
+    await pool.query(
+      `INSERT INTO teacher_ratings (teacher_id, student_id, rating, comment) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (teacher_id, student_id) DO UPDATE SET rating = EXCLUDED.rating, comment = EXCLUDED.comment, created_at = CURRENT_TIMESTAMP`,
+      [teacherId, uid, rating, comment]);
+    res.json({ success: true });
+  } catch (e) { console.error('m/student rate mentor error:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
 // ── POST /api/m/student/mentors/:teacherId/leave : quitter un prof ───────────
 router.post('/api/m/student/mentors/:teacherId/leave', requireToken, async (req, res) => {
   try {
@@ -5656,16 +5759,45 @@ router.get('/api/m/teacher/lessons', requireToken, requireTeacher, async (req, r
   } catch (e) { console.error('m/teacher lessons:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
+// ── PUT /api/m/teacher/lessons/:id : le prof modifie un cours réservé ────────
+router.put('/api/m/teacher/lessons/:id', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid lesson' });
+    const { starts_at, note } = req.body || {};
+    if (!starts_at) return res.status(400).json({ error: 'starts_at required' });
+    const newStart = new Date(starts_at);
+    if (isNaN(newStart.getTime()) || newStart <= new Date()) return res.status(400).json({ error: 'Invalid or past date' });
+    const newEnd = new Date(newStart.getTime() + 60 * 60 * 1000);
+    const { rows } = await pool.query(
+      `UPDATE teacher_slots SET starts_at = $3, ends_at = $4, note = $5
+       WHERE id = $1 AND teacher_id = $2 AND status = 'booked' RETURNING student_id, starts_at`,
+      [id, req.teacher.id, newStart, newEnd, (note ?? '').slice(0, 200) || null]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    const teacherName = (await pool.query('SELECT name FROM users WHERE id = $1', [req.teacher.id])).rows[0]?.name || 'Your teacher';
+    const fmtDate = newStart.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const fmtTime = newStart.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    notify(rows[0].student_id, 'lesson_modified', `${teacherName} rescheduled your lesson`,
+      `New time: ${fmtDate} at ${fmtTime}`, { slotId: id });
+    res.json({ ok: true });
+  } catch (e) { console.error('m/teacher lessons put:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
 // ── DELETE /api/m/teacher/lessons/:id : le prof annule un cours réservé ───────
 router.delete('/api/m/teacher/lessons/:id', requireToken, requireTeacher, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ error: 'Invalid lesson' });
-    // Supprime la réservation → le créneau redevient dérivable/réservable.
-    const { rowCount } = await pool.query(
-      `DELETE FROM teacher_slots WHERE id = $1 AND teacher_id = $2 AND status = 'booked'`,
+    const { rows } = await pool.query(
+      `DELETE FROM teacher_slots WHERE id = $1 AND teacher_id = $2 AND status = 'booked' RETURNING student_id, starts_at`,
       [id, req.teacher.id]);
-    if (!rowCount) return res.status(404).json({ error: 'Not found' });
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    const teacherName = (await pool.query('SELECT name FROM users WHERE id = $1', [req.teacher.id])).rows[0]?.name || 'Your teacher';
+    const oldStart = new Date(rows[0].starts_at);
+    const fmtDate = oldStart.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const fmtTime = oldStart.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+    notify(rows[0].student_id, 'lesson_cancelled', `${teacherName} cancelled your lesson`,
+      `${fmtDate} at ${fmtTime} has been cancelled`, { slotId: id });
     res.json({ ok: true });
   } catch (e) { console.error('m/teacher lessons delete:', e); res.status(500).json({ error: 'Server error' }); }
 });

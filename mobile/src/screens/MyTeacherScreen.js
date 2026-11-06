@@ -1,0 +1,375 @@
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { View, Text, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import CatLoader from '../components/CatLoader';
+import { ErrorRetry } from '../components/ErrorRetry';
+import BottomSheet from '../components/BottomSheet';
+import CoursePage from './CoursePage';
+import StudentLessonRows from '../components/teachers/StudentLessonRows';
+import { getStudentMentor, getStudentSlots, bookSlot, rateMentor, leaveMentor } from '../api';
+import { useT } from '../i18n';
+import { COLORS, SHADOW_CARD } from '../theme';
+import useAndroidBack from '../useAndroidBack';
+
+const CURRENCY = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF', CNY: '¥', JPY: '¥', CAD: 'C$', AUD: 'A$', SGD: 'S$', HKD: 'HK$' };
+function money(p, c) {
+  if (p == null) return null;
+  const sym = CURRENCY[c] || c || '€';
+  const amount = Number.isInteger(Number(p)) ? String(p) : Number(p).toFixed(2);
+  return sym.length > 1 ? `${sym} ${amount}` : `${sym}${amount}`;
+}
+function initials(name) {
+  return (name || 'T').trim().split(/\s+/).slice(0, 2).map((s) => s[0] || '').join('').toUpperCase() || 'T';
+}
+function fmtSession(iso) {
+  const d = new Date(iso);
+  const day = d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return `${day} · ${time}`;
+}
+
+function StatTile({ icon, value, label, accent }) {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', backgroundColor: '#f6f8fb', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 4 }}>
+      <Ionicons name={icon} size={18} color={accent || COLORS.jiayou} />
+      <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e', marginTop: 4 }}>{value}</Text>
+      <Text style={{ fontSize: 10, color: COLORS.mutedLight, textTransform: 'uppercase', letterSpacing: 0.3, marginTop: 1, textAlign: 'center' }}>{label}</Text>
+    </View>
+  );
+}
+
+// ── BottomSheet : réserver un cours (créneaux dérivés de la semaine type) ─────
+function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked }) {
+  const [slots, setSlots] = useState(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(null);
+  const localTz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return ''; } })();
+
+  const reload = useCallback(() => {
+    setErr('');
+    getStudentSlots(teacherId).then((r) => setSlots(r.slots || [])).catch((e) => setErr(e.message));
+  }, [teacherId]);
+  useEffect(() => { if (visible) { setSlots(null); reload(); } }, [visible, reload]);
+
+  const groups = useMemo(() => {
+    const m = new Map();
+    (slots || []).forEach((s) => {
+      const d = new Date(s.starts_at);
+      const key = d.toDateString();
+      if (!m.has(key)) m.set(key, { date: d, items: [] });
+      m.get(key).items.push(s);
+    });
+    return [...m.values()];
+  }, [slots]);
+
+  async function book(s) {
+    setBusy(s.starts_at);
+    try {
+      await bookSlot(teacherId, s.starts_at);
+      onBooked?.(); onClose?.();
+      Alert.alert('', "Lesson booked! You'll find it in your upcoming sessions.");
+    } catch (e) {
+      Alert.alert('', e.taken || /available|taken/i.test(e.message || '') ? 'This slot was just taken — pick another.' : (e.message || 'Error'));
+      reload();
+    } finally { setBusy(null); }
+  }
+
+  const fmtDay = (d) => d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  const fmtTime = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+  return (
+    <BottomSheet visible={visible} onClose={onClose} maxHeightRatio={0.88}>
+      <View style={{ alignItems: 'center', marginBottom: 16 }}>
+        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 18 }}>{initials(teacherName)}</Text>
+        </View>
+        <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginTop: 10 }}>Book a lesson</Text>
+        {localTz ? <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 3 }}>Shown in your timezone · {localTz}</Text> : null}
+      </View>
+      {err ? <ErrorRetry error={err} onRetry={reload} />
+        : !slots ? <View style={{ paddingVertical: 30, alignItems: 'center' }}><CatLoader size={80} /></View>
+          : groups.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 28 }}>
+              <Ionicons name="calendar-clear-outline" size={30} color={COLORS.mutedLight} />
+              <Text style={{ fontSize: 13.5, color: COLORS.mutedLight, textAlign: 'center', marginTop: 10 }}>No open slot right now.{'\n'}Check back later.</Text>
+            </View>
+          ) : (
+            <ScrollView style={{ maxHeight: 440 }} showsVerticalScrollIndicator={false}>
+              {groups.map((g, i) => (
+                <View key={i} style={{ marginBottom: 16 }}>
+                  <Text style={{ fontSize: 12.5, fontWeight: '800', color: COLORS.mutedLight, marginBottom: 9, textTransform: 'uppercase', letterSpacing: 0.4 }}>{fmtDay(g.date)}</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {g.items.map((s) => (
+                      <Pressable key={s.starts_at} onPress={() => book(s)} disabled={busy === s.starts_at}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.jiayouSoft, borderWidth: 1, borderColor: '#cfe0ff', opacity: busy === s.starts_at ? 0.6 : 1 }}>
+                        <Ionicons name="time" size={13} color={COLORS.jiayou} />
+                        <Text style={{ fontSize: 13.5, fontWeight: '800', color: COLORS.jiayou }}>{fmtTime(s.starts_at)}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+    </BottomSheet>
+  );
+}
+
+// ── BottomSheet : noter le prof (1-5 étoiles + commentaire) ───────────────────
+function RateSheet({ teacherId, teacherName, initial, visible, onClose, onSaved }) {
+  const [stars, setStars] = useState(0);
+  const [comment, setComment] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (visible) { setStars(initial?.rating || 0); setComment(initial?.comment || ''); setBusy(false); }
+  }, [visible, initial]);
+
+  async function save() {
+    if (!stars) { Alert.alert('', 'Pick a rating first.'); return; }
+    setBusy(true);
+    try { await rateMentor(teacherId, stars, comment.trim()); onSaved?.(); onClose?.(); }
+    catch (e) { Alert.alert('', e.message || 'Error'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <BottomSheet visible={visible} onClose={onClose} maxHeightRatio={0.7} avoidKeyboard>
+      <View style={{ alignItems: 'center', marginBottom: 16 }}>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>Rate {teacherName || 'your teacher'}</Text>
+        <Text style={{ fontSize: 13, color: COLORS.muted, marginTop: 4, textAlign: 'center' }}>Your feedback stays anonymous to other students.</Text>
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 18 }}>
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Pressable key={n} onPress={() => setStars(n)} hitSlop={6}>
+            <Ionicons name={n <= stars ? 'star' : 'star-outline'} size={36} color={n <= stars ? '#f5b301' : '#d6dbe3'} />
+          </Pressable>
+        ))}
+      </View>
+      <TextInput
+        value={comment}
+        onChangeText={setComment}
+        placeholder="Add a comment (optional)"
+        placeholderTextColor={COLORS.mutedLight}
+        multiline
+        maxLength={500}
+        style={{ minHeight: 80, borderWidth: 1, borderColor: COLORS.line, borderRadius: 14, padding: 12, fontSize: 14, color: '#1a1a2e', textAlignVertical: 'top', marginBottom: 16 }}
+      />
+      <Pressable onPress={save} disabled={busy} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, opacity: busy ? 0.6 : 1 }}>
+        {busy ? <ActivityIndicator color="#fff" size="small" /> : (
+          <>
+            <Ionicons name="checkmark-circle" size={17} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Submit rating</Text>
+          </>
+        )}
+      </Pressable>
+    </BottomSheet>
+  );
+}
+
+// Page « mon prof » : accessible en tapant le nom du prof dans « My mentor ».
+export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVideoCall }) {
+  const { t: tr } = useT();
+  const { width } = useWindowDimensions();
+  const wide = width >= 900;
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [booking, setBooking] = useState(false);
+  const [rating, setRating] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveBusy, setLeaveBusy] = useState(false);
+  const [course, setCourse] = useState(null); // { id, readOnly } cours ouvert
+
+  useAndroidBack(() => {
+    if (course) { setCourse(null); return true; }
+    onBack?.(); return true;
+  }, true, [onBack, course]);
+
+  const load = useCallback(async () => {
+    setError('');
+    try { setData(await getStudentMentor(teacherId)); }
+    catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  }, [teacherId]);
+  useEffect(() => { load(); }, [load]);
+
+  if (course) {
+    return <CoursePage lessonId={course.id} readOnly={course.readOnly} onBack={() => { setCourse(null); load(); }} />;
+  }
+
+  async function confirmLeave() {
+    setLeaveBusy(true);
+    try { await leaveMentor(teacherId); setLeaving(false); onBack?.(true); }
+    catch (e) { Alert.alert('', e.message || 'Error'); }
+    finally { setLeaveBusy(false); }
+  }
+
+  const Back = (
+    <Pressable onPress={() => onBack?.()} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14 }}>
+      <Ionicons name="chevron-back" size={20} color={COLORS.jiayou} />
+      <Text style={{ color: COLORS.jiayou, fontWeight: '600' }}>Back</Text>
+    </Pressable>
+  );
+
+  if (loading && !data) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.page }}><CatLoader size={110} /></View>;
+  if (error && !data) return <View style={{ flex: 1, backgroundColor: COLORS.page, padding: 16 }}>{Back}<ErrorRetry error={error} onRetry={load} /></View>;
+
+  const t = data.teacher;
+  const name = t.name || teacherName || 'Your teacher';
+  const teaches = (t.teaching_languages || []).join(', ');
+  const lessons = data.lessons || [];
+  const upcoming = data.upcoming_lessons || [];
+  const canBook = data.is_active;
+
+  const BookBtn = canBook ? (
+    <Pressable onPress={() => setBooking(true)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+      <Ionicons name="calendar" size={18} color="#fff" />
+      <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Book a lesson</Text>
+    </Pressable>
+  ) : null;
+
+  // ── Carte identité + stats (colonne gauche sur desktop) ────────────────────
+  // Sur desktop, le CTA « Book a lesson » vit dans cette carte ; sur mobile il
+  // reste collé en bas (sticky).
+  const teacherCard = (
+    <View style={{ backgroundColor: '#fff', borderRadius: 18, padding: 20, ...SHADOW_CARD }}>
+      <View style={{ alignItems: 'center' }}>
+        <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 24 }}>{initials(name)}</Text>
+        </View>
+        <Text style={{ fontSize: 20, fontWeight: '800', color: '#1a1a2e', marginTop: 12, textAlign: 'center' }}>{name}</Text>
+        {teaches ? (
+          <Text style={{ fontSize: 13, color: '#7a8aa8', marginTop: 3, textAlign: 'center' }}>
+            <Ionicons name="language" size={12} color="#7a8aa8" />  Teaches {teaches}
+          </Text>
+        ) : null}
+        {t.session_price != null ? (
+          <View style={{ backgroundColor: '#e8f0ff', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, marginTop: 10 }}>
+            <Text style={{ color: COLORS.jiayou, fontSize: 13, fontWeight: '800' }}>{money(t.session_price, t.session_currency)} / session</Text>
+          </View>
+        ) : null}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 18 }}>
+        <StatTile icon="people" value={t.student_count ?? 0} label="Students" />
+        <StatTile icon="school" value={t.courses_given ?? 0} label="Courses given" />
+        <StatTile icon="star" accent="#f5b301" value={t.rating != null ? t.rating : '—'} label={t.rating_count ? `Rating (${t.rating_count})` : 'Rating'} />
+      </View>
+      {wide && BookBtn ? <View style={{ marginTop: 18 }}>{BookBtn}</View> : null}
+    </View>
+  );
+
+  // ── Colonne droite : cours à venir + classes + actions ─────────────────────
+  const rightColumn = (
+    <>
+      {/* Cours à venir */}
+      <View style={{ backgroundColor: '#fff', borderRadius: 18, padding: 20, ...SHADOW_CARD }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <Ionicons name="videocam" size={18} color={COLORS.jiayou} />
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#1a1a2e' }}>Upcoming lessons</Text>
+        </View>
+        {upcoming.length === 0 ? (
+          <Text style={{ fontSize: 13.5, color: COLORS.mutedLight, paddingVertical: 4 }}>No upcoming lesson.{canBook ? ' Book one below.' : ''}</Text>
+        ) : upcoming.map((u) => {
+          const joinable = Date.now() >= new Date(u.starts_at).getTime() - 15 * 60 * 1000 && Date.now() <= new Date(u.ends_at).getTime() + 10 * 60 * 1000;
+          return (
+            <View key={u.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#f0f7ff', borderRadius: 14, padding: 12, marginBottom: 8 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#dbeeff', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="calendar" size={19} color={COLORS.jiayou} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13.5, fontWeight: '800', color: '#1a1a2e' }}>{fmtSession(u.starts_at)}</Text>
+                {u.note === 'trial' ? <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 1 }}>Trial</Text> : null}
+              </View>
+              {joinable ? (
+                <Pressable onPress={() => onVideoCall?.(u.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: COLORS.jiayou }}>
+                  <Ionicons name="videocam" size={13} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12.5 }}>Join</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Cours reçus de ce prof (même composant que la page « Mes cours ») */}
+      <View style={{ backgroundColor: '#fff', borderRadius: 18, padding: 20, marginTop: 16, ...SHADOW_CARD }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <Ionicons name="people-circle" size={19} color={COLORS.jiayou} />
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#1a1a2e' }}>Classes</Text>
+        </View>
+        {lessons.length === 0 ? (
+          <Text style={{ fontSize: 13.5, color: COLORS.mutedLight, paddingVertical: 8 }}>No class with this teacher.</Text>
+        ) : (
+          <StudentLessonRows lessons={lessons} onOpen={(l, readOnly) => setCourse({ id: l.id, readOnly })} t={tr} />
+        )}
+      </View>
+
+      {/* Actions bas de page : noter + quitter */}
+      <View style={{ marginTop: 20, gap: 10 }}>
+        <Pressable onPress={() => setRating(true)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#ffe3a3' }}>
+          <Ionicons name="star" size={17} color="#f5b301" />
+          <Text style={{ color: '#b5820b', fontWeight: '800', fontSize: 14.5 }}>{data.my_rating ? 'Update my rating' : 'Rate the teacher'}</Text>
+        </Pressable>
+        <Pressable onPress={() => setLeaving(true)} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#fecaca' }}>
+          <Ionicons name="exit-outline" size={17} color={COLORS.danger} />
+          <Text style={{ color: COLORS.danger, fontWeight: '800', fontSize: 14.5 }}>Leave the teacher</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+
+  // Sticky bottom uniquement sur mobile (sur desktop le CTA est dans la carte).
+  const showSticky = canBook && !wide;
+
+  return (
+    <View style={{ flex: 1, backgroundColor: COLORS.page }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: showSticky ? 120 : 32 }}>
+        <View style={{ width: '100%', maxWidth: wide ? 1000 : 640, alignSelf: 'center' }}>
+          {Back}
+          {wide ? (
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 24 }}>
+              <View style={[{ width: 320 }, Platform.OS === 'web' ? { position: 'sticky', top: 16 } : null]}>{teacherCard}</View>
+              <View style={{ flex: 1 }}>{rightColumn}</View>
+            </View>
+          ) : (
+            <>
+              <View style={{ marginBottom: 16 }}>{teacherCard}</View>
+              {rightColumn}
+            </>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* CTA sticky (mobile seulement) : réserver un cours */}
+      {showSticky ? (
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 26, backgroundColor: 'rgba(248,249,250,0.96)', borderTopWidth: 1, borderColor: '#eef1f5' }}>
+          <View style={{ width: '100%', maxWidth: 640, alignSelf: 'center' }}>{BookBtn}</View>
+        </View>
+      ) : null}
+
+      <BookLessonSheet teacherId={teacherId} teacherName={name} visible={booking} onClose={() => setBooking(false)} onBooked={load} />
+      <RateSheet teacherId={teacherId} teacherName={name} initial={data.my_rating} visible={rating} onClose={() => setRating(false)} onSaved={load} />
+
+      <BottomSheet visible={leaving} onClose={() => setLeaving(false)} maxHeightRatio={0.5}>
+        <View style={{ alignItems: 'center', marginBottom: 16 }}>
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#fef2f2', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+            <Ionicons name="exit-outline" size={28} color={COLORS.danger} />
+          </View>
+          <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', textAlign: 'center' }}>Leave {name}?</Text>
+          <Text style={{ fontSize: 13, color: COLORS.muted, textAlign: 'center', marginTop: 6, lineHeight: 19 }}>
+            You'll keep access to your past courses in read-only, but won't receive new tasks.
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Pressable onPress={() => setLeaving(false)} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: '#f1f3f5', alignItems: 'center' }}>
+            <Text style={{ fontWeight: '700', color: COLORS.muted }}>Cancel</Text>
+          </Pressable>
+          <Pressable onPress={confirmLeave} disabled={leaveBusy} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: COLORS.danger, alignItems: 'center', opacity: leaveBusy ? 0.6 : 1 }}>
+            {leaveBusy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ fontWeight: '800', color: '#fff' }}>Leave</Text>}
+          </Pressable>
+        </View>
+      </BottomSheet>
+    </View>
+  );
+}

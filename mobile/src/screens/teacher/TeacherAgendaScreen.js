@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, useWindowDimensions, Platform } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import BottomSheet from '../../components/BottomSheet';
 import CatLoader from '../../components/CatLoader';
 import { ErrorRetry } from '../../components/ErrorRetry';
-import { getTeacherLessons, deleteTeacherLesson, getTeacherAvailability, setTeacherAvailability, getTeacherDateSlots, setTeacherDateSlots } from '../../api';
+import { getTeacherLessons, deleteTeacherLesson, updateTeacherLesson, getTeacherAvailability, setTeacherAvailability, getTeacherDateSlots, setTeacherDateSlots } from '../../api';
 import { useT } from '../../i18n';
 import { COLORS, TAB_CLEARANCE, SHADOW_CARD } from '../../theme';
 
@@ -359,6 +359,186 @@ function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, wee
   );
 }
 
+// ── BottomSheet détail d'un cours : Start meeting / Edit (reschedule | delete) ─
+function LessonDetailSheet({ lesson, visible, onClose, onSaved, onStart, t, lang }) {
+  const [mode, setMode] = useState('view'); // view | edit | reschedule | confirm_delete
+  const [busy, setBusy] = useState(false);
+  const [newDate, setNewDate] = useState('');
+  const [newHour, setNewHour] = useState(9);
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    if (visible && lesson) {
+      setMode('view');
+      setBusy(false);
+      const s = new Date(lesson.starts_at);
+      setNewDate(localKey(s));
+      setNewHour(s.getHours());
+      setNote(lesson.note || '');
+    }
+  }, [visible, lesson]);
+
+  if (!lesson) return null;
+
+  const s = new Date(lesson.starts_at);
+  const e = new Date(lesson.ends_at);
+  const trial = isTrial(lesson);
+  const finished = lessonFinished(lesson, Date.now());
+  const joinable = lessonJoinable(lesson, Date.now());
+
+  async function doDelete() {
+    setBusy(true);
+    try { await deleteTeacherLesson(lesson.id); onSaved?.(); onClose?.(); }
+    catch (err) { Alert.alert('', err.message || 'Error'); }
+    finally { setBusy(false); }
+  }
+
+  async function doReschedule() {
+    const [y, m, d] = newDate.split('-').map(Number);
+    const dt = new Date(y, m - 1, d, newHour, 0, 0);
+    if (dt <= new Date()) { Alert.alert('', t('ag_past')); return; }
+    setBusy(true);
+    try {
+      await updateTeacherLesson(lesson.id, { starts_at: dt.toISOString(), note: note.trim() });
+      onSaved?.();
+      onClose?.();
+    } catch (err) { Alert.alert('', err.message || 'Error'); }
+    finally { setBusy(false); }
+  }
+
+  const fmtDay = (d2) => {
+    try { return d2.toLocaleDateString(lang === 'zh' ? 'zh-CN' : lang === 'fr' ? 'fr-FR' : 'en-US', { weekday: 'long', day: 'numeric', month: 'long' }); }
+    catch { return d2.toDateString(); }
+  };
+
+  return (
+    <BottomSheet visible={visible} onClose={onClose} maxHeightRatio={0.75}>
+      {/* ── Ecran principal : infos + Start meeting / Edit ──────────────── */}
+      {mode === 'view' && (
+        <>
+          <View style={{ alignItems: 'center', marginBottom: 16 }}>
+            <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: finished ? '#f4f5f7' : '#e8f0ff', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+              <Ionicons name="videocam" size={24} color={finished ? COLORS.mutedLight : COLORS.jiayou} />
+            </View>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>{lesson.student_name || 'Student'}</Text>
+            {trial ? <View style={{ marginTop: 4 }}><TrialBadge t={t} /></View> : null}
+            <Text style={{ fontSize: 14, color: COLORS.muted, marginTop: 4, textTransform: 'capitalize' }}>{fmtDay(s)}</Text>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: COLORS.jiayou, marginTop: 2 }}>{hhmm(s)} – {hhmm(e)}</Text>
+            {lesson.note ? <Text style={{ fontSize: 13, color: COLORS.mutedLight, marginTop: 6 }}>{lesson.note}</Text> : null}
+          </View>
+
+          {!finished && (
+            <View style={{ gap: 10 }}>
+              {joinable && (
+                <Pressable onPress={() => { onClose?.(); onStart?.(lesson); }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, backgroundColor: COLORS.jiayou }}>
+                  <Ionicons name="videocam" size={18} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{t('ag_start_class')}</Text>
+                </Pressable>
+              )}
+              <Pressable onPress={() => setMode('edit')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, backgroundColor: '#eef2f7' }}>
+                <Ionicons name="create-outline" size={18} color="#55607a" />
+                <Text style={{ color: '#55607a', fontWeight: '800', fontSize: 15 }}>{t('ag_edit')}</Text>
+              </Pressable>
+            </View>
+          )}
+        </>
+      )}
+
+      {/* ── Ecran Edit : Reschedule / Delete ───────────────────────────── */}
+      {mode === 'edit' && (
+        <>
+          <View style={{ alignItems: 'center', marginBottom: 16 }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>{t('ag_edit')}</Text>
+            <Text style={{ fontSize: 13, color: COLORS.muted, marginTop: 4 }}>{lesson.student_name} · {hhmm(s)}</Text>
+          </View>
+          <View style={{ gap: 10 }}>
+            <Pressable onPress={() => setMode('reschedule')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, backgroundColor: COLORS.jiayou }}>
+              <Ionicons name="calendar-outline" size={18} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{t('ag_reschedule')}</Text>
+            </Pressable>
+            <Pressable onPress={() => setMode('confirm_delete')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, backgroundColor: '#fef2f2', borderWidth: 1.5, borderColor: '#fecaca' }}>
+              <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+              <Text style={{ color: COLORS.danger, fontWeight: '800', fontSize: 15 }}>{t('ag_cancel_yes')}</Text>
+            </Pressable>
+            <Pressable onPress={() => setMode('view')} style={{ paddingVertical: 12, alignItems: 'center' }}>
+              <Text style={{ fontWeight: '700', color: COLORS.muted }}>{t('common_back')}</Text>
+            </Pressable>
+          </View>
+        </>
+      )}
+
+      {/* ── Reschedule : date + heure ──────────────────────────────────── */}
+      {mode === 'reschedule' && (
+        <>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e', textAlign: 'center', marginBottom: 4 }}>{t('ag_reschedule')}</Text>
+          <Text style={{ fontSize: 13, color: COLORS.muted, textAlign: 'center', marginBottom: 16 }}>{t('ag_reschedule_sub')}</Text>
+
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#55607a', marginBottom: 6 }}>{t('ag_new_date')}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }} contentContainerStyle={{ gap: 8 }}>
+            {Array.from({ length: 14 }, (_, i) => {
+              const d2 = new Date(); d2.setDate(d2.getDate() + i + 1);
+              const k = localKey(d2);
+              const on = k === newDate;
+              const dayName = (() => { try { return d2.toLocaleDateString(lang === 'zh' ? 'zh-CN' : lang === 'fr' ? 'fr-FR' : 'en-US', { weekday: 'short' }).replace('.', ''); } catch { return ''; } })();
+              return (
+                <Pressable key={k} onPress={() => setNewDate(k)} style={{ width: 54, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: on ? COLORS.jiayou : '#f1f3f5' }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: on ? '#fff' : '#8a94a3', textTransform: 'uppercase' }}>{dayName}</Text>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: on ? '#fff' : '#1a1a2e', marginTop: 2 }}>{d2.getDate()}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#55607a', marginBottom: 6 }}>{t('ag_hour')}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 18 }} contentContainerStyle={{ gap: 8 }}>
+            {HOURS.map((h) => {
+              const on = h === newHour;
+              return (
+                <Pressable key={h} onPress={() => setNewHour(h)} style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: on ? COLORS.jiayou : '#f1f3f5' }}>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: on ? '#fff' : '#55607a' }}>{String(h).padStart(2, '0')}:00</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable onPress={() => setMode('edit')} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: '#f1f3f5', alignItems: 'center' }}>
+              <Text style={{ fontWeight: '700', color: COLORS.muted }}>{t('common_back')}</Text>
+            </Pressable>
+            <Pressable onPress={doReschedule} disabled={busy} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center', opacity: busy ? 0.6 : 1 }}>
+              {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ fontWeight: '800', color: '#fff' }}>{t('ag_save')}</Text>}
+            </Pressable>
+          </View>
+        </>
+      )}
+
+      {/* ── Confirmation suppression ───────────────────────────────────── */}
+      {mode === 'confirm_delete' && (
+        <>
+          <View style={{ alignItems: 'center', marginBottom: 16 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#fef2f2', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+              <Ionicons name="alert-circle" size={28} color={COLORS.danger} />
+            </View>
+            <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', textAlign: 'center' }}>{t('ag_lesson_cancel_title')}</Text>
+            <Text style={{ fontSize: 13, color: COLORS.muted, textAlign: 'center', marginTop: 6, lineHeight: 19 }}>
+              {t('ag_lesson_cancel_confirm').replace('{name}', lesson.student_name || '')}
+            </Text>
+            <Text style={{ fontSize: 12, color: COLORS.mutedLight, textAlign: 'center', marginTop: 4 }}>{t('ag_notif_hint')}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable onPress={() => setMode('edit')} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: '#f1f3f5', alignItems: 'center' }}>
+              <Text style={{ fontWeight: '700', color: COLORS.muted }}>{t('common_back')}</Text>
+            </Pressable>
+            <Pressable onPress={doDelete} disabled={busy} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: COLORS.danger, alignItems: 'center', opacity: busy ? 0.6 : 1 }}>
+              {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ fontWeight: '800', color: '#fff' }}>{t('ag_cancel_yes')}</Text>}
+            </Pressable>
+          </View>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
 export default function TeacherAgendaScreen({ onVideoCall }) {
   const { t, lang } = useT();
   const { width } = useWindowDimensions();
@@ -371,6 +551,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
   const [viewMode, setViewMode] = useState('week'); // week | day | month
   const [editingAvail, setEditingAvail] = useState(false);
   const [editingDay, setEditingDay] = useState(null); // date YYYY-MM-DD en cours d'édition
+  const [detailLesson, setDetailLesson] = useState(null); // cours sélectionné pour le detail sheet
 
   const load = useCallback(async () => {
     setError('');
@@ -414,13 +595,8 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
     return (lessons || []).filter((s) => localKey(new Date(s.starts_at)) === k).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
   }, [lessons]);
 
-  function cancelLesson(s) {
-    Alert.alert(t('ag_lesson_cancel_title'), t('ag_lesson_cancel_confirm').replace('{name}', s.student_name || ''), [
-      { text: t('common_back'), style: 'cancel' },
-      { text: t('ag_cancel_yes'), style: 'destructive', onPress: async () => { try { await deleteTeacherLesson(s.id); await load(); } catch (e) { setError(e.message); } } },
-    ]);
-  }
-  function editLesson(u) { cancelLesson(u); }
+  function openLesson(s) { setDetailLesson(s); }
+  function editLesson(u) { setDetailLesson(u); }
   function startClass(u) { if (u?.id) onVideoCall?.(u.id); }
 
   if (lessons === null && !error) {
@@ -471,7 +647,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
                       {dayLes.slice(0, 2).map((les) => {
                         const bg = lessonFinished(les, Date.now()) ? '#c4ccd6' : isTrial(les) ? '#f59e0b' : COLORS.jiayou;
                         return (
-                          <Pressable key={les.id} onPress={() => cancelLesson(les)}
+                          <Pressable key={les.id} onPress={() => openLesson(les)}
                             style={{ backgroundColor: bg, borderRadius: 5, paddingHorizontal: 3, paddingVertical: 1.5, marginBottom: 2 }}>
                             <Text style={{ color: '#fff', fontSize: 8.5, fontWeight: '800', textAlign: 'center' }} numberOfLines={1}>{hhmm(new Date(les.starts_at))}</Text>
                           </Pressable>
@@ -510,7 +686,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
               <Pressable onPress={() => shift(1)} hitSlop={8} style={navBtn}><Ionicons name="chevron-forward" size={18} color={COLORS.jiayou} /></Pressable>
             </View>
             <View style={{ position: 'relative' }}>
-              <TimeGrid days={days} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={cancelLesson} onEditDay={setEditingDay} lang={lang} week={isWeek} t={t} />
+              <TimeGrid days={days} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} lang={lang} week={isWeek} t={t} />
               {/* Aucune dispo → incitation au centre du calendrier. */}
               {avail.size === 0 ? (
                 <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,249,250,0.72)' }}>
@@ -555,6 +731,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
 
       <AvailabilityEditor visible={editingAvail} onClose={() => setEditingAvail(false)} onSaved={load} t={t} lang={lang} />
       <DayEditor date={editingDay} onClose={() => setEditingDay(null)} onSaved={load} t={t} lang={lang} />
+      <LessonDetailSheet lesson={detailLesson} visible={!!detailLesson} onClose={() => setDetailLesson(null)} onSaved={load} onStart={startClass} t={t} lang={lang} />
     </View>
   );
 }

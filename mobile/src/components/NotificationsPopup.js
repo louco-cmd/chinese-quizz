@@ -8,6 +8,8 @@ const ICONS = {
   duel_result: { icon: 'trophy', color: '#b8860b', bg: '#fff3cd' },
   red_envelope: { icon: 'gift', color: '#d4373e', bg: '#fdecef' },
   pack_sold: { icon: 'pricetag', color: '#198754', bg: '#e8f5e9' },
+  lesson_cancelled: { icon: 'close-circle', color: '#d4373e', bg: '#fdecef' },
+  lesson_modified: { icon: 'calendar', color: '#0d6efd', bg: '#e8f0ff' },
 };
 const DEFAULT = { icon: 'notifications', color: COLORS.muted, bg: '#eceef1' };
 
