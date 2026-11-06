@@ -665,10 +665,10 @@ export function getTeacherLessons() {
   return request('/api/m/teacher/lessons');
 }
 export function updateTeacherLesson(id, payload) {
-  return request(`/api/m/teacher/lessons/${id}`, { method: 'PUT', body: payload });
+  return request(`/api/m/teacher/slots/${id}`, { method: 'PUT', body: payload });
 }
 export function deleteTeacherLesson(id) {
-  return request(`/api/m/teacher/lessons/${id}`, { method: 'DELETE' });
+  return request(`/api/m/teacher/slots/${id}`, { method: 'DELETE' });
 }
 // Élève : créneaux réservables dérivés + réservation / annulation.
 export function getStudentSlots(teacherId) {

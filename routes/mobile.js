@@ -5759,8 +5759,10 @@ router.get('/api/m/teacher/lessons', requireToken, requireTeacher, async (req, r
   } catch (e) { console.error('m/teacher lessons:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
-// ── PUT /api/m/teacher/lessons/:id : le prof modifie un cours réservé ────────
-router.put('/api/m/teacher/lessons/:id', requireToken, requireTeacher, async (req, res) => {
+// ── PUT /api/m/teacher/slots/:id : le prof modifie un cours réservé ──────────
+// Chemin distinct de /teacher/lessons/:id (= suppression de TASK) pour éviter la
+// collision de routes : ici on agit sur un créneau réservé (teacher_slots).
+router.put('/api/m/teacher/slots/:id', requireToken, requireTeacher, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ error: 'Invalid lesson' });
@@ -5783,8 +5785,8 @@ router.put('/api/m/teacher/lessons/:id', requireToken, requireTeacher, async (re
   } catch (e) { console.error('m/teacher lessons put:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
-// ── DELETE /api/m/teacher/lessons/:id : le prof annule un cours réservé ───────
-router.delete('/api/m/teacher/lessons/:id', requireToken, requireTeacher, async (req, res) => {
+// ── DELETE /api/m/teacher/slots/:id : le prof annule un cours réservé ─────────
+router.delete('/api/m/teacher/slots/:id', requireToken, requireTeacher, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ error: 'Invalid lesson' });
