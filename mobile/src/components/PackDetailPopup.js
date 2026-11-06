@@ -453,9 +453,11 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
             const pal = packPalette(p);
             const glyph = packGlyph(p);
             return (
-              <View style={{ height: 84, borderRadius: 14, backgroundColor: glyph.type === 'logo' ? '#fff' : pal.bg, alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>
+              <View style={{ height: 84, borderRadius: 14, backgroundColor: pal.bg, alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>
                 {glyph.type === 'logo'
-                  ? <Image source={{ uri: glyph.uri }} style={{ width: 64, height: 64, resizeMode: 'contain' }} />
+                  ? <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+                      <Image source={{ uri: glyph.uri }} style={{ width: 38, height: 38 }} resizeMode="contain" />
+                    </View>
                   : glyph.type === 'icon'
                   ? <Ionicons name={glyph.name} size={40} color={pal.fg} />
                   : <Text style={{ fontSize: 40, fontWeight: '700', color: pal.fg }}>{glyph.char}</Text>}

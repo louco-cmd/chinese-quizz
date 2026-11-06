@@ -28,9 +28,11 @@ function PackRow({ pack, onPress, last }) {
       onPress={onPress}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: last ? 0 : 1, borderColor: '#f2f2f4' }}
     >
-      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: pack.logo_url ? '#fff' : '#f0e9fb', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#f0e9fb', alignItems: 'center', justifyContent: 'center' }}>
         {pack.logo_url
-          ? <Image source={{ uri: pack.logo_url }} style={{ width: 36, height: 36, resizeMode: 'contain' }} />
+          ? <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+              <Image source={{ uri: pack.logo_url }} style={{ width: 22, height: 22 }} resizeMode="contain" />
+            </View>
           : <Text style={{ fontSize: 22, fontWeight: '700', color: '#7828a7' }}>{glyphOf(pack.cover_key)}</Text>}
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>

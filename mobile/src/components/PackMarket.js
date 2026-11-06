@@ -18,9 +18,11 @@ function PackCard({ pack, onPress }) {
           const pal = packPalette(pack);
           const glyph = packGlyph(pack);
           return (
-            <View style={{ height: 72, backgroundColor: glyph.type === 'logo' ? '#fff' : pal.bg, alignItems: glyph.type === 'logo' ? 'center' : 'flex-start', justifyContent: 'center', paddingLeft: glyph.type === 'logo' ? 0 : 14 }}>
+            <View style={{ height: 72, backgroundColor: pal.bg, alignItems: 'flex-start', justifyContent: 'center', paddingLeft: 14 }}>
               {glyph.type === 'logo'
-                ? <Image source={{ uri: glyph.uri }} style={{ width: 52, height: 52, resizeMode: 'contain' }} />
+                ? <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+                    <Image source={{ uri: glyph.uri }} style={{ width: 30, height: 30 }} resizeMode="contain" />
+                  </View>
                 : glyph.type === 'icon'
                 ? <Ionicons name={glyph.name} size={32} color={pal.fg} />
                 : <Text style={{ fontSize: 32, fontWeight: '700', color: pal.fg }}>{glyph.char}</Text>}
@@ -35,7 +37,7 @@ function PackCard({ pack, onPress }) {
                   <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{t('st_premium_tag')}</Text>
                 </View>
               ) : pack.is_new ? (
-                <View style={{ position: 'absolute', top: 8, left: 8, backgroundColor: '#ff6b35', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                <View style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#ff6b35', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
                   <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>{t('st_new')}</Text>
                 </View>
               ) : null}
@@ -97,9 +99,11 @@ function FeaturedPackCard({ pack, onPress }) {
           <Text style={{ color: '#b3820a', fontSize: 10, fontWeight: '800' }}>{t('st_sponsored')}</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-          <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: pack.logo_url ? '#fff' : COVER_BG, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+          <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {pack.logo_url
-              ? <Image source={{ uri: pack.logo_url }} style={{ width: 72, height: 72, resizeMode: 'contain' }} />
+              ? <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+                  <Image source={{ uri: pack.logo_url }} style={{ width: 40, height: 40 }} resizeMode="contain" />
+                </View>
               : <Text style={{ fontSize: 40, fontWeight: '700', color: COVER_FG }}>{glyphOf(pack.cover_key)}</Text>}
           </View>
           <View style={{ flex: 1 }}>
