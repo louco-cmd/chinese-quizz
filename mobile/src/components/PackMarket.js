@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, Pressable, ActivityIndicator, FlatList, useWindowDimensions } from 'react-native';
+import { View, Text, Image, Pressable, ActivityIndicator, FlatList, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getMe, getMarketPacks } from '../api';
 import { useT } from '../i18n';
@@ -18,8 +18,10 @@ function PackCard({ pack, onPress }) {
           const pal = packPalette(pack);
           const glyph = packGlyph(pack);
           return (
-            <View style={{ height: 72, backgroundColor: pal.bg, alignItems: 'flex-start', justifyContent: 'center', paddingLeft: 14 }}>
-              {glyph.type === 'icon'
+            <View style={{ height: 72, backgroundColor: glyph.type === 'logo' ? '#fff' : pal.bg, alignItems: glyph.type === 'logo' ? 'center' : 'flex-start', justifyContent: 'center', paddingLeft: glyph.type === 'logo' ? 0 : 14 }}>
+              {glyph.type === 'logo'
+                ? <Image source={{ uri: glyph.uri }} style={{ width: 52, height: 52, resizeMode: 'contain' }} />
+                : glyph.type === 'icon'
                 ? <Ionicons name={glyph.name} size={32} color={pal.fg} />
                 : <Text style={{ fontSize: 32, fontWeight: '700', color: pal.fg }}>{glyph.char}</Text>}
               {pack.owned ? (
@@ -95,8 +97,10 @@ function FeaturedPackCard({ pack, onPress }) {
           <Text style={{ color: '#b3820a', fontSize: 10, fontWeight: '800' }}>{t('st_sponsored')}</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-          <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: COVER_BG, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 40, fontWeight: '700', color: COVER_FG }}>{glyphOf(pack.cover_key)}</Text>
+          <View style={{ width: 92, height: 92, borderRadius: 46, backgroundColor: pack.logo_url ? '#fff' : COVER_BG, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            {pack.logo_url
+              ? <Image source={{ uri: pack.logo_url }} style={{ width: 72, height: 72, resizeMode: 'contain' }} />
+              : <Text style={{ fontSize: 40, fontWeight: '700', color: COVER_FG }}>{glyphOf(pack.cover_key)}</Text>}
           </View>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, paddingRight: 70 }}>

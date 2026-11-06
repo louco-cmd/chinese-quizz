@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { View, Text, Image, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from './Popup';
 import { getMarketPack, buyMarketPack, notifyNeedCoins, forgetPack, notifyUpgrade, promotePack } from '../api';
@@ -63,8 +63,9 @@ export const COVER_ICONS = [
   'musical-notes-outline', 'color-palette-outline', 'basketball-outline', 'football-outline',
   'paw-outline', 'flower-outline', 'sunny-outline', 'moon-outline',
 ];
-// Glyph de la cover : icône custom (Ionicons name) OU glyph HSK OU '汉'.
+// Glyph de la cover : logo partenaire OU icône custom (Ionicons) OU glyph HSK OU '汉'.
 export function packGlyph(pack) {
+  if (pack?.logo_url) return { type: 'logo', uri: pack.logo_url };
   if (pack?.cover_icon && COVER_ICONS.includes(pack.cover_icon)) return { type: 'icon', name: pack.cover_icon };
   const hskGlyph = glyphOf(pack?.cover_key);
   return { type: 'text', char: hskGlyph };
@@ -452,8 +453,10 @@ export default function PackDetailPopup({ pack, balance, isPremium = false, onCl
             const pal = packPalette(p);
             const glyph = packGlyph(p);
             return (
-              <View style={{ height: 84, borderRadius: 14, backgroundColor: pal.bg, alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>
-                {glyph.type === 'icon'
+              <View style={{ height: 84, borderRadius: 14, backgroundColor: glyph.type === 'logo' ? '#fff' : pal.bg, alignItems: 'center', justifyContent: 'center', marginBottom: 14, overflow: 'hidden' }}>
+                {glyph.type === 'logo'
+                  ? <Image source={{ uri: glyph.uri }} style={{ width: 64, height: 64, resizeMode: 'contain' }} />
+                  : glyph.type === 'icon'
                   ? <Ionicons name={glyph.name} size={40} color={pal.fg} />
                   : <Text style={{ fontSize: 40, fontWeight: '700', color: pal.fg }}>{glyph.char}</Text>}
                 {isPremiumPack(p) ? (

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, Pressable, ScrollView, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DuelSectionCard from '../components/duels/DuelSectionCard';
 import CtaCard from '../components/duels/CtaCard';
@@ -28,8 +28,10 @@ function PackRow({ pack, onPress, last }) {
       onPress={onPress}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: last ? 0 : 1, borderColor: '#f2f2f4' }}
     >
-      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#f0e9fb', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 22, fontWeight: '700', color: '#7828a7' }}>{glyphOf(pack.cover_key)}</Text>
+      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: pack.logo_url ? '#fff' : '#f0e9fb', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        {pack.logo_url
+          ? <Image source={{ uri: pack.logo_url }} style={{ width: 36, height: 36, resizeMode: 'contain' }} />
+          : <Text style={{ fontSize: 22, fontWeight: '700', color: '#7828a7' }}>{glyphOf(pack.cover_key)}</Text>}
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: '#1a1a2e' }} numberOfLines={1}>{pack.title}</Text>

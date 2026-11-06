@@ -1993,7 +1993,7 @@ router.get('/api/m/market/packs', requireToken, async (req, res) => {
       where += ` AND (wp.title ILIKE $${params.length} OR wp.description ILIKE $${params.length} OR COALESCE(u.name, wp.creator_name, '') ILIKE $${params.length})`;
     }
     const { rows } = await pool.query(
-      `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.cover_color, wp.cover_icon, wp.is_official, wp.sales_count,
+      `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.cover_color, wp.cover_icon, wp.logo_url, wp.is_official, wp.sales_count,
               wp.boosted_until, ${ACTIVE} AS boosted,
               wp.discount_pct,
               (CASE WHEN ${ACTIVE} AND wp.discount_pct > 0
@@ -2045,7 +2045,7 @@ router.get('/api/m/market/packs/:id', requireToken, async (req, res) => {
     // mots possédés DANS LA LANGUE APPRISE (parcours-conscient, cohérent avec la liste).
     const vlangs = await getUserLangs(uid);
     const { rows } = await pool.query(
-      `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.cover_color, wp.cover_icon, wp.is_official, wp.sales_count,
+      `SELECT wp.id, wp.title, wp.description, wp.price, wp.cover_key, wp.cover_color, wp.cover_icon, wp.logo_url, wp.is_official, wp.sales_count,
               wp.creator_id, wp.lang, wp.native_lang,
               wp.boosted_until, wp.boosted_from,
               (wp.boosted_until > NOW() AND (wp.boosted_from IS NULL OR wp.boosted_from <= NOW())) AS boosted,
@@ -2712,7 +2712,7 @@ router.get('/api/m/market/my-packs', requireToken, async (req, res) => {
 router.get('/api/m/market/purchased-packs', requireToken, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT wp.id, wp.title, wp.price, wp.cover_key, wp.cover_color, wp.cover_icon,
+      `SELECT wp.id, wp.title, wp.price, wp.cover_key, wp.cover_color, wp.cover_icon, wp.logo_url,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM word_pack_items i WHERE i.pack_id = wp.id)::int AS word_count
        FROM pack_purchases pp
@@ -4688,7 +4688,7 @@ router.get('/api/m/quiz/packs', requireToken, async (req, res) => {
     // les mots ANGLAIS du même concept, pas les mot_id chinois du pack.
     const langs = await getUserLangs(uid);
     const { rows } = await pool.query(
-      `SELECT wp.id, wp.title, wp.cover_key, wp.cover_color, wp.cover_icon, wp.is_official,
+      `SELECT wp.id, wp.title, wp.cover_key, wp.cover_color, wp.cover_icon, wp.logo_url, wp.is_official,
               COALESCE(u.name, wp.creator_name, 'Anonymous') AS creator,
               (SELECT COUNT(*) FROM user_mots um
                  JOIN mots mo ON mo.id = um.mot_id AND mo.lang = $2

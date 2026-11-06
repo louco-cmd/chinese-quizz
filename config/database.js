@@ -573,6 +573,9 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS cover_color VARCHAR(20)`);
     await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS cover_icon  VARCHAR(60)`);
 
+    // ── Migration : logo partenaire institutionnel (URL servie depuis /logos/*)
+    await pool.query(`ALTER TABLE word_packs ADD COLUMN IF NOT EXISTS logo_url TEXT`);
+
     // ── Migration : modèle concept many-to-many (lexeme_senses) + mot_tr ───────
     // Un lexème peut appartenir à plusieurs sens → dédup des lexèmes tout en
     // gardant les concepts fidèles. Guardé : ne s'exécute que si `meanings` existe.
