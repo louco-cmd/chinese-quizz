@@ -244,6 +244,8 @@ export function teacherCreateLesson(classId, payload) { return request(`/api/m/t
 export function teacherLessonProgress(lessonId) { return request(`/api/m/teacher/lessons/${lessonId}/progress`); }
 export function teacherDeleteLesson(lessonId) { return request(`/api/m/teacher/lessons/${lessonId}`, { method: 'DELETE' }); }
 export function teacherLookupWords(words) { return request('/api/m/teacher/mots/lookup', { method: 'POST', body: { words } }); }
+export function teacherSendTask(payload) { return request('/api/m/teacher/send-task', { method: 'POST', body: payload }); }
+export function teacherStudentClassContext(studentId) { return request(`/api/m/teacher/students/${studentId}/class-context`); }
 export function teacherStudents() { return request('/api/m/teacher/students'); }
 export function teacherGetProfile() { return request('/api/m/teacher/profile'); }
 export function teacherSaveProfile(payload) { return request('/api/m/teacher/profile', { method: 'POST', body: payload }); }
@@ -676,6 +678,10 @@ export function getStudentSlots(teacherId) {
 }
 export function bookSlot(teacherId, startsAt) {
   return request('/api/m/student/slots/book', { method: 'POST', body: { teacher_id: teacherId, starts_at: startsAt } });
+}
+// Réserve une série hebdomadaire : même jour/heure, `weeks` occurrences (dont la 1re).
+export function bookRecurringSlots(teacherId, startsAt, weeks) {
+  return request('/api/m/student/slots/book-recurring', { method: 'POST', body: { teacher_id: teacherId, starts_at: startsAt, weeks } });
 }
 export function cancelSlotBooking(id) {
   return request(`/api/m/student/slots/${id}/cancel`, { method: 'POST' });

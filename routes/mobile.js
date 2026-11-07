@@ -5360,6 +5360,142 @@ router.post('/api/m/teacher/classes/:id/lessons', requireToken, requireTeacher, 
   } finally { client.release(); }
 });
 
+// ── POST /api/m/teacher/send-task : page « fin de cours » ─────────────────────
+// Envoie une task à un élève à la fin d'un cours. Le prof choisit une classe
+// existante OU en crée une nouvelle ; l'élève y est inscrit automatiquement puis
+// notifié. Garde-fou : l'élève doit déjà être lié au prof (un créneau réservé,
+// quel que soit son statut, OU une adhésion active à l'une de ses classes) —
+// sinon un prof pourrait pousser une task à n'importe quel utilisateur.
+router.post('/api/m/teacher/send-task', requireToken, requireTeacher, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const studentId = parseInt(req.body?.student_id, 10);
+    const title = (req.body?.title || '').trim();
+    const summary = (req.body?.summary || '').trim();
+    const words = Array.isArray(req.body?.words) ? req.body.words.slice(0, 50) : [];
+    let classId = req.body?.class_id ? parseInt(req.body.class_id, 10) : null;
+    const newClassName = (req.body?.class_name || '').trim();
+
+    if (!studentId) return res.status(400).json({ error: 'Student required' });
+    if (studentId === req.teacher.id) return res.status(400).json({ error: 'Invalid student' });
+    if (!title || title.length > 120) return res.status(400).json({ error: 'Title required (max 120)' });
+    if (summary.length > 2000) return res.status(400).json({ error: 'Summary too long (max 2000)' });
+    if (!classId && !newClassName) return res.status(400).json({ error: 'Pick or create a class' });
+    if (newClassName.length > 80) return res.status(400).json({ error: 'Class name too long (max 80)' });
+
+    // Lien prof↔élève (anti-abus).
+    const link = await pool.query(
+      `SELECT 1 FROM teacher_slots WHERE teacher_id = $1 AND student_id = $2
+       UNION
+       SELECT 1 FROM classroom_students cs JOIN classrooms c ON c.id = cs.classroom_id
+         WHERE c.teacher_id = $1 AND cs.student_id = $2 AND cs.status = 'active'
+       LIMIT 1`,
+      [req.teacher.id, studentId]);
+    if (!link.rows.length) return res.status(403).json({ error: 'Not your student' });
+
+    await client.query('BEGIN');
+
+    // Résolution de la classe : existante (possédée) ou nouvelle.
+    let classroom;
+    if (classId) {
+      const own = await client.query('SELECT id, name FROM classrooms WHERE id = $1 AND teacher_id = $2', [classId, req.teacher.id]);
+      if (!own.rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Class not found' }); }
+      classroom = own.rows[0];
+    } else {
+      const code = await genClassCode();
+      const ins = await client.query(
+        `INSERT INTO classrooms (teacher_id, name, type, join_code) VALUES ($1, $2, 'group', $3) RETURNING id, name`,
+        [req.teacher.id, newClassName, code]);
+      classroom = ins.rows[0];
+      classId = classroom.id;
+    }
+
+    // Inscription auto de l'élève (réactive une adhésion quittée).
+    await client.query(
+      `INSERT INTO classroom_students (classroom_id, student_id) VALUES ($1, $2)
+       ON CONFLICT (classroom_id, student_id) DO UPDATE SET status = 'active'`,
+      [classId, studentId]);
+
+    // Task + mots (même logique que POST /classes/:id/lessons).
+    const { rows: lrows } = await client.query(
+      `INSERT INTO lessons (classroom_id, title, summary) VALUES ($1, $2, $3) RETURNING id`,
+      [classId, title, summary]);
+    const lessonId = lrows[0].id;
+    const langs = await getUserLangs(req.tokenUser.id);
+    const motIds = [];
+    for (const w of words) {
+      const chinese = String(w.chinese || '').trim();
+      if (!chinese) continue;
+      const pinyin = String(w.pinyin || '').trim().slice(0, 100);
+      const english = String(w.english || '').trim().slice(0, 300);
+      const existing = await client.query('SELECT id, hsk FROM mots WHERE chinese = $1 LIMIT 1', [chinese]);
+      let motId;
+      if (existing.rows.length) {
+        motId = existing.rows[0].id;
+        if (existing.rows[0].hsk == null && english) {
+          await client.query('UPDATE mots SET pinyin = $1 WHERE id = $2', [pinyin, motId]);
+          await syncConceptSiblings(client, motId, english, langs.native, { replace: true, userId: req.tokenUser.id });
+        }
+      } else {
+        if (!english) continue;
+        const insM = await client.query(
+          `INSERT INTO mots (chinese, pinyin, lang) VALUES ($1, $2, $3) RETURNING id`,
+          [chinese.slice(0, 50), pinyin, langs.learning]);
+        motId = insM.rows[0].id;
+        await syncConceptSiblings(client, motId, english, langs.native, { userId: req.tokenUser.id });
+      }
+      motIds.push(motId);
+    }
+    const uniqueMots = [...new Set(motIds)];
+    for (const motId of uniqueMots) {
+      await client.query(`INSERT INTO lesson_words (lesson_id, mot_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [lessonId, motId]);
+    }
+
+    await client.query('COMMIT');
+
+    const teacherName = (await pool.query('SELECT name FROM users WHERE id = $1', [req.teacher.id])).rows[0]?.name || 'Your teacher';
+    const wc = uniqueMots.length;
+    notify(studentId, 'new_task', `${teacherName} sent you homework 📘`,
+      wc ? `${title} · ${wc} word${wc > 1 ? 's' : ''}` : title, { lessonId, classId });
+
+    res.json({ success: true, lesson_id: lessonId, classroom });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('m/teacher send-task:', e);
+    res.status(500).json({ error: 'Server error' });
+  } finally { client.release(); }
+});
+
+// ── GET /api/m/teacher/students/:studentId/class-context : contexte « fin de cours » ─
+// Pour la page fin de cours : les classes (non archivées) du prof où l'élève est
+// déjà actif (→ on y range la task directement), + toutes ses classes (→ pour le
+// toggle « add to an existing class » quand l'élève n'en a aucune).
+router.get('/api/m/teacher/students/:studentId/class-context', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.studentId, 10);
+    if (!studentId) return res.status(400).json({ error: 'Invalid student' });
+    const [all, mine] = await Promise.all([
+      pool.query(
+        `SELECT c.id, c.name,
+                COUNT(DISTINCT cs.student_id) FILTER (WHERE cs.status = 'active')::int AS student_count,
+                COUNT(DISTINCT l.id)::int AS lesson_count
+         FROM classrooms c
+         LEFT JOIN classroom_students cs ON cs.classroom_id = c.id
+         LEFT JOIN lessons l ON l.classroom_id = c.id
+         WHERE c.teacher_id = $1 AND c.archived = FALSE
+         GROUP BY c.id ORDER BY c.created_at DESC`,
+        [req.teacher.id]),
+      pool.query(
+        `SELECT c.id, c.name
+         FROM classrooms c JOIN classroom_students cs ON cs.classroom_id = c.id
+         WHERE c.teacher_id = $1 AND c.archived = FALSE AND cs.student_id = $2 AND cs.status = 'active'
+         ORDER BY c.created_at DESC`,
+        [req.teacher.id, studentId]),
+    ]);
+    res.json({ classes: all.rows, student_classes: mine.rows });
+  } catch (e) { console.error('m/teacher class-context:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
 // ── Progression d'une task ───────────────────────────────────────────────────
 router.get('/api/m/teacher/lessons/:lessonId/progress', requireToken, requireTeacher, async (req, res) => {
   try {
@@ -5870,6 +6006,47 @@ router.post('/api/m/student/slots/book', requireToken, async (req, res) => {
   } catch (e) { console.error('m/student slots book:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
+// ── POST /api/m/student/slots/book-recurring : réserver une série hebdomadaire ─
+// {teacher_id, starts_at (1re occurrence), weeks}. Chaque occurrence = même
+// jour/heure murale dans le fuseau du prof, +7 jours (DST-safe via wallToUtc).
+// Les occurrences fermées / passées / déjà prises sont sautées et reportées ;
+// pas d'horizon de 28 j ici car on s'appuie sur la dispo hebdo récurrente du prof.
+router.post('/api/m/student/slots/book-recurring', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const teacherId = parseInt(req.body?.teacher_id, 10);
+    const first = new Date(req.body?.starts_at);
+    let weeks = parseInt(req.body?.weeks, 10);
+    if (!teacherId || isNaN(first)) return res.status(400).json({ error: 'Invalid request' });
+    if (first.getMinutes() !== 0 || first.getSeconds() !== 0) return res.status(400).json({ error: 'Invalid slot time' });
+    weeks = Math.max(2, Math.min(12, Number.isFinite(weeks) ? weeks : 0));
+    if (!(await studentLinkedToTeacher(uid, teacherId))) {
+      return res.status(403).json({ error: 'You are not an active student of this teacher' });
+    }
+    const tz = await teacherTz(teacherId);
+    const w0 = utcToWall(first, tz);
+    const booked = [], unavailable = [];
+    for (let i = 0; i < weeks; i++) {
+      const base = new Date(Date.UTC(w0.year, w0.month - 1, w0.day));
+      base.setUTCDate(base.getUTCDate() + i * 7);
+      const startUtc = wallToUtc(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), w0.hour, tz);
+      const iso = startUtc.toISOString();
+      if (startUtc.getTime() <= Date.now()) { unavailable.push({ starts_at: iso, reason: 'past' }); continue; }
+      if (!(await slotOpenForTeacher(teacherId, startUtc))) { unavailable.push({ starts_at: iso, reason: 'closed' }); continue; }
+      const end = new Date(startUtc.getTime() + SLOT_MIN * 60000);
+      const ins = await pool.query(
+        `INSERT INTO teacher_slots (teacher_id, starts_at, ends_at, student_id, status, booked_at)
+         VALUES ($1, $2, $3, $4, 'booked', NOW())
+         ON CONFLICT (teacher_id, starts_at) WHERE status = 'booked' DO NOTHING
+         RETURNING id`,
+        [teacherId, iso, end.toISOString(), uid]);
+      if (ins.rows.length) booked.push({ id: ins.rows[0].id, starts_at: iso });
+      else unavailable.push({ starts_at: iso, reason: 'taken' });
+    }
+    res.json({ ok: true, booked, unavailable, booked_count: booked.length, requested: weeks });
+  } catch (e) { console.error('m/student slots book-recurring:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
 // ── POST /api/m/student/slots/:id/cancel : annuler MA réservation (libère le créneau) ─
 router.post('/api/m/student/slots/:id/cancel', requireToken, async (req, res) => {
   try {
@@ -5889,8 +6066,9 @@ router.get('/api/m/agenda/upcoming', requireToken, async (req, res) => {
   try {
     const uid = req.tokenUser.id;
     const { rows } = await pool.query(
-      `SELECT ts.id, ts.starts_at, ts.ends_at, ts.note, ts.teacher_id,
+      `SELECT ts.id, ts.starts_at, ts.ends_at, ts.note, ts.teacher_id, ts.student_id,
               (ts.teacher_id = $1) AS i_am_teacher,
+              CASE WHEN ts.teacher_id = $1 THEN su.name END AS student_name,
               CASE WHEN ts.teacher_id = $1 THEN su.name ELSE tu.name END AS other_name,
               CASE WHEN ts.teacher_id = $1 THEN su.avatar_icon ELSE tu.avatar_icon END AS other_avatar,
               CASE WHEN ts.teacher_id = $1 THEN su.avatar_color ELSE tu.avatar_color END AS other_color

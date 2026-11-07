@@ -597,7 +597,9 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
 
   function openLesson(s) { setDetailLesson(s); }
   function editLesson(u) { setDetailLesson(u); }
-  function startClass(u) { if (u?.id) onVideoCall?.(u.id); }
+  // On passe le SLOT complet (id + student_id + student_name) : à la fin de l'appel,
+  // App enchaîne sur la page « fin de cours » pour l'élève de ce créneau.
+  function startClass(u) { if (u?.id) onVideoCall?.(u); }
 
   if (lessons === null && !error) {
     return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><CatLoader size={110} /></View>;

@@ -1,6 +1,6 @@
 import './global.css';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { View, ActivityIndicator, AppState, BackHandler, Platform } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, AppState, BackHandler, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef, setUpgradeHandler, setCoinsHandler, setUnauthorizedHandler, getTrophies, markIgPromoSeen } from './src/api';
@@ -64,7 +64,8 @@ function App() {
   const [editPack, setEditPack] = useState(null); // pack à éditer (create-pack pré-rempli)
   const [duelDeepLink, setDuelDeepLink] = useState(null); // id de duel à ouvrir en détail (depuis une notif)
   const [storeSort, setStoreSort] = useState(null); // tri imposé au JiaStore (notif « nouveau pack » → recent)
-  const [videoCallLesson, setVideoCallLesson] = useState(null); // visio plein-écran (masque la TabBar)
+  const [videoCallLesson, setVideoCallLesson] = useState(null); // visio plein-écran : number (élève) | slot {id, student_id, student_name} (prof)
+  const [endCourse, setEndCourse] = useState(null); // slot du cours terminé → page « fin de cours » (prof)
 
   // Lance un quiz sur un pack possédé → onglet Quiz, popup de réglages pré-rempli.
   const startPackQuiz = (pack) => { setQuizPack(pack); setTab('quiz'); };
@@ -457,10 +458,19 @@ function App() {
     if (profile?.role === 'teacher') {
       return (
         <View style={{ flex: 1 }}>
-          <TeacherHome profile={profile} onLogout={logout} onReplayFlow={handleSettingsOpen} onVideoCall={setVideoCallLesson} />
+          <TeacherHome profile={profile} onLogout={logout} onReplayFlow={handleSettingsOpen} onVideoCall={setVideoCallLesson}
+            endCourse={endCourse} onCloseEndCourse={() => setEndCourse(null)} />
           {videoCallLesson != null && (
             <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-              <VideoCallScreen lessonId={videoCallLesson} onBack={() => setVideoCallLesson(null)} />
+              <VideoCallScreen
+                lessonId={typeof videoCallLesson === 'object' ? videoCallLesson.id : videoCallLesson}
+                onBack={() => {
+                  // Fin d'appel prof → enchaîne sur la page « fin de cours » pour l'élève du créneau.
+                  const slot = typeof videoCallLesson === 'object' ? videoCallLesson : null;
+                  setVideoCallLesson(null);
+                  if (slot?.student_id) setEndCourse(slot);
+                }}
+              />
             </View>
           )}
         </View>
@@ -498,7 +508,7 @@ function App() {
         {/* Visio plein-écran — overlay au-dessus de tout, TabBar masquée. */}
         {videoCallLesson != null && (
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-            <VideoCallScreen lessonId={videoCallLesson} onBack={() => setVideoCallLesson(null)} />
+            <VideoCallScreen lessonId={typeof videoCallLesson === 'object' ? videoCallLesson.id : videoCallLesson} onBack={() => setVideoCallLesson(null)} />
           </View>
         )}
       </View>

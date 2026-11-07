@@ -10,6 +10,7 @@ const ICONS = {
   pack_sold: { icon: 'pricetag', color: '#198754', bg: '#e8f5e9' },
   lesson_cancelled: { icon: 'close-circle', color: '#d4373e', bg: '#fdecef' },
   lesson_modified: { icon: 'calendar', color: '#0d6efd', bg: '#e8f0ff' },
+  new_task: { icon: 'book', color: '#198754', bg: '#e8f5e9' },
 };
 const DEFAULT = { icon: 'notifications', color: COLORS.muted, bg: '#eceef1' };
 

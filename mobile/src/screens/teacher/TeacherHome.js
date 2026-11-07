@@ -8,6 +8,7 @@ import TeacherTaskScreen from './TeacherTaskScreen';
 import TeacherAgendaScreen from './TeacherAgendaScreen';
 import TeacherProfileScreen from './TeacherProfileScreen';
 import TeacherSettingsScreen from './TeacherSettingsScreen';
+import EndCourseScreen from './EndCourseScreen';
 import SupportScreen from '../SupportScreen';
 import LegalScreen from '../LegalScreen';
 import BankScreen from '../BankScreen';
@@ -70,7 +71,7 @@ function TeacherTabBar({ active, onChange, insetBottom, maxWidth }) {
 
 // Conteneur de la plateforme prof : onglets (Classes/Students/Profile) +
 // sous-vues (classe → task, réglages, support).
-export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCall }) {
+export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCall, endCourse, onCloseEndCourse }) {
   const insets = useSafeAreaInsets();
   const kbOpen = useKeyboardOpen(); // web mobile : clavier ouvert → on masque la TabBar
   const { width } = useWindowDimensions();
@@ -154,8 +155,21 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
     content = <TeacherDashboardScreen teacherName={profile?.name} onOpenClass={(id) => setView({ type: 'class', id })} onOpenAgenda={() => { setView(null); setTab('agenda'); }} onVideoCall={onVideoCall} />;
   }
 
-  // Un tap sur un onglet quitte la sous-vue classe/task.
-  const changeTab = (t) => { setView(null); setTab(t); };
+  // Page « fin de cours » : prioritaire sur l'onglet/sous-vue courante, mais DANS
+  // le shell (header 加油 Mentor + tab bar conservés). Fermée via Back / après envoi.
+  if (endCourse) {
+    content = (
+      <EndCourseScreen
+        slot={endCourse}
+        direction={direction}
+        onClose={onCloseEndCourse}
+        onSent={onCloseEndCourse}
+      />
+    );
+  }
+
+  // Un tap sur un onglet quitte la sous-vue classe/task (et la page fin de cours).
+  const changeTab = (t) => { onCloseEndCourse?.(); setView(null); setTab(t); };
 
   return (
     <View className="flex-1 bg-surface-page">

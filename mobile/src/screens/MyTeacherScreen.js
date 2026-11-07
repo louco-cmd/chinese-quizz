@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, Alert, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, Switch, Alert, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
 import BottomSheet from '../components/BottomSheet';
 import CoursePage from './CoursePage';
 import StudentLessonRows from '../components/teachers/StudentLessonRows';
-import { getStudentMentor, getStudentSlots, bookSlot, rateMentor, leaveMentor } from '../api';
+import { getStudentMentor, getStudentSlots, bookSlot, bookRecurringSlots, rateMentor, leaveMentor } from '../api';
 import { useT } from '../i18n';
 import { COLORS, SHADOW_CARD } from '../theme';
 import useAndroidBack from '../useAndroidBack';
@@ -39,17 +39,21 @@ function StatTile({ icon, value, label, accent }) {
 }
 
 // ── BottomSheet : réserver un cours (créneaux dérivés de la semaine type) ─────
+const WEEK_CHOICES = [4, 8, 12];
+
 function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked }) {
   const [slots, setSlots] = useState(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(null);
+  const [repeat, setRepeat] = useState(false);   // réserver chaque semaine
+  const [weeks, setWeeks] = useState(8);          // nb d'occurrences hebdo
   const localTz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return ''; } })();
 
   const reload = useCallback(() => {
     setErr('');
     getStudentSlots(teacherId).then((r) => setSlots(r.slots || [])).catch((e) => setErr(e.message));
   }, [teacherId]);
-  useEffect(() => { if (visible) { setSlots(null); reload(); } }, [visible, reload]);
+  useEffect(() => { if (visible) { setSlots(null); setRepeat(false); setWeeks(8); reload(); } }, [visible, reload]);
 
   const groups = useMemo(() => {
     const m = new Map();
@@ -62,12 +66,28 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
     return [...m.values()];
   }, [slots]);
 
+  const weekdayName = (iso) => new Date(iso).toLocaleDateString(undefined, { weekday: 'long' });
+
   async function book(s) {
     setBusy(s.starts_at);
     try {
-      await bookSlot(teacherId, s.starts_at);
-      onBooked?.(); onClose?.();
-      Alert.alert('', "Lesson booked! You'll find it in your upcoming sessions.");
+      if (repeat) {
+        const r = await bookRecurringSlots(teacherId, s.starts_at, weeks);
+        onBooked?.(); onClose?.();
+        const n = r.booked_count || 0;
+        const miss = (r.requested || weeks) - n;
+        Alert.alert(
+          n ? 'Weekly lessons booked!' : 'Nothing booked',
+          n
+            ? `${n} lesson${n > 1 ? 's' : ''} booked, every ${weekdayName(s.starts_at)} at ${fmtTime(s.starts_at)}.` +
+              (miss > 0 ? `\n\n${miss} week${miss > 1 ? 's were' : ' was'} skipped (teacher not available or already taken).` : '')
+            : 'None of those weekly slots were available — pick another time.'
+        );
+      } else {
+        await bookSlot(teacherId, s.starts_at);
+        onBooked?.(); onClose?.();
+        Alert.alert('', "Lesson booked! You'll find it in your upcoming sessions.");
+      }
     } catch (e) {
       Alert.alert('', e.taken || /available|taken/i.test(e.message || '') ? 'This slot was just taken — pick another.' : (e.message || 'Error'));
       reload();
@@ -86,6 +106,36 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
         <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginTop: 10 }}>Book a lesson</Text>
         {localTz ? <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 3 }}>Shown in your timezone · {localTz}</Text> : null}
       </View>
+
+      {/* Option : réserver le même créneau chaque semaine */}
+      <View style={{ backgroundColor: '#f6f8fb', borderRadius: 14, padding: 14, marginBottom: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Ionicons name="repeat" size={18} color={COLORS.jiayou} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e' }}>Repeat weekly</Text>
+            <Text style={{ fontSize: 12, color: COLORS.mutedLight, marginTop: 1 }}>Book the same day & time every week.</Text>
+          </View>
+          <Switch value={repeat} onValueChange={setRepeat} trackColor={{ false: '#d7dce3', true: COLORS.jiayou }} thumbColor="#fff" />
+        </View>
+        {repeat ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+            <Text style={{ fontSize: 12.5, fontWeight: '700', color: COLORS.muted }}>For</Text>
+            {WEEK_CHOICES.map((n) => {
+              const sel = weeks === n;
+              return (
+                <Pressable key={n} onPress={() => setWeeks(n)}
+                  style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: sel ? COLORS.jiayou : '#d7dce3', backgroundColor: sel ? COLORS.jiayou : '#fff' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '800', color: sel ? '#fff' : COLORS.muted }}>{n} weeks</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+        {repeat ? (
+          <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 10 }}>Pick a time below — it books that slot for the next {weeks} weeks.</Text>
+        ) : null}
+      </View>
+
       {err ? <ErrorRetry error={err} onRetry={reload} />
         : !slots ? <View style={{ paddingVertical: 30, alignItems: 'center' }}><CatLoader size={80} /></View>
           : groups.length === 0 ? (

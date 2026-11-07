@@ -117,7 +117,7 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
                 ) : null}
               </View>
               {joinable ? (
-                <Pressable onPress={() => onVideoCall?.(u.id)} className="bg-jiayou rounded-full px-3 py-1.5">
+                <Pressable onPress={() => onVideoCall?.(u)} className="bg-jiayou rounded-full px-3 py-1.5">
                   <Text className="text-white font-bold text-[11.5px]">{started ? 'Rejoin' : 'Start class'}</Text>
                 </Pressable>
               ) : null}
