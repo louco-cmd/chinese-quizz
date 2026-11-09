@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, Switch, Alert, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, Switch, Alert, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
@@ -8,6 +8,7 @@ import CoursePage from './CoursePage';
 import StudentLessonRows from '../components/teachers/StudentLessonRows';
 import { getStudentMentor, getStudentSlots, bookSlot, bookRecurringSlots, rateMentor, leaveMentor } from '../api';
 import { useT } from '../i18n';
+import { Button, Input } from '../ui';
 import { COLORS, SHADOW_CARD } from '../theme';
 import useAndroidBack from '../useAndroidBack';
 
@@ -196,23 +197,16 @@ function RateSheet({ teacherId, teacherName, initial, visible, onClose, onSaved 
           </Pressable>
         ))}
       </View>
-      <TextInput
+      <Input
         value={comment}
         onChangeText={setComment}
         placeholder="Add a comment (optional)"
-        placeholderTextColor={COLORS.mutedLight}
         multiline
         maxLength={500}
-        style={{ minHeight: 80, borderWidth: 1, borderColor: COLORS.line, borderRadius: 14, padding: 12, fontSize: 14, color: '#1a1a2e', textAlignVertical: 'top', marginBottom: 16 }}
+        inputStyle={{ minHeight: 80, textAlignVertical: 'top' }}
+        style={{ marginBottom: 16 }}
       />
-      <Pressable onPress={save} disabled={busy} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, opacity: busy ? 0.6 : 1 }}>
-        {busy ? <ActivityIndicator color="#fff" size="small" /> : (
-          <>
-            <Ionicons name="checkmark-circle" size={17} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Submit rating</Text>
-          </>
-        )}
-      </Pressable>
+      <Button onPress={save} loading={busy} icon="checkmark-circle" title="Submit rating" fullWidth />
     </BottomSheet>
   );
 }
@@ -273,10 +267,7 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
   const canBook = data.is_active;
 
   const BookBtn = canBook ? (
-    <Pressable onPress={() => setBooking(true)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
-      <Ionicons name="calendar" size={18} color="#fff" />
-      <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Book a lesson</Text>
-    </Pressable>
+    <Button onPress={() => setBooking(true)} icon="calendar" title="Book a lesson" fullWidth />
   ) : null;
 
   // ── Carte identité + stats (colonne gauche sur desktop) ────────────────────
@@ -412,12 +403,8 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
           </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Pressable onPress={() => setLeaving(false)} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: '#f1f3f5', alignItems: 'center' }}>
-            <Text style={{ fontWeight: '700', color: COLORS.muted }}>Cancel</Text>
-          </Pressable>
-          <Pressable onPress={confirmLeave} disabled={leaveBusy} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: COLORS.danger, alignItems: 'center', opacity: leaveBusy ? 0.6 : 1 }}>
-            {leaveBusy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ fontWeight: '800', color: '#fff' }}>Leave</Text>}
-          </Pressable>
+          <Button title="Cancel" variant="secondary" onPress={() => setLeaving(false)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button title="Leave" variant="danger" loading={leaveBusy} onPress={confirmLeave} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
       </BottomSheet>
     </View>

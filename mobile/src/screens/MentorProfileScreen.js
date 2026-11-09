@@ -5,6 +5,7 @@ import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
 import BottomSheet from '../components/BottomSheet';
 import { getMentor, getMentorSlots, bookTrial } from '../api';
+import { Button } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 const CURRENCY = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF', CNY: '¥', JPY: '¥', CAD: 'C$', AUD: 'A$', SGD: 'S$', HKD: 'HK$' };
@@ -141,13 +142,8 @@ function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked })
           </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
-          <Pressable onPress={() => setSelected(null)} style={{ flex: 1, backgroundColor: COLORS.page, borderWidth: 1, borderColor: COLORS.line, borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
-            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Back</Text>
-          </Pressable>
-          <Pressable onPress={confirm} disabled={!!busy} style={{ flex: 2, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, opacity: busy ? 0.6 : 1 }}>
-            <Ionicons name="checkmark-circle" size={17} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{busy ? '…' : 'Confirm booking'}</Text>
-          </Pressable>
+          <Button title="Back" variant="outline" onPress={() => setSelected(null)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button title="Confirm booking" icon="checkmark-circle" loading={!!busy} onPress={confirm} style={{ flex: 2, justifyContent: 'center' }} />
         </View>
       </BottomSheet>
     );
@@ -250,10 +246,7 @@ export default function MentorProfileScreen({ id, initial, onBack }) {
       </View>
 
       {/* Book a trial class */}
-      <Pressable onPress={() => setBooking(true)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', marginTop: 18, flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
-        <Ionicons name="calendar" size={17} color="#fff" />
-        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Book a trial class</Text>
-      </Pressable>
+      <Button onPress={() => setBooking(true)} icon="calendar" title="Book a trial class" fullWidth style={{ marginTop: 18 }} />
     </View>
   );
 
