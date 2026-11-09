@@ -6,7 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import { Ionicons } from '@expo/vector-icons';
-import Popup from '../components/Popup';
+import { Button, Modal } from '../ui';
 import { COLORS } from '../theme';
 import { searchWords, captureWord, createWord, getPinyin, getTranslation, getMe } from '../api';
 import { langMeta, isZhLearning } from '../langs';
@@ -408,7 +408,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
           carrousel) : un seul <Modal> à la fois, sinon iOS plante en empilant
           deux modals transparents. Tap dehors : ferme l'éditeur → retour au
           carrousel ; sinon ferme la popup. */}
-      <Popup
+      <Modal
         visible={showResults}
         onClose={() => (editor ? setEditor(null) : setShowResults(false))}
         maxWidth={560}
@@ -543,7 +543,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
             </Animated.View>
           </View>
         ) : null}
-      </Popup>
+      </Modal>
     </View>
   );
 }
@@ -653,21 +653,8 @@ function WordEditor({ editor, saving, editorError, isZh = true, termLabel = 'Chi
       ) : null}
 
       <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
-        <Pressable
-          onPress={onClose}
-          style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}
-        >
-          <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Cancel</Text>
-        </Pressable>
-        <Pressable
-          onPress={onSave}
-          disabled={saving}
-          style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}
-        >
-          {saving
-            ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={{ color: '#fff', fontWeight: '700' }}>Capture (3 ₵)</Text>}
-        </Pressable>
+        <Button title="Cancel" variant="secondary" onPress={onClose} style={{ flex: 1, justifyContent: 'center' }} textStyle={{ color: COLORS.muted }} />
+        <Button title="Capture (3 ₵)" loading={saving} onPress={onSave} style={{ flex: 1, justifyContent: 'center' }} />
       </View>
     </ScrollView>
   );
@@ -773,11 +760,7 @@ function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine, isZ
             <Text style={{ color: '#198754', fontWeight: '700', fontSize: 13 }}>✓ Captured</Text>
           </View>
         ) : (
-          <Pressable onPress={onCapture} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 10, alignItems: 'center' }}>
-            {capturing
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Capture</Text>}
-          </Pressable>
+          <Button onPress={onCapture} loading={capturing} title="Capture" size="sm" fullWidth style={{ paddingVertical: 10 }} />
         )}
         {!owned ? (
           <Pressable onPress={onEdit} hitSlop={6} style={{ alignItems: 'center', paddingTop: 10 }}>

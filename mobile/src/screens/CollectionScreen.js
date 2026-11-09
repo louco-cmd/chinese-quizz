@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { speak as ttsspeak, stop as ttsstop } from '../tts';
 import { Loading, ErrorRetry } from '../components/ErrorRetry';
-import Popup from '../components/Popup';
+import { Button, Modal } from '../ui';
 import HanziStroke from '../components/HanziStroke';
 import { evoStops, EvolutionHero, EraSlider } from '../components/CharEvolution';
 import { COLORS, SHADOW_CARD_FLAT, TAB_CLEARANCE } from '../theme';
@@ -165,7 +165,7 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
 
   // Popup de filtres — partagée entre les deux vues.
   const filterPopup = (
-    <Popup visible={filterOpen} onClose={() => setFilterOpen(false)} maxWidth={420} scroll={false}>
+    <Modal visible={filterOpen} onClose={() => setFilterOpen(false)} maxWidth={420} scroll={false}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e' }}>{tr('co_filters')}</Text>
         <Pressable onPress={() => setFilterOpen(false)} hitSlop={10}><Ionicons name="close" size={22} color={COLORS.muted} /></Pressable>
@@ -251,7 +251,7 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
           <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('co_show')} {deck.length}</Text>
         </Pressable>
       </View>
-    </Popup>
+    </Modal>
   );
 
   // Bouton filtre flottant — vue LISTE uniquement (bas-droite, au-dessus de la
@@ -656,20 +656,16 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
         ) : (!selectMode ? filterFab : null)}
 
         {/* Confirm suppression en masse (aucun autre modal ouvert en vue liste). */}
-        <Popup visible={confirmBulk} onClose={() => { if (!bulkBusy) setConfirmBulk(false); }} maxWidth={360}>
+        <Modal visible={confirmBulk} onClose={() => { if (!bulkBusy) setConfirmBulk(false); }} maxWidth={360}>
           <Text style={{ fontSize: 16, fontWeight: '800', color: '#1a1a2e', marginBottom: 10, textAlign: 'center' }}>{tr('co_bulk_delete')}</Text>
           <Text style={{ fontSize: 14, color: COLORS.muted, textAlign: 'center', lineHeight: 20, marginBottom: 18 }}>
             {tr('co_bulk_confirm').replace('{n}', selected.length)}
           </Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Pressable onPress={() => setConfirmBulk(false)} disabled={bulkBusy} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
-              <Text style={{ color: '#444', fontWeight: '700' }}>{tr('co_cancel')}</Text>
-            </Pressable>
-            <Pressable onPress={doBulkDelete} disabled={bulkBusy} style={{ flex: 1.3, paddingVertical: 13, borderRadius: 999, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: COLORS.danger }}>
-              {bulkBusy ? <ActivityIndicator color="#fff" size="small" /> : (<><Ionicons name="trash" size={15} color="#fff" /><Text style={{ color: '#fff', fontWeight: '800' }}>{tr('co_bulk_delete')}</Text></>)}
-            </Pressable>
+            <Button title={tr('co_cancel')} variant="outline" disabled={bulkBusy} onPress={() => setConfirmBulk(false)} style={{ flex: 1, justifyContent: 'center' }} />
+            <Button title={tr('co_bulk_delete')} variant="danger" icon="trash" loading={bulkBusy} onPress={doBulkDelete} style={{ flex: 1.3, justifyContent: 'center' }} />
           </View>
-        </Popup>
+        </Modal>
       </Animated.View>
     );
   }
@@ -835,7 +831,7 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
       {filterPopup}
 
       {/* ── Popup sens d'un caractère ── */}
-      <Popup visible={!!charInfo} onClose={() => setCharInfo(null)} maxWidth={340}>
+      <Modal visible={!!charInfo} onClose={() => setCharInfo(null)} maxWidth={340}>
         <View style={{ alignItems: 'center' }}>
           {/* HSK en pastille verte, en haut à droite. */}
           {charInfo?.data?.hsk ? (
@@ -959,10 +955,10 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
             </>
           )}
         </View>
-      </Popup>
+      </Modal>
 
       {/* ── Popup réglages (edit / delete) ── */}
-      <Popup visible={menuOpen} onClose={() => setMenuOpen(false)} maxWidth={300}>
+      <Modal visible={menuOpen} onClose={() => setMenuOpen(false)} maxWidth={300}>
         <Pressable onPress={() => { setMenuOpen(false); openEdit(w); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 }}>
           <Ionicons name="pencil" size={20} color={COLORS.jiayou} />
           <Text style={{ fontSize: 16, fontWeight: '600', color: '#1d1d1f' }}>{tr('co_edit_word')}</Text>
@@ -972,10 +968,10 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
           <Ionicons name="trash" size={20} color={COLORS.danger} />
           <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.danger }}>{tr('co_delete_word')}</Text>
         </Pressable>
-      </Popup>
+      </Modal>
 
       {/* ── Popup édition ── */}
-      <Popup visible={!!editing} onClose={() => setEditing(null)} maxWidth={440}>
+      <Modal visible={!!editing} onClose={() => setEditing(null)} maxWidth={440}>
         <Text style={{ fontSize: 18, fontWeight: '700', color: '#1d1d1f', marginBottom: 16 }}>{tr('co_edit_word')}</Text>
 
         {/* Terme appris : label selon la langue apprise (Chinese/English/French…). */}
@@ -1056,30 +1052,22 @@ export default function CollectionScreen({ onNavigate, onOpenCredits }) {
           />
         </View>
         <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-          <Pressable onPress={() => setEditing(null)} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
-            <Text style={{ color: '#444', fontWeight: '600' }}>{tr('common_cancel')}</Text>
-          </Pressable>
-          <Pressable onPress={saveEdit} disabled={busy} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center' }}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('common_save')}</Text>}
-          </Pressable>
+          <Button title={tr('common_cancel')} variant="outline" onPress={() => setEditing(null)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button title={tr('common_save')} loading={busy} onPress={saveEdit} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
-      </Popup>
+      </Modal>
 
       {/* ── Popup suppression ── */}
-      <Popup visible={!!confirmDel} onClose={() => setConfirmDel(null)} maxWidth={380}>
+      <Modal visible={!!confirmDel} onClose={() => setConfirmDel(null)} maxWidth={380}>
         <Text style={{ fontSize: 18, fontWeight: '700', color: '#1d1d1f', marginBottom: 8 }}>{tr('co_delete_word')}</Text>
         <Text style={{ color: COLORS.muted, marginBottom: 20 }}>
           {tr('co_remove_confirm').replace('{word}', confirmDel?.chinese || '')}
         </Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setConfirmDel(null)} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
-            <Text style={{ color: '#444', fontWeight: '600' }}>{tr('common_cancel')}</Text>
-          </Pressable>
-          <Pressable onPress={doDelete} disabled={busy} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, backgroundColor: COLORS.danger, alignItems: 'center' }}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('common_delete')}</Text>}
-          </Pressable>
+          <Button title={tr('common_cancel')} variant="outline" onPress={() => setConfirmDel(null)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button title={tr('common_delete')} variant="danger" loading={busy} onPress={doDelete} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
-      </Popup>
+      </Modal>
     </Animated.View>
   );
 }
