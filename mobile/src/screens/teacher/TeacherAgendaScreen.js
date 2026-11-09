@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions, Platform } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import BottomSheet from '../../components/BottomSheet';
@@ -7,6 +7,7 @@ import CatLoader from '../../components/CatLoader';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import { getTeacherLessons, deleteTeacherLesson, updateTeacherLesson, getTeacherAvailability, setTeacherAvailability, getTeacherDateSlots, setTeacherDateSlots } from '../../api';
 import { useT } from '../../i18n';
+import { Button } from '../../ui';
 import { COLORS, TAB_CLEARANCE, SHADOW_CARD } from '../../theme';
 
 function localKey(d) {
@@ -430,15 +431,9 @@ function LessonDetailSheet({ lesson, visible, onClose, onSaved, onStart, t, lang
           {!finished && (
             <View style={{ gap: 10 }}>
               {joinable && (
-                <Pressable onPress={() => { onClose?.(); onStart?.(lesson); }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, backgroundColor: COLORS.jiayou }}>
-                  <Ionicons name="videocam" size={18} color="#fff" />
-                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{t('ag_start_class')}</Text>
-                </Pressable>
+                <Button onPress={() => { onClose?.(); onStart?.(lesson); }} icon="videocam" title={t('ag_start_class')} fullWidth style={{ paddingVertical: 14 }} />
               )}
-              <Pressable onPress={() => setMode('edit')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, backgroundColor: '#eef2f7' }}>
-                <Ionicons name="create-outline" size={18} color="#55607a" />
-                <Text style={{ color: '#55607a', fontWeight: '800', fontSize: 15 }}>{t('ag_edit')}</Text>
-              </Pressable>
+              <Button onPress={() => setMode('edit')} variant="secondary" icon="create-outline" title={t('ag_edit')} fullWidth style={{ paddingVertical: 14 }} textStyle={{ color: '#55607a', fontWeight: '800' }} />
             </View>
           )}
         </>
@@ -452,10 +447,7 @@ function LessonDetailSheet({ lesson, visible, onClose, onSaved, onStart, t, lang
             <Text style={{ fontSize: 13, color: COLORS.muted, marginTop: 4 }}>{lesson.student_name} · {hhmm(s)}</Text>
           </View>
           <View style={{ gap: 10 }}>
-            <Pressable onPress={() => setMode('reschedule')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, backgroundColor: COLORS.jiayou }}>
-              <Ionicons name="calendar-outline" size={18} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{t('ag_reschedule')}</Text>
-            </Pressable>
+            <Button onPress={() => setMode('reschedule')} icon="calendar-outline" title={t('ag_reschedule')} fullWidth style={{ paddingVertical: 14 }} />
             <Pressable onPress={() => setMode('confirm_delete')} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 999, backgroundColor: '#fef2f2', borderWidth: 1.5, borderColor: '#fecaca' }}>
               <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
               <Text style={{ color: COLORS.danger, fontWeight: '800', fontSize: 15 }}>{t('ag_cancel_yes')}</Text>
@@ -502,12 +494,8 @@ function LessonDetailSheet({ lesson, visible, onClose, onSaved, onStart, t, lang
           </ScrollView>
 
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Pressable onPress={() => setMode('edit')} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: '#f1f3f5', alignItems: 'center' }}>
-              <Text style={{ fontWeight: '700', color: COLORS.muted }}>{t('common_back')}</Text>
-            </Pressable>
-            <Pressable onPress={doReschedule} disabled={busy} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: COLORS.jiayou, alignItems: 'center', opacity: busy ? 0.6 : 1 }}>
-              {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ fontWeight: '800', color: '#fff' }}>{t('ag_save')}</Text>}
-            </Pressable>
+            <Button title={t('common_back')} variant="secondary" onPress={() => setMode('edit')} style={{ flex: 1, justifyContent: 'center' }} textStyle={{ color: COLORS.muted }} />
+            <Button title={t('ag_save')} loading={busy} onPress={doReschedule} style={{ flex: 1, justifyContent: 'center' }} />
           </View>
         </>
       )}
@@ -526,12 +514,8 @@ function LessonDetailSheet({ lesson, visible, onClose, onSaved, onStart, t, lang
             <Text style={{ fontSize: 12, color: COLORS.mutedLight, textAlign: 'center', marginTop: 4 }}>{t('ag_notif_hint')}</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Pressable onPress={() => setMode('edit')} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: '#f1f3f5', alignItems: 'center' }}>
-              <Text style={{ fontWeight: '700', color: COLORS.muted }}>{t('common_back')}</Text>
-            </Pressable>
-            <Pressable onPress={doDelete} disabled={busy} style={{ flex: 1, paddingVertical: 14, borderRadius: 999, backgroundColor: COLORS.danger, alignItems: 'center', opacity: busy ? 0.6 : 1 }}>
-              {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ fontWeight: '800', color: '#fff' }}>{t('ag_cancel_yes')}</Text>}
-            </Pressable>
+            <Button title={t('common_back')} variant="secondary" onPress={() => setMode('edit')} style={{ flex: 1, justifyContent: 'center' }} textStyle={{ color: COLORS.muted }} />
+            <Button title={t('ag_cancel_yes')} variant="danger" loading={busy} onPress={doDelete} style={{ flex: 1, justifyContent: 'center' }} />
           </View>
         </>
       )}

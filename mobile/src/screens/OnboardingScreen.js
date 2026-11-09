@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TextInput, Pressable, ScrollView, FlatList, ActivityIndicator, useWindowDimensions, Animated,
+  View, Text, TextInput, Pressable, ScrollView, FlatList, useWindowDimensions, Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
@@ -14,6 +14,7 @@ import CtaCard from '../components/duels/CtaCard';
 import PackMarket from '../components/PackMarket';
 import ImportWordsScreen from './ImportWordsScreen';
 import { completeOnboarding, teacherGetProfile, teacherSaveProfile } from '../api';
+import { Button } from '../ui';
 import { COLORS } from '../theme';
 import { useT, makeT } from '../i18n';
 import { LANG_META, useLearnableLangs } from '../langs';
@@ -119,15 +120,7 @@ function FieldLabel({ children, hint }) {
 const inputClass = 'bg-white border-[1.5px] border-line rounded-xl px-3.5 h-12 text-[15px] text-ink';
 
 function PrimaryButton({ label, onPress, saving }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={saving}
-      className={`mt-6 rounded-full py-4 items-center bg-jiayou active:opacity-80 ${saving ? 'opacity-70' : ''}`}
-    >
-      {saving ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold text-[16px]">{label}</Text>}
-    </Pressable>
-  );
+  return <Button title={label} onPress={onPress} loading={saving} size="lg" fullWidth style={{ marginTop: 24 }} />;
 }
 
 // (Le retour se fait via TopBar en haut ; l'ancien BackLink du bas a été retiré.)
