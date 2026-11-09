@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TextInput, Pressable, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, TextInput, Pressable, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toggle from '../../components/Toggle';
-import Popup from '../../components/Popup';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import MentorCard from '../../components/teachers/MentorCard';
 import MentorFilters from '../../components/teachers/MentorFilters';
 import { teacherGetProfile, teacherSaveProfile, getMentors, getTeacherStats } from '../../api';
+import { Modal, Button } from '../../ui';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import CatLoader from '../../components/CatLoader';
 
@@ -160,9 +160,7 @@ export default function TeacherProfileScreen() {
   };
 
   const saveBtn = (
-    <Pressable onPress={save} disabled={saving} className="bg-jiayou rounded-full py-4 items-center active:opacity-80">
-      {saving ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold text-[16px]">{saved ? 'Published ✓' : 'Publish changes'}</Text>}
-    </Pressable>
+    <Button onPress={save} loading={saving} size="lg" fullWidth title={saved ? 'Published ✓' : 'Publish changes'} />
   );
 
   const form = (
@@ -266,7 +264,7 @@ export default function TeacherProfileScreen() {
         </View>
       </ScrollView>
 
-      <Popup visible={currencyOpen} onClose={() => setCurrencyOpen(false)} maxWidth={300}>
+      <Modal visible={currencyOpen} onClose={() => setCurrencyOpen(false)} maxWidth={300}>
         <Text className="text-[16px] font-bold text-ink mb-2">Currency</Text>
         {CURRENCIES.map((c, i) => (
           <Pressable key={c} onPress={() => { setCurrency(c); setCurrencyOpen(false); }}
@@ -275,7 +273,7 @@ export default function TeacherProfileScreen() {
             {currency === c ? <Ionicons name="checkmark" size={18} color={COLORS.jiayou} /> : null}
           </Pressable>
         ))}
-      </Popup>
+      </Modal>
     </View>
   );
 }
