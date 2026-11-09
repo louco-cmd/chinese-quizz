@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
+import { Button } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 import { useT } from '../i18n';
 import { getBillingPortal, refreshSubscription, syncRevenueCat, createCheckout } from '../api';
@@ -277,20 +278,14 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                 </View>
               ) : null}
               {PREMIUM_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === PREMIUM_FEATURES.length - 1} />)}
-              <Pressable
+              <Button
                 onPress={onPremiumPress}
-                disabled={portalBusy}
-                style={{ marginTop: 18, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: COLORS.jiayou, opacity: portalBusy ? 0.7 : 1 }}
-              >
-                {portalBusy ? <ActivityIndicator color="#fff" size="small" /> : (
-                  <>
-                    <Ionicons name={isPremium ? 'settings' : 'rocket'} size={16} color="#fff" />
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
-                      {isPremium ? t('pricing_manage') : `${t('pricing_start')} — ${plan ? plan.priceString : '€5/mo'}`}
-                    </Text>
-                  </>
-                )}
-              </Pressable>
+                loading={portalBusy}
+                icon={isPremium ? 'settings' : 'rocket'}
+                title={isPremium ? t('pricing_manage') : `${t('pricing_start')} — ${plan ? plan.priceString : '€5/mo'}`}
+                fullWidth
+                style={{ marginTop: 18, justifyContent: 'center' }}
+              />
               {portalError ? (
                 <Text style={{ textAlign: 'center', color: COLORS.danger, fontSize: 12.5, marginTop: 8, fontWeight: '600' }}>{portalError}</Text>
               ) : null}
