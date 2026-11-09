@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, Image } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import { completeTutorial } from '../api';
+import { Button } from '../ui';
 import { COLORS } from '../theme';
 import { useT } from '../i18n';
 
@@ -122,17 +123,7 @@ export default function TutorialScreen({ onDone, onClose }) {
 
         {/* Next / Start */}
         {isLast ? (
-          <Pressable
-            onPress={finish} disabled={finishing}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.jiayou, borderRadius: 60, paddingVertical: 12, paddingHorizontal: 22 }}
-          >
-            {finishing ? <ActivityIndicator color="#fff" size="small" /> : (
-              <>
-                <Ionicons name="play-circle" size={18} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{t('tut_start')}</Text>
-              </>
-            )}
-          </Pressable>
+          <Button onPress={finish} loading={finishing} icon="play-circle" title={t('tut_start')} style={{ paddingVertical: 12, paddingHorizontal: 22 }} />
         ) : (
           <Pressable
             onPress={() => setIndex((i) => Math.min(total - 1, i + 1))}

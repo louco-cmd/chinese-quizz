@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, TextInput, Pressable, ActivityIndicator,
+  View, Text, TextInput, Pressable,
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import AppleSignIn from '../components/AppleSignIn';
 import LegalScreen from './LegalScreen';
 import { TERMS_BLOCKS, PRIVACY_BLOCKS } from '../data/legalContent';
 import { login, register, checkEmail, loginWithGoogle, loginWithApple, setToken, checkReferral } from '../api';
+import { Button } from '../ui';
 
 // Style explicite (et pas seulement className) : sur natif, NativeWind n'applique
 // pas de façon fiable la couleur du texte d'un TextInput → texte invisible. On fixe
@@ -193,9 +194,7 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
 
             {/* Étape 1 : Continue */}
             {step === 'email' && (
-              <Pressable onPress={continueEmail} disabled={loading} className="bg-jiayou rounded-full py-4 items-center active:opacity-80 mt-1">
-                {loading ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold text-base">Continue</Text>}
-              </Pressable>
+              <Button title="Continue" onPress={continueEmail} loading={loading} size="lg" fullWidth style={{ marginTop: 4 }} />
             )}
 
             {/* Compte Google seulement */}
@@ -257,9 +256,7 @@ export default function LoginScreen({ onLoggedIn, onForgot }) {
 
                 {error ? <Text className="text-red-500 text-sm mb-3">{error}</Text> : null}
 
-                <Pressable onPress={step === 'login' ? doLogin : doSignup} disabled={loading} className="bg-jiayou rounded-full py-4 items-center active:opacity-80">
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold text-base">{step === 'signup' ? 'Create account' : 'Sign in'}</Text>}
-                </Pressable>
+                <Button title={step === 'signup' ? 'Create account' : 'Sign in'} onPress={step === 'login' ? doLogin : doSignup} loading={loading} size="lg" fullWidth />
                 {step === 'login' && onForgot ? (
                   <Pressable onPress={onForgot} className="py-2 items-center mt-1"><Text className="text-gray-500 text-sm">Forgot password?</Text></Pressable>
                 ) : null}

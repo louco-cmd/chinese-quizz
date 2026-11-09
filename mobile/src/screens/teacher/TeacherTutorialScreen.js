@@ -3,6 +3,7 @@ import { View, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Button } from '../../ui';
 import { COLORS } from '../../theme';
 import { useT } from '../../i18n';
 
@@ -86,13 +87,7 @@ export default function TeacherTutorialScreen({ onDone, onClose }) {
 
         {/* Next / Done */}
         {isLast ? (
-          <Pressable
-            onPress={() => onDone?.()}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.jiayou, borderRadius: 60, paddingVertical: 12, paddingHorizontal: 22 }}
-          >
-            <Ionicons name="checkmark-circle" size={18} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{t('tut_t_start')}</Text>
-          </Pressable>
+          <Button onPress={() => onDone?.()} icon="checkmark-circle" title={t('tut_t_start')} style={{ paddingVertical: 12, paddingHorizontal: 22 }} />
         ) : (
           <Pressable
             onPress={() => setIndex((i) => Math.min(total - 1, i + 1))}
