@@ -25,7 +25,15 @@ le catalogue des primitives.
 11. **Déploiement** : commit par écran (revert facile) ; push + `eas update --channel production
     --environment production` par checkpoint (~5 écrans).
 
-## État
+## État — ✅ tous les écrans migrés (2026-11-09)
+
+Toute l'app passe désormais par les primitives pour ses éléments standards
+(boutons, champs, stats, jauges, pills, popups). Ne restent volontairement
+**feature-specific** (comme KnowledgeRing/TabBar) que les rendus vraiment uniques :
+CrackOverlay (duel défaite), médailles de classement, search-pill + clear (Store/
+AddWord/Collection), FAB, StatTile remplie, calendrier prof, grille de collection,
+HanziQuiz/écriture, sélecteurs de cover/swatches, CtaCard (dégradés de marque),
+shells de navigation (TeacherHome, VideoCall).
 
 Légende : ✅ migré & en prod · ⬜ à faire · ⏸️ différé (gros/risqué, pass dédié) · 🪶 mapping fin (bespoke, rien ne mappe fidèlement sans redesign) · ➖ pas de migration utile
 
@@ -52,12 +60,12 @@ Légende : ✅ migré & en prod · ⬜ à faire · ⏸️ différé (gros/risqu�
 | MentorProfileScreen | 321 | ✅ | book-trial+confirm→Button ; StatTile rempli gardé |
 | MyTeacherScreen | 425 | ✅ | BookBtn/rate/leave→Button ; comment→Input ; weeks→Chip solid |
 | LegalScreen | 96 | ➖ | texte légal statique |
-| CollectionScreen | 1085 | ⏸️ | énorme ; pass dédié |
-| AddWordScreen | 805 | ⏸️ | énorme ; flux cœur ; pass dédié |
-| CreatePackScreen | 482 | ⏸️ | pass dédié |
-| QuizPlayScreen | 548 | ⏸️ | moteur de quiz ; risqué |
-| DuelPlayScreen | 426 | ⏸️ | moteur de duel ; risqué |
-| WritingPracticeScreen | 266 | ⏸️ | natif/hanzi ; risqué |
+| CollectionScreen | 1085 | ✅ | 6 popups→Modal ; bulk/edit/delete→Button ; grille/recherche bespoke |
+| AddWordScreen | 805 | ✅ | results popup→Modal ; capture/save→Button ; barres de recherche bespoke |
+| CreatePackScreen | 482 | ✅ | lang chips→Chip solid ; CTAs→Button ; popups→Modal |
+| QuizPlayScreen | 548 | ✅ | submit/restart/exit/result→Button ; rendu du quiz intact |
+| DuelPlayScreen | 426 | ✅ | submit→Button ; leave popup→Modal ; rendu intact |
+| WritingPracticeScreen | 266 | ✅ | result CTAs→Button ; HanziQuiz intact |
 
 ### Auth / plein écran (SafeArea propre — garder le shell, migrer seulement boutons/textes)
 | Écran | L. | État | Notes |
@@ -67,7 +75,7 @@ Légende : ✅ migré & en prod · ⬜ à faire · ⏸️ différé (gros/risqu�
 | ResetPasswordScreen | 102 | ✅ | CTAs→Button ; champs→Input |
 | WelcomePremiumScreen | 73 | ✅ | CTAs→Button |
 | TutorialScreen | 147 | ✅ | CTA Start→Button ; flèches carrousel gardées |
-| OnboardingScreen | 697 | ⏸️ | garder SafeArea ; gros |
+| OnboardingScreen | 697 | ✅ | PrimaryButton→Button ; champs/segmented/CtaCard gardés |
 | VideoCallScreen | 145 | ➖ | plein écran visio spécifique |
 
 ### Plateforme prof
@@ -82,7 +90,7 @@ Légende : ✅ migré & en prod · ⬜ à faire · ⏸️ différé (gros/risqu�
 | teacher/CreateTaskPopup | 183 | ✅ | wizard 3 étapes : boutons footer→Button ; Modal |
 | teacher/TeacherTutorialScreen | 107 | ✅ | CTA Done→Button ; flèches gardées |
 | teacher/TeacherHome | 187 | ➖ | shell de navigation (header + tab bar), rien à migrer |
-| teacher/TeacherAgendaScreen | 739 | ⏸️ | énorme ; pass dédié |
+| teacher/TeacherAgendaScreen | 739 | ✅ | CTAs de modes→Button ; calendrier/chips d'heure/delete rouge-outline gardés |
 
 ## Journal
 - 2026-11-09 : DuelsScreen, QuizScreen migrés & en prod (OTA). StatTile `valueColor` ajouté.
@@ -98,3 +106,7 @@ Légende : ✅ migré & en prod · ⬜ à faire · ⏸️ différé (gros/risqu�
   FAB, StatTile rempli) laissés feature-specific, comme KnowledgeRing/TabBar/CrackOverlay.
   Restent : gros écrans cœur ⏸️ (Collection, AddWord, CreatePack, QuizPlay, DuelPlay, Writing,
   Onboarding, TeacherAgenda).
+- 2026-11-09 : **100 % atteint.** Gros écrans migrés (CreatePack, QuizPlay, DuelPlay, Writing,
+  Onboarding, TeacherAgenda, AddWord, Collection). Chaque écran utilise les primitives pour ses
+  éléments standards ; rendus vraiment uniques laissés feature-specific (voir en-tête). Règle
+  permanente : nouvel écran → primitives d'abord ; besoin récurrent non couvert → l'ajouter à la lib.
