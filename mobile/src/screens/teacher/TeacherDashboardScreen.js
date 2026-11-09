@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, TextInput, useWindowDimensions, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, useWindowDimensions, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
-import Popup from '../../components/Popup';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import { teacherOverview, teacherClasses, teacherCreateClass, teacherStudents, getUpcomingSessions } from '../../api';
+import { Modal, Button } from '../../ui';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import CatLoader from '../../components/CatLoader';
 
@@ -187,7 +187,7 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
         </View>
       </ScrollView>
 
-      <Popup visible={creating} onClose={() => setCreating(false)} maxWidth={420}>
+      <Modal visible={creating} onClose={() => setCreating(false)} maxWidth={420}>
         <Text className="text-[17px] font-bold text-ink mb-3">New class</Text>
         <Text className="text-[13px] font-semibold text-muted mb-1.5">Class name</Text>
         <TextInput
@@ -197,12 +197,10 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
         />
         {cErr ? <Text className="text-danger text-[13px] font-semibold mt-2">{cErr}</Text> : null}
         <View className="flex-row gap-3 mt-4">
-          <Pressable onPress={() => setCreating(false)} className="flex-1 bg-[#f1f3f5] rounded-xl py-3 items-center"><Text className="text-muted font-bold">Cancel</Text></Pressable>
-          <Pressable onPress={create} disabled={saving} className="flex-1 bg-jiayou rounded-xl py-3 items-center">
-            {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-white font-bold">Create</Text>}
-          </Pressable>
+          <Button title="Cancel" variant="secondary" onPress={() => setCreating(false)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button title="Create" loading={saving} onPress={create} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
-      </Popup>
+      </Modal>
     </View>
   );
 }

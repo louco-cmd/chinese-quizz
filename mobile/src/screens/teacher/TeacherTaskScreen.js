@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Popup from '../../components/Popup';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import { teacherLessonProgress, teacherDeleteLesson } from '../../api';
+import { Modal, Button, ProgressBar } from '../../ui';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import CatLoader from '../../components/CatLoader';
 
@@ -80,7 +80,7 @@ export default function TeacherTaskScreen({ lessonId, onBack }) {
                     <View className="flex-1 min-w-0">
                       <Text className="font-bold text-ink text-[14px]" numberOfLines={1}>{s.name || 'Student'}</Text>
                       <Text className="text-muted-light text-[12px] mt-0.5">{s.quiz_count} quiz{s.quiz_count === 1 ? '' : 'zes'} on this task</Text>
-                      <View className="h-2 rounded-full bg-[#eef2f8] overflow-hidden mt-1.5"><View style={{ width: `${k}%`, height: '100%', backgroundColor: COLORS.jiayou, borderRadius: 4 }} /></View>
+                      <ProgressBar value={k} max={100} height={8} color={COLORS.jiayou} track="#eef2f8" style={{ marginTop: 6 }} />
                     </View>
                     <Text className="text-jiayou font-extrabold text-[14px] min-w-[42px] text-right">{k}%</Text>
                   </View>
@@ -91,17 +91,15 @@ export default function TeacherTaskScreen({ lessonId, onBack }) {
         </View>
       </ScrollView>
 
-      <Popup visible={confirmDel} onClose={() => setConfirmDel(false)} maxWidth={380}>
+      <Modal visible={confirmDel} onClose={() => setConfirmDel(false)} maxWidth={380}>
         <View className="items-center mb-2"><Text className="text-[30px]">🗑️</Text></View>
         <Text className="text-[16px] font-bold text-ink text-center mb-1">Delete this task?</Text>
         <Text className="text-[13px] text-muted text-center leading-5 mb-4">This removes the task and its progress. This cannot be undone.</Text>
         <View className="flex-row gap-3">
-          <Pressable onPress={() => setConfirmDel(false)} className="flex-1 bg-[#f1f3f5] rounded-xl py-3 items-center"><Text className="text-muted font-bold">Cancel</Text></Pressable>
-          <Pressable onPress={doDelete} disabled={deleting} className="flex-1 bg-danger rounded-xl py-3 items-center">
-            {deleting ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-white font-bold">Delete</Text>}
-          </Pressable>
+          <Button title="Cancel" variant="secondary" onPress={() => setConfirmDel(false)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button title="Delete" variant="danger" loading={deleting} onPress={doDelete} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
-      </Popup>
+      </Modal>
     </View>
   );
 }
