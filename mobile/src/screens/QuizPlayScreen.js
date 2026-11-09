@@ -5,6 +5,7 @@ import { ErrorRetry } from '../components/ErrorRetry';
 import { getMe, getQuizPlayWords, saveQuiz, saveTaskResult } from '../api';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
+import { Button } from '../ui';
 import { COLORS, SHADOW_CARD } from '../theme';
 import CatLoader from '../components/CatLoader';
 import RevealAnswerCard from '../components/RevealAnswerCard';
@@ -284,13 +285,7 @@ export default function QuizPlayScreen({ config, onExit }) {
           </View>
           <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e', textAlign: 'center' }}>{tr('qp_not_enough_title')}</Text>
           <Text style={{ fontSize: 14.5, color: COLORS.muted, textAlign: 'center', marginTop: 8, lineHeight: 21, maxWidth: 320 }}>{tr('qp_not_enough')}</Text>
-          <Pressable
-            onPress={onExit}
-            style={{ marginTop: 26, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, paddingHorizontal: 40, flexDirection: 'row', alignItems: 'center', gap: 8 }}
-          >
-            <Ionicons name="arrow-back" size={17} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{tr('qp_not_enough_back')}</Text>
-          </Pressable>
+          <Button onPress={onExit} icon="arrow-back" title={tr('qp_not_enough_back')} style={{ marginTop: 26, paddingHorizontal: 40, alignSelf: 'center' }} />
         </View>
       </View>
     );
@@ -327,12 +322,8 @@ export default function QuizPlayScreen({ config, onExit }) {
               </View>
             )}
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 24, width: '100%' }}>
-              <Pressable onPress={onExit} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-                <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{tr('common_back')}</Text>
-              </Pressable>
-              <Pressable onPress={restart} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-                <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('qp_new_quiz')}</Text>
-              </Pressable>
+              <Button title={tr('common_back')} variant="secondary" onPress={onExit} style={{ flex: 1, justifyContent: 'center' }} textStyle={{ color: COLORS.muted }} />
+              <Button title={tr('qp_new_quiz')} onPress={restart} style={{ flex: 1, justifyContent: 'center' }} />
             </View>
           </View>
         </View>
@@ -447,14 +438,7 @@ export default function QuizPlayScreen({ config, onExit }) {
               </Text>
             ) : null}
 
-            <Pressable
-              onPress={submit}
-              disabled={locked}
-              style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: locked ? 0.6 : 1 }}
-            >
-              <Ionicons name="send" size={16} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{tr('qp_submit')}</Text>
-            </Pressable>
+            <Button onPress={submit} disabled={locked} icon="send" title={tr('qp_submit')} fullWidth style={{ paddingVertical: 14 }} />
           </View>
 
           {/* Score + progression */}

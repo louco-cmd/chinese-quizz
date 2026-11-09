@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getMe, getDuel, submitDuelScore } from '../api';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
+import { Button, Modal } from '../ui';
 import { COLORS, SHADOW_CARD } from '../theme';
 import CatLoader from '../components/CatLoader';
 import RevealAnswerCard from '../components/RevealAnswerCard';
@@ -358,11 +358,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
                 {`${senses.length} ${tr('qp_answers_possible')}`}
               </Text>
             ) : null}
-            <Pressable onPress={submit} disabled={locked}
-              style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: locked ? 0.6 : 1 }}>
-              <Ionicons name="send" size={16} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{tr('qp_submit')}</Text>
-            </Pressable>
+            <Button onPress={submit} disabled={locked} icon="send" title={tr('qp_submit')} fullWidth style={{ paddingVertical: 14 }} />
           </View>
 
           <View style={{ alignItems: 'center', marginTop: 18 }}>
@@ -373,20 +369,16 @@ export default function DuelPlayScreen({ duelId, onExit }) {
       </ScrollView>
 
       {/* Avertissement anti-triche avant de quitter */}
-      <Popup visible={showLeave} onClose={() => setShowLeave(false)} maxWidth={400}>
+      <Modal visible={showLeave} onClose={() => setShowLeave(false)} maxWidth={400}>
         <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{tr('dp_leave_title')}</Text>
         <Text style={{ fontSize: 14, color: COLORS.muted, lineHeight: 20, marginBottom: 20 }}>
           {tr('dp_leave_body').replace('{score}', `${correctCount}/${words.length}`)}
         </Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setShowLeave(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{tr('dp_keep_playing')}</Text>
-          </Pressable>
-          <Pressable onPress={confirmLeave} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>{tr('dp_leave_submit')}</Text>
-          </Pressable>
+          <Button title={tr('dp_keep_playing')} variant="secondary" onPress={() => setShowLeave(false)} style={{ flex: 1, justifyContent: 'center' }} textStyle={{ color: COLORS.muted }} />
+          <Button title={tr('dp_leave_submit')} variant="danger" onPress={confirmLeave} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
-      </Popup>
+      </Modal>
     </View>
   );
 }
@@ -407,11 +399,7 @@ function Centered({ children }) {
   return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>{children}</View>;
 }
 function PrimaryBtn({ label, onPress }) {
-  return (
-    <Pressable onPress={onPress} style={{ backgroundColor: COLORS.jiayou, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 28, marginTop: 22 }}>
-      <Text style={{ color: '#fff', fontWeight: '700' }}>{label}</Text>
-    </Pressable>
-  );
+  return <Button title={label} onPress={onPress} style={{ marginTop: 22, borderRadius: 12, paddingHorizontal: 28, alignSelf: 'center' }} />;
 }
 
 const syllableStyle = (second) => ({

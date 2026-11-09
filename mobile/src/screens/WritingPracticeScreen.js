@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import HanziQuiz from '../components/HanziQuiz';
 import { Loading, ErrorRetry } from '../components/ErrorRetry';
 import { getCollection } from '../api';
+import { Button } from '../ui';
 import { COLORS } from '../theme';
 
 const isHan = (ch) => /[㐀-鿿]/.test(ch);
@@ -186,12 +187,8 @@ export default function WritingPracticeScreen({ onBack }) {
           <Text style={{ fontSize: 22, fontWeight: '800', color: '#1a1a2e', marginTop: 12 }}>{done} characters written!</Text>
           <Text style={{ color: COLORS.muted, marginTop: 6, textAlign: 'center' }}>Nice work practising your strokes.</Text>
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 22 }}>
-            <Pressable onPress={() => setStarted(false)} style={{ borderWidth: 1.5, borderColor: COLORS.line, borderRadius: 999, paddingVertical: 13, paddingHorizontal: 22 }}>
-              <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Change levels</Text>
-            </Pressable>
-            <Pressable onPress={start} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, paddingHorizontal: 26 }}>
-              <Text style={{ color: '#fff', fontWeight: '700' }}>Again</Text>
-            </Pressable>
+            <Button title="Change levels" variant="outline" onPress={() => setStarted(false)} style={{ paddingHorizontal: 22 }} textStyle={{ color: COLORS.muted }} />
+            <Button title="Again" onPress={start} style={{ paddingHorizontal: 26 }} />
           </View>
         </View>
       </View>
