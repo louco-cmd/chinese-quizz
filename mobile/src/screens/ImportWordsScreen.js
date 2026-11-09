@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, ActivityIndicator, FlatList, ScrollView,
+  View, Text, TextInput, Pressable, FlatList, ScrollView,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { importPreview, importCommit } from '../api';
+import { Button } from '../ui';
 import { COLORS, SHADOW_CARD } from '../theme';
 
 // Sélection de fichier (.txt / .xml Pleco, CSV…).
@@ -198,18 +199,16 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
             />
           )}
           {error ? <Text style={{ color: COLORS.danger, fontSize: 13, marginTop: 10, fontWeight: '600' }}>{error}</Text> : null}
-          <Pressable
+          <Button
             onPress={runPreview}
             disabled={busy || !hasInput}
-            style={{ marginTop: 16, borderRadius: 999, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: hasInput ? COLORS.jiayou : '#e9ecef' }}
-          >
-            {busy ? <ActivityIndicator color="#fff" /> : (
-              <>
-                <Ionicons name="eye" size={17} color={hasInput ? '#fff' : COLORS.muted} />
-                <Text style={{ color: hasInput ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>Preview</Text>
-              </>
-            )}
-          </Pressable>
+            loading={busy}
+            icon="eye"
+            title="Preview"
+            size="lg"
+            fullWidth
+            style={{ marginTop: 16 }}
+          />
         </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -234,10 +233,7 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
             You reached the free limit ({result.maxWords} words). Go Premium for unlimited.
           </Text>
         ) : null}
-        <Pressable onPress={() => (onDone || onBack)?.()}
-          style={{ marginTop: 24, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 40, backgroundColor: COLORS.jiayou }}>
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Done</Text>
-        </Pressable>
+        <Button onPress={() => (onDone || onBack)?.()} title="Done" style={{ marginTop: 24, borderRadius: 14, paddingHorizontal: 40, alignSelf: 'center' }} />
       </View>
     );
   }
@@ -318,20 +314,14 @@ export default function ImportWordsScreen({ onBack, onDone, direction: forcedDir
 
       {/* Barre d'action fixe : bouton Importer centré (retour à l'édition via « Back »). */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: COLORS.line, paddingTop: 12, paddingBottom: 12 + insets.bottom, justifyContent: 'center', alignItems: 'center' }}>
-        <Pressable
+        <Button
           onPress={runCommit}
           disabled={busy || !importable.length}
-          style={{ borderRadius: 999, paddingVertical: 11, paddingHorizontal: 28, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 7, backgroundColor: importable.length ? COLORS.jiayou : '#e9ecef' }}
-        >
-          {busy ? <ActivityIndicator color="#fff" size="small" /> : (
-            <>
-              <Ionicons name="download" size={15} color={importable.length ? '#fff' : COLORS.muted} />
-              <Text style={{ color: importable.length ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 14 }}>
-                Import {importable.length} word{importable.length === 1 ? '' : 's'}
-              </Text>
-            </>
-          )}
-        </Pressable>
+          loading={busy}
+          icon="download"
+          title={`Import ${importable.length} word${importable.length === 1 ? '' : 's'}`}
+          style={{ alignSelf: 'center', paddingHorizontal: 28 }}
+        />
       </View>
       {error ? (
         <Text style={{ position: 'absolute', bottom: 76 + insets.bottom, alignSelf: 'center', color: COLORS.danger, fontSize: 13, fontWeight: '600' }}>{error}</Text>

@@ -5,6 +5,7 @@ import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getStudentSlots, getUpcomingSessions, bookSlot, cancelSlotBooking } from '../api';
 import { useT } from '../i18n';
+import { Button } from '../ui';
 import { COLORS, TAB_CLEARANCE, SHADOW_CARD } from '../theme';
 import useAndroidBack from '../useAndroidBack';
 
@@ -94,13 +95,8 @@ export default function StudentAgendaScreen({ onBack, onVideoCall }) {
                     <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e' }}>{fmtDay(s, lang)} · {hhmm(s)}</Text>
                     <Text style={{ fontSize: 12.5, color: COLORS.muted, marginTop: 2 }}>{t('ag_with').replace('{name}', u.other_name || '—')}</Text>
                   </View>
-                  <Pressable onPress={() => onVideoCall?.(u.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: COLORS.jiayou }}>
-                    <Ionicons name="videocam" size={14} color="#fff" />
-                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12.5 }}>{t('ag_join')}</Text>
-                  </Pressable>
-                  <Pressable onPress={() => cancel(u)} disabled={busy === u.id} hitSlop={8} style={{ paddingHorizontal: 10, paddingVertical: 8, borderRadius: 999, backgroundColor: '#f6f8fb' }}>
-                    <Text style={{ color: COLORS.danger, fontWeight: '700', fontSize: 12.5 }}>{t('ag_cancel_mine')}</Text>
-                  </Pressable>
+                  <Button size="sm" icon="videocam" title={t('ag_join')} onPress={() => onVideoCall?.(u.id)} />
+                  <Button size="sm" variant="secondary" title={t('ag_cancel_mine')} onPress={() => cancel(u)} disabled={busy === u.id} textStyle={{ color: COLORS.danger }} />
                 </View>
               );
             })}
@@ -123,9 +119,7 @@ export default function StudentAgendaScreen({ onBack, onVideoCall }) {
                     <Text style={{ fontSize: 14, fontWeight: '700', color: '#1a1a2e' }}>{fmtDay(st, lang)}</Text>
                     <Text style={{ fontSize: 12.5, color: COLORS.muted, marginTop: 1 }}>{hhmm(st)} – {hhmm(en)}</Text>
                   </View>
-                  <Pressable onPress={() => book(s)} disabled={busy === slotKey(s)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8, opacity: busy === slotKey(s) ? 0.6 : 1 }}>
-                    <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13 }}>{busy === slotKey(s) ? '…' : t('ag_book')}</Text>
-                  </Pressable>
+                  <Button size="sm" title={t('ag_book')} loading={busy === slotKey(s)} onPress={() => book(s)} />
                 </View>
               );
             })}

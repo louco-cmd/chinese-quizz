@@ -7,6 +7,7 @@ import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getStudentHistory } from '../api';
 import { useT } from '../i18n';
+import { Badge } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 // Page « Mes cours » (Settings, BETA) : l'HISTORIQUE complet des cours reçus —
@@ -82,11 +83,7 @@ export default function MyClassesScreen({ onBack }) {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, paddingBottom: 4 }}>
                 <Ionicons name="person-circle" size={18} color={g.active ? COLORS.jiayou : '#adb5bd'} />
                 <Text style={{ fontSize: 13, fontWeight: '800', color: '#1a1a2e', textTransform: 'uppercase', letterSpacing: 0.4 }}>{g.teacher_name}</Text>
-                {!g.active ? (
-                  <View style={{ backgroundColor: '#f1f3f5', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-                    <Text style={{ fontSize: 9.5, fontWeight: '800', color: '#8a94a6' }}>{t('mc_ended')}</Text>
-                  </View>
-                ) : null}
+                {!g.active ? <Badge tone="muted">{t('mc_ended')}</Badge> : null}
               </View>
               <StudentLessonRows lessons={g.lessons} onOpen={(l, readOnly) => setCourse({ id: l.id, readOnly })} t={t} />
             </View>

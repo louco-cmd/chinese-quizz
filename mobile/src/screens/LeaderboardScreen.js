@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { View, Text, ScrollView, Pressable, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { flagEmoji } from '../components/account/EditProfilePopup';
 import UserProfileScreen from './UserProfileScreen';
 import Avatar from '../components/Avatar';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
-import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
+import { Screen } from '../ui';
+import { COLORS, SHADOW_CARD } from '../theme';
 
 function Stat({ value, label, color = '#1a1a2e' }) {
   return (
@@ -63,8 +64,6 @@ function Row({ player, rank, last, onPress }) {
 // Page de classement dédiée (ouverte depuis "My statistics").
 export default function LeaderboardScreen({ board, onBack }) {
   const { t } = useT();
-  const { width } = useWindowDimensions();
-  const hPad = width >= 992 ? 24 : 16;
   const [profileId, setProfileId] = useState(null);
 
   // Retour Android : ferme d'abord le profil ouvert, sinon revient aux duels.
@@ -80,34 +79,30 @@ export default function LeaderboardScreen({ board, onBack }) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <ScrollView contentContainerStyle={{ paddingTop: 16, paddingBottom: TAB_CLEARANCE }}>
-        <View style={{ width: '100%', maxWidth: 900, alignSelf: 'center', paddingHorizontal: hPad }}>
-          {/* En-tête avec retour */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-            <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Ionicons name="chevron-back" size={22} color={COLORS.jiayou} />
-              <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 15 }}>{t('nav_duels')}</Text>
-            </Pressable>
-          </View>
+    <Screen edges={[]} maxWidth={900}>
+      {/* En-tête avec retour */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Ionicons name="chevron-back" size={22} color={COLORS.jiayou} />
+          <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 15 }}>{t('nav_duels')}</Text>
+        </Pressable>
+      </View>
 
-          <View style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', ...SHADOW_CARD }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderColor: '#f0f0f0' }}>
-              <Ionicons name="trophy" size={19} color="#f7c948" />
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#444' }}>{t('lb_leaderboard')}</Text>
-              <Text style={{ marginLeft: 'auto', fontSize: 12, color: COLORS.muted }}>
-                {board.length} {t('lb_players')}
-              </Text>
-            </View>
-
-            {board.length === 0 ? (
-              <Text style={{ color: '#adb5bd', textAlign: 'center', paddingVertical: 24 }}>{t('lb_none')}</Text>
-            ) : (
-              board.map((p, i) => <Row key={p.id} player={p} rank={i + 1} last={i === board.length - 1} onPress={(pl) => setProfileId(pl.id)} />)
-            )}
-          </View>
+      <View style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', ...SHADOW_CARD }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderColor: '#f0f0f0' }}>
+          <Ionicons name="trophy" size={19} color="#f7c948" />
+          <Text style={{ fontSize: 15, fontWeight: '700', color: '#444' }}>{t('lb_leaderboard')}</Text>
+          <Text style={{ marginLeft: 'auto', fontSize: 12, color: COLORS.muted }}>
+            {board.length} {t('lb_players')}
+          </Text>
         </View>
-      </ScrollView>
-    </View>
+
+        {board.length === 0 ? (
+          <Text style={{ color: '#adb5bd', textAlign: 'center', paddingVertical: 24 }}>{t('lb_none')}</Text>
+        ) : (
+          board.map((p, i) => <Row key={p.id} player={p} rank={i + 1} last={i === board.length - 1} onPress={(pl) => setProfileId(pl.id)} />)
+        )}
+      </View>
+    </Screen>
   );
 }
