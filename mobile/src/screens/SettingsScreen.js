@@ -7,8 +7,9 @@ import { Ionicons } from '@expo/vector-icons';
 import SettingsGroup from '../components/settings/SettingsGroup';
 import SettingsRow from '../components/settings/SettingsRow';
 import Toggle from '../components/Toggle';
-import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
+// Design-system : Modal (= Popup), Button, Badge.
+import { Modal, Button, Badge } from '../ui';
 import UpdateFooter from '../components/settings/UpdateFooter';
 import { getSettings, getCachedSettings, updateSettings, deleteAccount, exportAccountData, getLearningPaths, activateLearningPath } from '../api';
 import { useT } from '../i18n';
@@ -19,22 +20,12 @@ import LearningPathPopup from '../components/settings/LearningPathPopup';
 
 // Petit badge PREMIUM pour les fonctions verrouillées au plan gratuit.
 function PremiumPill() {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fff3cd', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
-      <Ionicons name="star" size={11} color="#b8860b" />
-      <Text style={{ color: '#8a6d00', fontWeight: '800', fontSize: 10.5 }}>PREMIUM</Text>
-    </View>
-  );
+  return <Badge tone="warning" icon="star">PREMIUM</Badge>;
 }
 
 // Badge BETA pour les fonctions récentes / en rodage (accessibles à tous).
 function BetaPill() {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#e7f0ff', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
-      <Ionicons name="flask" size={11} color="#1a6ff7" />
-      <Text style={{ color: '#0a4fcf', fontWeight: '800', fontSize: 10.5 }}>BETA</Text>
-    </View>
-  );
+  return <Badge tone="primary" icon="flask">BETA</Badge>;
 }
 
 export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = false }) {
@@ -373,37 +364,29 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
       </ScrollView>
 
       {/* Confirmation de suppression */}
-      <Popup visible={confirmDelete} onClose={() => setConfirmDelete(false)} maxWidth={400}>
+      <Modal visible={confirmDelete} onClose={() => setConfirmDelete(false)} maxWidth={400}>
         <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{t('set_delete_title')}</Text>
         <Text style={{ fontSize: 14, color: COLORS.muted, marginBottom: 20, lineHeight: 20 }}>
           {t('set_delete_body')}
         </Text>
         {error ? <Text style={{ color: COLORS.danger, fontSize: 13, marginBottom: 12, fontWeight: '600' }}>{error}</Text> : null}
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setConfirmDelete(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_cancel')}</Text>
-          </Pressable>
-          <Pressable onPress={doDelete} disabled={deleting} style={{ flex: 1, backgroundColor: COLORS.danger, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            {deleting ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{t('common_delete')}</Text>}
-          </Pressable>
+          <Button title={t('common_cancel')} variant="secondary" onPress={() => setConfirmDelete(false)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button title={t('common_delete')} variant="danger" loading={deleting} onPress={doDelete} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
-      </Popup>
+      </Modal>
 
       {/* Confirmation de déconnexion */}
-      <Popup visible={confirmLogout} onClose={() => setConfirmLogout(false)} maxWidth={400}>
+      <Modal visible={confirmLogout} onClose={() => setConfirmLogout(false)} maxWidth={400}>
         <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>{t('set_logout_title')}</Text>
         <Text style={{ fontSize: 14, color: COLORS.muted, marginBottom: 20, lineHeight: 20 }}>
           {t('set_logout_body')}
         </Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setConfirmLogout(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>{t('common_cancel')}</Text>
-          </Pressable>
-          <Pressable onPress={onLogout} style={{ flex: 1, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>{t('set_logout')}</Text>
-          </Pressable>
+          <Button title={t('common_cancel')} variant="secondary" onPress={() => setConfirmLogout(false)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button title={t('set_logout')} onPress={onLogout} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
-      </Popup>
+      </Modal>
 
       {/* Création / édition d'un parcours d'apprentissage */}
       <LearningPathPopup
