@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Popup from '../../components/Popup';
+import { Modal, Button } from '../../ui';
 import { teacherLookupWords, teacherCreateLesson } from '../../api';
 import { COLORS } from '../../theme';
 
@@ -86,7 +86,7 @@ export default function CreateTaskPopup({ visible, classId, direction, onClose, 
   }
 
   return (
-    <Popup visible={visible} onClose={close} maxWidth={460} scroll={false}>
+    <Modal visible={visible} onClose={close} maxWidth={460} scroll={false}>
       {/* En-tête + points d'étape */}
       <View className="flex-row items-center justify-between mb-3">
         <Text className="text-[17px] font-bold text-ink">New task</Text>
@@ -105,8 +105,8 @@ export default function CreateTaskPopup({ visible, classId, direction, onClose, 
             placeholderTextColor={COLORS.mutedLight} className="bg-surface-page border border-line rounded-xl px-3.5 py-3 text-[15px] text-ink" style={{ minHeight: 80, textAlignVertical: 'top' }} />
           {err ? <Text className="text-danger text-[13px] font-semibold mt-2">{err}</Text> : null}
           <View className="flex-row gap-3 mt-4">
-            <Pressable onPress={close} className="flex-1 bg-[#f1f3f5] rounded-xl py-3 items-center"><Text className="text-muted font-bold">Cancel</Text></Pressable>
-            <Pressable onPress={goStep2} className="flex-1 bg-jiayou rounded-xl py-3 items-center"><Text className="text-white font-bold">Next</Text></Pressable>
+            <Button title="Cancel" variant="secondary" onPress={close} style={{ flex: 1, justifyContent: 'center' }} />
+            <Button title="Next" onPress={goStep2} style={{ flex: 1, justifyContent: 'center' }} />
           </View>
         </>
       )}
@@ -136,10 +136,8 @@ export default function CreateTaskPopup({ visible, classId, direction, onClose, 
           </View>
           {err ? <Text className="text-danger text-[13px] font-semibold mt-2">{err}</Text> : null}
           <View className="flex-row gap-3 mt-4">
-            <Pressable onPress={() => setStep(1)} className="flex-1 bg-[#f1f3f5] rounded-xl py-3 items-center"><Text className="text-muted font-bold">Back</Text></Pressable>
-            <Pressable onPress={fetchWords} disabled={busy} className="flex-1 bg-jiayou rounded-xl py-3 items-center">
-              {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-white font-bold">Continue</Text>}
-            </Pressable>
+            <Button title="Back" variant="secondary" onPress={() => setStep(1)} style={{ flex: 1, justifyContent: 'center' }} />
+            <Button title="Continue" loading={busy} onPress={fetchWords} style={{ flex: 1, justifyContent: 'center' }} />
           </View>
         </>
       )}
@@ -171,13 +169,11 @@ export default function CreateTaskPopup({ visible, classId, direction, onClose, 
           </ScrollView>
           {err ? <Text className="text-danger text-[13px] font-semibold mt-2">{err}</Text> : null}
           <View className="flex-row gap-3 mt-4">
-            <Pressable onPress={() => setStep(2)} className="flex-1 bg-[#f1f3f5] rounded-xl py-3 items-center"><Text className="text-muted font-bold">Back</Text></Pressable>
-            <Pressable onPress={create} disabled={busy} className="flex-1 bg-jiayou rounded-xl py-3 items-center">
-              {busy ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-white font-bold">Create task</Text>}
-            </Pressable>
+            <Button title="Back" variant="secondary" onPress={() => setStep(2)} style={{ flex: 1, justifyContent: 'center' }} />
+            <Button title="Create task" loading={busy} onPress={create} style={{ flex: 1, justifyContent: 'center' }} />
           </View>
         </>
       )}
-    </Popup>
+    </Modal>
   );
 }

@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
-import Popup from '../../components/Popup';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import CreateTaskPopup from './CreateTaskPopup';
 import {
   teacherClass, teacherClassLessons, teacherRevokeStudent, teacherDeleteClass,
 } from '../../api';
+import { Modal, Button, ProgressBar } from '../../ui';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import CatLoader from '../../components/CatLoader';
 
@@ -16,13 +16,9 @@ function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
 }
 
-// Petite barre de progression bleue.
+// Petite barre de progression bleue (primitive ProgressBar).
 function Bar({ pct }) {
-  return (
-    <View className="h-2 rounded-full bg-[#eef2f8] overflow-hidden mt-1.5">
-      <View style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%', backgroundColor: COLORS.jiayou, borderRadius: 4 }} />
-    </View>
-  );
+  return <ProgressBar value={Math.max(0, Math.min(100, pct))} max={100} height={8} color={COLORS.jiayou} track="#eef2f8" style={{ marginTop: 6 }} />;
 }
 
 // Grande CTA en dégradé (Create task / Invite).
@@ -184,16 +180,14 @@ export default function TeacherClassScreen({ classId, direction, onBack, onOpenT
 
       <CreateTaskPopup visible={creating} classId={classId} direction={direction} onClose={() => setCreating(false)} onCreated={load} />
 
-      <Popup visible={confirmDel} onClose={() => setConfirmDel(false)} maxWidth={400}>
+      <Modal visible={confirmDel} onClose={() => setConfirmDel(false)} maxWidth={400}>
         <Text className="text-[17px] font-bold text-ink mb-2">Delete class?</Text>
         <Text className="text-[14px] text-muted leading-5 mb-5">This permanently removes the class, its tasks and student links. This cannot be undone.</Text>
         <View className="flex-row gap-3">
-          <Pressable onPress={() => setConfirmDel(false)} className="flex-1 bg-[#f1f3f5] rounded-xl py-3 items-center"><Text className="text-muted font-bold">Cancel</Text></Pressable>
-          <Pressable onPress={doDelete} disabled={deleting} className="flex-1 bg-danger rounded-xl py-3 items-center">
-            {deleting ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-white font-bold">Delete</Text>}
-          </Pressable>
+          <Button title="Cancel" variant="secondary" onPress={() => setConfirmDel(false)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button title="Delete" variant="danger" loading={deleting} onPress={doDelete} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
-      </Popup>
+      </Modal>
     </View>
   );
 }
