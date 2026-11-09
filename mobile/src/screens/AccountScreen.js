@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl, ActivityIndicator, Platform, useWindowDimensions, PanResponder } from 'react-native';
+import { View, Pressable, RefreshControl, Platform, useWindowDimensions, PanResponder } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AccountHero from '../components/account/AccountHero';
 import AccountCard from '../components/account/AccountCard';
@@ -11,7 +11,6 @@ import EditProfilePopup from '../components/account/EditProfilePopup';
 import YourMentorsCard from '../components/teachers/YourMentorsCard';
 import MyPacksCard from '../components/account/MyPacksCard';
 import PurchasedPacksCard from '../components/account/PurchasedPacksCard';
-import Popup from '../components/Popup';
 import CoursePage from './CoursePage';
 import MyTeacherScreen from './MyTeacherScreen';
 import ProgressShareCard from '../share/ProgressShareCard';
@@ -19,10 +18,13 @@ import { imageShareAvailable, captureAndShare } from '../share/shareImage';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getAccount, getStudentClasses, getUpcomingSessions, prefetchSettings } from '../api';
 import { useT } from '../i18n';
-import { COLORS, TAB_CLEARANCE } from '../theme';
 import CatLoader from '../components/CatLoader';
+// Design-system : surface d'import unique (cf. src/ui/COMPONENTS.md).
+import { Screen, Text, Button, Modal, COLORS } from '../ui';
 
 // Tuile de stat d'utilisation (série, jours actifs…) en tête de la carte stats.
+// Tuile remplie à emoji (visuel propre à l'account) — on garde le conteneur,
+// on utilise les primitives Text pour la typo.
 function UsageTile({ icon, value, label, onPress }) {
   const Wrap = onPress ? Pressable : View;
   return (
@@ -31,8 +33,8 @@ function UsageTile({ icon, value, label, onPress }) {
         <Ionicons name="arrow-forward-circle" size={18} color="#c4ccd6" style={{ position: 'absolute', top: 8, right: 8 }} />
       ) : null}
       <Text style={{ fontSize: 20 }}>{icon}</Text>
-      <Text style={{ fontSize: 26, fontWeight: '800', color: '#111', lineHeight: 30, marginTop: 2 }}>{value}</Text>
-      <Text style={{ fontSize: 11, color: '#999', marginTop: 2, textAlign: 'center' }}>{label}</Text>
+      <Text weight="800" color="#111" style={{ fontSize: 26, lineHeight: 30, marginTop: 2 }}>{value}</Text>
+      <Text variant="caption" align="center" style={{ marginTop: 2 }}>{label}</Text>
     </Wrap>
   );
 }
@@ -106,13 +108,13 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.page }}>
         <CatLoader size={110} />
       </View>
     );
   }
   if (error) {
-    return <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}><ErrorRetry error={error} onRetry={load} /></View>;
+    return <View style={{ flex: 1, backgroundColor: COLORS.page }}><ErrorRetry error={error} onRetry={load} /></View>;
   }
 
   const activeDays = (data.contributions || []).filter((c) => c.count > 0).length;
@@ -137,10 +139,13 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
   const readingPct = total > 0 ? Math.round(((readingDist.mastered || 0) / total) * 100) : 0;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f8f9fa' }} {...pan.panHandlers}>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: TAB_CLEARANCE }}
+    <View style={{ flex: 1, backgroundColor: COLORS.page }} {...pan.panHandlers}>
+      {/* edges=[] (monté sous le Header), padded/center=false : le hero est
+          plein largeur, le corps gère lui-même son maxWidth + padding. */}
+      <Screen
+        edges={[]}
+        padded={false}
+        center={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={COLORS.jiayou} />
         }
@@ -229,7 +234,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
           </View>
 
         </View>
-      </ScrollView>
+      </Screen>
 
       <EditProfilePopup
         visible={editing}
@@ -239,8 +244,8 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
       />
 
       {/* Partager ma progression : aperçu de la carte + partage image natif. */}
-      <Popup visible={shareOpen} onClose={() => { if (!sharing) setShareOpen(false); }} maxWidth={400}>
-        <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginBottom: 14, textAlign: 'center' }}>{t('sh_title')}</Text>
+      <Modal visible={shareOpen} onClose={() => { if (!sharing) setShareOpen(false); }} maxWidth={400}>
+        <Text variant="subtitle" weight="800" align="center" style={{ marginBottom: 14 }}>{t('sh_title')}</Text>
         <View style={{ alignItems: 'center', marginBottom: 18 }}>
           <ProgressShareCard
             ref={shareCardRef}
@@ -256,19 +261,14 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
             t={t}
           />
         </View>
-        <Pressable
+        <Button
+          title={t('sh_share_btn')}
+          icon="share-social"
+          loading={sharing}
+          fullWidth
           onPress={async () => { setSharing(true); await captureAndShare(shareCardRef, { dialogTitle: t('sh_title') }); setSharing(false); }}
-          disabled={sharing}
-          style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, opacity: sharing ? 0.6 : 1 }}
-        >
-          {sharing ? <ActivityIndicator color="#fff" /> : (
-            <>
-              <Ionicons name="share-social" size={17} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>{t('sh_share_btn')}</Text>
-            </>
-          )}
-        </Pressable>
-      </Popup>
+        />
+      </Modal>
     </View>
   );
 }
