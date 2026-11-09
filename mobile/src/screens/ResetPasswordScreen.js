@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
+  View, Text, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { verifyResetToken, resetPassword } from '../api';
+import { Button, Input } from '../ui';
 
 const cardShadow = {
   shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.12, shadowRadius: 40, elevation: 8,
@@ -60,38 +61,32 @@ export default function ResetPasswordScreen({ token, onDone }) {
                 <Ionicons name="checkmark-circle" size={44} color="#16a34a" />
                 <Text className="text-ink font-bold text-[17px] mt-3 mb-1">Password updated</Text>
                 <Text className="text-gray-500 text-center text-sm mb-5">You can now sign in with your new password.</Text>
-                <Pressable onPress={onDone} className="bg-jiayou rounded-full py-3.5 px-6 items-center w-full active:opacity-80">
-                  <Text className="text-white font-bold">Go to sign in</Text>
-                </Pressable>
+                <Button title="Go to sign in" onPress={onDone} fullWidth />
               </View>
             ) : !valid ? (
               <View className="items-center">
                 <Ionicons name="alert-circle-outline" size={40} color="#dc3545" />
                 <Text className="text-ink font-bold text-[16px] mt-3 mb-1 text-center">Link invalid or expired</Text>
                 <Text className="text-gray-500 text-center text-sm mb-5">{error || 'Please request a new reset link.'}</Text>
-                <Pressable onPress={onDone} className="bg-jiayou rounded-full py-3.5 px-6 items-center w-full active:opacity-80">
-                  <Text className="text-white font-bold">Back to sign in</Text>
-                </Pressable>
+                <Button title="Back to sign in" onPress={onDone} fullWidth />
               </View>
             ) : (
               <>
                 <Text className="text-ink font-bold text-[17px] mb-1 text-center">Set a new password</Text>
                 {email ? <Text className="text-gray-500 text-center text-sm mb-5">for {email}</Text> : <View className="mb-4" />}
-                <TextInput
-                  className="border border-gray-200 rounded-xl px-4 py-3 mb-3 text-base"
+                <Input
+                  style={{ marginBottom: 12 }}
                   secureTextEntry value={password} onChangeText={setPassword}
-                  placeholder="New password" placeholderTextColor="#9aa4b2" autoFocus
+                  placeholder="New password" autoFocus
                 />
-                <TextInput
-                  className="border border-gray-200 rounded-xl px-4 py-3 mb-1 text-base"
+                <Input
+                  style={{ marginBottom: 4 }}
                   secureTextEntry value={confirm} onChangeText={setConfirm} onSubmitEditing={submit} returnKeyType="go"
-                  placeholder="Confirm password" placeholderTextColor="#9aa4b2"
+                  placeholder="Confirm password"
                 />
                 <Text className="text-gray-400 text-xs mb-3 mt-1">At least 8 characters, 1 uppercase and 1 number.</Text>
                 {error ? <Text className="text-red-500 text-sm mb-3">{error}</Text> : null}
-                <Pressable onPress={submit} disabled={loading} className="bg-jiayou rounded-full py-4 items-center active:opacity-80">
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold text-base">Reset password</Text>}
-                </Pressable>
+                <Button title="Reset password" onPress={submit} loading={loading} size="lg" fullWidth />
               </>
             )}
           </View>

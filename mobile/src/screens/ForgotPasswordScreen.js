@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
+  View, Text, Pressable, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { forgotPassword } from '../api';
+import { Button, Input } from '../ui';
 
 const cardShadow = {
   shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.12, shadowRadius: 40, elevation: 8,
@@ -40,9 +41,7 @@ export default function ForgotPasswordScreen({ onBack }) {
                 <Text className="text-gray-500 text-center text-sm mb-5">
                   If your email is associated with an account, you'll receive a link to reset your password.
                 </Text>
-                <Pressable onPress={onBack} className="bg-jiayou rounded-full py-3.5 px-6 items-center w-full active:opacity-80">
-                  <Text className="text-white font-bold">Back to sign in</Text>
-                </Pressable>
+                <Button title="Back to sign in" onPress={onBack} fullWidth />
               </View>
             ) : (
               <>
@@ -50,16 +49,14 @@ export default function ForgotPasswordScreen({ onBack }) {
                 <Text className="text-gray-500 text-center text-sm mb-5 px-2">
                   Enter your account email and we'll send you a reset link.
                 </Text>
-                <TextInput
-                  className="border border-gray-200 rounded-xl px-4 py-3 mb-3 text-base"
+                <Input
+                  style={{ marginBottom: 12 }}
                   autoCapitalize="none" keyboardType="email-address" autoCorrect={false}
                   value={email} onChangeText={setEmail} onSubmitEditing={submit} returnKeyType="send"
-                  placeholder="Email address" placeholderTextColor="#9aa4b2" autoFocus
+                  placeholder="Email address" autoFocus
                 />
                 {error ? <Text className="text-red-500 text-sm mb-3">{error}</Text> : null}
-                <Pressable onPress={submit} disabled={loading} className="bg-jiayou rounded-full py-4 items-center active:opacity-80">
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text className="text-white font-bold text-base">Send reset link</Text>}
-                </Pressable>
+                <Button title="Send reset link" onPress={submit} loading={loading} size="lg" fullWidth />
                 <Pressable onPress={onBack} className="py-2.5 items-center mt-1">
                   <Text className="text-jiayou font-semibold text-sm">← Back to sign in</Text>
                 </Pressable>

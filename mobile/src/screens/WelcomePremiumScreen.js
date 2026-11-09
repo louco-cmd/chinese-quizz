@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getMe } from '../api';
+import { Button } from '../ui';
 import { COLORS } from '../theme';
 import CatLoader from '../components/CatLoader';
 
@@ -46,18 +47,14 @@ export default function WelcomePremiumScreen({ onDone }) {
               </View>
               <Text className="text-[19px] font-extrabold text-ink mt-2">Premium active ✓</Text>
               <Text className="text-muted text-center text-[13.5px] mt-2 mb-6">All features are unlocked on your account. Thank you for your support!</Text>
-              <Pressable onPress={onDone} className="bg-jiayou rounded-full py-3.5 px-8 items-center w-full active:opacity-80">
-                <Text className="text-white font-bold">Start learning</Text>
-              </Pressable>
+              <Button title="Start learning" onPress={onDone} fullWidth />
             </>
           ) : status === 'timeout' ? (
             <>
               <Ionicons name="time-outline" size={44} color={COLORS.muted} style={{ marginTop: 12 }} />
               <Text className="text-[17px] font-bold text-ink mt-2 text-center">Taking longer than usual…</Text>
               <Text className="text-muted text-center text-[13.5px] mt-2 mb-6">Your Premium will activate once the payment is confirmed. You can safely continue.</Text>
-              <Pressable onPress={onDone} className="bg-jiayou rounded-full py-3.5 px-8 items-center w-full active:opacity-80">
-                <Text className="text-white font-bold">Go to the app</Text>
-              </Pressable>
+              <Button title="Go to the app" onPress={onDone} fullWidth />
             </>
           ) : (
             <>
