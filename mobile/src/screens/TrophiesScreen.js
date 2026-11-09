@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getTrophies } from '../api';
 import { useT } from '../i18n';
+import { ProgressBar } from '../ui';
 import { COLORS, TAB_CLEARANCE, SHADOW_CARD } from '../theme';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
@@ -47,9 +48,7 @@ function TrophyRow({ tr: trophy, t, last }) {
           <Text style={{ fontSize: 12.5, color: COLORS.success, fontWeight: '700', marginTop: 2 }}>{t('tr_earned')}</Text>
         ) : (
           <View style={{ marginTop: 6 }}>
-            <View style={{ height: 6, borderRadius: 999, backgroundColor: '#eceef1', overflow: 'hidden' }}>
-              <View style={{ width: `${pct}%`, height: '100%', borderRadius: 999, backgroundColor: meta.color }} />
-            </View>
+            <ProgressBar value={pct} max={100} height={6} color={meta.color} track="#eceef1" />
             <Text style={{ fontSize: 11, color: COLORS.mutedLight, marginTop: 3 }}>{trophy.value}/{trophy.target}</Text>
           </View>
         )}

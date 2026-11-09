@@ -6,6 +6,7 @@ import { SendRedEnvelopePopup } from '../components/RedEnvelopePopups';
 import EarnCoinsPopup from '../components/EarnCoinsPopup';
 import CatLoader from '../components/CatLoader';
 import { getWallet } from '../api';
+import { StatTile } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 // Type de transaction → icône + libellé (calqué sur TX_ICONS de bank.ejs).
@@ -52,15 +53,6 @@ function TxRow({ tx, last }) {
       <Text style={{ fontSize: 15, fontWeight: '700', color: positive ? COLORS.success : COLORS.danger }}>
         {positive ? '+' : ''}{tx.amount}₵
       </Text>
-    </View>
-  );
-}
-
-function Pill({ value, label, color }) {
-  return (
-    <View style={{ flex: 1, alignItems: 'center' }}>
-      <Text style={{ fontSize: 17, fontWeight: '800', color }}>{value}</Text>
-      <Text style={{ fontSize: 11, color: COLORS.muted, marginTop: 2 }}>{label}</Text>
     </View>
   );
 }
@@ -161,9 +153,9 @@ export default function BankScreen({ onBack }) {
         <View style={{ width: '100%', maxWidth: 560, alignSelf: 'center', paddingHorizontal: 16, marginTop: 16 }}>
           {/* Résumé du mois */}
           <View style={{ flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, paddingVertical: 16, marginBottom: 18, ...SHADOW_CARD }}>
-            <Pill value={`+${earned}₵`} label="Earned" color={COLORS.success} />
-            <Pill value={`${spent}₵`} label="Spent" color={COLORS.danger} />
-            <Pill value={monthTx.length} label="Transactions" color={COLORS.jiayou} />
+            <StatTile valueSize={17} value={`+${earned}₵`} label="Earned" valueColor={COLORS.success} />
+            <StatTile valueSize={17} value={`${spent}₵`} label="Spent" valueColor={COLORS.danger} />
+            <StatTile valueSize={17} value={monthTx.length} label="Transactions" valueColor={COLORS.jiayou} />
           </View>
 
           {/* Historique + filtres */}

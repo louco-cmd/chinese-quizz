@@ -5,13 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 import Text from './Text';
 import { COLORS, fontWeight } from './tokens';
 
-export default function StatTile({ value, label, icon, delta, valueColor, align = 'center', style }) {
+export default function StatTile({ value, label, icon, delta, valueColor, valueSize = 24, align = 'center', style }) {
   const up = typeof delta === 'number' && delta >= 0;
   return (
     <View style={[{ flex: 1, alignItems: align === 'center' ? 'center' : 'flex-start', gap: 2 }, style]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         {icon ? <Ionicons name={icon} size={16} color={COLORS.jiayou} /> : null}
-        <Text style={{ fontSize: 24, fontWeight: fontWeight.bold, color: valueColor || COLORS.ink, lineHeight: 28 }}>{value}</Text>
+        <Text style={{ fontSize: valueSize, fontWeight: fontWeight.bold, color: valueColor || COLORS.ink, lineHeight: valueSize + 4 }}>{value}</Text>
         {typeof delta === 'number' ? (
           <Text variant="caption" style={{ color: up ? COLORS.success : COLORS.danger, fontWeight: '700' }}>
             {up ? '▲' : '▼'} {Math.abs(delta)}
