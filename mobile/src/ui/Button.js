@@ -22,7 +22,7 @@ const VARIANTS = {
 export default function Button({
   title, children, variant = 'primary', size = 'md',
   loading = false, disabled = false, icon, iconRight, fullWidth = false,
-  onPress, style, textStyle, ...rest
+  onPress, style, textStyle, textNumberOfLines, ...rest
 }) {
   const v = VARIANTS[variant] || VARIANTS.primary;
   const s = SIZES[size] || SIZES.md;
@@ -50,7 +50,7 @@ export default function Button({
       ) : (
         <>
           {icon ? <Ionicons name={icon} size={s.icon} color={fg} /> : null}
-          <RNText style={[{ color: fg, fontWeight: fontWeight.bold, fontSize: s.font }, textStyle]}>
+          <RNText numberOfLines={textNumberOfLines} style={[{ color: fg, fontWeight: fontWeight.bold, fontSize: s.font }, textStyle]}>
             {title ?? children}
           </RNText>
           {iconRight ? <Ionicons name={iconRight} size={s.icon} color={fg} /> : null}

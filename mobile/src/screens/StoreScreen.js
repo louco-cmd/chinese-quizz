@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import PackMarket from '../components/PackMarket';
 import { useT } from '../i18n';
+import { Chip } from '../ui';
 import { COLORS } from '../theme';
 
 // JiaStore : barre recherche/tri en haut + marketplace de packs (PackMarket).
@@ -79,22 +80,9 @@ export default function StoreScreen({ onBack, onCreate, canCreate = true, onStar
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ gap: 8, paddingTop: 10, paddingRight: 8 }}
         >
-          {SORTS.map((s) => {
-            const active = sort === s.value;
-            return (
-              <Pressable
-                key={s.value}
-                onPress={() => setSort(s.value)}
-                style={{
-                  paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
-                  backgroundColor: active ? COLORS.jiayou : '#fff',
-                  borderWidth: 1, borderColor: active ? COLORS.jiayou : COLORS.line,
-                }}
-              >
-                <Text style={{ color: active ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 13 }}>{s.label}</Text>
-              </Pressable>
-            );
-          })}
+          {SORTS.map((s) => (
+            <Chip key={s.value} variant="solid" label={s.label} selected={sort === s.value} onPress={() => setSort(s.value)} />
+          ))}
         </ScrollView>
       </View>
 

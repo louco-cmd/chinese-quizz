@@ -5,7 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import Text from './Text';
 import { COLORS, radius } from './tokens';
 
-export default function Chip({ label, children, selected = false, icon, onPress, disabled = false, style }) {
+// variant 'soft' (défaut) : sélection en bleu clair (jiayouSoft). 'solid' :
+// sélection en bleu plein + texte blanc (filtres de tri, choix de semaines…).
+export default function Chip({ label, children, selected = false, icon, onPress, disabled = false, variant = 'soft', style }) {
+  const solid = variant === 'solid';
+  const fg = selected ? (solid ? '#fff' : COLORS.jiayouDark) : COLORS.muted;
   return (
     <Pressable
       disabled={disabled}
@@ -15,12 +19,12 @@ export default function Chip({ label, children, selected = false, icon, onPress,
         paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill,
         borderWidth: 1.5,
         borderColor: selected ? COLORS.jiayou : COLORS.line,
-        backgroundColor: selected ? COLORS.jiayouSoft : '#fff',
+        backgroundColor: selected ? (solid ? COLORS.jiayou : COLORS.jiayouSoft) : '#fff',
         opacity: disabled ? 0.5 : (pressed ? 0.8 : 1),
       }, style]}
     >
-      {icon ? <Ionicons name={icon} size={15} color={selected ? COLORS.jiayou : COLORS.muted} /> : null}
-      <Text variant="label" style={{ color: selected ? COLORS.jiayouDark : COLORS.muted }}>{label ?? children}</Text>
+      {icon ? <Ionicons name={icon} size={15} color={fg} /> : null}
+      <Text variant="label" style={{ color: fg }}>{label ?? children}</Text>
     </Pressable>
   );
 }

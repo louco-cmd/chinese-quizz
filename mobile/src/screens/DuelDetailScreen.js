@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import Avatar from '../components/Avatar';
 import WordCapturePopup from '../components/WordCapturePopup';
+import { Button } from '../ui';
 import { getDuel } from '../api';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
@@ -209,13 +210,14 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
   ];
 
   const rematchBtn = completed ? (
-    <Pressable
+    <Button
       onPress={() => onRematch({ id: duel.opponent_id, name: duel.opponent_name })}
-      style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-    >
-      <Ionicons name="repeat" size={17} color="#fff" />
-      <Text style={{ color: '#fff', fontSize: 14.5, fontWeight: '700' }} numberOfLines={1}>{t('dd_rematch_with').replace('{name}', duel.opponent_name)}</Text>
-    </Pressable>
+      icon="repeat"
+      title={t('dd_rematch_with').replace('{name}', duel.opponent_name)}
+      fullWidth
+      textNumberOfLines={1}
+      style={{ paddingVertical: 13 }}
+    />
   ) : null;
 
   // Carte "Match details" (utilisée en desktop ET en mobile).

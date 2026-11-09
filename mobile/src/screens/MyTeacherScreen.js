@@ -8,7 +8,7 @@ import CoursePage from './CoursePage';
 import StudentLessonRows from '../components/teachers/StudentLessonRows';
 import { getStudentMentor, getStudentSlots, bookSlot, bookRecurringSlots, rateMentor, leaveMentor } from '../api';
 import { useT } from '../i18n';
-import { Button, Input } from '../ui';
+import { Button, Input, Chip } from '../ui';
 import { COLORS, SHADOW_CARD } from '../theme';
 import useAndroidBack from '../useAndroidBack';
 
@@ -121,15 +121,9 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
         {repeat ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
             <Text style={{ fontSize: 12.5, fontWeight: '700', color: COLORS.muted }}>For</Text>
-            {WEEK_CHOICES.map((n) => {
-              const sel = weeks === n;
-              return (
-                <Pressable key={n} onPress={() => setWeeks(n)}
-                  style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1.5, borderColor: sel ? COLORS.jiayou : '#d7dce3', backgroundColor: sel ? COLORS.jiayou : '#fff' }}>
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: sel ? '#fff' : COLORS.muted }}>{n} weeks</Text>
-                </Pressable>
-              );
-            })}
+            {WEEK_CHOICES.map((n) => (
+              <Chip key={n} variant="solid" label={`${n} weeks`} selected={weeks === n} onPress={() => setWeeks(n)} />
+            ))}
           </View>
         ) : null}
         {repeat ? (
