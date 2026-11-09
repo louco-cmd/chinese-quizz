@@ -7,9 +7,9 @@ import MentorCard from '../components/teachers/MentorCard';
 import MentorProfileScreen from './MentorProfileScreen';
 import MentorFilters from '../components/teachers/MentorFilters';
 import JoinClassPopup from '../components/teachers/JoinClassPopup';
-import Popup from '../components/Popup';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getMentors, getReferral } from '../api';
+import { Modal, Button } from '../ui';
 import { COLORS, TAB_CLEARANCE } from '../theme';
 import CatLoader from '../components/CatLoader';
 
@@ -137,7 +137,7 @@ export default function TeachersScreen({ onBack }) {
       <JoinClassPopup visible={showJoin} onClose={() => setShowJoin(false)} onJoined={load} />
 
       {/* Invite your teacher (référence → 150 coins) */}
-      <Popup visible={showInvite} onClose={() => setShowInvite(false)} maxWidth={380}>
+      <Modal visible={showInvite} onClose={() => setShowInvite(false)} maxWidth={380}>
         <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 }}>Invite your teacher</Text>
         <Text style={{ fontSize: 14, color: COLORS.muted, lineHeight: 20, marginBottom: 16 }}>
           Share your code. Your teacher enters it when signing up — you earn 150 coins and they start with +50.
@@ -149,20 +149,25 @@ export default function TeachersScreen({ onBack }) {
           </Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Pressable onPress={() => setShowInvite(false)} style={{ flex: 1, backgroundColor: '#f1f3f5', borderRadius: 999, paddingVertical: 13, alignItems: 'center' }}>
-            <Text style={{ color: COLORS.muted, fontWeight: '700' }}>Close</Text>
-          </Pressable>
-          <Pressable onPress={copyInviteCode} disabled={!inviteCode} style={{ flex: 1, backgroundColor: copied ? COLORS.success : COLORS.jiayou, borderRadius: 999, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, opacity: inviteCode ? 1 : 0.6 }}>
-            <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700' }}>{copied ? 'Copied!' : 'Copy my code'}</Text>
-          </Pressable>
+          <Button title="Close" variant="secondary" onPress={() => setShowInvite(false)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button
+            title={copied ? 'Copied!' : 'Copy my code'}
+            icon={copied ? 'checkmark' : 'copy-outline'}
+            disabled={!inviteCode}
+            onPress={copyInviteCode}
+            style={[{ flex: 1, justifyContent: 'center' }, copied && { backgroundColor: COLORS.success }]}
+          />
         </View>
-        <Pressable onPress={copyInvite} disabled={!inviteLink} style={{ paddingVertical: 12, alignItems: 'center', marginTop: 4 }}>
-          <Text style={{ fontSize: 13, color: copiedLink ? COLORS.success : COLORS.jiayou, fontWeight: '600' }}>
-            {copiedLink ? 'Copied!' : 'or copy an invite link instead'}
-          </Text>
-        </Pressable>
-      </Popup>
+        <Button
+          variant="ghost"
+          title={copiedLink ? 'Copied!' : 'or copy an invite link instead'}
+          onPress={copyInvite}
+          disabled={!inviteLink}
+          fullWidth
+          style={{ marginTop: 4 }}
+          textStyle={{ fontSize: 13, fontWeight: '600', color: copiedLink ? COLORS.success : COLORS.jiayou }}
+        />
+      </Modal>
     </View>
   );
 }
