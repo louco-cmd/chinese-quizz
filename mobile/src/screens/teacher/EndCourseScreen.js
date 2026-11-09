@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, Switch, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { teacherStudentClassContext, teacherLookupWords, teacherSendTask } from '../../api';
+import { Button } from '../../ui';
 import { COLORS } from '../../theme';
 
 const CN = /[一-鿿]/;
@@ -134,19 +135,15 @@ export default function EndCourseScreen({ slot, direction = 'en→zh', onClose, 
   );
 
   const SendBtn = (
-    <Pressable onPress={send} disabled={busy}
-      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, borderRadius: 999, backgroundColor: busy ? '#9bb4e8' : COLORS.jiayou }}>
-      {busy ? <ActivityIndicator color="#fff" /> : <Ionicons name="send" size={17} color="#fff" />}
-      <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Send task</Text>
-    </Pressable>
+    <Button onPress={send} loading={busy} icon="send" title="Send task" fullWidth style={{ paddingVertical: 15 }} />
   );
 
   // Bouton secondaire : quitter sans créer de task.
   const SkipBtn = (
-    <Pressable onPress={() => onClose?.()} disabled={busy}
-      style={{ paddingVertical: 14, borderRadius: 999, alignItems: 'center', marginTop: 10, backgroundColor: '#eef0f3' }}>
-      <Text style={{ color: COLORS.muted, fontWeight: '800', fontSize: 14.5 }}>Skip task creation for now</Text>
-    </Pressable>
+    <Button
+      onPress={() => onClose?.()} disabled={busy} variant="secondary" title="Skip task creation for now"
+      fullWidth style={{ paddingVertical: 14, marginTop: 10 }} textStyle={{ color: COLORS.muted, fontWeight: '800', fontSize: 14.5 }}
+    />
   );
 
   // ── Encart CLASSE (haut de la colonne gauche sticky) ────────────────────────
