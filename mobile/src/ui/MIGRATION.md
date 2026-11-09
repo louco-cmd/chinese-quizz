@@ -38,9 +38,20 @@ Légende : ✅ migré & en prod · 🔄 en cours · ⬜ à faire · ⏸️ diff�
 | SettingsScreen | 418 | ✅ | pills→Badge ; popups confirm→Modal/Button ; SettingsRow/Group gardés |
 | StoreScreen | 161 | ⏸️ | mapping fin : search-pill+clear, chips pleins, FAB bespoke → variantes lib à créer avant |
 | BankScreen | 213 | ✅ | résumé mois Pill→StatTile (`valueSize` ajouté) ; hero/TxRow gardés |
-| PricingScreen | 379 | 🔄 | en cours |
+| PricingScreen | 379 | ✅ | CTA premium → Button loading ; cartes de prix bespoke gardées |
 | TrophiesScreen | 132 | ✅ | jauge→ProgressBar ; rows bespoke gardés |
 | LeaderboardScreen | 113 | ⏸️ | mapping fin : rows/medailles bespoke, rien ne mappe fidèlement |
+| UserProfileScreen | 190 | ✅ | 2 rangées Stat→StatTile ; Challenge→Button ; MasteryGauge gardé |
+| MentorProfileScreen | 321 | ⬜ | |
+| MyTeacherScreen | 425 | ⬜ | |
+| StudentAgendaScreen | 137 | ⬜ | |
+| CoursePage | 119 | ⬜ | |
+| MyClassesScreen | 98 | ⏸️ | mapping fin : group cards bespoke |
+| SupportScreen | 98 | ✅ | CTA contact → Button ; FAQ statique gardée |
+| LegalScreen | 96 | ➖ | texte légal statique, rien à migrer |
+| TeachersScreen | 168 | ✅ | invite popup → Modal+Button ; MentorCard/Filters gardés |
+| DuelDetailScreen | 309 | ⏸️ | écran-vitrine bespoke (verre brisé/VS) ; rematch=titre long (Button sans numberOfLines) |
+| ImportWordsScreen | 341 | ⬜ | |
 | TeachersScreen | 168 | ⬜ | MentorCard/MentorFilters → Chip |
 | MentorProfileScreen | 321 | ⬜ | |
 | MyTeacherScreen | 425 | ⬜ | |

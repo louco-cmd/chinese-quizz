@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import QuizPlayScreen from './QuizPlayScreen';
 import { getLesson, startTask } from '../api';
+import { Button } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 import CatLoader from '../components/CatLoader';
 
@@ -99,18 +100,14 @@ export default function CoursePage({ lessonId, onBack, readOnly = false }) {
           </View>
 
           {words.length > 0 && !readOnly && (
-            <Pressable
+            <Button
               onPress={practice}
-              disabled={starting}
-              style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
-            >
-              {starting ? <ActivityIndicator color="#fff" /> : (
-                <>
-                  <Ionicons name="game-controller" size={18} color="#fff" />
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Practice these words</Text>
-                </>
-              )}
-            </Pressable>
+              loading={starting}
+              icon="game-controller"
+              title="Practice these words"
+              fullWidth
+              style={{ paddingVertical: 15 }}
+            />
           )}
         </View>
       </ScrollView>

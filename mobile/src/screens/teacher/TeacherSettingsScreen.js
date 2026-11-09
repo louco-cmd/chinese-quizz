@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import SettingsGroup from '../../components/settings/SettingsGroup';
 import SettingsRow from '../../components/settings/SettingsRow';
 import Toggle from '../../components/Toggle';
-import Popup from '../../components/Popup';
 import { getSettings, updateSettings, deleteAccount } from '../../api';
+import { Modal, Button } from '../../ui';
 import { COLORS } from '../../theme';
 
 // Réglages professeur — miroir de teach-settings.ejs.
@@ -67,26 +67,24 @@ export default function TeacherSettingsScreen({ onBack, onLogout, onOpenProfile,
         </View>
       </ScrollView>
 
-      <Popup visible={confirmDelete} onClose={() => setConfirmDelete(false)} maxWidth={400}>
+      <Modal visible={confirmDelete} onClose={() => setConfirmDelete(false)} maxWidth={400}>
         <Text className="text-[17px] font-bold text-ink mb-2">Delete account?</Text>
         <Text className="text-[14px] text-muted leading-5 mb-5">This permanently deletes your account, classes and data. This cannot be undone.</Text>
         {error ? <Text className="text-danger text-[13px] font-semibold mb-3">{error}</Text> : null}
         <View className="flex-row gap-3">
-          <Pressable onPress={() => setConfirmDelete(false)} className="flex-1 bg-[#f1f3f5] rounded-xl py-3 items-center"><Text className="text-muted font-bold">Cancel</Text></Pressable>
-          <Pressable onPress={doDelete} disabled={deleting} className="flex-1 bg-danger rounded-xl py-3 items-center">
-            {deleting ? <ActivityIndicator color="#fff" size="small" /> : <Text className="text-white font-bold">Delete</Text>}
-          </Pressable>
+          <Button title="Cancel" variant="secondary" onPress={() => setConfirmDelete(false)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button title="Delete" variant="danger" loading={deleting} onPress={doDelete} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
-      </Popup>
+      </Modal>
 
-      <Popup visible={confirmLogout} onClose={() => setConfirmLogout(false)} maxWidth={400}>
+      <Modal visible={confirmLogout} onClose={() => setConfirmLogout(false)} maxWidth={400}>
         <Text className="text-[17px] font-bold text-ink mb-2">Log out?</Text>
         <Text className="text-[14px] text-muted leading-5 mb-5">Are you sure you want to log out?</Text>
         <View className="flex-row gap-3">
-          <Pressable onPress={() => setConfirmLogout(false)} className="flex-1 bg-[#f1f3f5] rounded-xl py-3 items-center"><Text className="text-muted font-bold">Cancel</Text></Pressable>
-          <Pressable onPress={onLogout} className="flex-1 bg-jiayou rounded-xl py-3 items-center"><Text className="text-white font-bold">Log out</Text></Pressable>
+          <Button title="Cancel" variant="secondary" onPress={() => setConfirmLogout(false)} style={{ flex: 1, justifyContent: 'center' }} />
+          <Button title="Log out" onPress={onLogout} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
-      </Popup>
+      </Modal>
     </View>
   );
 }
