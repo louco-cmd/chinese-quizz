@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, TextInput, Pressable, ScrollView, ActivityIndicator,
+  View, Text, TextInput, Pressable, ScrollView,
   KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Popup from '../components/Popup';
 import { planPack, createPack, getSettings, getCachedSettings } from '../api';
 import { LANG_META } from '../langs';
+import { Button, Chip, Modal } from '../ui';
 import { COLORS, SHADOW_CARD } from '../theme';
 import { COVER_PALETTES, DEFAULT_PALETTE, COVER_ICONS } from '../components/PackDetailPopup';
 
@@ -297,26 +297,17 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
             {isEdit ? 'Pack language (locked)' : 'Which language are these words in?'}
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-            {packLangOptions.map((code) => {
-              const active = code === packLang;
-              return (
-                <Pressable
-                  key={code}
-                  disabled={isEdit}
-                  onPress={() => { packLangTouched.current = true; setPackLang(code); }}
-                  style={{
-                    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5,
-                    borderColor: active ? COLORS.jiayou : COLORS.line,
-                    backgroundColor: active ? COLORS.jiayou : '#fff',
-                    opacity: isEdit && !active ? 0.4 : 1,
-                  }}
-                >
-                  <Text style={{ fontSize: 13.5, fontWeight: '700', color: active ? '#fff' : '#1a1a2e' }}>
-                    {LANG_META[code]?.endonym || String(code).toUpperCase()}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {packLangOptions.map((code) => (
+              <Chip
+                key={code}
+                variant="solid"
+                label={LANG_META[code]?.endonym || String(code).toUpperCase()}
+                selected={code === packLang}
+                disabled={isEdit}
+                onPress={() => { packLangTouched.current = true; setPackLang(code); }}
+                style={isEdit && code !== packLang ? { opacity: 0.4 } : undefined}
+              />
+            ))}
           </View>
           {/* Coût estimé du pass : 3 ₵ par mot NON possédé (affiné en débounce). */}
           {lineCount > 0 ? (
@@ -338,19 +329,19 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
 
         {error && !checkout ? <Text style={{ color: COLORS.danger, fontSize: 13, fontWeight: '600', marginBottom: 12 }}>{error}</Text> : null}
 
-        <Pressable onPress={onPublish} disabled={!canPublish}
-          style={{ borderRadius: 999, paddingVertical: 15, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: canPublish ? COLORS.jiayou : '#e9ecef' }}>
-          {publishing ? <ActivityIndicator color="#fff" /> : (
-            <>
-              <Ionicons name={isEdit ? 'save' : 'pricetag'} size={16} color={canPublish ? '#fff' : COLORS.muted} />
-              <Text style={{ color: canPublish ? '#fff' : COLORS.muted, fontWeight: '700', fontSize: 15 }}>{isEdit ? 'Update pack' : 'Publish pack'}</Text>
-            </>
-          )}
-        </Pressable>
+        <Button
+          onPress={onPublish}
+          disabled={!canPublish}
+          loading={publishing}
+          icon={isEdit ? 'save' : 'pricetag'}
+          title={isEdit ? 'Update pack' : 'Publish pack'}
+          size="lg"
+          fullWidth
+        />
       </ScrollView>
 
       {/* ── Checkout : acquérir les mots manquants ── */}
-      <Popup visible={!!checkout} onClose={() => { if (!buying) setCheckout(null); }} maxWidth={440} scroll={false}>
+      <Modal visible={!!checkout} onClose={() => { if (!buying) setCheckout(null); }} maxWidth={440} scroll={false}>
         {checkout ? (
           <View>
             <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginBottom: 12 }}>
@@ -415,24 +406,21 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
             {error ? <Text style={{ color: COLORS.danger, fontSize: 12.5, fontWeight: '600', marginBottom: 8 }}>{error}</Text> : null}
 
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-              <Pressable onPress={() => { if (!buying) setCheckout(null); }} style={{ flex: 1, paddingVertical: 13, borderRadius: 999, borderWidth: 2, borderColor: COLORS.line, alignItems: 'center' }}>
-                <Text style={{ color: '#444', fontWeight: '700' }}>Cancel</Text>
-              </Pressable>
-              <Pressable onPress={confirmBuy} disabled={buying || !needsFilled || !enoughCoins}
-                style={{ flex: 1.4, paddingVertical: 13, borderRadius: 999, alignItems: 'center', backgroundColor: (needsFilled && enoughCoins && !buying) ? COLORS.jiayou : '#e9ecef' }}>
-                {buying ? <ActivityIndicator color="#fff" size="small" /> : (
-                  <Text style={{ color: (needsFilled && enoughCoins) ? '#fff' : COLORS.muted, fontWeight: '700' }}>
-                    {checkout.cost > 0 ? `Buy ${checkout.cost} ₵ & ${isEdit ? 'update' : 'publish'}` : (isEdit ? 'Update pack' : 'Publish pack')}
-                  </Text>
-                )}
-              </Pressable>
+              <Button title="Cancel" variant="outline" onPress={() => { if (!buying) setCheckout(null); }} style={{ flex: 1, justifyContent: 'center' }} />
+              <Button
+                onPress={confirmBuy}
+                loading={buying}
+                disabled={!needsFilled || !enoughCoins}
+                title={checkout.cost > 0 ? `Buy ${checkout.cost} ₵ & ${isEdit ? 'update' : 'publish'}` : (isEdit ? 'Update pack' : 'Publish pack')}
+                style={{ flex: 1.4, justifyContent: 'center' }}
+              />
             </View>
           </View>
         ) : null}
-      </Popup>
+      </Modal>
 
       {/* ── Popup : sélecteur de couleur ── */}
-      <Popup visible={colorPickerOpen} onClose={() => setColorPickerOpen(false)} maxWidth={340}>
+      <Modal visible={colorPickerOpen} onClose={() => setColorPickerOpen(false)} maxWidth={340}>
         <Text style={{ fontSize: 16, fontWeight: '800', color: '#1a1a2e', marginBottom: 16 }}>Cover color</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
           {COVER_PALETTES.map((pal) => {
@@ -448,10 +436,10 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
             );
           })}
         </View>
-      </Popup>
+      </Modal>
 
       {/* ── Popup : sélecteur d'icône ── */}
-      <Popup visible={iconPickerOpen} onClose={() => setIconPickerOpen(false)} maxWidth={340} scroll={false}>
+      <Modal visible={iconPickerOpen} onClose={() => setIconPickerOpen(false)} maxWidth={340} scroll={false}>
         <Text style={{ fontSize: 16, fontWeight: '800', color: '#1a1a2e', marginBottom: 16 }}>Cover icon</Text>
         <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
@@ -476,7 +464,7 @@ export default function CreatePackScreen({ onBack, onCreated, editPack, learning
             })}
           </View>
         </ScrollView>
-      </Popup>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
