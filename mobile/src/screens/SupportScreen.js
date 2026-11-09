@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, ScrollView, Pressable, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Button } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 // FAQ reprise de la page support de l'app (views/support.ejs).
@@ -86,10 +87,7 @@ export default function SupportScreen({ onBack }) {
             <Text style={{ fontSize: 13, color: COLORS.muted, textAlign: 'center', marginTop: 6, marginBottom: 16 }}>
               Can't find what you're looking for? Send us a message and we'll get back to you.
             </Text>
-            <Pressable onPress={() => Linking.openURL('mailto:info@jiayou.fr')} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 12, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="mail" size={16} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '700' }}>Contact support</Text>
-            </Pressable>
+            <Button icon="mail" title="Contact support" onPress={() => Linking.openURL('mailto:info@jiayou.fr')} />
           </View>
         </View>
       </ScrollView>

@@ -7,6 +7,7 @@ import Avatar from '../components/Avatar';
 import { ErrorRetry } from '../components/ErrorRetry';
 import CatLoader from '../components/CatLoader';
 import { getUserProfile } from '../api';
+import { StatTile, Button } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
 // Barre de maîtrise segmentée (mastered / learning / medium / novice).
@@ -30,15 +31,6 @@ function MasteryGauge({ label, dist, total }) {
       <Text style={{ textAlign: 'center', fontSize: 12, color: COLORS.muted, marginTop: 6 }}>
         {total > 0 ? `${masteredPct}% ${label} mastered` : `No ${label}`}
       </Text>
-    </View>
-  );
-}
-
-function Stat({ value, label, color = '#1a1a2e' }) {
-  return (
-    <View style={{ flex: 1, alignItems: 'center' }}>
-      <Text style={{ fontSize: 20, fontWeight: '700', color }}>{value}</Text>
-      <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>{label}</Text>
     </View>
   );
 }
@@ -83,13 +75,7 @@ export default function UserProfileScreen({ userId, onBack }) {
               <Text style={{ color: COLORS.jiayou, fontWeight: '600', fontSize: 15 }}>Back</Text>
             </Pressable>
             {data && !data.isMe ? (
-              <Pressable
-                onPress={() => setChallenge(true)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 14 }}
-              >
-                <Ionicons name="flash" size={15} color="#fff" />
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13.5 }}>Challenge</Text>
-              </Pressable>
+              <Button size="sm" icon="flash" title="Challenge" onPress={() => setChallenge(true)} />
             ) : null}
           </View>
 
@@ -117,16 +103,16 @@ export default function UserProfileScreen({ userId, onBack }) {
 
                 {/* Stats globales */}
                 <View style={{ flexDirection: 'row', marginTop: 18 }}>
-                  <Stat value={data.words} label="Words" />
-                  <Stat value={data.quizzes} label="Quizzes" />
-                  <Stat value={data.duels} label="Duels" />
+                  <StatTile valueSize={20} value={data.words} label="Words" />
+                  <StatTile valueSize={20} value={data.quizzes} label="Quizzes" />
+                  <StatTile valueSize={20} value={data.duels} label="Duels" />
                 </View>
 
                 {/* Duels : victoires / défaites / ratio */}
                 <View style={{ flexDirection: 'row', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderColor: '#f0f0f0' }}>
-                  <Stat value={data.wins ?? 0} label="Wins" color={COLORS.success} />
-                  <Stat value={data.losses ?? 0} label="Losses" color={COLORS.danger} />
-                  <Stat value={`${data.ratio ?? 0}%`} label="Win rate" color={COLORS.jiayou} />
+                  <StatTile valueSize={20} value={data.wins ?? 0} label="Wins" valueColor={COLORS.success} />
+                  <StatTile valueSize={20} value={data.losses ?? 0} label="Losses" valueColor={COLORS.danger} />
+                  <StatTile valueSize={20} value={`${data.ratio ?? 0}%`} label="Win rate" valueColor={COLORS.jiayou} />
                 </View>
 
                 {/* Jauges de maîtrise — zh : Pinyin/Characters/Reading ;
