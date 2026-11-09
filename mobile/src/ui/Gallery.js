@@ -3,9 +3,12 @@
 //   import Gallery from '../ui/Gallery';  →  <Gallery />
 import { useState } from 'react';
 import { View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import {
-  Screen, Card, Text, Button, Input, Badge, IconButton, ListItem, Spinner,
+  Screen, Card, SectionCard, Text, Button, Input, Badge, IconButton, ListItem, Spinner,
   SegmentedControl, Row, Stack, Spacer, Divider, Toggle, Avatar, COLORS,
+  StatTile, StatRow, ProgressBar, SegmentBar, Banner, EmptyState, Skeleton, SkeletonText,
+  Chip, Checkbox, Radio, Tabs, Stepper, KeyValue,
 } from './index';
 
 function Section({ title, children }) {
@@ -22,6 +25,11 @@ export default function Gallery() {
   const [txt, setTxt] = useState('');
   const [on, setOn] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [chip, setChip] = useState(8);
+  const [chk, setChk] = useState(true);
+  const [radio, setRadio] = useState('b');
+  const [tab, setTab] = useState('overview');
+  const [weeks, setWeeks] = useState(8);
 
   return (
     <Screen>
@@ -113,12 +121,66 @@ export default function Gallery() {
         </Card>
       </Section>
 
+      <Section title="Stats & progress">
+        <SectionCard title="Mes stats" right={<Badge tone="primary">cette semaine</Badge>}>
+          <StatRow>
+            <StatTile value="634" label="Mots" />
+            <StatTile value="128" label="Quiz" delta={12} />
+            <StatTile value="9" label="Duels" />
+          </StatRow>
+          <Spacer size={14} />
+          <Text variant="label" style={{ marginBottom: 6 }}>Maîtrise</Text>
+          <ProgressBar value={0.68} />
+          <Spacer size={10} />
+          <SegmentBar segments={[{ value: 40, color: COLORS.success }, { value: 35, color: COLORS.warning }, { value: 25, color: COLORS.line }]} />
+        </SectionCard>
+      </Section>
+
+      <Section title="Chips, choices, stepper">
+        <Card>
+          <Stack gap={14}>
+            <Row gap={8} wrap>
+              {[4, 8, 12].map((n) => <Chip key={n} label={`${n} sem.`} selected={chip === n} onPress={() => setChip(n)} />)}
+              <Chip label="Filtre" icon="filter" selected={false} onPress={() => {}} />
+            </Row>
+            <Checkbox checked={chk} onChange={setChk} label="Recevoir les rappels" />
+            <Row gap={20}>
+              <Radio selected={radio === 'a'} label="Option A" onPress={() => setRadio('a')} />
+              <Radio selected={radio === 'b'} label="Option B" onPress={() => setRadio('b')} />
+            </Row>
+            <Row justify="space-between">
+              <Text variant="body">Semaines récurrentes</Text>
+              <Stepper value={weeks} onChange={setWeeks} min={2} max={12} />
+            </Row>
+          </Stack>
+        </Card>
+      </Section>
+
+      <Section title="Tabs & key/value">
+        <Card>
+          <Tabs options={[{ label: 'Aperçu', value: 'overview' }, { label: 'Élèves', value: 'students' }, { label: 'Stats', value: 'stats' }]} value={tab} onChange={setTab} />
+          <Spacer size={12} />
+          <KeyValue label="Cours" value="Mer. 14h00" icon={<Ionicons name="calendar" size={16} color={COLORS.muted} />} />
+          <Divider />
+          <KeyValue label="Élève" value="Louis 高如意" />
+        </Card>
+      </Section>
+
+      <Section title="Banners & empty / loading">
+        <Stack gap={12}>
+          <Banner tone="warning" title="Email non vérifié" actionLabel="Vérifier" action={() => {}}>Vérifie ton email pour débloquer tout.</Banner>
+          <Banner tone="success" onClose={() => {}}>Task envoyée à l'élève ✅</Banner>
+          <Card><SkeletonText lines={3} /></Card>
+          <Card><EmptyState icon="book-outline" title="Aucun mot" actionLabel="Ajouter un mot" onAction={() => {}}>Ta collection est vide pour l'instant.</EmptyState></Card>
+        </Stack>
+      </Section>
+
       <Section title="Feedback">
         <Card>
           <Row gap={16}>
             <Spinner size="small" />
             <Spinner size="large" />
-            <Spacer horizontal size={8} />
+            <Skeleton width={80} height={36} />
             <IconButton icon="heart" color={COLORS.danger} />
             <IconButton icon="share-social" />
           </Row>
