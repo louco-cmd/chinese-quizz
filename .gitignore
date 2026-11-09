@@ -59,4 +59,11 @@ temp/
 .npm
 
 # Optional REPL history
-.node_repl_historytts-cache/
+.node_repl_history
+
+# Caches / build artifacts (regenerated — never commit)
+tts-cache/
+mobile/dist/
+
+# Local DB backups
+backups/
