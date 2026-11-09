@@ -36,7 +36,7 @@ Légende : ✅ migré & en prod · ⬜ à faire · ⏸️ différé (gros/risqu�
 | QuizScreen | 254 | ✅ | ProgressBar packs, EmptyState |
 | AccountScreen | 274 | ✅ | StatTriplet→StatRow/StatTile ; share popup→Modal/Button ; MasteryBar gardé |
 | SettingsScreen | 418 | ✅ | pills→Badge ; popups confirm→Modal/Button ; SettingsRow/Group gardés |
-| StoreScreen | 161 | 🪶 | search-pill+clear, chips pleins, FAB bespoke → variantes lib à créer avant |
+| StoreScreen | 161 | ✅ | tri→Chip solid ; search-pill+clear & FAB feature-specific gardés |
 | BankScreen | 213 | ✅ | résumé mois Pill→StatTile (`valueSize` ajouté) ; hero/TxRow gardés |
 | PricingScreen | 379 | ✅ | CTA premium → Button loading ; cartes de prix bespoke gardées |
 | TrophiesScreen | 132 | ✅ | jauge→ProgressBar ; rows bespoke gardés |
@@ -44,14 +44,14 @@ Légende : ✅ migré & en prod · ⬜ à faire · ⏸️ différé (gros/risqu�
 | SupportScreen | 98 | ✅ | CTA contact → Button ; FAQ statique gardée |
 | TeachersScreen | 168 | ✅ | invite popup → Modal+Button ; MentorCard/Filters gardés |
 | CoursePage | 119 | ✅ | « Practice » → Button loading |
-| LeaderboardScreen | 113 | 🪶 | rows/médailles bespoke |
-| MyClassesScreen | 98 | 🪶 | group cards bespoke |
-| DuelDetailScreen | 309 | 🪶 | écran-vitrine (verre brisé/VS) ; rematch=titre long (Button sans numberOfLines) |
-| ImportWordsScreen | 341 | 🪶 | boutons désactivés gris bespoke (#e9ecef) + bouton radius-14 |
-| StudentAgendaScreen | 137 | 🪶 | petits pills en lignes denses (risque de décalage) |
+| LeaderboardScreen | 113 | ✅ | shell→Screen ; rangées médailles feature-specific gardées |
+| MyClassesScreen | 98 | ✅ | pill ended→Badge |
+| DuelDetailScreen | 309 | ✅ | rematch→Button (textNumberOfLines ajouté) ; verre brisé/VS gardés |
+| ImportWordsScreen | 341 | ✅ | preview/done/import→Button (disabled standard) |
+| StudentAgendaScreen | 137 | ✅ | join/cancel/book→Button sm |
+| MentorProfileScreen | 321 | ✅ | book-trial+confirm→Button ; StatTile rempli gardé |
+| MyTeacherScreen | 425 | ✅ | BookBtn/rate/leave→Button ; comment→Input ; weeks→Chip solid |
 | LegalScreen | 96 | ➖ | texte légal statique |
-| MentorProfileScreen | 321 | ⬜ | à faire |
-| MyTeacherScreen | 425 | ⬜ | à faire |
 | CollectionScreen | 1085 | ⏸️ | énorme ; pass dédié |
 | AddWordScreen | 805 | ⏸️ | énorme ; flux cœur ; pass dédié |
 | CreatePackScreen | 482 | ⏸️ | pass dédié |
@@ -62,12 +62,12 @@ Légende : ✅ migré & en prod · ⬜ à faire · ⏸️ différé (gros/risqu�
 ### Auth / plein écran (SafeArea propre — garder le shell, migrer seulement boutons/textes)
 | Écran | L. | État | Notes |
 |---|---|---|---|
-| LoginScreen | 285 | ⬜ | garder SafeArea |
+| LoginScreen | 285 | ✅ | CTAs→Button ; champs verrouillés/œil/parrainage gardés |
+| ForgotPasswordScreen | 73 | ✅ | CTAs→Button ; champ→Input |
+| ResetPasswordScreen | 102 | ✅ | CTAs→Button ; champs→Input |
+| WelcomePremiumScreen | 73 | ✅ | CTAs→Button |
+| TutorialScreen | 147 | ✅ | CTA Start→Button ; flèches carrousel gardées |
 | OnboardingScreen | 697 | ⏸️ | garder SafeArea ; gros |
-| ForgotPasswordScreen | 73 | ⬜ | |
-| ResetPasswordScreen | 102 | ⬜ | |
-| WelcomePremiumScreen | 73 | ⬜ | |
-| TutorialScreen | 147 | ⬜ | |
 | VideoCallScreen | 145 | ➖ | plein écran visio spécifique |
 
 ### Plateforme prof
@@ -80,8 +80,8 @@ Légende : ✅ migré & en prod · ⬜ à faire · ⏸️ différé (gros/risqu�
 | teacher/TeacherProfileScreen | 281 | ✅ | publish→Button lg ; currency popup→Modal |
 | teacher/EndCourseScreen | 358 | ✅ | Send/Skip→Button ; form bespoke gardé |
 | teacher/CreateTaskPopup | 183 | ✅ | wizard 3 étapes : boutons footer→Button ; Modal |
-| teacher/TeacherHome | 187 | ⬜ | shell nav (à vérifier) |
-| teacher/TeacherTutorialScreen | 107 | ⬜ | à faire |
+| teacher/TeacherTutorialScreen | 107 | ✅ | CTA Done→Button ; flèches gardées |
+| teacher/TeacherHome | 187 | ➖ | shell de navigation (header + tab bar), rien à migrer |
 | teacher/TeacherAgendaScreen | 739 | ⏸️ | énorme ; pass dédié |
 
 ## Journal
@@ -89,5 +89,12 @@ Légende : ✅ migré & en prod · ⬜ à faire · ⏸️ différé (gros/risqu�
 - 2026-11-09 : AccountScreen, SettingsScreen, BankScreen, TrophiesScreen migrés & en prod (OTA).
   StatTile `valueSize` ajouté ; Badge réutilisé (pills).
 - 2026-11-09 : Pricing, UserProfile, Support, Teachers, CoursePage + prof (Dashboard, Class, Task,
-  Settings, Profile, EndCourse, CreateTaskPopup) migrés. Écrans « mapping fin » (🪶) laissés
-  bespoke pour ne pas changer le rendu. Restent : MentorProfile, MyTeacher, auth, + gros différés.
+  Settings, Profile, EndCourse, CreateTaskPopup) migrés & en prod (OTA).
+- 2026-11-09 : objectif 100 % component. Auth (Login/Forgot/Reset/WelcomePremium/Tutorial),
+  MentorProfile, MyTeacher, TeacherTutorial migrés. Lib enrichie : Chip `variant='solid'` +
+  Button `textNumberOfLines`. Écrans 🪶 ramenés dans la lib (Store tri→Chip solid, MyClasses
+  pill→Badge, StudentAgenda pills→Button, ImportWords CTAs→Button, DuelDetail rematch→Button,
+  Leaderboard shell→Screen). Éléments vraiment spécifiques (verre brisé, médailles, search-pill,
+  FAB, StatTile rempli) laissés feature-specific, comme KnowledgeRing/TabBar/CrackOverlay.
+  Restent : gros écrans cœur ⏸️ (Collection, AddWord, CreatePack, QuizPlay, DuelPlay, Writing,
+  Onboarding, TeacherAgenda).
