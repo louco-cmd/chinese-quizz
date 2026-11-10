@@ -105,3 +105,12 @@ utilisent la lib pour leurs boutons/textes/cartes :
 Nouvel écran → **primitives d'abord**. Écran existant → on remplace les
 `style={{…}}` répétés au fil de l'eau. Un besoin récurrent non couvert → on
 l'ajoute **ici** (jamais un one-off inline qui se dupliquera).
+
+## ⚠️ Piège NativeWind (a cassé la prod le 2026-11-10)
+**Jamais de `style` sous forme de fonction** (`style={({ pressed }) => …}`) sur un
+`Pressable`/`Touchable`. Avec `jsxImportSource: 'nativewind'` (babel.config.js),
+NativeWind v4 **jette silencieusement** un `style`-fonction → le composant rend
+**sans aucun style** (Button primary = texte blanc sur fond absent = invisible).
+→ Toujours un `style` **statique** (objet/tableau) ; feedback au press via
+`android_ripple`, état désactivé via `opacity`. Babel ne détecte PAS ce bug
+(comportement runtime) : vérifier qu'un vrai Button s'affiche.
