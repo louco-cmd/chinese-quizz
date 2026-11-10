@@ -10,7 +10,8 @@ export default function Stepper({ value = 0, onChange, min = 0, max = 99, step =
     <Pressable
       disabled={disabled}
       onPress={() => set(to)}
-      style={({ pressed }) => ({ width: 36, height: 36, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceAlt, opacity: disabled ? 0.4 : (pressed ? 0.7 : 1) })}
+      android_ripple={disabled ? undefined : { color: 'rgba(0,0,0,0.12)' }}
+      style={{ width: 36, height: 36, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.surfaceAlt, opacity: disabled ? 0.4 : 1 }}
     >
       <Ionicons name={icon} size={18} color={COLORS.ink} />
     </Pressable>

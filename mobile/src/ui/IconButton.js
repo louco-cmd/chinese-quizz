@@ -10,10 +10,11 @@ export default function IconButton({ icon, size = 20, color = COLORS.ink, bg = '
       hitSlop={8}
       disabled={disabled}
       onPress={disabled ? undefined : onPress}
-      style={({ pressed }) => [{
+      android_ripple={disabled ? undefined : { color: 'rgba(0,0,0,0.12)', borderless: true }}
+      style={[{
         width: 40, height: 40, borderRadius: radius.pill,
         alignItems: 'center', justifyContent: 'center',
-        backgroundColor: bg, opacity: disabled ? 0.4 : (pressed ? 0.6 : 1),
+        backgroundColor: bg, opacity: disabled ? 0.4 : 1,
       }, style]}
       {...rest}
     >

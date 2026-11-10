@@ -10,7 +10,7 @@ export function Checkbox({ checked = false, onChange, label, disabled = false, s
     <Pressable
       disabled={disabled}
       onPress={() => onChange?.(!checked)}
-      style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: disabled ? 0.5 : (pressed ? 0.7 : 1) }, style]}
+      style={[{ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: disabled ? 0.5 : 1 }, style]}
     >
       <Ionicons
         name={checked ? 'checkbox' : 'square-outline'}
@@ -27,7 +27,7 @@ export function Radio({ selected = false, onPress, label, disabled = false, styl
     <Pressable
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: disabled ? 0.5 : (pressed ? 0.7 : 1) }, style]}
+      style={[{ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: disabled ? 0.5 : 1 }, style]}
     >
       <Ionicons
         name={selected ? 'radio-button-on' : 'radio-button-off'}

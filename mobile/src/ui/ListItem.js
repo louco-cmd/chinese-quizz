@@ -10,9 +10,9 @@ export default function ListItem({ title, subtitle, leading, trailing, onPress, 
     <Pressable
       disabled={!onPress}
       onPress={onPress}
-      style={({ pressed }) => [{
+      android_ripple={onPress ? { color: 'rgba(0,0,0,0.06)' } : undefined}
+      style={[{
         flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
-        opacity: pressed && onPress ? 0.6 : 1,
       }, style]}
       {...rest}
     >

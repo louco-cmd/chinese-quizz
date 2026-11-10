@@ -14,13 +14,13 @@ export default function Chip({ label, children, selected = false, icon, onPress,
     <Pressable
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [{
+      style={[{
         flexDirection: 'row', alignItems: 'center', gap: 6,
         paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.pill,
         borderWidth: 1.5,
         borderColor: selected ? COLORS.jiayou : COLORS.line,
         backgroundColor: selected ? (solid ? COLORS.jiayou : COLORS.jiayouSoft) : '#fff',
-        opacity: disabled ? 0.5 : (pressed ? 0.8 : 1),
+        opacity: disabled ? 0.5 : 1,
       }, style]}
     >
       {icon ? <Ionicons name={icon} size={15} color={fg} /> : null}

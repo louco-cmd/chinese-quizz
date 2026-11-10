@@ -34,10 +34,11 @@ export default function Button({
       accessibilityRole="button"
       disabled={off}
       onPress={off ? undefined : onPress}
-      style={({ pressed }) => [{
+      android_ripple={off ? undefined : { color: 'rgba(0,0,0,0.12)' }}
+      style={[{
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
         paddingVertical: s.py, paddingHorizontal: s.px, borderRadius: radius.pill,
-        backgroundColor: off ? (v.disabledBg || v.bg) : (pressed ? v.pressBg : v.bg),
+        backgroundColor: off ? (v.disabledBg || v.bg) : v.bg,
         borderWidth: v.border || 0, borderColor: v.borderColor,
         opacity: off && !v.disabledBg ? 0.45 : 1,
         width: fullWidth ? '100%' : undefined,
