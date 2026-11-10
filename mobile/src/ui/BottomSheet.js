@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, View, Pressable, Animated, Easing, StyleSheet, PanResponder, KeyboardAvoidingView, Platform, useWindowDimensions } from 'react-native';
+import { Modal, View, Pressable, Animated, Easing, StyleSheet, PanResponder, KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -75,7 +75,18 @@ export default function BottomSheet({
         >
           {/* Poignée */}
           <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 999, backgroundColor: '#e2e6ee', marginBottom: 14 }} />
-          {children}
+          {/* keyboardShouldPersistTaps="handled" : indispensable pour qu'un tap sur
+              un élément (ex. résultat de recherche) soit pris en compte alors que
+              le clavier est ouvert, au lieu d'être consommé pour le fermer. */}
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            style={{ flexShrink: 1 }}
+            contentContainerStyle={{ flexGrow: 0 }}
+          >
+            {children}
+          </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
