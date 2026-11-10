@@ -1,6 +1,6 @@
 import { View, Text, Pressable, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import BottomSheet from './BottomSheet';
+import BottomSheet from '../ui/BottomSheet';
 import { requestNativeReview } from '../reviewPrompt';
 import { LEGAL_CONTACT } from '../data/legalContent';
 import { useT } from '../i18n';

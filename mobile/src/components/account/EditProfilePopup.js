@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Popup from '../Popup';
+import Popup from '../../ui/Popup';
 import { COLORS } from '../../theme';
 import { useT } from '../../i18n';
 import { COUNTRIES } from '../../data/countries';
 import { updateAccount } from '../../api';
-import Avatar, { AVATAR_ICONS, AVATAR_COLORS } from '../Avatar';
+import Avatar, { AVATAR_ICONS, AVATAR_COLORS } from '../../ui/Avatar';
 
 // Drapeau emoji à partir d'un code pays ISO alpha-2.
 export function flagEmoji(code) {

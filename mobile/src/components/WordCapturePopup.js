@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Popup from './Popup';
+import Popup from '../ui/Popup';
 import { captureWord } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';

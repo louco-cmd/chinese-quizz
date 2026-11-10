@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { flagEmoji } from '../components/account/EditProfilePopup';
 import StartDuelPopup from '../components/duels/StartDuelPopup';
-import Avatar from '../components/Avatar';
+import Avatar from '../ui/Avatar';
 import { ErrorRetry } from '../components/ErrorRetry';
 import CatLoader from '../components/CatLoader';
 import { getUserProfile } from '../api';

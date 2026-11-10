@@ -3,7 +3,7 @@ import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { flagEmoji } from '../components/account/EditProfilePopup';
 import UserProfileScreen from './UserProfileScreen';
-import Avatar from '../components/Avatar';
+import Avatar from '../ui/Avatar';
 import { useT } from '../i18n';
 import useAndroidBack from '../useAndroidBack';
 import { Screen } from '../ui';

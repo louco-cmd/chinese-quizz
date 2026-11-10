@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AccountCard from './AccountCard';
-import Popup from '../Popup';
+import Popup from '../../ui/Popup';
 import { getMyPacks, updatePack, deletePack } from '../../api';
 import { useT } from '../../i18n';
 import { COLORS } from '../../theme';

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
-import Avatar from '../components/Avatar';
+import Avatar from '../ui/Avatar';
 import WordCapturePopup from '../components/WordCapturePopup';
 import { Button } from '../ui';
 import { getDuel } from '../api';

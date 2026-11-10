@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import SettingsGroup from '../components/settings/SettingsGroup';
 import SettingsRow from '../components/settings/SettingsRow';
-import Toggle from '../components/Toggle';
+import Toggle from '../ui/Toggle';
 import { ErrorRetry } from '../components/ErrorRetry';
 // Design-system : Modal (= Popup), Button, Badge.
 import { Modal, Button, Badge } from '../ui';

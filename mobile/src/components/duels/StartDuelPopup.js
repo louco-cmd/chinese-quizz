@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Popup from '../Popup';
+import Popup from '../../ui/Popup';
 import SegmentedPicker from '../settings/SegmentedPicker';
 import { COLORS } from '../../theme';
 import { useT } from '../../i18n';

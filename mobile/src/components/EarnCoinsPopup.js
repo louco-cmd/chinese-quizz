@@ -1,6 +1,6 @@
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Popup from './Popup';
+import Popup from '../ui/Popup';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 

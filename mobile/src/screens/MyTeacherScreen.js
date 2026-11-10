@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, Switch, Alert, Platform, useWindowDi
 import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
-import BottomSheet from '../components/BottomSheet';
+import BottomSheet from '../ui/BottomSheet';
 import CoursePage from './CoursePage';
 import StudentLessonRows from '../components/teachers/StudentLessonRows';
 import { getStudentMentor, getStudentSlots, bookSlot, bookRecurringSlots, rateMentor, leaveMentor } from '../api';

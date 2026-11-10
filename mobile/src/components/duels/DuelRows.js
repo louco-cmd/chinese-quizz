@@ -2,7 +2,7 @@ import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../theme';
 import { useT } from '../../i18n';
-import Avatar from '../Avatar';
+import Avatar from '../../ui/Avatar';
 
 // Style de ligne en OBJET INLINE (pas de fonction/rowBase) — le plus robuste sur
 // natif. `last` retire la bordure du bas de la dernière ligne.

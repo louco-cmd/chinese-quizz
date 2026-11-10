@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Toggle from '../Toggle';
+import Toggle from '../../ui/Toggle';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import { useT } from '../../i18n';
 import { getDifficultWords, getMe } from '../../api';

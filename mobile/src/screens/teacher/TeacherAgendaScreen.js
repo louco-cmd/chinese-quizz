@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions, Platform } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
-import BottomSheet from '../../components/BottomSheet';
+import BottomSheet from '../../ui/BottomSheet';
 import CatLoader from '../../components/CatLoader';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import { getTeacherLessons, deleteTeacherLesson, updateTeacherLesson, getTeacherAvailability, setTeacherAvailability, getTeacherDateSlots, setTeacherDateSlots } from '../../api';

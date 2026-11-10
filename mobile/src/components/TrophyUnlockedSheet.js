@@ -1,6 +1,6 @@
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import BottomSheet from './BottomSheet';
+import BottomSheet from '../ui/BottomSheet';
 import { CAT_META } from '../screens/TrophiesScreen';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';

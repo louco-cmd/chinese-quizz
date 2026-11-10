@@ -34,14 +34,14 @@ export { default as EmptyState } from './EmptyState';
 export { default as Spinner } from './Spinner';
 export { default as Skeleton, SkeletonText } from './Skeleton';
 
-// ── Overlays (composants existants réexportés) ──────────────────────────────
-export { default as Modal } from '../components/Popup';   // alias clair
-export { default as Popup } from '../components/Popup';
-export { default as Sheet } from '../components/BottomSheet';
+// ── Overlays ────────────────────────────────────────────────────────────────
+export { default as Modal } from './Popup';   // alias clair
+export { default as Popup } from './Popup';
+export { default as Sheet } from './BottomSheet';
 
-// ── Réexports existants pour une surface d'import unique ────────────────────
-export { default as Toggle } from '../components/Toggle';
-export { default as Avatar } from '../components/Avatar';
+// ── Divers primitives ───────────────────────────────────────────────────────
+export { default as Toggle } from './Toggle';
+export { default as Avatar } from './Avatar';
 
 // ── Tokens ──────────────────────────────────────────────────────────────────
 export * as tokens from './tokens';

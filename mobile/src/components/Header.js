@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getMe, getNotifications, markNotificationsRead } from '../api';
 import NotificationsPopup from './NotificationsPopup';
-import Avatar from './Avatar';
+import Avatar from '../ui/Avatar';
 import { COLORS } from '../theme';
 
 // Header bleu constant, identique à l'EJS (partials/header.ejs) :

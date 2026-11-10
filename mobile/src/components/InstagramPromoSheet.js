@@ -1,7 +1,7 @@
 import { View, Text, Pressable, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import BottomSheet from './BottomSheet';
+import BottomSheet from '../ui/BottomSheet';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import SettingsGroup from '../../components/settings/SettingsGroup';
 import SettingsRow from '../../components/settings/SettingsRow';
-import Toggle from '../../components/Toggle';
+import Toggle from '../../ui/Toggle';
 import { getSettings, updateSettings, deleteAccount } from '../../api';
 import { Modal, Button } from '../../ui';
 import { COLORS } from '../../theme';

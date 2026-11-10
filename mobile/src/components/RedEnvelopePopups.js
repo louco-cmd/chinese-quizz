@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import BottomSheet from './BottomSheet';
+import BottomSheet from '../ui/BottomSheet';
 import { searchUsers, sendRedEnvelope } from '../api';
 import { COLORS } from '../theme';
 

@@ -2,7 +2,7 @@ import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ContributionsHeatmap from './ContributionsHeatmap';
 import { flagEmoji } from './EditProfilePopup';
-import Avatar from '../Avatar';
+import Avatar from '../../ui/Avatar';
 import { useT } from '../../i18n';
 
 // Hero bleu de la page account : identité (icône + nom + pays, puis phrase

@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, Linking, Alert, useWindowDimensions,
 import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
-import BottomSheet from '../components/BottomSheet';
+import BottomSheet from '../ui/BottomSheet';
 import { getMentor, getMentorSlots, bookTrial } from '../api';
 import { Button } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';

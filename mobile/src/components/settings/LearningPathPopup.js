@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, ActivityIndicator } from 'react-native';
-import Popup from '../Popup';
+import Popup from '../../ui/Popup';
 import SegmentedPicker from './SegmentedPicker';
 import { LANG_META, INTERFACE_LANGS, useLearnableLangs } from '../../langs';
 import { useT } from '../../i18n';

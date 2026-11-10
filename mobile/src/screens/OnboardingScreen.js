@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { COUNTRIES } from '../data/countries';
 import { flagEmoji } from '../components/account/EditProfilePopup';
 import SegmentedPicker from '../components/settings/SegmentedPicker';
-import Toggle from '../components/Toggle';
+import Toggle from '../ui/Toggle';
 import CtaCard from '../components/duels/CtaCard';
 import PackMarket from '../components/PackMarket';
 import ImportWordsScreen from './ImportWordsScreen';

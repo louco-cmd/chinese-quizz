@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import { View, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Avatar from '../components/Avatar';
+import Avatar from '../ui/Avatar';
 import { langMeta } from '../langs';
 
 // Carte de progression destinée à être CAPTURÉE puis partagée (image PNG). Taille

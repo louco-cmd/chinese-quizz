@@ -4,6 +4,15 @@ Design-system sous `mobile/src/ui/` (tokens + style objects, aucune dépendance
 ajoutée). Import unique : `import { Button, Card, Text, Screen } from '../ui'`.
 Preview visuelle : `src/ui/Gallery.js`.
 
+## `src/ui` vs `src/components`
+- **`src/ui`** = primitives **génériques** (le vocabulaire) : zéro logique métier,
+  zéro appel API, pilotées par les tokens. Ne connaissent rien de Jiayou.
+- **`src/components`** = composants **métier** (ce que c'est) : liés au domaine et
+  aux données (props `mentor`/`duel`/`pack`, appels API, rendu spécialisé).
+- **Dépendance à sens unique** : `components` importe `ui`, **jamais l'inverse**.
+- Les 4 primitives génériques `Popup`/`BottomSheet`/`Toggle`/`Avatar` vivent dans
+  `src/ui` (déplacées depuis `components` le 2026-11-10) → la frontière est nette.
+
 ---
 
 ## 1. Primitives de la lib (`src/ui/`)
@@ -48,14 +57,14 @@ Preview visuelle : `src/ui/Gallery.js`.
 | **Spinner** | `size`, `center` | Chargement |
 | **Skeleton / SkeletonText** | `width`, `height`, `lines` | Placeholder de chargement |
 
-### Overlays (réexport des composants existants, déjà solides)
+### Overlays
 | Composant | Rôle |
 |---|---|
-| **Modal** / **Popup** | Modal centré (RN Modal, backdrop, clavier, header/footer) — `src/components/Popup.js` |
-| **Sheet** | Bottom sheet — `src/components/BottomSheet.js` |
+| **Modal** / **Popup** | Modal centré (RN Modal, backdrop, clavier, header/footer) — `src/ui/Popup.js` |
+| **Sheet** | Bottom sheet — `src/ui/BottomSheet.js` |
 
-### Divers réexportés
-**Avatar** (icône + couleur + nom), **Toggle**.
+### Divers
+**Avatar** (icône + couleur + nom — `src/ui/Avatar.js`), **Toggle** (`src/ui/Toggle.js`).
 
 ---
 

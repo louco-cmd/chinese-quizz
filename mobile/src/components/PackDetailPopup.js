@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, Text, Image, Pressable, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Popup from './Popup';
+import Popup from '../ui/Popup';
 import { getMarketPack, buyMarketPack, notifyNeedCoins, forgetPack, notifyUpgrade, promotePack } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';

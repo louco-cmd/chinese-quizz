@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TextInput, Pressable, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Toggle from '../../components/Toggle';
+import Toggle from '../../ui/Toggle';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import MentorCard from '../../components/teachers/MentorCard';
 import MentorFilters from '../../components/teachers/MentorFilters';
