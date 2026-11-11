@@ -91,35 +91,46 @@ function RecurringWeekPicker({ teacherId, weeks, selected, onToggle }) {
 
   const wide = width >= 900;
   const hourColW = 46;
+  const HEADER_H = 40; // hauteur de l'en-tête (jour + date), pour aligner la colonne heures
+  const ROW_H = 42;
   const avail = Math.min(width - 72, 560) - hourColW;
   const dayW = wide ? Math.max(68, Math.floor(avail / days.length)) : 70;
   const fmtHour = (h) => `${String(h).padStart(2, '0')}:00`;
 
-  const grid = (
+  // Colonne des heures : FIGÉE à gauche (hors du scroll horizontal).
+  const leftCol = (
+    <View style={{ width: hourColW }}>
+      <View style={{ height: HEADER_H }} />
+      {hours.map((h) => (
+        <View key={h} style={{ height: ROW_H, marginBottom: 8, justifyContent: 'center' }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.muted }}>{fmtHour(h)}</Text>
+        </View>
+      ))}
+    </View>
+  );
+
+  // Colonnes des jours : défilent horizontalement (mobile) / remplissent (desktop).
+  const daysGrid = (
     <View>
-      {/* En-tête : jours de semaine + date de la 1re occurrence. */}
-      <View style={{ flexDirection: 'row' }}>
-        <View style={{ width: hourColW }} />
+      <View style={{ flexDirection: 'row', height: HEADER_H }}>
         {days.map((d) => (
-          <View key={d.wd} style={{ width: dayW, alignItems: 'center', paddingBottom: 8 }}>
+          <View key={d.wd} style={{ width: dayW, alignItems: 'center' }}>
             <Text style={{ fontSize: 12.5, fontWeight: '800', color: '#1a1a2e' }}>{WD_SHORT[d.wd]}</Text>
             <Text style={{ fontSize: 10.5, color: COLORS.mutedLight }}>{d.date.getDate()}/{d.date.getMonth() + 1}</Text>
           </View>
         ))}
       </View>
-      {/* Une ligne par heure ; cellule cliquable là où le prof est libre. */}
       {hours.map((h) => (
-        <View key={h} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-          <Text style={{ width: hourColW, fontSize: 11, fontWeight: '700', color: COLORS.muted }}>{fmtHour(h)}</Text>
+        <View key={h} style={{ flexDirection: 'row', height: ROW_H, marginBottom: 8 }}>
           {days.map((d) => {
             const iso = d.byHour.get(h);
-            if (!iso) return <View key={d.wd} style={{ width: dayW, paddingHorizontal: 3 }}><View style={{ height: 42, borderRadius: 10, backgroundColor: '#f2f4f8' }} /></View>;
+            if (!iso) return <View key={d.wd} style={{ width: dayW, paddingHorizontal: 3 }}><View style={{ flex: 1, borderRadius: 10, backgroundColor: '#f2f4f8' }} /></View>;
             const sel = selected.includes(iso);
             return (
               <View key={d.wd} style={{ width: dayW, paddingHorizontal: 3 }}>
                 <Pressable
                   onPress={() => onToggle(iso)}
-                  style={{ height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: sel ? COLORS.jiayou : '#e8f1ff', borderWidth: sel ? 0 : 1, borderColor: '#cfe0ff' }}
+                  style={{ flex: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: sel ? COLORS.jiayou : '#e8f1ff', borderWidth: sel ? 0 : 1, borderColor: '#cfe0ff' }}
                 >
                   <Ionicons name={sel ? 'checkmark' : 'time-outline'} size={sel ? 18 : 16} color={sel ? '#fff' : COLORS.jiayou} />
                 </Pressable>
@@ -132,9 +143,13 @@ function RecurringWeekPicker({ teacherId, weeks, selected, onToggle }) {
   );
 
   // Padding bas : évite que la dernière ligne passe sous le bouton flottant.
+  // La colonne heures reste fixe, seules les colonnes jours défilent.
   return (
-    <View style={{ paddingBottom: 12 }}>
-      {wide ? grid : <ScrollView horizontal showsHorizontalScrollIndicator={false}>{grid}</ScrollView>}
+    <View style={{ paddingBottom: 12, flexDirection: 'row' }}>
+      {leftCol}
+      {wide
+        ? <View style={{ flex: 1 }}>{daysGrid}</View>
+        : <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }}>{daysGrid}</ScrollView>}
     </View>
   );
 }
