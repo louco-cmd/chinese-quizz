@@ -436,6 +436,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
 
           {editor ? (
             <KeyboardAvoidingView
+              pointerEvents="box-none"
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
               style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}
             >
@@ -465,9 +466,9 @@ export default function AddWordScreen({ onBalanceChanged }) {
               </View>
             </KeyboardAvoidingView>
           ) : (
-            <View style={{ flex: 1, justifyContent: 'center', paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }}>
+            <View pointerEvents="box-none" style={{ flex: 1, justifyContent: 'center', paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }}>
               {/* En-tête : juste au-dessus des cartes (tout le groupe est centré). */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, marginBottom: 14 }}>
+              <View pointerEvents="box-none" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, marginBottom: 14 }}>
                 <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
                   {results.length ? `${results.length} result${results.length > 1 ? 's' : ''}` : '😢'}
                 </Text>
