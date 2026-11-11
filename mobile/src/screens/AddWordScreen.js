@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ActivityIndicator, ScrollView,
   KeyboardAvoidingView, Platform, Animated, Easing, useWindowDimensions, Keyboard,
-  StyleSheet,
+  Modal as RNModal, StyleSheet,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -414,18 +414,23 @@ export default function AddWordScreen({ onBalanceChanged }) {
           transparents) mais sur une carte blanche pleine, pour la lisibilité du
           formulaire. Tap dehors : ferme l'éditeur → retour au carrousel ; sinon
           ferme l'overlay. */}
-      {showResults ? (
+      <RNModal
+        visible={showResults}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => (editor ? setEditor(null) : setShowResults(false))}
+      >
         <BlurView
-          intensity={95}
+          intensity={100}
           tint="dark"
           experimentalBlurMethod="dimezisBlurView"
-          style={StyleSheet.absoluteFill}
+          style={{ flex: 1 }}
         >
-          {/* Flou RÉEL : le BlurView est rendu DANS l'arbre de l'écran (plus dans un
-              <Modal>) → il floute vraiment le contenu derrière, sur web ET natif
-              (un <Modal> est une fenêtre/portail séparé que le flou ne capte pas).
-              Voile sombre volontairement léger pour laisser voir le flou. */}
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12,16,38,0.4)' }]} />
+          {/* Overlay PLEIN ÉCRAN (dans un <Modal> : couvre aussi le header de l'app
+              et la tab bar). Voile sombre assez opaque : masque tout le fond même là
+              où le flou natif est limité (Android), le flou venant en plus (iOS/web). */}
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(14,18,42,0.55)' }]} />
           {/* Tap dehors = fermer (derrière le contenu). */}
           <Pressable style={StyleSheet.absoluteFill} onPress={() => (editor ? setEditor(null) : setShowResults(false))} />
 
@@ -562,7 +567,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
             </View>
           ) : null}
         </BlurView>
-      ) : null}
+      </RNModal>
     </View>
   );
 }
