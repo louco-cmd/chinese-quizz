@@ -780,6 +780,56 @@ router.get('/api/m/student/slots', requireToken, async (req, res) => {
   } catch (e) { console.error('m/student slots list:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
+// ── GET /api/m/student/slots/recurring : créneaux HEBDO libres sur toute la durée ─
+// {teacherId, weeks}. On ne renvoie qu'un créneau (jour+heure) si ses `weeks`
+// occurrences consécutives (à partir de la prochaine) sont TOUTES ouvertes et
+// libres. Renvoie la 1re occurrence de chaque série → bookRecurringSlots ensuite.
+router.get('/api/m/student/slots/recurring', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const teacherId = parseInt(req.query.teacherId, 10);
+    let weeks = parseInt(req.query.weeks, 10);
+    weeks = Math.max(2, Math.min(12, Number.isFinite(weeks) ? weeks : 8));
+    if (!teacherId) return res.status(400).json({ error: 'Invalid request' });
+    if (!(await studentLinkedToTeacher(uid, teacherId))) {
+      return res.status(403).json({ error: 'You are not an active student of this teacher' });
+    }
+    const horizonDays = weeks * 7 + 1;
+    const tz = await teacherTz(teacherId);
+    const [av, dav, booked] = await Promise.all([
+      pool.query(`SELECT weekday, hour FROM teacher_availability WHERE teacher_id = $1`, [teacherId]),
+      pool.query(`SELECT to_char(day,'YYYY-MM-DD') AS day, hour FROM teacher_date_slots WHERE teacher_id = $1 AND day >= CURRENT_DATE AND day <= CURRENT_DATE + make_interval(days => $2)`, [teacherId, horizonDays]),
+      pool.query(`SELECT starts_at FROM teacher_slots WHERE status = 'booked' AND teacher_id = $1 AND starts_at > NOW()`, [teacherId]),
+    ]);
+    const dateMap = new Map();
+    dav.rows.forEach((r) => { if (!dateMap.has(r.day)) dateMap.set(r.day, new Set()); dateMap.get(r.day).add(r.hour); });
+    const bookedSet = new Set(booked.rows.map((r) => new Date(r.starts_at).toISOString()));
+    const open = deriveTeacherSlots({ tz, blocks: av.rows, dateMap, bookedSet, horizonDays });
+    const openSet = new Set(open.map((s) => s.starts_at));
+    // Première occurrence par (weekday, heure) en heure murale du prof.
+    const firstByKey = new Map();
+    for (const s of open) {
+      const w = utcToWall(new Date(s.starts_at), tz);
+      const key = `${w.weekday}:${w.hour}`;
+      if (!firstByKey.has(key)) firstByKey.set(key, { iso: s.starts_at, wall: w });
+    }
+    // Ne garde que les séries dont les `weeks` occurrences sont toutes ouvertes.
+    const out = [];
+    for (const { iso, wall } of firstByKey.values()) {
+      let ok = true;
+      for (let i = 0; i < weeks; i++) {
+        const base = new Date(Date.UTC(wall.year, wall.month - 1, wall.day));
+        base.setUTCDate(base.getUTCDate() + i * 7);
+        const exp = wallToUtc(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), wall.hour, tz).toISOString();
+        if (!openSet.has(exp)) { ok = false; break; }
+      }
+      if (ok) out.push({ first_starts_at: iso });
+    }
+    out.sort((a, b) => new Date(a.first_starts_at) - new Date(b.first_starts_at));
+    res.json({ weeks, slots: out });
+  } catch (e) { console.error('m/student slots recurring:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
 // ── POST /api/m/student/slots/book : réserver un créneau dérivé {teacher_id, starts_at} ─
 router.post('/api/m/student/slots/book', requireToken, async (req, res) => {
   try {

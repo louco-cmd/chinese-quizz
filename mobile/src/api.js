@@ -679,6 +679,10 @@ export function getStudentSlots(teacherId) {
 export function bookSlot(teacherId, startsAt) {
   return request('/api/m/student/slots/book', { method: 'POST', body: { teacher_id: teacherId, starts_at: startsAt } });
 }
+// Créneaux hebdo libres sur toute la durée (pour l'onglet « Recurring classes »).
+export function getRecurringSlots(teacherId, weeks) {
+  return request(`/api/m/student/slots/recurring?teacherId=${teacherId}&weeks=${weeks}`);
+}
 // Réserve une série hebdomadaire : même jour/heure, `weeks` occurrences (dont la 1re).
 export function bookRecurringSlots(teacherId, startsAt, weeks) {
   return request('/api/m/student/slots/book-recurring', { method: 'POST', body: { teacher_id: teacherId, starts_at: startsAt, weeks } });

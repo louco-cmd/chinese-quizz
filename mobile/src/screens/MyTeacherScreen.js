@@ -6,7 +6,7 @@ import { ErrorRetry } from '../components/ErrorRetry';
 import BottomSheet from '../ui/BottomSheet';
 import CoursePage from './CoursePage';
 import StudentLessonRows from '../components/teachers/StudentLessonRows';
-import { getStudentMentor, getStudentSlots, bookSlot, bookRecurringSlots, rateMentor, leaveMentor } from '../api';
+import { getStudentMentor, getStudentSlots, getRecurringSlots, bookSlot, bookRecurringSlots, rateMentor, leaveMentor } from '../api';
 import { useT } from '../i18n';
 import { Button, Input, Chip, SegmentedControl } from '../ui';
 import { COLORS, SHADOW_CARD } from '../theme';
@@ -41,6 +41,111 @@ function StatTile({ icon, value, label, accent }) {
 
 // ── BottomSheet : réserver un cours (créneaux dérivés de la semaine type) ─────
 const WEEK_CHOICES = [4, 8, 12];
+const WD_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// Calendrier semaine pour l'onglet « Recurring classes ». N'affiche que les
+// créneaux hebdo libres sur toute la durée (renvoyés par le backend), en zones
+// cliquables. Mobile : scroll horizontal ; desktop : s'adapte à la largeur.
+function RecurringWeekPicker({ teacherId, weeks, busy, onBook }) {
+  const { width } = useWindowDimensions();
+  const [slots, setSlots] = useState(null);
+  const [err, setErr] = useState('');
+  const [selected, setSelected] = useState(null);
+
+  const reload = useCallback(() => {
+    setErr(''); setSlots(null); setSelected(null);
+    getRecurringSlots(teacherId, weeks).then((r) => setSlots(r.slots || [])).catch((e) => setErr(e.message));
+  }, [teacherId, weeks]);
+  useEffect(() => { reload(); }, [reload]);
+
+  // Groupe les séries par jour de semaine (heure murale de l'ÉLÈVE) → colonnes,
+  // heures → lignes.
+  const { days, hours } = useMemo(() => {
+    const dayMap = new Map(); // wd(Mon0) -> { wd, date, byHour: Map(hour -> iso) }
+    const hourSet = new Set();
+    (slots || []).forEach((s) => {
+      const d = new Date(s.first_starts_at);
+      const wd = (d.getDay() + 6) % 7;
+      const hour = d.getHours();
+      hourSet.add(hour);
+      if (!dayMap.has(wd)) dayMap.set(wd, { wd, date: d, byHour: new Map() });
+      const o = dayMap.get(wd);
+      if (d < o.date) o.date = d;
+      o.byHour.set(hour, s.first_starts_at);
+    });
+    return {
+      days: [...dayMap.values()].sort((a, b) => a.wd - b.wd),
+      hours: [...hourSet].sort((a, b) => a - b),
+    };
+  }, [slots]);
+
+  if (err) return <ErrorRetry error={err} onRetry={reload} />;
+  if (!slots) return <View style={{ paddingVertical: 30, alignItems: 'center' }}><CatLoader size={80} /></View>;
+  if (days.length === 0) {
+    return (
+      <View style={{ alignItems: 'center', paddingVertical: 28 }}>
+        <Ionicons name="calendar-clear-outline" size={30} color={COLORS.mutedLight} />
+        <Text style={{ fontSize: 13.5, color: COLORS.mutedLight, textAlign: 'center', marginTop: 10 }}>No weekly slot free for {weeks} weeks straight.{'\n'}Try fewer weeks.</Text>
+      </View>
+    );
+  }
+
+  const wide = width >= 900;
+  const hourColW = 46;
+  const avail = Math.min(width - 72, 560) - hourColW;
+  const dayW = wide ? Math.max(68, Math.floor(avail / days.length)) : 70;
+  const fmtHour = (h) => `${String(h).padStart(2, '0')}:00`;
+
+  const grid = (
+    <View>
+      {/* En-tête : jours de semaine + date de la 1re occurrence. */}
+      <View style={{ flexDirection: 'row' }}>
+        <View style={{ width: hourColW }} />
+        {days.map((d) => (
+          <View key={d.wd} style={{ width: dayW, alignItems: 'center', paddingBottom: 8 }}>
+            <Text style={{ fontSize: 12.5, fontWeight: '800', color: '#1a1a2e' }}>{WD_SHORT[d.wd]}</Text>
+            <Text style={{ fontSize: 10.5, color: COLORS.mutedLight }}>{d.date.getDate()}/{d.date.getMonth() + 1}</Text>
+          </View>
+        ))}
+      </View>
+      {/* Une ligne par heure ; cellule cliquable là où le prof est libre. */}
+      {hours.map((h) => (
+        <View key={h} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={{ width: hourColW, fontSize: 11, fontWeight: '700', color: COLORS.muted }}>{fmtHour(h)}</Text>
+          {days.map((d) => {
+            const iso = d.byHour.get(h);
+            if (!iso) return <View key={d.wd} style={{ width: dayW, paddingHorizontal: 3 }}><View style={{ height: 42, borderRadius: 10, backgroundColor: '#f2f4f8' }} /></View>;
+            const sel = selected === iso;
+            return (
+              <View key={d.wd} style={{ width: dayW, paddingHorizontal: 3 }}>
+                <Pressable
+                  onPress={() => setSelected(sel ? null : iso)}
+                  style={{ height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: sel ? COLORS.jiayou : '#e8f1ff', borderWidth: sel ? 0 : 1, borderColor: '#cfe0ff' }}
+                >
+                  <Ionicons name={sel ? 'checkmark' : 'time-outline'} size={sel ? 18 : 16} color={sel ? '#fff' : COLORS.jiayou} />
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+
+  return (
+    <View>
+      {wide ? grid : <ScrollView horizontal showsHorizontalScrollIndicator={false}>{grid}</ScrollView>}
+      <Button
+        title={selected ? `Book these ${weeks} weeks` : 'Pick a slot above'}
+        icon="repeat"
+        disabled={!selected || busy}
+        onPress={() => selected && onBook(selected)}
+        fullWidth
+        style={{ marginTop: 16 }}
+      />
+    </View>
+  );
+}
 
 function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked }) {
   const [slots, setSlots] = useState(null);
@@ -69,29 +174,36 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
 
   const weekdayName = (iso) => new Date(iso).toLocaleDateString(undefined, { weekday: 'long' });
 
-  async function book(s) {
-    setBusy(s.starts_at);
+  // Onglet « One time class » : réserve un seul créneau.
+  async function bookOnce(iso) {
+    setBusy(iso);
     try {
-      if (repeat) {
-        const r = await bookRecurringSlots(teacherId, s.starts_at, weeks);
-        onBooked?.(); onClose?.();
-        const n = r.booked_count || 0;
-        const miss = (r.requested || weeks) - n;
-        Alert.alert(
-          n ? 'Weekly lessons booked!' : 'Nothing booked',
-          n
-            ? `${n} lesson${n > 1 ? 's' : ''} booked, every ${weekdayName(s.starts_at)} at ${fmtTime(s.starts_at)}.` +
-              (miss > 0 ? `\n\n${miss} week${miss > 1 ? 's were' : ' was'} skipped (teacher not available or already taken).` : '')
-            : 'None of those weekly slots were available — pick another time.'
-        );
-      } else {
-        await bookSlot(teacherId, s.starts_at);
-        onBooked?.(); onClose?.();
-        Alert.alert('', "Lesson booked! You'll find it in your upcoming sessions.");
-      }
+      await bookSlot(teacherId, iso);
+      onBooked?.(); onClose?.();
+      Alert.alert('', "Lesson booked! You'll find it in your upcoming sessions.");
     } catch (e) {
       Alert.alert('', e.taken || /available|taken/i.test(e.message || '') ? 'This slot was just taken — pick another.' : (e.message || 'Error'));
       reload();
+    } finally { setBusy(null); }
+  }
+
+  // Onglet « Recurring classes » : réserve la série hebdo (déjà garantie libre).
+  async function bookRecurring(firstIso) {
+    setBusy(firstIso);
+    try {
+      const r = await bookRecurringSlots(teacherId, firstIso, weeks);
+      onBooked?.(); onClose?.();
+      const n = r.booked_count || 0;
+      const miss = (r.requested || weeks) - n;
+      Alert.alert(
+        n ? 'Weekly lessons booked!' : 'Nothing booked',
+        n
+          ? `${n} lesson${n > 1 ? 's' : ''} booked, every ${weekdayName(firstIso)} at ${fmtTime(firstIso)}.` +
+            (miss > 0 ? `\n\n${miss} week${miss > 1 ? 's were' : ' was'} skipped (teacher not available or already taken).` : '')
+          : 'None of those weekly slots were available — pick another time.'
+      );
+    } catch (e) {
+      Alert.alert('', e.message || 'Error');
     } finally { setBusy(null); }
   }
 
@@ -116,44 +228,46 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
         options={[{ label: 'One time class', value: false }, { label: 'Recurring classes', value: true }]}
       />
       {repeat ? (
-        <View style={{ backgroundColor: '#f6f8fb', borderRadius: 14, padding: 14, marginBottom: 14 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <>
+          {/* Durée de la série : on ne montre que les créneaux libres sur toute la durée. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
             <Text style={{ fontSize: 12.5, fontWeight: '700', color: COLORS.muted }}>For</Text>
             {WEEK_CHOICES.map((n) => (
               <Chip key={n} variant="solid" label={`${n} weeks`} selected={weeks === n} onPress={() => setWeeks(n)} />
             ))}
           </View>
-          <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 10 }}>Pick a time below — it books that slot every week for the next {weeks} weeks.</Text>
-        </View>
+          <RecurringWeekPicker teacherId={teacherId} weeks={weeks} busy={!!busy} onBook={bookRecurring} />
+        </>
       ) : (
-        <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginBottom: 14, textAlign: 'center' }}>Pick a time below for a single class.</Text>
-      )}
-
-      {err ? <ErrorRetry error={err} onRetry={reload} />
-        : !slots ? <View style={{ paddingVertical: 30, alignItems: 'center' }}><CatLoader size={80} /></View>
-          : groups.length === 0 ? (
-            <View style={{ alignItems: 'center', paddingVertical: 28 }}>
-              <Ionicons name="calendar-clear-outline" size={30} color={COLORS.mutedLight} />
-              <Text style={{ fontSize: 13.5, color: COLORS.mutedLight, textAlign: 'center', marginTop: 10 }}>No open slot right now.{'\n'}Check back later.</Text>
-            </View>
-          ) : (
-            <ScrollView style={{ maxHeight: 440 }} showsVerticalScrollIndicator={false}>
-              {groups.map((g, i) => (
-                <View key={i} style={{ marginBottom: 16 }}>
-                  <Text style={{ fontSize: 12.5, fontWeight: '800', color: COLORS.mutedLight, marginBottom: 9, textTransform: 'uppercase', letterSpacing: 0.4 }}>{fmtDay(g.date)}</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {g.items.map((s) => (
-                      <Pressable key={s.starts_at} onPress={() => book(s)} disabled={busy === s.starts_at}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.jiayouSoft, borderWidth: 1, borderColor: '#cfe0ff', opacity: busy === s.starts_at ? 0.6 : 1 }}>
-                        <Ionicons name="time" size={13} color={COLORS.jiayou} />
-                        <Text style={{ fontSize: 13.5, fontWeight: '800', color: COLORS.jiayou }}>{fmtTime(s.starts_at)}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
+        <>
+          <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginBottom: 14, textAlign: 'center' }}>Pick a time below for a single class.</Text>
+          {err ? <ErrorRetry error={err} onRetry={reload} />
+            : !slots ? <View style={{ paddingVertical: 30, alignItems: 'center' }}><CatLoader size={80} /></View>
+              : groups.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 28 }}>
+                  <Ionicons name="calendar-clear-outline" size={30} color={COLORS.mutedLight} />
+                  <Text style={{ fontSize: 13.5, color: COLORS.mutedLight, textAlign: 'center', marginTop: 10 }}>No open slot right now.{'\n'}Check back later.</Text>
                 </View>
-              ))}
-            </ScrollView>
-          )}
+              ) : (
+                <ScrollView style={{ maxHeight: 440 }} showsVerticalScrollIndicator={false}>
+                  {groups.map((g, i) => (
+                    <View key={i} style={{ marginBottom: 16 }}>
+                      <Text style={{ fontSize: 12.5, fontWeight: '800', color: COLORS.mutedLight, marginBottom: 9, textTransform: 'uppercase', letterSpacing: 0.4 }}>{fmtDay(g.date)}</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        {g.items.map((s) => (
+                          <Pressable key={s.starts_at} onPress={() => bookOnce(s.starts_at)} disabled={busy === s.starts_at}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.jiayouSoft, borderWidth: 1, borderColor: '#cfe0ff', opacity: busy === s.starts_at ? 0.6 : 1 }}>
+                            <Ionicons name="time" size={13} color={COLORS.jiayou} />
+                            <Text style={{ fontSize: 13.5, fontWeight: '800', color: COLORS.jiayou }}>{fmtTime(s.starts_at)}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+        </>
+      )}
     </BottomSheet>
   );
 }
