@@ -18,8 +18,7 @@ import VerifyEmailBanner from './src/components/VerifyEmailBanner';
 import TabBar from './src/components/TabBar';
 import LoginScreen from './src/screens/LoginScreen';
 import TeachersScreen from './src/screens/TeachersScreen';
-import MyClassesScreen from './src/screens/MyClassesScreen';
-import StudentAgendaScreen from './src/screens/StudentAgendaScreen';
+import MyTeacherScreen from './src/screens/MyTeacherScreen';
 import CollectionScreen from './src/screens/CollectionScreen';
 import AddWordScreen from './src/screens/AddWordScreen';
 import QuizScreen from './src/screens/QuizScreen';
@@ -66,6 +65,10 @@ function App() {
   const [storeSort, setStoreSort] = useState(null); // tri imposé au JiaStore (notif « nouveau pack » → recent)
   const [videoCallLesson, setVideoCallLesson] = useState(null); // visio plein-écran : number (élève) | slot {id, student_id, student_name} (prof)
   const [endCourse, setEndCourse] = useState(null); // slot du cours terminé → page « fin de cours » (prof)
+  const [teacherView, setTeacherView] = useState(null); // prof ouvert depuis Settings (« My teacher »)
+
+  // Ouvre la page « mon prof » depuis les réglages (lien My teacher).
+  const openTeacher = (teacher) => { setTeacherView(teacher); setBankReturn('settings'); setTab('myteacher'); };
 
   // Lance un quiz sur un pack possédé → onglet Quiz, popup de réglages pré-rempli.
   const startPackQuiz = (pack) => { setQuizPack(pack); setTab('quiz'); };
@@ -361,9 +364,9 @@ function App() {
       // 4) Plateforme prof : ses onglets gèrent leur propre retour.
       if (profile?.role === 'teacher') return false;
       // 5) Sous-écrans → parent (miroir de leurs boutons onBack).
-      const PARENTS = { settings: 'account', account: 'add', writing: 'settings', 'create-pack': 'store' };
+      const PARENTS = { settings: 'account', account: 'add', writing: 'settings', 'create-pack': 'store', myteacher: 'settings' };
       if (PARENTS[tab]) { setTab(PARENTS[tab]); return true; }
-      if (['bank', 'pricing', 'teachers', 'myclasses', 'agenda', 'import', 'support', 'legal', 'terms', 'privacy', 'credits', 'trophies'].includes(tab)) {
+      if (['bank', 'pricing', 'teachers', 'import', 'support', 'legal', 'terms', 'privacy', 'credits', 'trophies'].includes(tab)) {
         setTab(bankReturn || 'add'); return true;
       }
       // 6) Onglet principal (store/collection/quiz/duels) → accueil (Add Word).
@@ -378,14 +381,13 @@ function App() {
   function renderScreen() {
     switch (tab) {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
-      case 'myclasses': return <MyClassesScreen onBack={() => setTab(bankReturn)} />;
-      case 'agenda': return <StudentAgendaScreen onBack={() => setTab(bankReturn)} onVideoCall={setVideoCallLesson} />;
+      case 'myteacher': return <MyTeacherScreen teacherId={teacherView?.teacher_id || teacherView?.id} teacherName={teacherView?.name} onBack={() => setTab('settings')} onVideoCall={setVideoCallLesson} />;
       case 'collection': return <CollectionScreen onNavigate={setTab} onOpenCredits={() => { setBankReturn('collection'); setTab('credits'); }} />;
       case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
       case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} onNavigate={setTab} onActivityDone={checkTrophies} />;
       case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} emailVerified={profile?.emailVerified} onCapture={() => setTab('add')} onOpenStore={() => { setBankReturn('duels'); setTab('store'); }} initialDetailDuelId={duelDeepLink} onDeepLinkConsumed={() => setDuelDeepLink(null)} onActivityDone={checkTrophies} />;
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} onOpenTrophies={() => { setBankReturn('account'); setTab('trophies'); }} onVideoCall={setVideoCallLesson} />;
-      case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onBack={() => setTab('account')} isPremium={!!profile?.isPremium} />;
+      case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onOpenTeacher={openTeacher} onBack={() => setTab('account')} isPremium={!!profile?.isPremium} />;
       case 'trophies': return <TrophiesScreen onBack={() => setTab(bankReturn || 'settings')} />;
       case 'bank': return <BankScreen onBack={() => setTab(bankReturn)} />;
       case 'pricing': return <PricingScreen onBack={() => setTab(bankReturn)} isPremium={!!profile?.isPremium} onPurchased={() => loadProfile({ route: false })} />;

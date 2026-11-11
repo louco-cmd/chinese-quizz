@@ -503,8 +503,16 @@ export default function AddWordScreen({ onBalanceChanged }) {
                     [{ nativeEvent: { contentOffset: { x: scrollX } } }],
                     { useNativeDriver: true }
                   )}
-                  contentContainerStyle={{ paddingHorizontal: sidePad, paddingVertical: 12, gap: CARD_GAP, alignItems: 'center' }}
+                  contentContainerStyle={{ paddingVertical: 12, gap: CARD_GAP, alignItems: 'center' }}
                 >
+                  {/* Spacer de tête : centre la 1re carte ET ferme l'overlay si on tape
+                      le flou à gauche des cartes (le ScrollView capte ces taps, donc le
+                      backdrop plein écran derrière ne les reçoit pas). */}
+                  <Pressable
+                    onPress={() => setShowResults(false)}
+                    style={{ width: Math.max(0, sidePad - CARD_GAP), height: CARD_H }}
+                  />
+
                   {results.map((w, i) => {
                     // Une carte = un SENS (w.id × w.meaning_id) → clé par sens.
                     const key = `${w.id}:${w.meaning_id}`;
@@ -548,6 +556,12 @@ export default function AddWordScreen({ onBalanceChanged }) {
                       {results.length === 0 ? 'Jiayou never heard about it' : 'and share it with Jiaworld'}
                     </Text>
                   </Pressable>
+
+                  {/* Spacer de queue : symétrique, ferme aussi l'overlay (flou à droite). */}
+                  <Pressable
+                    onPress={() => setShowResults(false)}
+                    style={{ width: Math.max(0, sidePad - CARD_GAP), height: CARD_H }}
+                  />
                 </Animated.ScrollView>
 
               {/* Navigation : flèches cliquables (desktop) + indication swipe (mobile). */}

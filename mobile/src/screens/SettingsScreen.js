@@ -11,7 +11,7 @@ import { ErrorRetry } from '../components/ErrorRetry';
 // Design-system : Modal (= Popup), Button, Badge.
 import { Modal, Button, Badge } from '../ui';
 import UpdateFooter from '../components/settings/UpdateFooter';
-import { getSettings, getCachedSettings, updateSettings, deleteAccount, exportAccountData, getLearningPaths, activateLearningPath } from '../api';
+import { getSettings, getCachedSettings, updateSettings, deleteAccount, exportAccountData, getLearningPaths, activateLearningPath, getStudentClasses } from '../api';
 import { useT } from '../i18n';
 import { COLORS } from '../theme';
 import CatLoader from '../components/CatLoader';
@@ -28,7 +28,7 @@ function BetaPill() {
   return <Badge tone="primary" icon="flask">BETA</Badge>;
 }
 
-export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = false }) {
+export default function SettingsScreen({ onLogout, onOpen, onOpenTeacher, onBack, isPremium = false }) {
   const { t, setLang } = useT();
   const { width } = useWindowDimensions();
   const hPad = width >= 992 ? 24 : 16;
@@ -42,6 +42,25 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+
+  // Lien « My teacher » : ouvre le prof si unique, sinon popup « Quel prof ? ».
+  const [teacherBusy, setTeacherBusy] = useState(false);
+  const [teacherPick, setTeacherPick] = useState(null); // null | liste de profs à choisir
+  async function openMyTeacher() {
+    if (teacherBusy) return;
+    setTeacherBusy(true);
+    try {
+      const cls = await getStudentClasses();
+      const mentors = cls?.mentors || [];
+      if (mentors.length === 0) Alert.alert('', t('mt_none'));
+      else if (mentors.length === 1) onOpenTeacher?.(mentors[0]);
+      else setTeacherPick(mentors);
+    } catch (e) {
+      Alert.alert('', e.message || 'Error');
+    } finally {
+      setTeacherBusy(false);
+    }
+  }
 
   // Parcours d'apprentissage (multi-langues).
   const [paths, setPaths] = useState(null);
@@ -332,8 +351,7 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
           {/* ── Account ── */}
           <SettingsGroup title={t('set_grp_account')}>
             <SettingsRow icon="school" iconColor="#0d6efd" iconBg="#e8f0ff" label={t('set_find_teacher')} sub={t('set_find_teacher_sub')} onPress={() => onOpen?.('teachers')} right={<BetaPill />} />
-            <SettingsRow icon="library" iconColor="#6f42c1" iconBg="#efe7fb" label={t('set_my_classes')} sub={t('set_my_classes_sub')} onPress={() => onOpen?.('myclasses')} right={<BetaPill />} />
-            <SettingsRow icon="calendar" iconColor="#0d6efd" iconBg="#e8f0ff" label={t('set_agenda')} sub={t('set_agenda_sub')} onPress={() => onOpen?.('agenda')} right={<BetaPill />} />
+            <SettingsRow icon="person" iconColor="#6f42c1" iconBg="#efe7fb" label={t('set_my_teacher')} sub={t('set_my_teacher_sub')} onPress={openMyTeacher} right={teacherBusy ? <ActivityIndicator color={COLORS.jiayou} /> : <BetaPill />} />
             <SettingsRow icon="star" iconColor="#856404" iconBg="#fff3cd" label={t('set_premium')} sub={t('set_premium_sub')} onPress={() => onOpen?.('pricing')} />
           </SettingsGroup>
 
@@ -386,6 +404,28 @@ export default function SettingsScreen({ onLogout, onOpen, onBack, isPremium = f
           <Button title={t('common_cancel')} variant="secondary" onPress={() => setConfirmLogout(false)} style={{ flex: 1, justifyContent: 'center' }} />
           <Button title={t('set_logout')} onPress={onLogout} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
+      </Modal>
+
+      {/* Choix du prof quand le compte en a plusieurs (lien « My teacher »). */}
+      <Modal visible={!!teacherPick} onClose={() => setTeacherPick(null)} maxWidth={400}>
+        <Text style={{ fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 14 }}>{t('mt_which')}</Text>
+        {(teacherPick || []).map((m) => {
+          const name = m.name || 'Teacher';
+          const initials = name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || 'T';
+          return (
+            <Pressable
+              key={m.teacher_id || m.id}
+              onPress={() => { setTeacherPick(null); onOpenTeacher?.(m); }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 6, borderRadius: 12 }}
+            >
+              <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 16 }}>{initials}</Text>
+              </View>
+              <Text style={{ flex: 1, fontSize: 15.5, fontWeight: '700', color: '#1a1a2e' }} numberOfLines={1}>{name}</Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.mutedLight} />
+            </Pressable>
+          );
+        })}
       </Modal>
 
       {/* Création / édition d'un parcours d'apprentissage */}

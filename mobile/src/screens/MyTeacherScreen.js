@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, Switch, Alert, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
@@ -8,7 +8,7 @@ import CoursePage from './CoursePage';
 import StudentLessonRows from '../components/teachers/StudentLessonRows';
 import { getStudentMentor, getStudentSlots, bookSlot, bookRecurringSlots, rateMentor, leaveMentor } from '../api';
 import { useT } from '../i18n';
-import { Button, Input, Chip } from '../ui';
+import { Button, Input, Chip, SegmentedControl } from '../ui';
 import { COLORS, SHADOW_CARD } from '../theme';
 import useAndroidBack from '../useAndroidBack';
 
@@ -104,32 +104,30 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
         <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 18 }}>{initials(teacherName)}</Text>
         </View>
-        <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginTop: 10 }}>Book a lesson</Text>
+        <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginTop: 10 }}>Book a class</Text>
         {localTz ? <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 3 }}>Shown in your timezone · {localTz}</Text> : null}
       </View>
 
-      {/* Option : réserver le même créneau chaque semaine */}
-      <View style={{ backgroundColor: '#f6f8fb', borderRadius: 14, padding: 14, marginBottom: 14 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Ionicons name="repeat" size={18} color={COLORS.jiayou} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e' }}>Repeat weekly</Text>
-            <Text style={{ fontSize: 12, color: COLORS.mutedLight, marginTop: 1 }}>Book the same day & time every week.</Text>
-          </View>
-          <Switch value={repeat} onValueChange={setRepeat} trackColor={{ false: '#d7dce3', true: COLORS.jiayou }} thumbColor="#fff" />
-        </View>
-        {repeat ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+      {/* 2 onglets : cours récurrent (chaque semaine) vs cours ponctuel. */}
+      <SegmentedControl
+        style={{ marginBottom: 12 }}
+        value={repeat}
+        onChange={setRepeat}
+        options={[{ label: 'One time class', value: false }, { label: 'Recurring classes', value: true }]}
+      />
+      {repeat ? (
+        <View style={{ backgroundColor: '#f6f8fb', borderRadius: 14, padding: 14, marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={{ fontSize: 12.5, fontWeight: '700', color: COLORS.muted }}>For</Text>
             {WEEK_CHOICES.map((n) => (
               <Chip key={n} variant="solid" label={`${n} weeks`} selected={weeks === n} onPress={() => setWeeks(n)} />
             ))}
           </View>
-        ) : null}
-        {repeat ? (
-          <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 10 }}>Pick a time below — it books that slot for the next {weeks} weeks.</Text>
-        ) : null}
-      </View>
+          <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 10 }}>Pick a time below — it books that slot every week for the next {weeks} weeks.</Text>
+        </View>
+      ) : (
+        <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginBottom: 14, textAlign: 'center' }}>Pick a time below for a single class.</Text>
+      )}
 
       {err ? <ErrorRetry error={err} onRetry={reload} />
         : !slots ? <View style={{ paddingVertical: 30, alignItems: 'center' }}><CatLoader size={80} /></View>
@@ -261,7 +259,7 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
   const canBook = data.is_active;
 
   const BookBtn = canBook ? (
-    <Button onPress={() => setBooking(true)} icon="calendar" title="Book a lesson" fullWidth />
+    <Button onPress={() => setBooking(true)} icon="calendar" title="Book a class" fullWidth />
   ) : null;
 
   // ── Carte identité + stats (colonne gauche sur desktop) ────────────────────
@@ -284,13 +282,14 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
             <Text style={{ color: COLORS.jiayou, fontSize: 13, fontWeight: '800' }}>{money(t.session_price, t.session_currency)} / session</Text>
           </View>
         ) : null}
+        {/* Action principale « Book a class », juste sous le nom. */}
+        {BookBtn ? <View style={{ alignSelf: 'stretch', marginTop: 16 }}>{BookBtn}</View> : null}
       </View>
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 18 }}>
         <StatTile icon="people" value={t.student_count ?? 0} label="Students" />
         <StatTile icon="school" value={t.courses_given ?? 0} label="Courses given" />
         <StatTile icon="star" accent="#f5b301" value={t.rating != null ? t.rating : '—'} label={t.rating_count ? `Rating (${t.rating_count})` : 'Rating'} />
       </View>
-      {wide && BookBtn ? <View style={{ marginTop: 18 }}>{BookBtn}</View> : null}
     </View>
   );
 
@@ -354,12 +353,11 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
     </>
   );
 
-  // Sticky bottom uniquement sur mobile (sur desktop le CTA est dans la carte).
-  const showSticky = canBook && !wide;
-
+  // Le CTA « Book a class » vit maintenant dans la carte identité (top section),
+  // plus besoin de barre sticky.
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.page }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: showSticky ? 120 : 32 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
         <View style={{ width: '100%', maxWidth: wide ? 1000 : 640, alignSelf: 'center' }}>
           {Back}
           {wide ? (
@@ -375,13 +373,6 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
           )}
         </View>
       </ScrollView>
-
-      {/* CTA sticky (mobile seulement) : réserver un cours */}
-      {showSticky ? (
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 26, backgroundColor: 'rgba(248,249,250,0.96)', borderTopWidth: 1, borderColor: '#eef1f5' }}>
-          <View style={{ width: '100%', maxWidth: 640, alignSelf: 'center' }}>{BookBtn}</View>
-        </View>
-      ) : null}
 
       <BookLessonSheet teacherId={teacherId} teacherName={name} visible={booking} onClose={() => setBooking(false)} onBooked={load} />
       <RateSheet teacherId={teacherId} teacherName={name} initial={data.my_rating} visible={rating} onClose={() => setRating(false)} onSaved={load} />
