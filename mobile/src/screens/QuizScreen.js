@@ -51,7 +51,7 @@ function PackRow({ pack, onPress, last }) {
 
 // Page Quiz : stats sticky à gauche (desktop) + CTA "Start a quiz" (mode fusionné
 // pinyin/characters) + "Train on a pack" + task quizzes + difficultés.
-export default function QuizScreen({ onOpenStore, onCapture, initialPack, onInitialConsumed, onBalanceChanged, onNavigate, onActivityDone }) {
+export default function QuizScreen({ onOpenStore, onCapture, initialPack, onInitialConsumed, initialQuizIds, onInitialQuizConsumed, onBalanceChanged, onNavigate, onActivityDone }) {
   const { t } = useT();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 992;
@@ -77,6 +77,13 @@ export default function QuizScreen({ onOpenStore, onCapture, initialPack, onInit
     setPending({ scope: 'pack', packId: initialPack.id, title: initialPack.title });
     onInitialConsumed?.();
   }, [initialPack, onInitialConsumed]);
+
+  // Quiz du jour (push quotidien) → ouvre les réglages pré-ciblés sur les 10 mots.
+  useEffect(() => {
+    if (!initialQuizIds || !initialQuizIds.length) return;
+    setPending({ scope: 'ids', ids: initialQuizIds });
+    onInitialQuizConsumed?.();
+  }, [initialQuizIds, onInitialQuizConsumed]);
 
   if (playing) {
     return (

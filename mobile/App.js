@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, Pressable, ActivityIndicator, AppState, BackHandler, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef, setUpgradeHandler, setCoinsHandler, setUnauthorizedHandler, getTrophies, markIgPromoSeen } from './src/api';
+import { getToken, setToken, getMe, getUnseenEnvelopes, markEnvelopesSeen, completeTutorial, savePushToken, getPendingRef, setPendingRef, clearPendingRef, setUpgradeHandler, setCoinsHandler, setUnauthorizedHandler, getTrophies, markIgPromoSeen, getDailyQuiz } from './src/api';
 import { configurePurchases } from './src/purchases';
 import { registerForPush, configureNotificationHandler, addNotificationResponseListener } from './src/push';
 import { LangContext, makeT } from './src/i18n';
@@ -60,6 +60,7 @@ function App() {
   const [tab, setTab] = useState('add'); // page d'accueil = Add words
   const [bankReturn, setBankReturn] = useState('add');
   const [quizPack, setQuizPack] = useState(null); // pack à quizzer (depuis store/account)
+  const [dailyQuizIds, setDailyQuizIds] = useState(null); // ids du quiz du jour (push quotidien)
   const [editPack, setEditPack] = useState(null); // pack à éditer (create-pack pré-rempli)
   const [duelDeepLink, setDuelDeepLink] = useState(null); // id de duel à ouvrir en détail (depuis une notif)
   const [storeSort, setStoreSort] = useState(null); // tri imposé au JiaStore (notif « nouveau pack » → recent)
@@ -265,6 +266,11 @@ function App() {
       } else if (type === 'red_envelope' || type === 'reengage') {
         setTab('add'); // enveloppes en popup / relance inactif → home
         if (type === 'red_envelope') checkEnvelopes(); // révèle tout de suite au tap
+      } else if (type === 'daily_quiz') {
+        // Push « quiz du jour » : récupère les 10 mots tailored puis ouvre le quiz.
+        getDailyQuiz()
+          .then((r) => { if (r?.ids?.length) setDailyQuizIds(r.ids); setTab('quiz'); })
+          .catch(() => setTab('quiz'));
       }
     });
     return cleanup;
@@ -384,7 +390,7 @@ function App() {
       case 'myteacher': return <MyTeacherScreen teacherId={teacherView?.teacher_id || teacherView?.id} teacherName={teacherView?.name} onBack={() => setTab('settings')} onVideoCall={setVideoCallLesson} />;
       case 'collection': return <CollectionScreen onNavigate={setTab} onOpenCredits={() => { setBankReturn('collection'); setTab('credits'); }} />;
       case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
-      case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} onBalanceChanged={refreshBalance} onNavigate={setTab} onActivityDone={checkTrophies} />;
+      case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} initialQuizIds={dailyQuizIds} onInitialQuizConsumed={() => setDailyQuizIds(null)} onBalanceChanged={refreshBalance} onNavigate={setTab} onActivityDone={checkTrophies} />;
       case 'duels': return <DuelsScreen onDefeat={setDuelDefeat} emailVerified={profile?.emailVerified} onCapture={() => setTab('add')} onOpenStore={() => { setBankReturn('duels'); setTab('store'); }} initialDetailDuelId={duelDeepLink} onDeepLinkConsumed={() => setDuelDeepLink(null)} onActivityDone={checkTrophies} />;
       case 'account': return <AccountScreen onLogout={logout} onNavigate={setTab} onStartQuiz={startPackQuiz} onOpenTrophies={() => { setBankReturn('account'); setTab('trophies'); }} onVideoCall={setVideoCallLesson} />;
       case 'settings': return <SettingsScreen onLogout={logout} onOpen={handleSettingsOpen} onOpenTeacher={openTeacher} onBack={() => setTab('account')} isPremium={!!profile?.isPremium} />;

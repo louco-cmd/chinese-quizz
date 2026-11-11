@@ -603,11 +603,18 @@ export function syncRevenueCat() {
 
 // Enregistre le token Expo Push de l'appareil pour les notifications natives.
 export function savePushToken(token) {
-  return request('/api/m/push-token', { method: 'POST', body: { token } });
+  // Fuseau de l'appareil : sert au push quotidien (trigger « après 20h local »).
+  let timezone; try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* noop */ }
+  return request('/api/m/push-token', { method: 'POST', body: { token, timezone } });
 }
 
 export function getQuizWords(count = 10) {
   return request(`/api/m/quiz?count=${count}`);
+}
+
+// Les 10 mots du « quiz du jour » (ouvert depuis le push quotidien) → { mode, ids }.
+export function getDailyQuiz() {
+  return request('/api/m/quiz/daily');
 }
 
 // Mots d'un quiz scoré : filtrés par type/nombre/HSK/difficulté, ou liste `ids`

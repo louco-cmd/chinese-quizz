@@ -13,6 +13,10 @@ router.post('/api/m/push-token', requireToken, async (req, res) => {
   try {
     const token = String(req.body?.token || '').trim();
     if (!token) return res.status(400).json({ error: 'Missing token' });
+    // Fuseau de l'appareil : sert au push quotidien (trigger « après 20h local »).
+    // On ne l'écrase que si fourni et valide (sinon on garde l'existant).
+    let tz = String(req.body?.timezone || '').trim();
+    try { if (tz) new Intl.DateTimeFormat('en-US', { timeZone: tz }); } catch { tz = ''; }
     // Accorder la permission OS = consentement : on active les notifs à la 1re
     // inscription du token (ou à sa rotation). Le CASE évalue l'ANCIENNE valeur de
     // expo_push_token, donc un token INCHANGÉ n'écrase jamais un opt-out fait dans
@@ -20,9 +24,10 @@ router.post('/api/m/push-token', requireToken, async (req, res) => {
     await pool.query(
       `UPDATE users
          SET notifications_enabled = CASE WHEN expo_push_token IS DISTINCT FROM $1 THEN TRUE ELSE notifications_enabled END,
-             expo_push_token = $1
+             expo_push_token = $1,
+             timezone = COALESCE(NULLIF($3, ''), timezone)
        WHERE id = $2`,
-      [token, req.tokenUser.id]);
+      [token, req.tokenUser.id, tz]);
     res.json({ ok: true });
   } catch (e) {
     console.error('m/push-token error:', e);

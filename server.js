@@ -2251,6 +2251,65 @@ cron.schedule('0 18 * * *', async () => {
   }
 });
 
+// ── Quiz du jour : push quotidien à 20h LOCAL si pas de connexion aujourd'hui ─
+// 2 variantes de copy : recurring (≥10 mots révisés sur 14 j) ou new. Au tap, le
+// client ouvre /api/m/quiz/daily (10 mots tailored) puis lance le quiz.
+const DAILY_QUIZ_PUSH = {
+  recurring: {
+    en: { title: '10 words, 2 minutes ⏱️', body: 'We made a quiz tailored to your progress — 10 words only.' },
+    fr: { title: '10 mots, 2 minutes ⏱️', body: 'On t’a préparé un quiz adapté à ta progression — 10 mots seulement.' },
+    zh: { title: '10 个词，2 分钟 ⏱️', body: '我们为你的进度量身定制了一个测验——只有 10 个词。' },
+  },
+  new: {
+    en: { title: '10 words, 2 minutes ⏱️', body: 'We created a quiz to kick off your learning — 10 words only.' },
+    fr: { title: '10 mots, 2 minutes ⏱️', body: 'On t’a créé un quiz pour lancer ton apprentissage — 10 mots seulement.' },
+    zh: { title: '10 个词，2 分钟 ⏱️', body: '我们做了一个测验帮你开启学习——只有 10 个词。' },
+  },
+};
+function dailyQuizCopy(mode, lang) {
+  const t = DAILY_QUIZ_PUSH[mode] || DAILY_QUIZ_PUSH.new;
+  return t[lang] || t.en;
+}
+
+cron.schedule('0 * * * *', async () => {
+  try {
+    // Candidats : il est 20h chez EUX, pas de connexion aujourd'hui, token + notifs
+    // activées, assez de mots, pas déjà poussé aujourd'hui.
+    const { rows: users } = await pool.query(`
+      SELECT id, interface_lang,
+             (SELECT COUNT(*) FROM user_mots um WHERE um.user_id = u.id
+                AND um.nb_quiz > 0 AND um.last_seen >= NOW() - INTERVAL '14 days') AS recent_words
+      FROM users u
+      WHERE expo_push_token IS NOT NULL
+        AND notifications_enabled IS NOT FALSE
+        AND notif_reminders IS NOT FALSE
+        AND timezone IS NOT NULL
+        AND EXTRACT(HOUR FROM (NOW() AT TIME ZONE timezone)) = 20
+        AND last_login IS NOT NULL
+        -- last_login est en UTC (timestamp sans fuseau) → on le ramène en heure
+        -- locale et on vérifie « avant minuit local aujourd'hui » (pas de connexion).
+        AND ((last_login AT TIME ZONE 'UTC') AT TIME ZONE timezone) < date_trunc('day', (NOW() AT TIME ZONE timezone))
+        AND (daily_quiz_pushed_at IS NULL
+             OR (daily_quiz_pushed_at AT TIME ZONE timezone) < date_trunc('day', (NOW() AT TIME ZONE timezone)))
+        AND (SELECT COUNT(*) FROM user_mots um WHERE um.user_id = u.id) >= 10
+      LIMIT 500
+    `);
+    let sent = 0;
+    for (const u of users) {
+      const mode = (u.recent_words || 0) >= 10 ? 'recurring' : 'new';
+      const copy = dailyQuizCopy(mode, u.interface_lang || 'en');
+      try {
+        await sendExpoPush(u.id, { title: copy.title, body: copy.body, data: { type: 'daily_quiz' } });
+        await pool.query('UPDATE users SET daily_quiz_pushed_at = NOW() WHERE id = $1', [u.id]);
+        sent += 1;
+      } catch (e) { console.error('[DailyQuiz] failed for', u.id, e.message); }
+    }
+    if (sent) console.log(`🔔 Daily quiz push: ${sent} notif(s) envoyée(s).`);
+  } catch (err) {
+    console.error('[DailyQuiz cron] Erreur:', err.message);
+  }
+});
+
 // ── Relances des DUELS en attente de jeu + forfait ───────────────────────────
 // Un duel reste 'pending' tant que les DEUX joueurs n'ont pas soumis leur score
 // (score NULL = pas encore joué). La mise est débitée dès la création. On relance

@@ -208,6 +208,68 @@ router.get('/api/m/difficult-words', requireToken, async (req, res) => {
   }
 });
 
+// ── Sélection des 10 mots du « quiz du jour » (push quotidien) ────────────────
+// recurring (≥10 mots révisés sur 14 j) → 6 presque maîtrisés (score 75-89) +
+// 4 en difficulté (échecs récents), backfill au score le plus bas si manque.
+// new → mots basiques (HSK1 d'abord) les moins connus de sa collection.
+async function pickDailyQuiz(uid, langs) {
+  const learning = langs.learning;
+  const recent = await pool.query(
+    `SELECT COUNT(*)::int AS n FROM user_mots um JOIN mots m ON m.id = um.mot_id
+     WHERE um.user_id = $1 AND m.lang = $2 AND um.nb_quiz > 0 AND um.last_seen >= NOW() - INTERVAL '14 days'`,
+    [uid, learning]);
+  const recurring = (recent.rows[0]?.n || 0) >= 10;
+  let ids = [];
+  if (recurring) {
+    const almost = await pool.query(
+      `SELECT um.mot_id FROM user_mots um JOIN mots m ON m.id = um.mot_id
+       WHERE um.user_id = $1 AND m.lang = $2 AND COALESCE(um.score, 0) BETWEEN 75 AND 89
+       ORDER BY um.last_seen ASC NULLS FIRST, um.score DESC LIMIT 6`,
+      [uid, learning]);
+    ids = almost.rows.map((r) => r.mot_id);
+    const hard = await pool.query(
+      `SELECT um.mot_id FROM user_mots um JOIN mots m ON m.id = um.mot_id
+       WHERE um.user_id = $1 AND m.lang = $2 AND um.nb_quiz > 0
+         AND um.last_seen >= NOW() - INTERVAL '14 days'
+         AND ((um.nb_quiz >= 2 AND (um.nb_correct::float / um.nb_quiz) < 0.6) OR COALESCE(um.score, 0) < 50)
+         AND NOT (um.mot_id = ANY($3))
+       ORDER BY (CASE WHEN um.nb_quiz >= 2 THEN 1.0 - (um.nb_correct::float / um.nb_quiz) ELSE 0.5 END) DESC, COALESCE(um.score, 0) ASC
+       LIMIT 4`,
+      [uid, learning, ids.length ? ids : [0]]);
+    ids = ids.concat(hard.rows.map((r) => r.mot_id));
+    if (ids.length < 10) {
+      const fill = await pool.query(
+        `SELECT um.mot_id FROM user_mots um JOIN mots m ON m.id = um.mot_id
+         WHERE um.user_id = $1 AND m.lang = $2 AND NOT (um.mot_id = ANY($3))
+         ORDER BY COALESCE(um.score, 0) ASC, um.last_seen ASC NULLS FIRST
+         LIMIT $4`,
+        [uid, learning, ids.length ? ids : [0], 10 - ids.length]);
+      ids = ids.concat(fill.rows.map((r) => r.mot_id));
+    }
+  } else {
+    const basic = await pool.query(
+      `SELECT um.mot_id FROM user_mots um JOIN mots m ON m.id = um.mot_id
+       WHERE um.user_id = $1 AND m.lang = $2
+       ORDER BY (m.hsk IS NULL), m.hsk ASC, COALESCE(um.score, 0) ASC
+       LIMIT 10`,
+      [uid, learning]);
+    ids = basic.rows.map((r) => r.mot_id);
+  }
+  return { mode: recurring ? 'recurring' : 'new', ids };
+}
+
+// ── GET /api/m/quiz/daily : les 10 mots du jour (ouvert depuis le push) ───────
+router.get('/api/m/quiz/daily', requireToken, async (req, res) => {
+  try {
+    const langs = await getUserLangs(req.tokenUser.id);
+    const { mode, ids } = await pickDailyQuiz(req.tokenUser.id, langs);
+    res.json({ mode, ids });
+  } catch (e) {
+    console.error('m/quiz/daily error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // ── GET /api/m/quiz/stats : stats de quiz (section "My statistics") ───────────
 // Quizzes joués + précision moyenne/meilleure (ratio 0-100) + mots & maîtrisés.
 router.get('/api/m/quiz/stats', requireToken, async (req, res) => {
