@@ -14,6 +14,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export default function BottomSheet({
   visible, onClose, children, dismissable = true, maxHeightRatio = 0.9, maxWidth = 480,
   avoidKeyboard = false, // remonte le drawer au-dessus du clavier (drawers avec champs)
+  footer = null,         // contenu épinglé en bas (hors scroll) : CTA flottant
 }) {
   const { height: screenH } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -87,6 +88,8 @@ export default function BottomSheet({
           >
             {children}
           </ScrollView>
+          {/* Footer épinglé sous le scroll (reste visible) : bouton flottant. */}
+          {footer}
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>

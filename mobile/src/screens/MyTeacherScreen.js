@@ -46,14 +46,13 @@ const WD_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 // Calendrier semaine pour l'onglet « Recurring classes ». N'affiche que les
 // créneaux hebdo libres sur toute la durée (renvoyés par le backend), en zones
 // cliquables. Mobile : scroll horizontal ; desktop : s'adapte à la largeur.
-function RecurringWeekPicker({ teacherId, weeks, busy, onBook }) {
+function RecurringWeekPicker({ teacherId, weeks, selected, onToggle }) {
   const { width } = useWindowDimensions();
   const [slots, setSlots] = useState(null);
   const [err, setErr] = useState('');
-  const [selected, setSelected] = useState(null);
 
   const reload = useCallback(() => {
-    setErr(''); setSlots(null); setSelected(null);
+    setErr(''); setSlots(null);
     getRecurringSlots(teacherId, weeks).then((r) => setSlots(r.slots || [])).catch((e) => setErr(e.message));
   }, [teacherId, weeks]);
   useEffect(() => { reload(); }, [reload]);
@@ -115,11 +114,11 @@ function RecurringWeekPicker({ teacherId, weeks, busy, onBook }) {
           {days.map((d) => {
             const iso = d.byHour.get(h);
             if (!iso) return <View key={d.wd} style={{ width: dayW, paddingHorizontal: 3 }}><View style={{ height: 42, borderRadius: 10, backgroundColor: '#f2f4f8' }} /></View>;
-            const sel = selected === iso;
+            const sel = selected.includes(iso);
             return (
               <View key={d.wd} style={{ width: dayW, paddingHorizontal: 3 }}>
                 <Pressable
-                  onPress={() => setSelected(sel ? null : iso)}
+                  onPress={() => onToggle(iso)}
                   style={{ height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: sel ? COLORS.jiayou : '#e8f1ff', borderWidth: sel ? 0 : 1, borderColor: '#cfe0ff' }}
                 >
                   <Ionicons name={sel ? 'checkmark' : 'time-outline'} size={sel ? 18 : 16} color={sel ? '#fff' : COLORS.jiayou} />
@@ -132,19 +131,20 @@ function RecurringWeekPicker({ teacherId, weeks, busy, onBook }) {
     </View>
   );
 
+  // Padding bas : évite que la dernière ligne passe sous le bouton flottant.
   return (
-    <View>
+    <View style={{ paddingBottom: 12 }}>
       {wide ? grid : <ScrollView horizontal showsHorizontalScrollIndicator={false}>{grid}</ScrollView>}
-      <Button
-        title={selected ? `Book these ${weeks} weeks` : 'Pick a slot above'}
-        icon="repeat"
-        disabled={!selected || busy}
-        onPress={() => selected && onBook(selected)}
-        fullWidth
-        style={{ marginTop: 16 }}
-      />
     </View>
   );
+}
+
+// Phrase récap d'un créneau récurrent sélectionné (heure locale de l'élève).
+function recurSentence(iso, weeks) {
+  const d = new Date(iso);
+  const day = d.toLocaleDateString(undefined, { weekday: 'long' });
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return `Every ${day} at ${time} · ${weeks} weeks`;
 }
 
 function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked }) {
@@ -153,13 +153,18 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
   const [busy, setBusy] = useState(null);
   const [repeat, setRepeat] = useState(false);   // réserver chaque semaine
   const [weeks, setWeeks] = useState(8);          // nb d'occurrences hebdo
+  const [recurSel, setRecurSel] = useState([]);   // créneaux récurrents sélectionnés (multi)
   const localTz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return ''; } })();
 
   const reload = useCallback(() => {
     setErr('');
     getStudentSlots(teacherId).then((r) => setSlots(r.slots || [])).catch((e) => setErr(e.message));
   }, [teacherId]);
-  useEffect(() => { if (visible) { setSlots(null); setRepeat(false); setWeeks(8); reload(); } }, [visible, reload]);
+  useEffect(() => { if (visible) { setSlots(null); setRepeat(false); setWeeks(8); setRecurSel([]); reload(); } }, [visible, reload]);
+  // La dispo « libre sur la durée » change avec le nb de semaines / l'onglet → on
+  // repart d'une sélection vide (les anciens créneaux peuvent ne plus être valides).
+  useEffect(() => { setRecurSel([]); }, [weeks, repeat]);
+  const toggleRecur = (iso) => setRecurSel((cur) => (cur.includes(iso) ? cur.filter((x) => x !== iso) : [...cur, iso]));
 
   const groups = useMemo(() => {
     const m = new Map();
@@ -172,7 +177,6 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
     return [...m.values()];
   }, [slots]);
 
-  const weekdayName = (iso) => new Date(iso).toLocaleDateString(undefined, { weekday: 'long' });
 
   // Onglet « One time class » : réserve un seul créneau.
   async function bookOnce(iso) {
@@ -187,20 +191,24 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
     } finally { setBusy(null); }
   }
 
-  // Onglet « Recurring classes » : réserve la série hebdo (déjà garantie libre).
-  async function bookRecurring(firstIso) {
-    setBusy(firstIso);
+  // Onglet « Recurring classes » : réserve toutes les séries hebdo sélectionnées.
+  async function bookSelected() {
+    if (!recurSel.length) return;
+    setBusy('recur');
     try {
-      const r = await bookRecurringSlots(teacherId, firstIso, weeks);
+      let total = 0, miss = 0;
+      for (const iso of recurSel) {
+        const r = await bookRecurringSlots(teacherId, iso, weeks);
+        total += r.booked_count || 0;
+        miss += (r.requested || weeks) - (r.booked_count || 0);
+      }
       onBooked?.(); onClose?.();
-      const n = r.booked_count || 0;
-      const miss = (r.requested || weeks) - n;
       Alert.alert(
-        n ? 'Weekly lessons booked!' : 'Nothing booked',
-        n
-          ? `${n} lesson${n > 1 ? 's' : ''} booked, every ${weekdayName(firstIso)} at ${fmtTime(firstIso)}.` +
-            (miss > 0 ? `\n\n${miss} week${miss > 1 ? 's were' : ' was'} skipped (teacher not available or already taken).` : '')
-          : 'None of those weekly slots were available — pick another time.'
+        total ? 'Weekly lessons booked!' : 'Nothing booked',
+        total
+          ? `${total} lesson${total > 1 ? 's' : ''} booked across ${recurSel.length} weekly slot${recurSel.length > 1 ? 's' : ''}.` +
+            (miss > 0 ? `\n\n${miss} occurrence${miss > 1 ? 's were' : ' was'} skipped (teacher not available or already taken).` : '')
+          : 'Those slots are no longer available — pick others.'
       );
     } catch (e) {
       Alert.alert('', e.message || 'Error');
@@ -211,7 +219,28 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
   const fmtTime = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} maxHeightRatio={0.88}>
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      maxHeightRatio={0.88}
+      footer={repeat && recurSel.length ? (
+        <View style={{ paddingTop: 12, marginTop: 4, borderTopWidth: 1, borderColor: '#eef1f5' }}>
+          {recurSel.map((iso) => (
+            <Text key={iso} style={{ fontSize: 12.5, fontWeight: '700', color: COLORS.muted, marginBottom: 4 }} numberOfLines={1}>
+              <Ionicons name="repeat" size={12} color={COLORS.jiayou} />  {recurSentence(iso, weeks)}
+            </Text>
+          ))}
+          <Button
+            title={`Book ${recurSel.length} recurring class${recurSel.length > 1 ? 'es' : ''}`}
+            icon="calendar"
+            disabled={busy === 'recur'}
+            onPress={bookSelected}
+            fullWidth
+            style={{ marginTop: 8 }}
+          />
+        </View>
+      ) : null}
+    >
       <View style={{ alignItems: 'center', marginBottom: 16 }}>
         <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 18 }}>{initials(teacherName)}</Text>
@@ -236,7 +265,7 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
               <Chip key={n} variant="solid" label={`${n} weeks`} selected={weeks === n} onPress={() => setWeeks(n)} />
             ))}
           </View>
-          <RecurringWeekPicker teacherId={teacherId} weeks={weeks} busy={!!busy} onBook={bookRecurring} />
+          <RecurringWeekPicker teacherId={teacherId} weeks={weeks} selected={recurSel} onToggle={toggleRecur} />
         </>
       ) : (
         <>
