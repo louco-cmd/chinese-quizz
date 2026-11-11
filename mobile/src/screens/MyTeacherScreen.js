@@ -9,7 +9,7 @@ import StudentLessonRows from '../components/teachers/StudentLessonRows';
 import { getStudentMentor, getStudentSlots, getRecurringSlots, bookSlot, bookRecurringSlots, rateMentor, leaveMentor } from '../api';
 import { useT } from '../i18n';
 import { Button, Input, Chip, SegmentedControl } from '../ui';
-import { COLORS, SHADOW_CARD } from '../theme';
+import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 import useAndroidBack from '../useAndroidBack';
 
 const CURRENCY = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF', CNY: '¥', JPY: '¥', CAD: 'C$', AUD: 'A$', SGD: 'S$', HKD: 'HK$' };
@@ -515,7 +515,7 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
   // plus besoin de barre sticky.
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.page }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: TAB_CLEARANCE }}>
         <View style={{ width: '100%', maxWidth: wide ? 1000 : 640, alignSelf: 'center' }}>
           {Back}
           {wide ? (
