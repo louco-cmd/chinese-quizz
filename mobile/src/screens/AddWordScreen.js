@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ActivityIndicator, ScrollView,
   KeyboardAvoidingView, Platform, Animated, Easing, useWindowDimensions, Keyboard,
-  Modal as RNModal, StyleSheet,
+  StyleSheet,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -414,22 +414,18 @@ export default function AddWordScreen({ onBalanceChanged }) {
           transparents) mais sur une carte blanche pleine, pour la lisibilité du
           formulaire. Tap dehors : ferme l'éditeur → retour au carrousel ; sinon
           ferme l'overlay. */}
-      <RNModal
-        visible={showResults}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => (editor ? setEditor(null) : setShowResults(false))}
-      >
+      {showResults ? (
         <BlurView
-          intensity={100}
+          intensity={95}
           tint="dark"
           experimentalBlurMethod="dimezisBlurView"
-          style={{ flex: 1 }}
+          style={StyleSheet.absoluteFill}
         >
-          {/* Voile SOMBRE assez opaque : les cartes claires ressortent nettement et
-              l'écran du fond disparaît même là où le flou natif est limité (Android). */}
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(14,18,42,0.55)' }]} />
+          {/* Flou RÉEL : le BlurView est rendu DANS l'arbre de l'écran (plus dans un
+              <Modal>) → il floute vraiment le contenu derrière, sur web ET natif
+              (un <Modal> est une fenêtre/portail séparé que le flou ne capte pas).
+              Voile sombre volontairement léger pour laisser voir le flou. */}
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(12,16,38,0.4)' }]} />
           {/* Tap dehors = fermer (derrière le contenu). */}
           <Pressable style={StyleSheet.absoluteFill} onPress={() => (editor ? setEditor(null) : setShowResults(false))} />
 
@@ -464,9 +460,9 @@ export default function AddWordScreen({ onBalanceChanged }) {
               </View>
             </KeyboardAvoidingView>
           ) : (
-            <View style={{ flex: 1, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }}>
-              {/* En-tête flottant sur le verre. */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, marginBottom: 6 }}>
+            <View style={{ flex: 1, justifyContent: 'center', paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }}>
+              {/* En-tête : juste au-dessus des cartes (tout le groupe est centré). */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, marginBottom: 14 }}>
                 <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
                   {results.length ? `${results.length} result${results.length > 1 ? 's' : ''}` : '😢'}
                 </Text>
@@ -486,9 +482,8 @@ export default function AddWordScreen({ onBalanceChanged }) {
                 </Text>
               ) : null}
 
-              {/* Carrousel de grandes cartes, centré verticalement sur le verre. */}
-              <View style={{ flex: 1, justifyContent: 'center' }}>
-                <Animated.ScrollView
+              {/* Carrousel de grandes cartes. */}
+              <Animated.ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   snapToInterval={ITEM_W}
@@ -546,13 +541,12 @@ export default function AddWordScreen({ onBalanceChanged }) {
                   </Pressable>
                 </Animated.ScrollView>
 
-                {/* Indication de scroll : juste sous les cartes (dans le bloc centré). */}
-                {results.length > 0 ? (
-                  <Text style={{ color: 'rgba(255,255,255,0.85)', textAlign: 'center', fontSize: 13, fontWeight: '600', marginTop: 14 }}>
-                    ← swipe to browse →
-                  </Text>
-                ) : null}
-              </View>
+              {/* Indication de scroll : juste sous les cartes. */}
+              {results.length > 0 ? (
+                <Text style={{ color: 'rgba(255,255,255,0.85)', textAlign: 'center', fontSize: 13, fontWeight: '600', marginTop: 14 }}>
+                  ← swipe to browse →
+                </Text>
+              ) : null}
             </View>
           )}
 
@@ -568,7 +562,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
             </View>
           ) : null}
         </BlurView>
-      </RNModal>
+      ) : null}
     </View>
   );
 }
