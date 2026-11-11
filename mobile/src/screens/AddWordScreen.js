@@ -132,6 +132,14 @@ export default function AddWordScreen({ onBalanceChanged }) {
 
   // Carrousel ancré
   const scrollX = useRef(new Animated.Value(0)).current;
+  const carouselRef = useRef(null);
+  // Flèches de navigation (surtout utile en desktop/web : le scroll latéral n'est
+  // pas intuitif à la souris). On scrolle d'une carte à gauche/droite.
+  const scrollToIndex = (i) => {
+    const max = results.length; // le dernier index est la carte "Create a new word"
+    const clamped = Math.max(0, Math.min(i, max));
+    carouselRef.current?.scrollTo({ x: clamped * ITEM_W, animated: true });
+  };
   // Reflet de lumière : rejoué chaque fois que la carte centrée change. On écoute
   // scrollX (fiable web ET natif) plutôt que onMomentumScrollEnd, peu fiable sur web.
   const [activeIndex, setActiveIndex] = useState(0);
@@ -490,6 +498,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
 
               {/* Carrousel de grandes cartes. */}
               <Animated.ScrollView
+                  ref={carouselRef}
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   snapToInterval={ITEM_W}
@@ -547,11 +556,27 @@ export default function AddWordScreen({ onBalanceChanged }) {
                   </Pressable>
                 </Animated.ScrollView>
 
-              {/* Indication de scroll : juste sous les cartes. */}
+              {/* Navigation : flèches cliquables (desktop) + indication swipe (mobile). */}
               {results.length > 0 ? (
-                <Text style={{ color: 'rgba(255,255,255,0.85)', textAlign: 'center', fontSize: 13, fontWeight: '600', marginTop: 14 }}>
-                  ← swipe to browse →
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, marginTop: 14 }}>
+                  <Pressable
+                    onPress={() => scrollToIndex(activeIndex - 1)}
+                    disabled={activeIndex <= 0}
+                    hitSlop={8}
+                    style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center', opacity: activeIndex <= 0 ? 0.3 : 1 }}
+                  >
+                    <Ionicons name="chevron-back" size={24} color="#fff" />
+                  </Pressable>
+                  <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '600' }}>swipe to browse</Text>
+                  <Pressable
+                    onPress={() => scrollToIndex(activeIndex + 1)}
+                    disabled={activeIndex >= results.length}
+                    hitSlop={8}
+                    style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center', opacity: activeIndex >= results.length ? 0.3 : 1 }}
+                  >
+                    <Ionicons name="chevron-forward" size={24} color="#fff" />
+                  </Pressable>
+                </View>
               ) : null}
             </View>
           )}
