@@ -422,14 +422,14 @@ export default function AddWordScreen({ onBalanceChanged }) {
         onRequestClose={() => (editor ? setEditor(null) : setShowResults(false))}
       >
         <BlurView
-          intensity={60}
-          tint="light"
+          intensity={100}
+          tint="dark"
           experimentalBlurMethod="dimezisBlurView"
           style={{ flex: 1 }}
         >
-          {/* Voile léger : renforce le contraste des cartes et garantit un rendu
-              "verre dépoli" même là où le flou natif n'est pas disponible. */}
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(233,237,248,0.35)' }]} />
+          {/* Voile SOMBRE assez opaque : les cartes claires ressortent nettement et
+              l'écran du fond disparaît même là où le flou natif est limité (Android). */}
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(14,18,42,0.55)' }]} />
           {/* Tap dehors = fermer (derrière le contenu). */}
           <Pressable style={StyleSheet.absoluteFill} onPress={() => (editor ? setEditor(null) : setShowResults(false))} />
 
@@ -467,21 +467,21 @@ export default function AddWordScreen({ onBalanceChanged }) {
             <View style={{ flex: 1, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }}>
               {/* En-tête flottant sur le verre. */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, marginBottom: 6 }}>
-                <Text style={{ color: '#1a1a2e', fontSize: 17, fontWeight: '800' }}>
+                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
                   {results.length ? `${results.length} result${results.length > 1 ? 's' : ''}` : '😢'}
                 </Text>
                 <Pressable
                   onPress={() => setShowResults(false)}
                   hitSlop={10}
-                  style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center' }}
+                  style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <Ionicons name="close" size={22} color="#1a1a2e" />
+                  <Ionicons name="close" size={22} color="#fff" />
                 </Pressable>
               </View>
 
               {/* Aucun résultat : Jiayou ne connaît pas ce mot → on invite à le créer. */}
               {results.length === 0 ? (
-                <Text style={{ color: '#1a1a2e', fontSize: 18, fontWeight: '800', textAlign: 'center', paddingHorizontal: 24, marginTop: 8 }}>
+                <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', textAlign: 'center', paddingHorizontal: 24, marginTop: 8 }}>
                   Jiayou doesn't know this word
                 </Text>
               ) : null}
@@ -545,24 +545,25 @@ export default function AddWordScreen({ onBalanceChanged }) {
                     </Text>
                   </Pressable>
                 </Animated.ScrollView>
-              </View>
 
-              {results.length > 0 ? (
-                <Text style={{ color: COLORS.muted, textAlign: 'center', fontSize: 13, fontWeight: '600', marginTop: 4 }}>
-                  ← swipe to browse →
-                </Text>
-              ) : null}
+                {/* Indication de scroll : juste sous les cartes (dans le bloc centré). */}
+                {results.length > 0 ? (
+                  <Text style={{ color: 'rgba(255,255,255,0.85)', textAlign: 'center', fontSize: 13, fontWeight: '600', marginTop: 14 }}>
+                    ← swipe to browse →
+                  </Text>
+                ) : null}
+              </View>
             </View>
           )}
 
           {/* Overlay de succès : check vert qui pop, avant la fermeture auto. */}
           {showSuccess ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(244,247,255,0.85)', alignItems: 'center', justifyContent: 'center' }]}>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(14,18,42,0.72)', alignItems: 'center', justifyContent: 'center' }]}>
               <Animated.View style={{ alignItems: 'center', opacity: successAnim, transform: [{ scale: successAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }}>
                 <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: '#198754', alignItems: 'center', justifyContent: 'center', shadowColor: '#198754', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 6 }}>
                   <Ionicons name="checkmark" size={58} color="#fff" />
                 </View>
-                <Text style={{ color: '#198754', fontWeight: '800', fontSize: 18, marginTop: 14 }}>Captured!</Text>
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 18, marginTop: 14 }}>Captured!</Text>
               </Animated.View>
             </View>
           ) : null}
