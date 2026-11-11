@@ -2,11 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, ActivityIndicator, ScrollView,
   KeyboardAvoidingView, Platform, Animated, Easing, useWindowDimensions, Keyboard,
+  Modal as RNModal, StyleSheet,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import { Ionicons } from '@expo/vector-icons';
-import { Button, Modal } from '../ui';
+import { Button } from '../ui';
 import { COLORS } from '../theme';
 import { searchWords, captureWord, createWord, getPinyin, getTranslation, getMe } from '../api';
 import { langMeta, isZhLearning } from '../langs';
@@ -14,9 +17,9 @@ import { langMeta, isZhLearning } from '../langs';
 const AnimatedTextInput = Animated.createAnimatedComponent(TextInput);
 const BAR_H = 62; // hauteur de la barre = diamètre du bouton rond
 
-const CARD_W = 200;   // plus étroite → on aperçoit mieux la carte suivante
-const CARD_H = 280;    // format portrait qui incite au scroll
-const CARD_GAP = 14;
+const CARD_W = 260;   // grande carte "glass" (overlay plein écran flouté)
+const CARD_H = 380;    // format portrait qui incite au scroll
+const CARD_GAP = 16;
 const ITEM_W = CARD_W + CARD_GAP;
 
 // Perfect match sur n'importe quel champ (chinois / anglais / pinyin sans tons)
@@ -37,6 +40,7 @@ function isChinese(s) {
 
 export default function AddWordScreen({ onBalanceChanged }) {
   const { width: screenW } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [fontsLoaded] = useFonts({ LaBelleAurore_400Regular });
   const [q, setQ] = useState('');
   const [results, setResults] = useState([]);
@@ -292,9 +296,8 @@ export default function AddWordScreen({ onBalanceChanged }) {
     }
   }
 
-  // Largeur intérieure de la popup résultats → padding pour centrer 1re/dernière carte
-  const popupW = Math.min(560, screenW - 40);
-  const sidePad = Math.max(16, (popupW - CARD_W) / 2);
+  // Overlay plein écran → padding pour centrer la 1re / dernière carte du carrousel.
+  const sidePad = Math.max(16, (screenW - CARD_W) / 2);
 
   // Tap hors de la barre → blur. Uniquement en natif : sur web, le navigateur
   // gère déjà le blur au clic extérieur, et un Pressable capterait le focus
@@ -403,147 +406,168 @@ export default function AddWordScreen({ onBalanceChanged }) {
         </DismissArea>
       </KeyboardAvoidingView>
 
-      {/* ── Popup résultats : carrousel ancré (snap + fondu au blanc) ──
-          L'éditeur "New word" est rendu DANS cette même popup (il remplace le
-          carrousel) : un seul <Modal> à la fois, sinon iOS plante en empilant
-          deux modals transparents. Tap dehors : ferme l'éditeur → retour au
-          carrousel ; sinon ferme la popup. */}
-      <Modal
+      {/* ── Résultats : overlay PLEIN ÉCRAN en verre (flou) ──────────────────
+          Au lieu d'une popup blanche, tout l'écran passe sous un calque flouté
+          (glass) et les grandes cartes flottent dessus, scrollables (carrousel
+          ancré : snap + scale/opacité). L'éditeur "New word" est rendu DANS ce
+          même overlay (une seule <Modal> à la fois, sinon iOS empile deux modals
+          transparents) mais sur une carte blanche pleine, pour la lisibilité du
+          formulaire. Tap dehors : ferme l'éditeur → retour au carrousel ; sinon
+          ferme l'overlay. */}
+      <RNModal
         visible={showResults}
-        onClose={() => (editor ? setEditor(null) : setShowResults(false))}
-        maxWidth={560}
-        scroll={false}
-        contentStyle={{ paddingHorizontal: 0, paddingVertical: 18, overflow: 'hidden' }}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => (editor ? setEditor(null) : setShowResults(false))}
       >
-        {editor ? (
-          <WordEditor
-            editor={editor}
-            saving={saving}
-            editorError={editorError}
-            isZh={isZh}
-            termLabel={learnMeta.label}
-            transLabel={natMeta.label}
-            onClose={() => setEditor(null)}
-            setField={setField}
-            setEnglishAt={setEnglishAt}
-            addEnglish={addEnglish}
-            removeEnglish={removeEnglish}
-            suggestions={availableSuggestions}
-            onAddSuggestion={addSuggestion}
-            onPinyinEdit={(v) => { pinyinTouched.current = true; setField('pinyin', v); }}
-            onSave={saveNewWord}
-          />
-        ) : (
-        <>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 4 }}>
-          <Text style={{ color: '#1a1a2e', fontSize: 16, fontWeight: '700' }}>
-            {results.length ? `${results.length} result${results.length > 1 ? 's' : ''}` : '😢'}
-          </Text>
-          <Pressable onPress={() => setShowResults(false)} hitSlop={10}>
-            <Ionicons name="close" size={24} color={COLORS.muted} />
-          </Pressable>
-        </View>
+        <BlurView
+          intensity={60}
+          tint="light"
+          experimentalBlurMethod="dimezisBlurView"
+          style={{ flex: 1 }}
+        >
+          {/* Voile léger : renforce le contraste des cartes et garantit un rendu
+              "verre dépoli" même là où le flou natif n'est pas disponible. */}
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(233,237,248,0.35)' }]} />
+          {/* Tap dehors = fermer (derrière le contenu). */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => (editor ? setEditor(null) : setShowResults(false))} />
 
-        {/* Aucun résultat : Jiayou ne connaît pas ce mot → on invite à le traduire. */}
-        {results.length === 0 ? (
-          <Text style={{ color: '#1a1a2e', fontSize: 18, fontWeight: '800', textAlign: 'center', paddingHorizontal: 24, marginTop: 2 }}>
-            Jiayou doesn't know this word
-          </Text>
-        ) : null}
-
-        <View>
-          <Animated.ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            snapToInterval={ITEM_W}
-            snapToAlignment="center"
-            decelerationRate="normal"
-            scrollEventThrottle={16}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-              { useNativeDriver: true }
-            )}
-            contentContainerStyle={{ paddingHorizontal: sidePad, paddingVertical: 18, gap: CARD_GAP }}
-          >
-            {results.map((w, i) => {
-              // Une carte = un SENS (w.id × w.meaning_id) → clé par sens.
-              const key = `${w.id}:${w.meaning_id}`;
-              const owned = w.owned || captured[key] === true;
-              const st = captured[key];
-              // Ancrage : la carte centrée est nette et grande, les voisines rétrécies
-              const inputRange = [(i - 1) * ITEM_W, i * ITEM_W, (i + 1) * ITEM_W];
-              const scale = scrollX.interpolate({ inputRange, outputRange: [0.9, 1, 0.9], extrapolate: 'clamp' });
-              const opacity = scrollX.interpolate({ inputRange, outputRange: [0.55, 1, 0.55], extrapolate: 'clamp' });
-              return (
-                <Animated.View key={key} style={{ transform: [{ scale }], opacity }}>
-                  <BoosterCard
-                    w={w}
-                    exact={isExact(w, term)}
-                    owned={owned}
-                    capturing={st === 'loading'}
-                    onCapture={() => capture(w.id, w.meaning_id)}
-                    onEdit={() => openEdit(w)}
-                    shine={i === activeIndex ? shine : null}
-                    isZh={isZh}
-                  />
-                </Animated.View>
-              );
-            })}
-
-            {/* Toujours proposer la création d'un nouveau mot, même en cas de match exact. */}
-            <Pressable
-              onPress={openCreate}
-              style={{
-                width: CARD_W, borderRadius: 20, minHeight: CARD_H, alignItems: 'center', justifyContent: 'center',
-                borderWidth: 2, borderStyle: 'dashed', borderColor: '#c9b8ec', backgroundColor: '#faf8ff',
-              }}
+          {editor ? (
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}
             >
-              <Ionicons name="add-circle" size={40} color="#6f42c1" />
-              <Text style={{ color: '#6f42c1', fontWeight: '700', marginTop: 8, textAlign: 'center' }} numberOfLines={1}>
-                Create a new word
-              </Text>
-              <Text style={{ color: '#9a7fd0', fontSize: 12, fontWeight: '600', marginTop: 4, textAlign: 'center', paddingHorizontal: 14 }}>
-                and share it with Jiaworld
-              </Text>
-            </Pressable>
-
-          </Animated.ScrollView>
-
-          {/* Fondu au blanc sur les bords — réduit pour mieux voir le scroll. */}
-          <LinearGradient
-            colors={['#fff', 'rgba(255,255,255,0)']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            pointerEvents="none"
-            style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 16 }}
-          />
-          <LinearGradient
-            colors={['rgba(255,255,255,0)', '#fff']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            pointerEvents="none"
-            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 16 }}
-          />
-        </View>
-
-        {results.length > 0 ? (
-          <Text style={{ color: COLORS.mutedLight, textAlign: 'center', fontSize: 12, marginTop: 2 }}>
-            ← swipe to browse →
-          </Text>
-        ) : null}
-        </>
-        )}
-
-        {/* Overlay de succès : check vert qui pop, avant la fermeture auto. */}
-        {showSuccess ? (
-          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.97)', alignItems: 'center', justifyContent: 'center' }}>
-            <Animated.View style={{ alignItems: 'center', opacity: successAnim, transform: [{ scale: successAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }}>
-              <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: '#198754', alignItems: 'center', justifyContent: 'center', shadowColor: '#198754', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 6 }}>
-                <Ionicons name="checkmark" size={58} color="#fff" />
+              <View style={{
+                width: '100%', maxWidth: 480, maxHeight: '88%', backgroundColor: '#fff', borderRadius: 24, overflow: 'hidden',
+                shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.25, shadowRadius: 40, elevation: 16,
+              }}>
+                <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 22 }}>
+                  <WordEditor
+                    editor={editor}
+                    saving={saving}
+                    editorError={editorError}
+                    isZh={isZh}
+                    termLabel={learnMeta.label}
+                    transLabel={natMeta.label}
+                    onClose={() => setEditor(null)}
+                    setField={setField}
+                    setEnglishAt={setEnglishAt}
+                    addEnglish={addEnglish}
+                    removeEnglish={removeEnglish}
+                    suggestions={availableSuggestions}
+                    onAddSuggestion={addSuggestion}
+                    onPinyinEdit={(v) => { pinyinTouched.current = true; setField('pinyin', v); }}
+                    onSave={saveNewWord}
+                  />
+                </ScrollView>
               </View>
-              <Text style={{ color: '#198754', fontWeight: '800', fontSize: 18, marginTop: 14 }}>Captured!</Text>
-            </Animated.View>
-          </View>
-        ) : null}
-      </Modal>
+            </KeyboardAvoidingView>
+          ) : (
+            <View style={{ flex: 1, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 16 }}>
+              {/* En-tête flottant sur le verre. */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, marginBottom: 6 }}>
+                <Text style={{ color: '#1a1a2e', fontSize: 17, fontWeight: '800' }}>
+                  {results.length ? `${results.length} result${results.length > 1 ? 's' : ''}` : '😢'}
+                </Text>
+                <Pressable
+                  onPress={() => setShowResults(false)}
+                  hitSlop={10}
+                  style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Ionicons name="close" size={22} color="#1a1a2e" />
+                </Pressable>
+              </View>
+
+              {/* Aucun résultat : Jiayou ne connaît pas ce mot → on invite à le créer. */}
+              {results.length === 0 ? (
+                <Text style={{ color: '#1a1a2e', fontSize: 18, fontWeight: '800', textAlign: 'center', paddingHorizontal: 24, marginTop: 8 }}>
+                  Jiayou doesn't know this word
+                </Text>
+              ) : null}
+
+              {/* Carrousel de grandes cartes, centré verticalement sur le verre. */}
+              <View style={{ flex: 1, justifyContent: 'center' }}>
+                <Animated.ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  snapToInterval={ITEM_W}
+                  snapToAlignment="center"
+                  decelerationRate="normal"
+                  scrollEventThrottle={16}
+                  onScroll={Animated.event(
+                    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+                    { useNativeDriver: true }
+                  )}
+                  contentContainerStyle={{ paddingHorizontal: sidePad, paddingVertical: 12, gap: CARD_GAP, alignItems: 'center' }}
+                >
+                  {results.map((w, i) => {
+                    // Une carte = un SENS (w.id × w.meaning_id) → clé par sens.
+                    const key = `${w.id}:${w.meaning_id}`;
+                    const owned = w.owned || captured[key] === true;
+                    const st = captured[key];
+                    // Ancrage : la carte centrée est nette et grande, les voisines rétrécies
+                    const inputRange = [(i - 1) * ITEM_W, i * ITEM_W, (i + 1) * ITEM_W];
+                    const scale = scrollX.interpolate({ inputRange, outputRange: [0.9, 1, 0.9], extrapolate: 'clamp' });
+                    // Pas de "grisé" sur les voisines (ni sur les mots déjà possédés) :
+                    // on garde un fort contraste, seule la taille distingue la carte active.
+                    const opacity = scrollX.interpolate({ inputRange, outputRange: [0.9, 1, 0.9], extrapolate: 'clamp' });
+                    return (
+                      <Animated.View key={key} style={{ transform: [{ scale }], opacity }}>
+                        <BoosterCard
+                          w={w}
+                          exact={isExact(w, term)}
+                          owned={owned}
+                          capturing={st === 'loading'}
+                          onCapture={() => capture(w.id, w.meaning_id)}
+                          onEdit={() => openEdit(w)}
+                          shine={i === activeIndex ? shine : null}
+                          isZh={isZh}
+                        />
+                      </Animated.View>
+                    );
+                  })}
+
+                  {/* Toujours proposer la création d'un nouveau mot, même en cas de match exact. */}
+                  <Pressable
+                    onPress={openCreate}
+                    style={{
+                      width: CARD_W, borderRadius: 24, minHeight: CARD_H, alignItems: 'center', justifyContent: 'center',
+                      borderWidth: 2, borderStyle: 'dashed', borderColor: '#c9b8ec', backgroundColor: 'rgba(250,248,255,0.85)',
+                    }}
+                  >
+                    <Ionicons name="add-circle" size={46} color="#6f42c1" />
+                    <Text style={{ color: '#6f42c1', fontWeight: '700', fontSize: 16, marginTop: 10, textAlign: 'center' }} numberOfLines={1}>
+                      Create a new word
+                    </Text>
+                    <Text style={{ color: '#9a7fd0', fontSize: 13, fontWeight: '600', marginTop: 6, textAlign: 'center', paddingHorizontal: 16 }}>
+                      and share it with Jiaworld
+                    </Text>
+                  </Pressable>
+                </Animated.ScrollView>
+              </View>
+
+              {results.length > 0 ? (
+                <Text style={{ color: COLORS.muted, textAlign: 'center', fontSize: 13, fontWeight: '600', marginTop: 4 }}>
+                  ← swipe to browse →
+                </Text>
+              ) : null}
+            </View>
+          )}
+
+          {/* Overlay de succès : check vert qui pop, avant la fermeture auto. */}
+          {showSuccess ? (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(244,247,255,0.85)', alignItems: 'center', justifyContent: 'center' }]}>
+              <Animated.View style={{ alignItems: 'center', opacity: successAnim, transform: [{ scale: successAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }] }}>
+                <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: '#198754', alignItems: 'center', justifyContent: 'center', shadowColor: '#198754', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 6 }}>
+                  <Ionicons name="checkmark" size={58} color="#fff" />
+                </View>
+                <Text style={{ color: '#198754', fontWeight: '800', fontSize: 18, marginTop: 14 }}>Captured!</Text>
+              </Animated.View>
+            </View>
+          ) : null}
+        </BlurView>
+      </RNModal>
     </View>
   );
 }
@@ -714,11 +738,12 @@ function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine, isZ
 
   return (
     // Wrapper : porte l'ombre (pas d'overflow, sinon l'ombre iOS serait rognée).
-    <View style={{ borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 12 }}>
+    // Ombre marquée → les cartes "flottent" nettement sur le calque flou.
+    <View style={{ borderRadius: 24, shadowColor: '#0b1a40', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.22, shadowRadius: 26, elevation: 12 }}>
       {/* Conteneur qui CLIPPE : contient le contenu + le reflet. */}
       <View
         style={{
-          width: CARD_W, minHeight: CARD_H, borderRadius: 20, padding: 18, paddingTop: 22, overflow: 'hidden', backgroundColor: '#f4f7ff',
+          width: CARD_W, minHeight: CARD_H, borderRadius: 24, padding: 22, paddingTop: 26, overflow: 'hidden', backgroundColor: '#f4f7ff',
           borderWidth: exact ? 1.5 : 1, borderColor: exact ? COLORS.jiayou : '#e3e8f7',
         }}
       >
@@ -736,19 +761,19 @@ function BoosterCard({ w, exact, owned, capturing, onCapture, onEdit, shine, isZ
           numberOfLines={isZh ? 1 : 3}
           adjustsFontSizeToFit
           minimumFontScale={0.5}
-          style={{ fontSize: isZh ? 40 : 26, fontWeight: '800', color: COLORS.jiayou, textAlign: 'center' }}
+          style={{ fontSize: isZh ? 52 : 30, fontWeight: '800', color: COLORS.jiayou, textAlign: 'center' }}
         >
           {primary}
         </Text>
         {isZh ? (
           <>
-            <Text style={{ color: '#6c757d', fontSize: 16, marginTop: 8 }}>{w.pinyin}</Text>
-            <Text style={{ color: '#1a1a2e', fontWeight: '600', marginTop: 4, textAlign: 'center' }}>{w.english}</Text>
+            <Text style={{ color: '#6c757d', fontSize: 18, marginTop: 10 }}>{w.pinyin}</Text>
+            <Text style={{ color: '#1a1a2e', fontWeight: '600', fontSize: 16, marginTop: 6, textAlign: 'center' }}>{w.english}</Text>
           </>
         ) : (
-          <Text style={{ color: '#1a1a2e', fontWeight: '700', fontSize: 18, marginTop: 10, textAlign: 'center' }}>{w.english}</Text>
+          <Text style={{ color: '#1a1a2e', fontWeight: '700', fontSize: 20, marginTop: 12, textAlign: 'center' }}>{w.english}</Text>
         )}
-        <Text style={{ color: '#adb5bd', fontSize: 12, marginTop: 8 }}>
+        <Text style={{ color: '#adb5bd', fontSize: 12, marginTop: 10 }}>
           {(w.owner_count || 0) > 0 ? `${w.owner_count} user${w.owner_count === 1 ? '' : 's'}` : ' '}
         </Text>
       </View>
