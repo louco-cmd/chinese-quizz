@@ -478,7 +478,7 @@ export default function AddWordScreen({ onBalanceChanged }) {
               {/* En-tête : juste au-dessus des cartes (tout le groupe est centré). */}
               <View pointerEvents="box-none" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, marginBottom: 14 }}>
                 <Text style={{ color: '#fff', fontSize: 17, fontWeight: '800' }}>
-                  {results.length ? `${results.length} result${results.length > 1 ? 's' : ''}` : '😢'}
+                  {results.length ? `${results.length} result${results.length > 1 ? 's' : ''}` : ''}
                 </Text>
                 <Pressable
                   onPress={() => setShowResults(false)}
@@ -489,9 +489,10 @@ export default function AddWordScreen({ onBalanceChanged }) {
                 </Pressable>
               </View>
 
-              {/* Aucun résultat : Jiayou ne connaît pas ce mot → on invite à le créer. */}
+              {/* Aucun résultat : Jiayou ne connaît pas ce mot → on invite à le créer.
+                  Police cursive La Belle Aurore, gros texte, collé à la carte. */}
               {results.length === 0 ? (
-                <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800', textAlign: 'center', paddingHorizontal: 24, marginTop: 8 }}>
+                <Text style={{ color: '#fff', fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined, fontStyle: fontsLoaded ? 'normal' : 'italic', fontSize: 34, lineHeight: 42, textAlign: 'center', paddingHorizontal: 24, marginBottom: -6 }}>
                   Jiayou doesn't know this word
                 </Text>
               ) : null}
