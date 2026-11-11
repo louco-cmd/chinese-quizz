@@ -67,3 +67,6 @@ mobile/dist/
 
 # Local DB backups
 backups/
+
+# Carte interne du projet (pour Claude) — local uniquement
+/README.md
