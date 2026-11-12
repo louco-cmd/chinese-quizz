@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, Animated, Easing } from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, Animated, Easing, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getMe, getQuizPlayWords, saveQuiz, saveTaskResult } from '../api';
@@ -108,6 +108,10 @@ export default function QuizPlayScreen({ config, onExit }) {
   const results = useRef([]);
   const firstRef = useRef(null);
   const inputRefs = useRef([]); // un ref par champ syllabe (auto-avance)
+  const scrollRef = useRef(null);
+  // Au focus d'un champ : remonte le contenu pour que l'input + le bouton ne
+  // soient pas cachés par le clavier (surtout quand une description s'affiche).
+  const onInputFocus = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
 
   const load = useCallback(async () => {
     setLoading(true); setError(''); setNotEnough(false);
@@ -360,7 +364,12 @@ export default function QuizPlayScreen({ config, onExit }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <TopBar onExit={onExit} progress={`${idx + 1}/${words.length}`} />
-      <ScrollView contentContainerStyle={{ padding: 16, alignItems: 'center' }} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={{ padding: 16, paddingBottom: 48, alignItems: 'center' }}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={{ width: '100%', maxWidth: 560 }}>
           {/* Question — consigne + mot sur sa propre ligne (unifié EN/ZH) */}
           <View style={{ alignItems: 'center', marginVertical: 22 }}>
@@ -401,6 +410,7 @@ export default function QuizPlayScreen({ config, onExit }) {
                         }
                       }}
                       onSubmitEditing={submit}
+                      onFocus={onInputFocus}
                       editable={!locked}
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -416,6 +426,7 @@ export default function QuizPlayScreen({ config, onExit }) {
                   value={inputs[0]}
                   onChangeText={(t) => setInputs([t])}
                   onSubmitEditing={submit}
+                  onFocus={onInputFocus}
                   editable={!locked}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -449,6 +460,7 @@ export default function QuizPlayScreen({ config, onExit }) {
           </View>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
