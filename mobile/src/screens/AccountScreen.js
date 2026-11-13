@@ -146,6 +146,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
         edges={[]}
         padded={false}
         center={false}
+        maxWidth={99999}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={COLORS.jiayou} />
         }
