@@ -935,6 +935,62 @@ router.get('/api/m/agenda/upcoming', requireToken, async (req, res) => {
   } catch (e) { console.error('m/agenda upcoming:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
+// ── Fin de cours par IA (POC) : transcript → { summary, words } via DeepSeek ──
+// POC : le prof colle un transcript, l'IA renvoie un résumé + les mots de voc
+// rencontrés → préremplit l'EndCourseScreen. Clé: DEEPSEEK_API_KEY (serveur).
+// Plus tard : le transcript viendra automatiquement de Daily (BYO Deepgram).
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+
+async function deepseekRecap(transcript, { learning, native }) {
+  if (!DEEPSEEK_API_KEY) throw new Error('DEEPSEEK_API_KEY not set on the server');
+  const sys = `You are a language-tutoring assistant. You read the transcript of a 1:1 ${learning} lesson and produce, for the student: (1) a short recap, and (2) the vocabulary that was actually taught or encountered during the lesson.`;
+  const user = `Transcript of the lesson:\n"""\n${transcript}\n"""\n\n`
+    + `Return STRICT JSON only (no markdown, no commentary), exactly this shape:\n`
+    + `{\n`
+    + `  "summary": "2 to 4 sentences, written in ${native}, addressed to the student: what was covered and what to review",\n`
+    + `  "words": ["vocabulary terms in ${learning} actually taught or encountered, deduplicated, single words or short expressions, NO full sentences, at most 20"]\n`
+    + `}`;
+  const r = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${DEEPSEEK_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'deepseek-chat',
+      messages: [{ role: 'system', content: sys }, { role: 'user', content: user }],
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+      max_tokens: 1200,
+    }),
+  });
+  if (!r.ok) { const t = await r.text(); throw new Error(`DeepSeek ${r.status}: ${t.slice(0, 200)}`); }
+  const data = await r.json();
+  const content = data.choices?.[0]?.message?.content || '{}';
+  let parsed; try { parsed = JSON.parse(content); } catch { throw new Error('DeepSeek returned non-JSON'); }
+  const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : '';
+  const words = Array.isArray(parsed.words)
+    ? [...new Set(parsed.words.map((w) => String(w).trim()).filter(Boolean))].slice(0, 20)
+    : [];
+  return { summary, words };
+}
+
+// POST /api/m/teacher/lesson-recap {transcript, nativeLang?} → { summary, words }
+router.post('/api/m/teacher/lesson-recap', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const transcript = String(req.body?.transcript || '').trim();
+    if (transcript.length < 20) return res.status(400).json({ error: 'Transcript too short' });
+    const capped = transcript.slice(0, 40000); // garde-fou taille (coût + limites)
+    // Direction prof : 'en→zh' => élève apprend le chinois (natif anglais) ;
+    // 'zh→en' => apprend l'anglais. nativeLang override possible (ex. French).
+    const dir = req.teacher.quiz_direction || 'en→zh';
+    const learning = dir === 'zh→en' ? 'English' : 'Chinese';
+    const native = String(req.body?.nativeLang || '').trim() || (dir === 'zh→en' ? 'Chinese' : 'English');
+    const out = await deepseekRecap(capped, { learning, native });
+    res.json(out);
+  } catch (e) {
+    console.error('m/teacher/lesson-recap:', e.message);
+    res.status(502).json({ error: e.message || 'Recap failed' });
+  }
+});
+
 // ── Visio (Daily.co) : room par cours ────────────────────────────────────────
 // Pricing: $0.004/participant/minute — ~$0.48 per 1h 1:1 session (vs $1000/mo JaaS).
 // Nécessite DAILY_API_KEY dans les env vars (dashboard.daily.co → Developers).

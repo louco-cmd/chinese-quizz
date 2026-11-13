@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, Switch, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { teacherStudentClassContext, teacherLookupWords, teacherSendTask } from '../../api';
+import { teacherStudentClassContext, teacherLookupWords, teacherSendTask, teacherLessonRecap } from '../../api';
 import { Button } from '../../ui';
 import { COLORS } from '../../theme';
 
@@ -51,6 +51,32 @@ export default function EndCourseScreen({ slot, direction = 'en→zh', onClose, 
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+
+  // POC « fin de cours par IA » : le prof colle un transcript → DeepSeek renvoie
+  // résumé + mots → on préremplit summary + les cartes de voc.
+  const [recapText, setRecapText] = useState('');
+  const [recapBusy, setRecapBusy] = useState(false);
+  async function aiPrefill() {
+    const tx = recapText.trim();
+    if (tx.length < 20) { setErr('Paste a longer transcript first.'); return; }
+    setRecapBusy(true); setErr('');
+    try {
+      const { summary: sm, words } = await teacherLessonRecap(tx);
+      if (sm) setSummary(sm);
+      // Mots renvoyés (langue cible) → résolus via le lookup existant → cartes.
+      const fresh = (words || []).filter((w) => !cards.some((c) => (isZhEn ? c.english === w : c.chinese === w)));
+      if (fresh.length) {
+        const { results } = await teacherLookupWords(fresh);
+        const newCards = fresh.map((v, i) => {
+          const r = (results || [])[i];
+          if (r?.mot) return { chinese: r.mot.chinese, pinyin: r.mot.pinyin || '', english: r.mot.english || '', found: true };
+          if (isZhEn) return { chinese: '', pinyin: '', english: v, found: false };
+          return { chinese: v, pinyin: r?.pinyin || '', english: '', found: false };
+        });
+        setCards((cs) => [...cs, ...newCards]);
+      }
+    } catch (e) { setErr(e.message || 'AI recap failed'); } finally { setRecapBusy(false); }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -247,6 +273,23 @@ export default function EndCourseScreen({ slot, direction = 'en→zh', onClose, 
   // ── Colonne droite : résumé + mots ──────────────────────────────────────────
   const rightColumn = (
     <>
+      {/* POC : fin de cours par IA — coller un transcript → préremplit résumé + mots */}
+      <View style={card}>
+        <View style={cardHead}>
+          <Ionicons name="sparkles" size={16} color={COLORS.jiayou} />
+          <Text style={cardTitle}>AI recap (test)</Text>
+        </View>
+        <Text style={label}>Paste the lesson transcript</Text>
+        <TextInput
+          value={recapText} onChangeText={setRecapText} multiline maxLength={40000}
+          placeholder="Paste the transcript here, then let the AI pre-fill the summary and vocabulary…"
+          placeholderTextColor={COLORS.mutedLight}
+          style={[bigInput, { minHeight: 110, paddingTop: 12, textAlignVertical: 'top' }]}
+        />
+        <Button onPress={aiPrefill} loading={recapBusy} icon="sparkles" title="Pre-fill with AI"
+          fullWidth style={{ marginTop: 10 }} />
+      </View>
+
       {/* Résumé du cours */}
       <View style={card}>
         <View style={cardHead}>

@@ -245,6 +245,8 @@ export function teacherLessonProgress(lessonId) { return request(`/api/m/teacher
 export function teacherDeleteLesson(lessonId) { return request(`/api/m/teacher/lessons/${lessonId}`, { method: 'DELETE' }); }
 export function teacherLookupWords(words) { return request('/api/m/teacher/mots/lookup', { method: 'POST', body: { words } }); }
 export function teacherSendTask(payload) { return request('/api/m/teacher/send-task', { method: 'POST', body: payload }); }
+// Fin de cours par IA (POC) : transcript collé → { summary, words } (DeepSeek).
+export function teacherLessonRecap(transcript, nativeLang) { return request('/api/m/teacher/lesson-recap', { method: 'POST', body: { transcript, nativeLang } }); }
 export function teacherStudentClassContext(studentId) { return request(`/api/m/teacher/students/${studentId}/class-context`); }
 export function teacherStudents() { return request('/api/m/teacher/students'); }
 export function teacherGetProfile() { return request('/api/m/teacher/profile'); }
