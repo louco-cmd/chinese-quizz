@@ -88,15 +88,22 @@ const TYPE_CATEGORY = {
   duel_reminder: 'notif_duels', duel_expired: 'notif_duels',
   pack_new: 'notif_packs', pack_sold: 'notif_packs',
   red_envelope: 'notif_social',
-  reengage: 'notif_reminders',
+  reengage: 'notif_reminders', daily_quiz: 'notif_reminders',
 };
+
+// Rappels "marketing" (relance d'inactivité, quiz du jour) : au plus UN par
+// utilisateur et par jour, toutes sources confondues. On empile potentiellement
+// plusieurs crons (18h reengage + 20h quiz…), ce plafond évite le spam. Les
+// notifs événementielles (duels, red envelopes) ne sont PAS concernées.
+const REMINDER_TYPES = new Set(['reengage', 'daily_quiz']);
 
 async function sendExpoPush(userId, payload) {
   let u;
   try {
     const { rows } = await pool.query(
       `SELECT expo_push_token, notifications_enabled,
-              notif_duels, notif_packs, notif_social, notif_reminders
+              notif_duels, notif_packs, notif_social, notif_reminders,
+              last_reminder_push_at
        FROM users WHERE id = $1`, [userId]);
     u = rows[0];
   } catch (e) {
@@ -105,8 +112,16 @@ async function sendExpoPush(userId, payload) {
   }
   if (!u || !u.expo_push_token) return;                 // pas d'appareil natif enregistré
   if (u.notifications_enabled === false) return;        // master coupé
-  const cat = TYPE_CATEGORY[payload?.data?.type];       // catégorie coupée ?
+  const type = payload?.data?.type;
+  const cat = TYPE_CATEGORY[type];                      // catégorie coupée ?
   if (cat && u[cat] === false) return;
+  // Plafond « 1 rappel / jour » : on saute si un rappel est déjà parti dans les
+  // dernières 20 h (fenêtre < 24 h pour tolérer un léger décalage d'heure cron).
+  const isReminder = REMINDER_TYPES.has(type);
+  if (isReminder && u.last_reminder_push_at
+      && (Date.now() - new Date(u.last_reminder_push_at).getTime()) < 20 * 60 * 60 * 1000) {
+    return;
+  }
   if (typeof fetch !== 'function') return;              // Node < 18 : pas de fetch global
 
   try {
@@ -123,6 +138,11 @@ async function sendExpoPush(userId, payload) {
         priority: 'high',
       }),
     });
+    if (isReminder) {
+      // Horodate pour appliquer le plafond « 1 rappel / jour » au prochain cron.
+      try { await pool.query('UPDATE users SET last_reminder_push_at = NOW() WHERE id = $1', [userId]); }
+      catch (e) { console.error('[ExpoPush] stamp rappel :', e.message); }
+    }
   } catch (e) {
     console.error('[ExpoPush] envoi :', e.message);
   }
