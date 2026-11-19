@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView } from 
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../../ui/Popup';
 import SegmentedPicker from '../settings/SegmentedPicker';
+import WordCountSlider from '../quiz/WordCountSlider';
 import { COLORS } from '../../theme';
 import { useT } from '../../i18n';
 import { searchDuelPlayers, createDuel, getRecentOpponents } from '../../api';
@@ -25,7 +26,7 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
   const [recent, setRecent] = useState([]); // adversaires déjà affrontés
   const [searching, setSearching] = useState(false);
   const [duelType, setDuelType] = useState('classic');
-  const [wordCount, setWordCount] = useState('20');
+  const [wordCount, setWordCount] = useState(20);
   const [quizType, setQuizType] = useState('pinyin'); // pinyin | reading | character
   const [bet, setBet] = useState('0');
   const [creating, setCreating] = useState(false);
@@ -38,7 +39,7 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
       setQuery('');
       setResults([]);
       setDuelType('classic');
-      setWordCount('20');
+      setWordCount(20);
       setQuizType('pinyin');
       setBet('0');
       setError('');
@@ -69,7 +70,7 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
       await createDuel({
         opponent_id: opponent.id,
         duel_type: duelType,
-        word_count: parseInt(wordCount, 10),
+        word_count: wordCount,
         quiz_type: quizType,
         bet_amount: Math.max(0, parseInt(bet, 10) || 0),
       });
@@ -171,14 +172,10 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
         />
       </View>
 
-      {/* Nombre de mots */}
+      {/* Nombre de mots : slider compact 10→50 (max 50 en duel). */}
       <Label>{t('du_word_count')}</Label>
       <View style={{ marginBottom: 16 }}>
-        <SegmentedPicker
-          value={wordCount}
-          onChange={setWordCount}
-          options={[{ value: '10', label: '10' }, { value: '20', label: '20' }, { value: '30', label: '30' }]}
-        />
+        <WordCountSlider value={wordCount} onChange={setWordCount} stops={[10, 15, 20, 25, 30, 35, 40, 45, 50]} />
       </View>
 
       {/* Mode (pinyin trad→pinyin / reading hanzi→pinyin / caractères trad→hanzi) */}

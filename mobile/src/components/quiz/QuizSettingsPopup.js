@@ -1,68 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
-import { View, Text, Pressable, PanResponder } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Popup from '../../ui/Popup';
+import WordCountSlider from './WordCountSlider';
 import { useT } from '../../i18n';
 import { COLORS } from '../../theme';
 
 const HSK_LEVELS = [1, 2, 3, 4, 5, 6, 7]; // 7 = Street / unclassified
 const label = (n) => (n === 7 ? 'S' : String(n));
-
-// Nombre de mots : progression linéaire 10→50 (pas de 5), puis le BOUT de la
-// piste passe à 100. Slider maison (PanResponder) → OTA-safe, pas de module natif.
-const WORD_STOPS = [10, 15, 20, 25, 30, 35, 40, 45, 50, 100];
-
-// Slider compact : juste le chiffre à gauche qui change + la piste (pas de
-// légende ni de bulle flottante). Inspiré du EraSlider (measureInWindow + refs
-// pour éviter les closures périmées).
-function WordCountSlider({ value, onChange }) {
-  const N = WORD_STOPS.length;
-  const idxOf = (v) => { const i = WORD_STOPS.indexOf(v); return i >= 0 ? i : 2; };
-  const [pos, setPos] = useState(idxOf(value)); // position continue 0..N-1
-  const draggingRef = useRef(false);
-  // Resync depuis l'extérieur (reset à l'ouverture) — MAIS jamais pendant un drag,
-  // sinon onChange→count→cet effet remet `pos` sur le stop arrondi → tremblement.
-  useEffect(() => { if (!draggingRef.current) setPos(idxOf(value)); }, [value]);
-
-  const trackRef = useRef(null);
-  const geo = useRef({ x: 0, w: 0 });
-  const posRef = useRef(pos); posRef.current = pos;
-  const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
-
-  const measure = () => { trackRef.current?.measureInWindow?.((x, y, w) => { if (w) geo.current = { x, w }; }); };
-  const setFromAbs = (absX) => {
-    const { x, w } = geo.current;
-    if (w <= 0) return;
-    const p = Math.max(0, Math.min(N - 1, ((absX - x) / w) * (N - 1)));
-    setPos(p);
-    onChangeRef.current(WORD_STOPS[Math.round(p)]);
-  };
-  const pan = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: (e, g) => { draggingRef.current = true; measure(); setFromAbs(g.x0); },
-      onPanResponderMove: (e, g) => setFromAbs(g.moveX),
-      onPanResponderRelease: () => { draggingRef.current = false; const r = Math.round(posRef.current); setPos(r); onChangeRef.current(WORD_STOPS[r]); },
-      onPanResponderTerminate: () => { draggingRef.current = false; const r = Math.round(posRef.current); setPos(r); onChangeRef.current(WORD_STOPS[r]); },
-    })
-  ).current;
-
-  const pct = (pos / (N - 1)) * 100;
-  const curVal = WORD_STOPS[Math.round(pos)];
-
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-      <Text style={{ width: 46, fontSize: 22, fontWeight: '800', color: COLORS.jiayou }}>{curVal}</Text>
-      <View ref={trackRef} {...pan.panHandlers} onLayout={measure} style={{ flex: 1, height: 34, justifyContent: 'center', marginRight: 11 }}>
-        <View style={{ height: 5, borderRadius: 999, backgroundColor: '#e6e9ef' }} />
-        <View style={{ position: 'absolute', left: 0, height: 5, borderRadius: 999, backgroundColor: COLORS.jiayou, width: `${pct}%` }} />
-        <View style={{ position: 'absolute', left: `${pct}%`, marginLeft: -11, width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', borderWidth: 2, borderColor: COLORS.jiayou, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 3, elevation: 3 }} />
-      </View>
-    </View>
-  );
-}
 // Filtre de maîtrise par INTENTION (plutôt qu'une plage min/max cryptique) : on
 // choisit directement « ce que je veux travailler ». `levels` = clés de maîtrise
 // envoyées au backend (vide = tous). Les clés (seed/meh/ok/cool/trophy) sont
@@ -221,7 +166,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
       {/* Number of words — masqué pour les difficultés (liste de mots figée). */}
       {scope !== 'ids' ? (
       <><SectionLabel>{t('qz_num_words')}</SectionLabel>
-      <WordCountSlider value={count} onChange={setCount} /></>
+      <View style={{ marginBottom: 20 }}><WordCountSlider value={count} onChange={setCount} /></View></>
       ) : null}
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
