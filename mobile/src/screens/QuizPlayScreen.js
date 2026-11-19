@@ -193,6 +193,7 @@ export default function QuizPlayScreen({ config, onExit }) {
 
   async function finish(ws) {
     setEnded(true);
+    let earned = 0;
     try {
       const d = await saveQuiz({
         score: correctCountRef.current,
@@ -200,10 +201,12 @@ export default function QuizPlayScreen({ config, onExit }) {
         quiz_type: type,
         results: results.current,
       });
-      setCoins(d.coins_earned || 0);
+      earned = d.coins_earned || 0;
+      setCoins(earned);
     } catch { /* garde le score affiché même si la sauvegarde échoue */ }
-    // Si c'est une task d'un prof, on remonte aussi le résultat (compteur côté prof)
-    if (lessonId) { try { await saveTaskResult(lessonId, correctCountRef.current, ws.length); } catch { /* noop */ } }
+    // Si c'est une task d'un prof, on remonte le résultat (compteur côté prof) + les
+    // coins gagnés (le prof en touche la moitié, cf. /tasks/:id/result).
+    if (lessonId) { try { await saveTaskResult(lessonId, correctCountRef.current, ws.length, earned); } catch { /* noop */ } }
     // Moment positif → éventuelle demande d'avis in-app (dormant tant que le build
     // n'embarque pas expo-store-review ; no-op silencieux sinon). Ne compte que si
     // le quiz est réussi ; l'ouverture réelle reste gated (cumul + cooldown + OS).

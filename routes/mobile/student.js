@@ -45,6 +45,11 @@ async function relationshipState(teacherId, studentId) {
   return 'none';
 }
 
+// Économie prof (coins) : part des coins d'un quiz d'élève reversée au prof
+// (plafonnée pour éviter l'inflation) + bonus quand une tâche atteint 100%.
+const TEACHER_QUIZ_SHARE_CAP = 10;
+const TEACHER_COIN_CLASS_DONE = 10;
+
 module.exports = function registerStudentRoutes(router, deps) {
   const { requireToken, notify, getUserLangs, isTeacherPro, FREE_TEACHER_LIMITS } = deps;
 
@@ -507,24 +512,87 @@ router.post('/api/m/student/tasks/:id/start', requireToken, async (req, res) => 
 });
 
 // ── POST /api/m/student/tasks/:id/result : enregistre le résultat (côté prof) ─
+// Crédite aussi le PROF : moitié des coins du quiz de l'élève (plafonné), et +10
+// la 1re fois que l'élève atteint 100% sur la tâche (une fois par élève+tâche).
 router.post('/api/m/student/tasks/:id/result', requireToken, async (req, res) => {
+  const client = await pool.connect();
+  let began = false;
   try {
     const uid = req.tokenUser.id;
     const lessonId = parseInt(req.params.id, 10);
-    const access = await pool.query(
-      `SELECT l.id FROM lessons l
+    const access = await client.query(
+      `SELECT l.id, l.title AS lesson_title, c.teacher_id,
+              COALESCE(NULLIF(TRIM(su.name), ''), 'Your student') AS student_name
+       FROM lessons l
+       JOIN classrooms c ON c.id = l.classroom_id
        JOIN classroom_students cs ON cs.classroom_id = l.classroom_id
+       JOIN users su ON su.id = cs.student_id
        WHERE l.id = $1 AND cs.student_id = $2 AND cs.status = 'active'`, [lessonId, uid]);
     if (!access.rows.length) return res.status(404).json({ error: 'Task not found' });
+    const teacherId = access.rows[0].teacher_id;
+    const studentName = access.rows[0].student_name;
+    const lessonTitle = access.rows[0].lesson_title;
     const score = parseInt(req.body?.score, 10);
     const total = parseInt(req.body?.total, 10);
-    await pool.query(
+    const coins = parseInt(req.body?.coins, 10); // coins gagnés par l'élève sur CE quiz
+
+    await client.query('BEGIN'); began = true;
+    await client.query(
       `INSERT INTO lesson_quiz_results (lesson_id, student_id, score, total) VALUES ($1, $2, $3, $4)`,
       [lessonId, uid, Number.isInteger(score) ? score : null, Number.isInteger(total) ? total : null]);
-    res.json({ success: true });
+
+    let teacherEarned = 0;
+    let justCompleted = false;
+    if (teacherId && teacherId !== uid) {
+      // T2 — le prof gagne la moitié des coins de l'élève (plafonné anti-inflation).
+      if (Number.isInteger(coins) && coins > 0) {
+        const share = Math.min(Math.floor(coins / 2), TEACHER_QUIZ_SHARE_CAP);
+        if (share > 0) {
+          await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [share, teacherId]);
+          await client.query(
+            `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'teacher_quiz_share', $3)`,
+            [teacherId, share, `Student ${uid} quiz on lesson ${lessonId}`]);
+          teacherEarned += share;
+        }
+      }
+      // T3 — tâche atteinte à 100% : +TEACHER_COIN_CLASS_DONE, une fois par élève+tâche.
+      const { rows: kn } = await client.query(
+        `SELECT COALESCE(ROUND(AVG(COALESCE(um.score, 0))), 0)::int AS knowledge
+         FROM lesson_words lw LEFT JOIN user_mots um ON um.mot_id = lw.mot_id AND um.user_id = $2
+         WHERE lw.lesson_id = $1`, [lessonId, uid]);
+      if ((kn[0]?.knowledge || 0) >= 100) {
+        const done = await client.query(
+          `INSERT INTO lesson_completions (lesson_id, student_id) VALUES ($1, $2)
+           ON CONFLICT (lesson_id, student_id) DO NOTHING RETURNING lesson_id`, [lessonId, uid]);
+        if (done.rows.length) {
+          await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [TEACHER_COIN_CLASS_DONE, teacherId]);
+          await client.query(
+            `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'teacher_class_done', $3)`,
+            [teacherId, TEACHER_COIN_CLASS_DONE, `Student ${uid} completed lesson ${lessonId}`]);
+          teacherEarned += TEACHER_COIN_CLASS_DONE;
+          justCompleted = true;
+        }
+      }
+    }
+    await client.query('COMMIT'); began = false;
+    // Notif prof : l'élève vient de finir sa tâche à 100% (in-app 🔔 + push). Best-effort.
+    if (justCompleted && teacherId) {
+      const taskName = (lessonTitle && lessonTitle.trim()) ? lessonTitle.trim() : 'their task';
+      notify(
+        teacherId,
+        'student_task_done',
+        `${studentName} finished their lesson`,
+        `${studentName} completed “${taskName}” — you earned ₵${teacherEarned}.`,
+        { lessonId, studentId: uid }
+      ).catch(() => {});
+    }
+    res.json({ success: true, teacher_earned: teacherEarned });
   } catch (e) {
+    if (began) { try { await client.query('ROLLBACK'); } catch { /* noop */ } }
     console.error('m/student task result error:', e);
     res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
   }
 });
 

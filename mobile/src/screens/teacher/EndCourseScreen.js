@@ -138,6 +138,7 @@ export default function EndCourseScreen({ slot, direction = 'en→zh', onClose, 
     try {
       await teacherSendTask({
         student_id: slot?.student_id,
+        slot_id: slot?.id,
         ...cls,
         title: title.trim(),
         summary: summary.trim(),

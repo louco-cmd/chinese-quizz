@@ -12,6 +12,8 @@ const { teacherTz, slotOpenForTeacher, studentLinkedToTeacher } = require('../..
 module.exports = function registerLessonRoutes(router, deps) {
   const { requireToken, notify, getUserLangs, syncConceptSiblings, isTeacherPro, FREE_TEACHER_LIMITS } = deps;
 
+// Coins gagnés par le prof quand il envoie la fin d'un cours réellement donné.
+const TEACHER_COIN_LESSON = 10;
 const TEACH_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'CNY', 'JPY', 'CAD', 'AUD', 'SGD', 'HKD'];
 const MENTOR_LINK_ALLOWLIST = [
   'preply.com', 'italki.com', 'superprof.', 'verbling.com', 'lingoda.com',
@@ -338,6 +340,25 @@ router.post('/api/m/teacher/send-task', requireToken, requireTeacher, async (req
     const uniqueMots = [...new Set(motIds)];
     for (const motId of uniqueMots) {
       await client.query(`INSERT INTO lesson_words (lesson_id, mot_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [lessonId, motId]);
+    }
+
+    // Récompense prof « cours donné » : +TEACHER_COIN_LESSON, liée à un VRAI créneau
+    // visio commencé (donc ayant eu lieu) et non encore récompensé → idempotent par
+    // créneau, pas de farming via des envois répétés de fin de cours.
+    const slotId = parseInt(req.body?.slot_id, 10);
+    if (Number.isInteger(slotId)) {
+      const rew = await client.query(
+        `UPDATE teacher_slots SET reward_given = true
+          WHERE id = $1 AND teacher_id = $2 AND student_id = $3
+            AND status = 'booked' AND starts_at < NOW() AND reward_given = false
+          RETURNING id`,
+        [slotId, req.teacher.id, studentId]);
+      if (rew.rows.length) {
+        await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [TEACHER_COIN_LESSON, req.teacher.id]);
+        await client.query(
+          `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'teacher_lesson', $3)`,
+          [req.teacher.id, TEACHER_COIN_LESSON, `Lesson given (slot ${slotId})`]);
+      }
     }
 
     await client.query('COMMIT');

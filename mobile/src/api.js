@@ -472,8 +472,8 @@ export function startTask(lessonId) {
   return request(`/api/m/student/tasks/${lessonId}/start`, { method: 'POST' });
 }
 
-export function saveTaskResult(lessonId, score, total) {
-  return request(`/api/m/student/tasks/${lessonId}/result`, { method: 'POST', body: { score, total } });
+export function saveTaskResult(lessonId, score, total, coins) {
+  return request(`/api/m/student/tasks/${lessonId}/result`, { method: 'POST', body: { score, total, coins } });
 }
 
 export function getAccount() {
