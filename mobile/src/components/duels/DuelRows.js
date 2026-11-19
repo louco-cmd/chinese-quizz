@@ -16,6 +16,7 @@ export function PendingDuelRow({ duel, last, onPlay }) {
   const { t } = useT();
   const other = duel.user_role === 'challenger' ? duel.opponent_name : duel.challenger_name;
   const played = duel.my_score !== null && duel.my_score !== undefined;
+  const oppPlayed = !!duel.opp_played; // l'adversaire a-t-il joué sa manche ?
 
   const inner = (
     <>
@@ -26,6 +27,12 @@ export function PendingDuelRow({ duel, last, onPlay }) {
           {played ? `${t('du_waiting_for')} ${other}` : t('du_tap_play')}
         </Text>
       </View>
+      {/* Statut de l'adversaire : rond plein = a joué, rond vide = pas encore (sans score). */}
+      <Ionicons
+        name={oppPlayed ? 'ellipse' : 'ellipse-outline'}
+        size={13}
+        color={oppPlayed ? COLORS.jiayou : '#c4c9d0'}
+      />
       {duel.bet_amount > 0 ? (
         <View style={{ backgroundColor: '#fff3cd', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
           <Text style={{ color: '#856404', fontWeight: '700', fontSize: 12 }}>{duel.bet_amount}₵</Text>

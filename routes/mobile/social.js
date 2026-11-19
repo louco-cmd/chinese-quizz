@@ -23,7 +23,9 @@ router.get('/api/m/duels', requireToken, async (req, res) => {
                 CASE WHEN d.challenger_id = $1 THEN u2.avatar_icon ELSE u1.avatar_icon END AS opponent_avatar_icon,
                 CASE WHEN d.challenger_id = $1 THEN u2.avatar_color ELSE u1.avatar_color END AS opponent_avatar_color,
                 CASE WHEN d.challenger_id = $1 THEN 'challenger' ELSE 'opponent' END AS user_role,
-                CASE WHEN d.challenger_id = $1 THEN d.challenger_score ELSE d.opponent_score END AS my_score
+                CASE WHEN d.challenger_id = $1 THEN d.challenger_score ELSE d.opponent_score END AS my_score,
+                -- L'adversaire a-t-il déjà joué sa manche ? (sans révéler son score)
+                (CASE WHEN d.challenger_id = $1 THEN d.opponent_score ELSE d.challenger_score END) IS NOT NULL AS opp_played
          FROM duels d
          JOIN users u1 ON d.challenger_id = u1.id
          JOIN users u2 ON d.opponent_id = u2.id
