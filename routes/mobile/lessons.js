@@ -926,10 +926,24 @@ router.post('/api/m/student/slots/:id/cancel', requireToken, async (req, res) =>
     const uid = req.tokenUser.id;
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ error: 'Invalid slot' });
-    const { rowCount } = await pool.query(
-      `DELETE FROM teacher_slots WHERE id = $1 AND student_id = $2 AND status = 'booked' AND starts_at > NOW()`,
+    const { rows } = await pool.query(
+      `DELETE FROM teacher_slots WHERE id = $1 AND student_id = $2 AND status = 'booked' AND starts_at > NOW()
+       RETURNING teacher_id, starts_at, note`,
       [id, uid]);
-    if (!rowCount) return res.status(409).json({ error: 'Cannot cancel this booking' });
+    if (!rows.length) return res.status(409).json({ error: 'Cannot cancel this booking' });
+    // Prévient le prof (in-app 🔔 + push). Best-effort, ne bloque pas la réponse.
+    try {
+      const slot = rows[0];
+      const who = await pool.query(`SELECT COALESCE(NULLIF(TRIM(name), ''), 'A student') AS name FROM users WHERE id = $1`, [uid]);
+      const when = new Date(slot.starts_at).toLocaleString('en-US', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      notify(
+        slot.teacher_id,
+        'lesson_cancelled',
+        'Lesson cancelled',
+        `${who.rows[0].name} cancelled their ${slot.note === 'trial' ? 'trial ' : ''}lesson (${when}).`,
+        { slotId: id }
+      ).catch(() => {});
+    } catch { /* noop : la notif ne doit jamais faire échouer l'annulation */ }
     res.json({ ok: true });
   } catch (e) { console.error('m/student slots cancel:', e); res.status(500).json({ error: 'Server error' }); }
 });

@@ -87,7 +87,7 @@ const TYPE_CATEGORY = {
   duel_new: 'notif_duels', duel_result: 'notif_duels',
   duel_reminder: 'notif_duels', duel_expired: 'notif_duels',
   pack_new: 'notif_packs', pack_sold: 'notif_packs',
-  red_envelope: 'notif_social', student_task_done: 'notif_social',
+  red_envelope: 'notif_social', student_task_done: 'notif_social', lesson_cancelled: 'notif_social',
   reengage: 'notif_reminders', daily_quiz: 'notif_reminders',
 };
 

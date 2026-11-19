@@ -6,6 +6,7 @@ import { ErrorRetry } from '../components/ErrorRetry';
 import BottomSheet from '../ui/BottomSheet';
 import CoursePage from './CoursePage';
 import StudentLessonRows from '../components/teachers/StudentLessonRows';
+import StudentLessonSheet from '../components/teachers/StudentLessonSheet';
 import { getStudentMentor, getStudentSlots, getRecurringSlots, bookSlot, bookRecurringSlots, rateMentor, leaveMentor } from '../api';
 import { useT } from '../i18n';
 import { Button, Input, Chip, SegmentedControl } from '../ui';
@@ -373,6 +374,7 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
   const [rating, setRating] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [leaveBusy, setLeaveBusy] = useState(false);
+  const [lessonSheet, setLessonSheet] = useState(null); // cours visio tapé → drawer
   const [course, setCourse] = useState(null); // { id, readOnly } cours ouvert
 
   useAndroidBack(() => {
@@ -465,7 +467,7 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
         ) : upcoming.map((u) => {
           const joinable = Date.now() >= new Date(u.starts_at).getTime() - 15 * 60 * 1000 && Date.now() <= new Date(u.ends_at).getTime() + 10 * 60 * 1000;
           return (
-            <View key={u.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#f0f7ff', borderRadius: 14, padding: 12, marginBottom: 8 }}>
+            <Pressable key={u.id} onPress={() => setLessonSheet({ ...u, other_name: name })} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#f0f7ff', borderRadius: 14, padding: 12, marginBottom: 8 }}>
               <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#dbeeff', alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="calendar" size={19} color={COLORS.jiayou} />
               </View>
@@ -478,8 +480,10 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
                   <Ionicons name="videocam" size={13} color="#fff" />
                   <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12.5 }}>Join</Text>
                 </Pressable>
-              ) : null}
-            </View>
+              ) : (
+                <Ionicons name="chevron-forward" size={16} color={COLORS.mutedLight} />
+              )}
+            </Pressable>
           );
         })}
       </View>
@@ -531,6 +535,14 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
           )}
         </View>
       </ScrollView>
+
+      <StudentLessonSheet
+        lesson={lessonSheet}
+        visible={!!lessonSheet}
+        onClose={() => setLessonSheet(null)}
+        onJoin={(id) => onVideoCall?.(id)}
+        onCancelled={load}
+      />
 
       <BookLessonSheet teacherId={teacherId} teacherName={name} visible={booking} onClose={() => setBooking(false)} onBooked={load} />
       <RateSheet teacherId={teacherId} teacherName={name} initial={data.my_rating} visible={rating} onClose={() => setRating(false)} onSaved={load} />

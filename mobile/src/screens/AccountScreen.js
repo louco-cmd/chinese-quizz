@@ -216,6 +216,7 @@ export default function AccountScreen({ onLogout, onNavigate, onStartQuiz, onOpe
                   onOpenMentor={(m) => setMentorView(m)}
                   onOpenTask={(t) => setCourseId(t.id)}
                   onJoinLesson={(id) => onVideoCall?.(id)}
+                  onChanged={load}
                 />
               ) : null}
 

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AccountCard from '../account/AccountCard';
+import StudentLessonSheet from './StudentLessonSheet';
 import { COLORS, SHADOW_CARD } from '../../theme';
 
 function since(iso) {
@@ -17,8 +19,9 @@ function fmtSession(iso) {
 
 // Carte "My mentor" de la page account : sessions à venir + profs rejoints +
 // profs trial (séance réservée mais pas encore enrolled) + tasks.
-export default function YourMentorsCard({ mentors, tasks, upcomingSessions, onOpenMentor, onOpenTask, onJoinLesson }) {
+export default function YourMentorsCard({ mentors, tasks, upcomingSessions, onOpenMentor, onOpenTask, onJoinLesson, onChanged }) {
   const myLessons = (upcomingSessions || []).filter((u) => !u.i_am_teacher);
+  const [lessonSheet, setLessonSheet] = useState(null); // cours visio tapé → drawer
 
   // Profs avec qui on a une séance à venir mais qui ne sont pas encore dans mentors.
   const enrolledIds = new Set((mentors || []).map((m) => m.teacher_id || m.id));
@@ -46,7 +49,7 @@ export default function YourMentorsCard({ mentors, tasks, upcomingSessions, onOp
         <View style={{ marginBottom: 14 }}>
           <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Upcoming sessions</Text>
           {myLessons.map((u) => (
-            <View key={u.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#f0f7ff', borderRadius: 14, padding: 12, marginBottom: 8, ...SHADOW_CARD }}>
+            <Pressable key={u.id} onPress={() => setLessonSheet(u)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#f0f7ff', borderRadius: 14, padding: 12, marginBottom: 8, ...SHADOW_CARD }}>
               <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: '#dbeeff', alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="videocam" size={20} color={COLORS.jiayou} />
               </View>
@@ -61,7 +64,7 @@ export default function YourMentorsCard({ mentors, tasks, upcomingSessions, onOp
                 <Ionicons name="videocam" size={13} color="#fff" />
                 <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12.5 }}>Join</Text>
               </Pressable>
-            </View>
+            </Pressable>
           ))}
         </View>
       )}
@@ -137,6 +140,14 @@ export default function YourMentorsCard({ mentors, tasks, upcomingSessions, onOp
           )}
         </>
       )}
+
+      <StudentLessonSheet
+        lesson={lessonSheet}
+        visible={!!lessonSheet}
+        onClose={() => setLessonSheet(null)}
+        onJoin={(id) => onJoinLesson?.(id)}
+        onCancelled={onChanged}
+      />
     </AccountCard>
   );
 }
