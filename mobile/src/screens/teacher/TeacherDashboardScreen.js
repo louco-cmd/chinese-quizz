@@ -62,9 +62,7 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
   // ── Colonne gauche : nom + liste des élèves + « See calendar » ──────────────
   const sidebar = (
     <View className="bg-white rounded-2xl p-5" style={SHADOW_CARD}>
-      {/* Sur mobile le nom du prof est remonté en titre de page (voir plus bas) ;
-          dans la colonne desktop il reste en tête de carte. */}
-      {isDesktop ? <Text className="text-ink font-extrabold text-[20px] mb-4">{teacherName || 'Teacher'}</Text> : null}
+      <Text className="text-ink font-extrabold text-[20px] mb-4">{teacherName || 'Teacher'}</Text>
       <View className="flex-row items-center justify-between mb-2">
         <Text className="text-ink font-bold text-[15px]">Students</Text>
         <Text className="text-muted-light font-bold text-[14px]">{students.length}</Text>
@@ -182,9 +180,8 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
             </View>
           ) : (
             <>
-              <Text className="text-ink font-extrabold text-[22px] mb-4">{teacherName || 'Teacher'}</Text>
+              <View className="mb-4">{sidebar}</View>
               {main}
-              <View className="mt-2">{sidebar}</View>
             </>
           )}
         </View>
