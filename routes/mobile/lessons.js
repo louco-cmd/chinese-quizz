@@ -10,7 +10,7 @@ const { SLOT_MIN, BOOKING_HORIZON_DAYS, validTz, pad2, wallToUtc, utcToWall, der
 const { teacherTz, slotOpenForTeacher, studentLinkedToTeacher } = require('../../lib/teacher-slots');
 
 module.exports = function registerLessonRoutes(router, deps) {
-  const { requireToken, notify, getUserLangs, syncConceptSiblings } = deps;
+  const { requireToken, notify, getUserLangs, syncConceptSiblings, isTeacherPro, FREE_TEACHER_LIMITS } = deps;
 
 const TEACH_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'CNY', 'JPY', 'CAD', 'AUD', 'SGD', 'HKD'];
 const MENTOR_LINK_ALLOWLIST = [

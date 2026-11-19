@@ -16,6 +16,7 @@ import StoreScreen from '../StoreScreen';
 import CreatePackScreen from '../CreatePackScreen';
 import QuizScreen from '../QuizScreen';
 import PricingScreen from '../PricingScreen';
+import TeacherPricingScreen from './TeacherPricingScreen';
 import { COLORS } from '../../theme';
 import useKeyboardOpen from '../../useKeyboardOpen';
 
@@ -28,14 +29,28 @@ const TABS = [
 
 // Header prof — mêmes dimensions que le header étudiant (paddingVertical 16,
 // logo 26px). Gauche : 加油 Mentor. Droite : pastille coins (→ Bank) + réglages.
-function TeacherHeader({ onSettings, onLogo, onBank, insetTop, balance }) {
+function TeacherPlanBadge({ plan }) {
+  const label = plan === 'pro' ? 'PRO' : plan === 'guest' ? 'GUEST' : 'FREE';
+  const textColor = plan === 'pro' ? COLORS.jiayou : '#585858';
+  return (
+    <View style={{ backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' }}>
+      <Text style={{ color: textColor, fontSize: 13, fontWeight: '700' }}>{label}</Text>
+    </View>
+  );
+}
+
+function TeacherHeader({ onSettings, onLogo, onBank, onPlan, plan, insetTop, balance }) {
   return (
     <View style={{ paddingTop: insetTop }} className="bg-jiayou">
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16 }}>
-        <Pressable onPress={onLogo} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ color: '#fff', fontSize: 26, fontWeight: '800' }}>加油</Text>
-          <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700' }}>Mentor</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable onPress={onLogo} hitSlop={6}>
+            <Text style={{ color: '#fff', fontSize: 26, fontWeight: '800' }}>加油!</Text>
+          </Pressable>
+          <Pressable onPress={onPlan} hitSlop={6}>
+            <TeacherPlanBadge plan={plan} />
+          </Pressable>
+        </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
           <Pressable
             onPress={onBank}
@@ -135,6 +150,8 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
     );
   } else if (view?.type === 'pricing') {
     content = <PricingScreen onBack={() => setView(null)} isPremium={!!profile?.isPremium} onPurchased={() => setView(null)} />;
+  } else if (view?.type === 'teacher-pricing') {
+    content = <TeacherPricingScreen onBack={() => setView(null)} isPro={!!profile?.isTeacherPro} />;
   } else if (tab === 'store') {
     // JiaStore côté prof : mêmes écrans que l'étudiant (parcourir / acheter /
     // créer-éditer des packs / quiz de pack).
@@ -177,6 +194,8 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
         onSettings={() => setView({ type: 'settings' })}
         onLogo={() => changeTab('classes')}
         onBank={() => setView({ type: 'bank' })}
+        onPlan={() => setView({ type: 'teacher-pricing' })}
+        plan={profile?.isSpecialGuest ? 'guest' : (profile?.isTeacherPro ? 'pro' : 'free')}
         insetTop={insets.top}
         balance={profile?.balance}
       />

@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
 import BottomSheet from '../ui/BottomSheet';
-import { getMentor, getMentorSlots, bookTrial } from '../api';
+import { getMentor, getMentorSlots, bookTrial, bookSlot, joinTeacher } from '../api';
 import { Button } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 
@@ -68,7 +68,8 @@ function StatTile({ icon, value, label, accent }) {
 
 // Popup de réservation d'essai : créneaux du prof affichés dans le fuseau de l'ÉLÈVE
 // (le device formate les instants UTC en heure locale), groupés par jour.
-function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked }) {
+function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked, mode = 'trial' }) {
+  const isTrial = mode === 'trial';
   const [state, setState] = useState(null); // { slots, timezone, teacher_name }
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(null);
@@ -94,10 +95,12 @@ function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked })
     if (!selected) return;
     setBusy(selected.starts_at);
     try {
-      await bookTrial(mentorId, selected.starts_at);
+      if (isTrial) await bookTrial(mentorId, selected.starts_at);
+      else await bookSlot(mentorId, selected.starts_at);
       setSelected(null);
       onBooked?.(); onClose?.();
-      Alert.alert('', "Trial booked! You'll find it in your upcoming sessions.");
+      Alert.alert('', isTrial ? "Trial booked! You'll find it in your upcoming sessions."
+        : "Lesson booked! You'll find it in your upcoming sessions.");
     } catch (e) {
       const msg = (e.already || /already/i.test(e.message || '')) ? 'You already have an upcoming lesson with this teacher.'
         : e.taken ? 'This slot was just taken — pick another.' : (e.message || 'Error');
@@ -117,8 +120,8 @@ function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked })
       </View>
       <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e', marginTop: 10, textAlign: 'center' }}>{name}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: COLORS.jiayouSoft, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, marginTop: 8 }}>
-        <Ionicons name="gift" size={12} color={COLORS.jiayou} />
-        <Text style={{ color: COLORS.jiayou, fontSize: 12, fontWeight: '800' }}>Free trial · 1 hour</Text>
+        <Ionicons name={isTrial ? 'gift' : 'videocam'} size={12} color={COLORS.jiayou} />
+        <Text style={{ color: COLORS.jiayou, fontSize: 12, fontWeight: '800' }}>{isTrial ? 'Free trial · 1 hour' : 'Lesson · 1 hour'}</Text>
       </View>
     </View>
   );
@@ -196,14 +199,28 @@ export default function MentorProfileScreen({ id, initial, onBack }) {
   const [loading, setLoading] = useState(!initial);
   const [error, setError] = useState('');
   const [booking, setBooking] = useState(false);
+  const [rel, setRel] = useState('none'); // none | trial_booked | trial_done | joined
+  const [joining, setJoining] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
-    try { const r = await getMentor(id); setM(r.mentor); }
+    try { const r = await getMentor(id); setM(r.mentor); setRel(r.relationship || 'none'); }
     catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }, [id]);
   useEffect(() => { load(); }, [load]);
+
+  async function onJoin() {
+    setJoining(true);
+    try {
+      await joinTeacher(id);
+      setRel('joined');
+      Alert.alert('', `You're now ${m?.name || 'this teacher'}'s student! Book your next lesson anytime.`);
+    } catch (e) {
+      if (e.needTrial) { setRel('trial_done'); Alert.alert('', 'Book a trial lesson first.'); }
+      else Alert.alert('', e.message || 'Could not join. Try again.');
+    } finally { setJoining(false); }
+  }
 
   const Back = (
     <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 14 }}>
@@ -245,8 +262,27 @@ export default function MentorProfileScreen({ id, initial, onBack }) {
         <StatTile icon="star" accent="#f5b301" value={m.rating != null ? m.rating : '—'} label={m.rating_count ? `Rating (${m.rating_count})` : 'Rating'} />
       </View>
 
-      {/* Book a trial class */}
-      <Button onPress={() => setBooking(true)} icon="calendar" title="Book a trial class" fullWidth style={{ marginTop: 18 }} />
+      {/* CTA selon l'état de la relation : trial → join → book a lesson */}
+      {rel === 'joined' ? (
+        <>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 }}>
+            <Ionicons name="checkmark-circle" size={16} color="#1a9e5c" />
+            <Text style={{ color: '#1a9e5c', fontWeight: '800', fontSize: 13 }}>You're enrolled with this teacher</Text>
+          </View>
+          <Button onPress={() => setBooking(true)} icon="calendar" title="Book a lesson" fullWidth style={{ marginTop: 10 }} />
+        </>
+      ) : rel === 'trial_done' ? (
+        <>
+          <Button onPress={onJoin} loading={joining} icon="person-add" title="Join the teacher" fullWidth style={{ marginTop: 18 }} />
+          <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, textAlign: 'center', marginTop: 8 }}>
+            Join to book regular lessons with {m.name || 'this teacher'}.
+          </Text>
+        </>
+      ) : rel === 'trial_booked' ? (
+        <Button onPress={() => {}} disabled icon="checkmark-circle" title="Trial booked" fullWidth style={{ marginTop: 18 }} />
+      ) : (
+        <Button onPress={() => setBooking(true)} icon="calendar" title="Book a trial class" fullWidth style={{ marginTop: 18 }} />
+      )}
     </View>
   );
 
@@ -308,7 +344,7 @@ export default function MentorProfileScreen({ id, initial, onBack }) {
           )}
         </View>
       </ScrollView>
-      <TrialBookingSheet mentorId={m.id} mentorName={m.name} visible={booking} onClose={() => setBooking(false)} onBooked={load} />
+      <TrialBookingSheet mentorId={m.id} mentorName={m.name} visible={booking} onClose={() => setBooking(false)} onBooked={load} mode={rel === 'joined' ? 'lesson' : 'trial'} />
     </View>
   );
 }

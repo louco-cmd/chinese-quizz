@@ -3,12 +3,50 @@
 //  leçons reçues, notation/quitter un mentor, tâches, rejoindre une classe.
 //  Extrait de routes/mobile.js. Monté via registerStudentRoutes(router, deps).
 // ════════════════════════════════════════════════════════════════════════════
+const crypto = require('crypto');
 const { pool } = require('../../config/database');
 const { SLOT_MIN, BOOKING_HORIZON_DAYS, validTz, deriveTeacherSlots } = require('../../lib/teacher-schedule');
 const { slotOpenForTeacher } = require('../../lib/teacher-slots');
 
+// Génère un join_code unique (classrooms.join_code = NOT NULL + unique), y compris
+// pour les classes 1:1 auto-créées par « Join the teacher ». Miroir de
+// genClassCode() de lessons.js (modules séparés, pas de require croisé).
+async function genClassCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const bytes = crypto.randomBytes(6);
+    let code = '';
+    for (let i = 0; i < 6; i++) code += chars[bytes[i] % chars.length];
+    const { rows } = await pool.query('SELECT 1 FROM classrooms WHERE join_code = $1', [code]);
+    if (!rows.length) return code;
+  }
+  throw new Error('code generation failed');
+}
+
+// État de la relation élève↔prof pour piloter le bouton côté app :
+//  'joined'       : membre actif d'une classe de ce prof (relation établie)
+//  'trial_booked' : cours d'essai à venir, pas encore rejoint
+//  'trial_done'   : a déjà eu un cours d'essai (passé), pas encore rejoint → « Join the teacher »
+//  'none'         : aucun contact → « Book a trial »
+async function relationshipState(teacherId, studentId) {
+  const { rows } = await pool.query(
+    `SELECT
+       EXISTS(SELECT 1 FROM classroom_students cs JOIN classrooms c ON c.id = cs.classroom_id
+              WHERE c.teacher_id = $1 AND cs.student_id = $2 AND cs.status = 'active') AS joined,
+       EXISTS(SELECT 1 FROM teacher_slots WHERE teacher_id = $1 AND student_id = $2
+              AND status = 'booked' AND ends_at > NOW()) AS upcoming,
+       EXISTS(SELECT 1 FROM teacher_slots WHERE teacher_id = $1 AND student_id = $2
+              AND note = 'trial') AS had_trial`,
+    [teacherId, studentId]);
+  const r = rows[0] || {};
+  if (r.joined) return 'joined';
+  if (r.upcoming) return 'trial_booked';
+  if (r.had_trial) return 'trial_done';
+  return 'none';
+}
+
 module.exports = function registerStudentRoutes(router, deps) {
-  const { requireToken, notify, getUserLangs } = deps;
+  const { requireToken, notify, getUserLangs, isTeacherPro, FREE_TEACHER_LIMITS } = deps;
 
 // ── GET /api/m/mentors : annuaire des mentors ────────────────────────────────
 router.get('/api/m/mentors', requireToken, async (req, res) => {
@@ -64,7 +102,9 @@ router.get('/api/m/mentors/:id', requireToken, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Teacher not found' });
     const m = rows[0];
     const links = Array.isArray(m.mentor_links) ? m.mentor_links : [];
+    const relationship = await relationshipState(id, req.tokenUser.id);
     res.json({
+      relationship, // 'none' | 'trial_booked' | 'trial_done' | 'joined'
       mentor: {
         id: m.id, name: m.name, languages_spoken: m.languages_spoken,
         teaching_languages: (m.teaching_languages || '').split(',').map((s) => s.trim()).filter(Boolean),
@@ -117,10 +157,19 @@ router.post('/api/m/mentors/:id/book-trial', requireToken, async (req, res) => {
     const t = await pool.query(`SELECT 1 FROM users WHERE id = $1 AND role = 'teacher' AND mentor_listed = TRUE`, [id]);
     if (!t.rows.length) return res.status(404).json({ error: 'Teacher not found' });
     if (!(await slotOpenForTeacher(id, start))) return res.status(409).json({ error: 'Slot not available', taken: true });
-    // Déjà un cours à venir avec ce prof ? (évite le spam de réservations d'essai)
-    const dup = await pool.query(
-      `SELECT 1 FROM teacher_slots WHERE teacher_id = $1 AND student_id = $2 AND status = 'booked' AND starts_at > NOW() LIMIT 1`, [id, uid]);
-    if (dup.rows.length) return res.status(409).json({ error: 'You already have an upcoming lesson with this teacher.', already: true });
+    // UN SEUL cours d'essai par couple (élève, prof), à vie. Au-delà, l'élève doit
+    // « rejoindre le prof » (POST .../join) pour réserver des cours normaux. Ça
+    // stoppe le spam de trials gratuits tout en gardant la visio d'essai ouverte.
+    const rel = await relationshipState(id, uid);
+    if (rel === 'joined') {
+      return res.status(409).json({ error: "You're already this teacher's student — book a regular lesson.", joined: true });
+    }
+    if (rel === 'trial_booked') {
+      return res.status(409).json({ error: 'You already have an upcoming lesson with this teacher.', already: true });
+    }
+    if (rel === 'trial_done') {
+      return res.status(409).json({ error: 'You already used your trial — join the teacher to book more lessons.', needJoin: true });
+    }
     const end = new Date(start.getTime() + SLOT_MIN * 60000);
     const ins = await pool.query(
       `INSERT INTO teacher_slots (teacher_id, starts_at, ends_at, student_id, status, booked_at, note)
@@ -130,6 +179,71 @@ router.post('/api/m/mentors/:id/book-trial', requireToken, async (req, res) => {
     if (!ins.rows.length) return res.status(409).json({ error: 'Slot no longer available', taken: true });
     res.json({ ok: true, id: ins.rows[0].id });
   } catch (e) { console.error('m/mentor book-trial:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── POST /api/m/mentors/:id/join : « Join the teacher » (après le cours d'essai) ─
+// Matérialise la relation prof↔élève : crée (ou réactive) une classe 1:1 au NOM DE
+// L'ÉLÈVE dans le dashboard du prof, et y inscrit l'élève. Idempotent. Une fois
+// rejoint, l'élève réserve ses cours par le flux normal (gate d'appartenance OK).
+router.post('/api/m/mentors/:id/join', requireToken, async (req, res) => {
+  const client = await pool.connect();
+  let began = false;
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Invalid teacher' });
+    if (id === uid) return res.status(400).json({ error: 'Cannot join yourself' });
+    const t = await client.query(`SELECT 1 FROM users WHERE id = $1 AND role = 'teacher'`, [id]);
+    if (!t.rows.length) return res.status(404).json({ error: 'Teacher not found' });
+
+    const rel = await relationshipState(id, uid);
+    if (rel === 'joined') {
+      const ex = await client.query(
+        `SELECT c.id FROM classrooms c JOIN classroom_students cs ON cs.classroom_id = c.id
+         WHERE c.teacher_id = $1 AND cs.student_id = $2 AND cs.status = 'active'
+         ORDER BY (c.type = '1:1') DESC LIMIT 1`, [id, uid]);
+      return res.json({ ok: true, alreadyJoined: true, classroomId: ex.rows[0]?.id || null });
+    }
+    if (rel === 'none') {
+      return res.status(403).json({ error: 'Book a trial lesson first.', needTrial: true });
+    }
+    // rel = 'trial_booked' | 'trial_done' → contact établi, on peut rejoindre.
+    const who = await client.query('SELECT name FROM users WHERE id = $1', [uid]);
+    const studentName = ((who.rows[0]?.name || '').trim() || 'Student').slice(0, 80);
+
+    await client.query('BEGIN'); began = true;
+    // Réutiliser une classe 1:1 de ce couple si elle existe déjà (élève revenu).
+    const existing = await client.query(
+      `SELECT c.id FROM classrooms c JOIN classroom_students cs ON cs.classroom_id = c.id
+       WHERE c.teacher_id = $1 AND c.type = '1:1' AND cs.student_id = $2 AND c.archived = FALSE
+       LIMIT 1`, [id, uid]);
+    let classroomId;
+    if (existing.rows.length) {
+      classroomId = existing.rows[0].id;
+      await client.query(
+        `UPDATE classroom_students SET status = 'active' WHERE classroom_id = $1 AND student_id = $2`,
+        [classroomId, uid]);
+    } else {
+      const code = await genClassCode();
+      const insC = await client.query(
+        `INSERT INTO classrooms (teacher_id, name, type, join_code) VALUES ($1, $2, '1:1', $3) RETURNING id`,
+        [id, studentName, code]);
+      classroomId = insC.rows[0].id;
+      await client.query(
+        `INSERT INTO classroom_students (classroom_id, student_id, status)
+         VALUES ($1, $2, 'active')
+         ON CONFLICT (classroom_id, student_id) DO UPDATE SET status = 'active'`,
+        [classroomId, uid]);
+    }
+    await client.query('COMMIT'); began = false;
+    res.json({ ok: true, classroomId });
+  } catch (e) {
+    if (began) { try { await client.query('ROLLBACK'); } catch { /* noop */ } }
+    console.error('m/mentor join:', e);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
 });
 
 // ── GET /api/m/student/classes : mentors rejoints + tasks en cours ───────────
@@ -297,7 +411,9 @@ router.get('/api/m/student/mentors/:teacherId/overview', requireToken, async (re
     ]);
 
     const isActive = classes.rows.some((c) => c.status === 'active');
+    const relationship = await relationshipState(teacherId, uid);
     res.json({
+      relationship, // 'none' | 'trial_booked' | 'trial_done' | 'joined'
       teacher: {
         id: t.id, name: t.name,
         teaching_languages: (t.teaching_languages || '').split(',').map((s) => s.trim()).filter(Boolean),

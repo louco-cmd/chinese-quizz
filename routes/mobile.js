@@ -48,6 +48,29 @@ async function isUserPremium(userId) {
     || (r.plan_name === 'premium' && r.sub_status === 'active' && r.stripe_status === 'active');
 }
 
+// ── Freemium PROF ────────────────────────────────────────────────────────────
+// Un prof payant a l'entitlement `teacher_pro` (distinct du premium élève, prix
+// différent → SKU store différent). Stocké sur users.teacher_pro_expires_at
+// (miroir de rc_expires_at). special_guest débloque tout (comptes de test/VIP).
+// teacher_pro est un SUR-ENSEMBLE du premium élève côté avantages d'apprentissage.
+async function isTeacherPro(userId) {
+  const { rows } = await pool.query(
+    'SELECT special_guest, teacher_pro_expires_at FROM users WHERE id = $1', [userId]);
+  if (!rows.length) return false;
+  const r = rows[0];
+  if (r.special_guest === true) return true;
+  return !!(r.teacher_pro_expires_at && new Date(r.teacher_pro_expires_at) > new Date());
+}
+
+// Limites du tier prof GRATUIT (tunables). Au-delà → teacher_pro requis.
+// `students` = nombre total d'élèves actifs toutes classes confondues.
+const FREE_TEACHER_LIMITS = { classes: 3, students: 3 };
+
+// Taux de commission marketplace par tier (prélevé sur un cours PAYANT — la
+// collecte réelle viendra avec le chantier « cours payants » / Stripe Connect ;
+// ici on expose juste le taux applicable selon le statut du prof).
+const TEACHER_COMMISSION = { free: 0.15, pro: 0.07 };
+
 // GARDE-FOU ANTI-VANDALISME : plafond d'éditions de la base PARTAGÉE par
 // jour/utilisateur. Chaque mutation partagée est journalisée dans edit_log ; au-delà
 // de la limite on refuse, ce qui casse toute modification malveillante en masse
@@ -428,6 +451,7 @@ router.get('/api/m/me', requireToken, async (req, res) => {
               u.avatar_icon, u.avatar_color,
               (u.created_at <= NOW() - INTERVAL '3 days' AND COALESCE(u.ig_promo_seen, FALSE) = FALSE) AS show_ig_promo,
               u.rc_expires_at, u.rc_will_renew,
+              u.teacher_pro_expires_at, u.teacher_pro_will_renew,
               us.plan_name, us.status AS sub_status, us.stripe_status,
               us.cancel_at_period_end, us.current_period_end
        FROM users u
@@ -448,6 +472,10 @@ router.get('/api/m/me', requireToken, async (req, res) => {
     const rcActive = row.rc_expires_at && new Date(row.rc_expires_at) > new Date();
     const isPremium = isSpecialGuest || allActive || rcActive;
     const plan = isSpecialGuest ? 'guest' : (isPremium ? 'premium' : 'free');
+    // Freemium prof : entitlement teacher_pro (distinct du premium élève).
+    const teacherProActive = row.teacher_pro_expires_at
+      && new Date(row.teacher_pro_expires_at) > new Date();
+    const isTeacherPro = isSpecialGuest || !!teacherProActive;
 
     res.json({
       id: row.id,
@@ -470,6 +498,13 @@ router.get('/api/m/me', requireToken, async (req, res) => {
       isPremium,
       isSpecialGuest,
       plan, // 'premium' | 'guest' | 'free'
+      // Statut prof : teacher_pro (payant) vs gratuit, + taux de commission applicable.
+      isTeacherPro,
+      teacherPlan: row.role === 'teacher' ? (isTeacherPro ? 'pro' : 'free') : null,
+      teacherCommissionRate: row.role === 'teacher'
+        ? (isTeacherPro ? TEACHER_COMMISSION.pro : TEACHER_COMMISSION.free)
+        : null,
+      teacherFreeLimits: FREE_TEACHER_LIMITS,
       // Drawer « suivez-nous sur Instagram » : après 3 j d'ancienneté, 1×/user.
       showIgPromo: row.show_ig_promo === true,
       // Annulation programmée : l'accès premium reste jusqu'à la fin de période.
@@ -659,7 +694,7 @@ require('./mobile/social')(router, { requireToken, notify, getUserLangs, isUserP
 
 
 // ── Côté élève (mentors, réservation, classes, tâches) → routes/mobile/student.js ──
-require('./mobile/student')(router, { requireToken, notify, getUserLangs });
+require('./mobile/student')(router, { requireToken, notify, getUserLangs, isTeacherPro, FREE_TEACHER_LIMITS });
 
 // ── JiaStore marketplace (packs, wallet, bank) → routes/mobile/market.js ─────
 require('./mobile/market')(router, { requireToken, notify, isUserPremium, FREE_LIMITS, getUserLangs, syncConceptSiblings, splitSenses, verifyRequired, isVerified, PREMIUM_PACK_COVERS, learnableLangs: () => LEARNABLE_LANGS });
@@ -668,7 +703,7 @@ require('./mobile/market')(router, { requireToken, notify, isUserPremium, FREE_L
 require('./mobile/quiz')(router, { requireToken, notify, getUserLangs, isUserPremium, FREE_LIMITS, countToday, syncConceptSiblings });
 
 // ── Plateforme professeur + leçons / créneaux → routes/mobile/lessons.js ─────
-require('./mobile/lessons')(router, { requireToken, notify, getUserLangs, syncConceptSiblings });
+require('./mobile/lessons')(router, { requireToken, notify, getUserLangs, syncConceptSiblings, isTeacherPro, FREE_TEACHER_LIMITS });
 
 
 // ── Billing (Stripe web) → routes/mobile/billing.js ──────────────────────────

@@ -672,6 +672,10 @@ export function getMentorSlots(id) {
 export function bookTrial(id, startsAt) {
   return request(`/api/m/mentors/${id}/book-trial`, { method: 'POST', body: { starts_at: startsAt } });
 }
+// « Join the teacher » : après le cours d'essai, matérialise la relation (classe 1:1).
+export function joinTeacher(id) {
+  return request(`/api/m/mentors/${id}/join`, { method: 'POST' });
+}
 export function getTeacherLessons() {
   return request('/api/m/teacher/lessons');
 }
