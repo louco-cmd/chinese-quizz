@@ -165,7 +165,10 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
         <SegmentedPicker
           value={duelType}
           onChange={setDuelType}
-          options={[{ value: 'classic', label: t('du_random') }, { value: 'match_aa', label: t('du_aa') }]}
+          options={[
+            { value: 'classic', label: t('du_random'), sub: t('du_random_sub') },
+            { value: 'match_aa', label: t('du_aa'), sub: t('du_aa_sub') },
+          ]}
         />
       </View>
 
