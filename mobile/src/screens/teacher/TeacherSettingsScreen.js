@@ -1,20 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, Text, ScrollView, Pressable, Platform, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import SettingsGroup from '../../components/settings/SettingsGroup';
 import SettingsRow from '../../components/settings/SettingsRow';
+import UpdateFooter from '../../components/settings/UpdateFooter';
 import Toggle from '../../ui/Toggle';
-import { getSettings, updateSettings, deleteAccount } from '../../api';
+import { getSettings, updateSettings, deleteAccount, exportAccountData } from '../../api';
 import { Modal, Button } from '../../ui';
 import { COLORS } from '../../theme';
 
 // Réglages professeur — miroir de teach-settings.ejs.
+// Rendu DANS le shell prof (sous le header 加油 persistant), donc on ne rajoute
+// PAS insets.top ici (le header gère déjà le safe-area) — sinon gros vide en haut.
 export default function TeacherSettingsScreen({ onBack, onLogout, onOpenProfile, onOpenSupport, onOpenLegal, onReplayFlow }) {
-  const insets = useSafeAreaInsets();
   const [s, setS] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,9 +35,36 @@ export default function TeacherSettingsScreen({ onBack, onLogout, onOpenProfile,
     try { await deleteAccount(); onLogout(); } catch (e) { setError(e.message || 'Could not delete account.'); setConfirmDelete(false); } finally { setDeleting(false); }
   }
 
+  // Export RGPD : récupère les données perso (hors collection) et les remet au prof
+  // — téléchargement d'un .json sur le web, copie presse-papier sur natif.
+  async function doExport() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const data = await exportAccountData();
+      const json = JSON.stringify(data, null, 2);
+      if (Platform.OS === 'web') {
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'jiayou-data-export.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      } else {
+        const Clipboard = require('expo-clipboard');
+        await Clipboard.setStringAsync(json);
+        Alert.alert('Export my data', 'Your data was copied to the clipboard.');
+      }
+    } catch (e) {
+      Alert.alert('Export my data', e.message || 'Could not export.');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <View className="flex-1 bg-surface-page">
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: 20 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: 12, paddingBottom: 24 }}>
         <View style={{ width: '100%', maxWidth: 600, alignSelf: 'center', paddingHorizontal: 16 }}>
           <Pressable onPress={onBack} hitSlop={10} className="flex-row items-center gap-1 mb-3">
             <Ionicons name="chevron-back" size={20} color={COLORS.muted} /><Text className="text-muted text-[14px]">Back</Text>
@@ -61,9 +90,12 @@ export default function TeacherSettingsScreen({ onBack, onLogout, onOpenProfile,
           </SettingsGroup>
 
           <SettingsGroup title="Danger zone">
+            <SettingsRow icon="download-outline" label={exporting ? 'Preparing your data…' : 'Export my data'} onPress={doExport} />
             <SettingsRow icon="log-out" danger label="Log out" onPress={() => setConfirmLogout(true)} />
             <SettingsRow icon="trash" danger label="Delete account" onPress={() => setConfirmDelete(true)} />
           </SettingsGroup>
+
+          <UpdateFooter />
         </View>
       </ScrollView>
 
