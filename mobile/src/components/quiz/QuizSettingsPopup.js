@@ -13,10 +13,10 @@ const label = (n) => (n === 7 ? 'S' : String(n));
 // envoyées au backend (vide = tous). Les clés (seed/meh/ok/cool/trophy) sont
 // celles attendues côté serveur.
 const KNOW_PRESETS = [
-  { key: 'all', lk: 'qz_kp_all', emojis: '', levels: [] },
-  { key: 'work', lk: 'qz_kp_work', emojis: '🌱😐🙂', levels: ['seed', 'meh', 'ok'] },
-  { key: 'almost', lk: 'qz_kp_almost', emojis: '😎', levels: ['cool'] },
-  { key: 'review', lk: 'qz_kp_review', emojis: '🏆', levels: ['trophy'] },
+  { key: 'all', icon: '📚', lk: 'qz_kp_all', subLk: 'qz_kp_all_sub', levels: [] },
+  { key: 'work', icon: '💪', lk: 'qz_kp_work', subLk: 'qz_kp_work_sub', levels: ['seed', 'meh', 'ok'] },
+  { key: 'almost', icon: '😎', lk: 'qz_kp_almost', subLk: 'qz_kp_almost_sub', levels: ['cool'] },
+  { key: 'review', icon: '🏆', lk: 'qz_kp_review', subLk: 'qz_kp_review_sub', levels: ['trophy'] },
 ];
 
 // `tight` : marge réduite quand un sous-titre bleu suit immédiatement (titre collé
@@ -153,9 +153,12 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
               const active = knowPreset === p.key;
               return (
                 <Pressable key={p.key} onPress={() => setKnowPreset(p.key)}
-                  style={{ width: '48%', minHeight: 58, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 6, borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
-                  {p.emojis ? <Text style={{ fontSize: 18, marginBottom: 3 }}>{p.emojis}</Text> : null}
-                  <Text numberOfLines={1} style={{ fontWeight: '700', fontSize: 13, color: active ? COLORS.jiayou : '#1a1a2e' }}>{t(p.lk)}</Text>
+                  style={{ width: '48%', minHeight: 58, borderRadius: 16, borderWidth: 2, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, paddingHorizontal: 6, borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ fontSize: 16 }}>{p.icon}</Text>
+                    <Text numberOfLines={1} style={{ fontWeight: '700', fontSize: 13.5, color: active ? COLORS.jiayou : '#1a1a2e' }}>{t(p.lk)}</Text>
+                  </View>
+                  <Text numberOfLines={1} style={{ fontSize: 10.5, fontWeight: '500', marginTop: 2, color: active ? COLORS.jiayou : COLORS.mutedLight }}>{t(p.subLk)}</Text>
                 </Pressable>
               );
             })}
