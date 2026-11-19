@@ -128,12 +128,9 @@ export default function StartDuelPopup({ visible, presetOpponent, onClose, onCre
             </Pressable>
           ))}
 
-          {/* Suggestions : adversaires précédents en cellules scrollables (horizontal) */}
+          {/* Adversaires précédents : tags directement sous le champ (sans titre). */}
           {!query.trim() && !searching && recent.length > 0 ? (
-            <View style={{ marginTop: 10 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-                {t('du_recent_opponents')}
-              </Text>
+            <View style={{ marginTop: 8 }}>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
