@@ -16,6 +16,7 @@ const { SIGNUP_GRANT } = require('../lib/economy');
 const cedict = require('../lib/cedict');
 const simptrad = require('../lib/simptrad');
 const { SLOT_MIN, BOOKING_HORIZON_DAYS, validTz, deriveTeacherSlots } = require('../lib/teacher-schedule');
+const { buildCalendar } = require('../lib/ics');
 
 const fs = require('fs');
 const path = require('path');
@@ -669,6 +670,120 @@ async function notify(userId, type, title, body = null, data = null) {
   // Push natif (Expo) — fire-and-forget, gated par le token + le réglage user.
   sendExpoPush(userId, { title, body: body || '', data: { type, ...(data || {}) } }).catch(() => {});
 }
+
+// ══ Synchro calendrier externe (abonnement .ics) ══════════════════════════════
+// Sens unique : Google / Apple / Outlook s'abonnent à une URL .ics secrète et la
+// rafraîchissent eux-mêmes. Pas d'OAuth, un seul code pour les 3 providers.
+
+// Base publique de l'API (pour construire l'URL du flux). BASE_URL en prod.
+function publicBaseUrl() {
+  let b = process.env.BASE_URL || 'https://app.jiayou.fr';
+  if (!/^https?:\/\//i.test(b)) b = 'https://' + b;
+  return b.replace(/\/+$/, '');
+}
+
+// Récupère (ou crée) le token de flux calendrier d'un utilisateur.
+async function ensureCalFeedToken(userId) {
+  const { rows } = await pool.query('SELECT cal_feed_token FROM users WHERE id = $1', [userId]);
+  if (rows[0] && rows[0].cal_feed_token) return rows[0].cal_feed_token;
+  // Token opaque non devinable (32 octets → base64url). Boucle en cas de collision.
+  for (let i = 0; i < 5; i++) {
+    const tok = crypto.randomBytes(24).toString('base64url');
+    const r = await pool.query(
+      `UPDATE users SET cal_feed_token = $1 WHERE id = $2 AND cal_feed_token IS NULL RETURNING cal_feed_token`,
+      [tok, userId]);
+    if (r.rows.length) return tok;
+    // Déjà posé entre-temps (course) → relis.
+    const again = await pool.query('SELECT cal_feed_token FROM users WHERE id = $1', [userId]);
+    if (again.rows[0] && again.rows[0].cal_feed_token) return again.rows[0].cal_feed_token;
+  }
+  throw new Error('Could not allocate calendar token');
+}
+
+// GET /api/cal/:file — flux .ics PUBLIC (pas de JWT : sécurisé par le token
+// secret dans l'URL). :file = "<token>.ics" ; on tolère l'absence d'extension.
+router.get('/api/cal/:file', async (req, res) => {
+  try {
+    const token = String(req.params.file || '').replace(/\.ics$/i, '');
+    if (!token || token.length < 16) return res.status(404).type('text/plain').send('Not found');
+    const u = await pool.query('SELECT id, name FROM users WHERE cal_feed_token = $1', [token]);
+    if (!u.rows.length) return res.status(404).type('text/plain').send('Not found');
+    const uid = u.rows[0].id;
+
+    // Cours (passés récents → +180 j) où l'utilisateur est prof OU élève.
+    const { rows } = await pool.query(
+      `SELECT ts.id, ts.note, ts.status,
+              to_char(ts.starts_at AT TIME ZONE 'UTC', 'YYYYMMDD"T"HH24MISS"Z"') AS start_utc,
+              to_char(ts.ends_at   AT TIME ZONE 'UTC', 'YYYYMMDD"T"HH24MISS"Z"') AS end_utc,
+              (ts.teacher_id = $1) AS i_am_teacher,
+              su.name AS student_name, tu.name AS teacher_name
+       FROM teacher_slots ts
+       JOIN users tu ON tu.id = ts.teacher_id
+       LEFT JOIN users su ON su.id = ts.student_id
+       WHERE (ts.teacher_id = $1 OR ts.student_id = $1)
+         AND ts.starts_at > NOW() - INTERVAL '30 days'
+         AND ts.starts_at < NOW() + INTERVAL '180 days'
+       ORDER BY ts.starts_at ASC LIMIT 500`,
+      [uid]);
+
+    const events = rows.map((r) => {
+      const trial = (r.note || '').toLowerCase() === 'trial';
+      const other = r.i_am_teacher ? (r.student_name || 'your student') : (r.teacher_name || 'your teacher');
+      const kind = trial ? 'Trial class' : 'Lesson';
+      return {
+        uid: `slot-${r.id}`,
+        start: r.start_utc,
+        end: r.end_utc,
+        summary: `Jiayou ${kind} with ${other}`,
+        description: r.i_am_teacher
+          ? `Jiayou ${kind.toLowerCase()} — open the Jiayou app to start the video call.`
+          : `Jiayou ${kind.toLowerCase()} — open the Jiayou app to join.`,
+        cancelled: r.status === 'cancelled',
+      };
+    });
+
+    const ics = buildCalendar(events, { name: 'Jiayou lessons' });
+    res.set('Content-Type', 'text/calendar; charset=utf-8');
+    res.set('Content-Disposition', 'inline; filename="jiayou.ics"');
+    res.set('Cache-Control', 'public, max-age=900'); // 15 min
+    return res.send(ics);
+  } catch (e) {
+    console.error('cal feed error:', e);
+    return res.status(500).type('text/plain').send('Server error');
+  }
+});
+
+// GET /api/m/cal/feed — renvoie l'URL d'abonnement (crée le token au besoin).
+router.get('/api/m/cal/feed', requireToken, async (req, res) => {
+  try {
+    const token = await ensureCalFeedToken(req.tokenUser.id);
+    const base = publicBaseUrl();
+    const url = `${base}/api/cal/${token}.ics`;
+    res.json({
+      url,                                   // https://…  (Apple/Outlook)
+      webcal: url.replace(/^https?:\/\//i, 'webcal://'), // ouvre direct Apple Cal
+      google: `https://calendar.google.com/calendar/u/0/r/settings/addbyurl?cid=${encodeURIComponent(url)}`,
+    });
+  } catch (e) {
+    console.error('cal feed url error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/m/cal/feed/rotate — révoque l'ancienne URL et en génère une neuve.
+router.post('/api/m/cal/feed/rotate', requireToken, async (req, res) => {
+  try {
+    const tok = crypto.randomBytes(24).toString('base64url');
+    await pool.query('UPDATE users SET cal_feed_token = $1 WHERE id = $2', [tok, req.tokenUser.id]);
+    const base = publicBaseUrl();
+    const url = `${base}/api/cal/${tok}.ics`;
+    res.json({ url, webcal: url.replace(/^https?:\/\//i, 'webcal://'),
+      google: `https://calendar.google.com/calendar/u/0/r/settings/addbyurl?cid=${encodeURIComponent(url)}` });
+  } catch (e) {
+    console.error('cal feed rotate error:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // ── Auth (login email/mdp, register, Google, Apple) → routes/mobile/auth.js ──
 // ── Collection / dictionnaire (mots, recherche, import, édition) → routes/mobile/collection.js ──

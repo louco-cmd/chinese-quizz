@@ -89,7 +89,10 @@ export default function DuelPlayScreen({ duelId, onExit }) {
 
   const type = duel?.quiz_type || 'pinyin';
   const isZh = isZhLearning(learningLang);
-  const isPinyin = isZh && type === 'pinyin';
+  // Reading (zh) : on MONTRE le hanzi et on saisit le pinyin. La réponse est donc
+  // du pinyin, comme le mode pinyin (seul le prompt change : hanzi au lieu de trad).
+  const isReading = isZh && type === 'reading';
+  const isPinyin = isZh && (type === 'pinyin' || type === 'reading');
   const isLatin = !isZh; // terme appris latin → saisie par jetons de lettres
 
   const load = useCallback(async () => {
@@ -117,7 +120,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
   function resetQuestion(w, t = type, lp = learningLang) {
     setSecond(false); setFeedback(null); setLocked(false);
     const zh = isZhLearning(lp);
-    const pin = zh && t === 'pinyin';
+    const pin = zh && (t === 'pinyin' || t === 'reading');
     if (pin || !zh) {
       const toks = firstSenseTokens(w, pin);
       setInputs((toks.length ? toks : ['']).map(() => ''));
@@ -273,14 +276,15 @@ export default function DuelPlayScreen({ duelId, onExit }) {
 
   const w = words[idx];
   // Question unifiée : consigne (muted) + mot demandé sur sa propre ligne.
-  const promptLine = isPinyin
-    ? tr('qp_how_pinyin_line')
+  const promptLine = isReading
+    ? tr('qp_how_reading_line')
+    : isPinyin ? tr('qp_how_pinyin_line')
     : isZh ? tr('qp_how_chinese_line') : tr('qp_how_word_line');
-  // Duel pinyin (zh) : on montre la TRADUCTION (langue de base) et on saisit le
-  // pinyin — comme le mode pinyin du quiz (jamais le hanzi). Non-zh : traduction
-  // → terme appris. Dans les deux cas on affiche donc la traduction (w.english).
-  const promptWord = w.english;
-  const promptWordSize = 30;
+  // Reading (zh) : on MONTRE le hanzi et on saisit le pinyin. Autres modes : on
+  // affiche la traduction (langue de base) — pinyin (trad→pinyin), caractère
+  // (trad→hanzi) et non-zh (trad→terme appris).
+  const promptWord = isReading ? w.chinese : w.english;
+  const promptWordSize = isReading ? 40 : 30;
   const fb = feedback?.kind === 'success' ? { bg: '#e8f5e9', fg: COLORS.success } : { bg: '#fff3cd', fg: '#856404' };
 
   // Champs à jetons : pinyin (syllabes) OU terme latin (mots). Hanzi = champ unique.
@@ -301,7 +305,7 @@ export default function DuelPlayScreen({ duelId, onExit }) {
           <View style={{ alignItems: 'center', marginVertical: 22 }}>
             <Text style={{ fontSize: 16, color: COLORS.muted, textAlign: 'center' }}>{promptLine}</Text>
             <Text style={{ fontSize: promptWordSize, fontWeight: '800', color: '#1a1a2e', marginTop: 10, textAlign: 'center' }}>{promptWord}</Text>
-            {w.tr_missing ? (
+            {!isReading && w.tr_missing ? (
               <Text style={{ fontSize: 12, color: COLORS.mutedLight, textAlign: 'center', marginTop: 6 }}>{tr('dp_tr_fallback')}</Text>
             ) : null}
           </View>

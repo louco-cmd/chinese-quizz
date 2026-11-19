@@ -213,6 +213,8 @@ export const TRANSLATIONS = {
     qz_empty_capture_cta: 'Capture words',
     qz_empty_quiz_sub: 'Nothing to review right now — run a quiz to keep sharp.',
     kn_new: 'New', kn_weak: 'Weak', kn_okay: 'Okay', kn_strong: 'Strong',
+    qz_know_help: 'Pick which words to practice, based on how well you know them.',
+    qz_kp_all: 'All', qz_kp_work: 'To work on', qz_kp_almost: 'Almost there', qz_kp_review: 'Review mastered',
     wc_fast: 'fast', wc_standard: 'standard', wc_serious: 'serious', wc_crazy: 'crazy',
     // ── Quiz (play) ──
     qp_not_enough: 'Not enough words in your collection for these settings. Add more words or widen your filters, then try again.',
@@ -709,6 +711,8 @@ export const TRANSLATIONS = {
     qz_empty_capture_cta: 'Capturer des mots',
     qz_empty_quiz_sub: 'Rien à réviser pour l’instant — lance un quiz pour rester affûté.',
     kn_new: 'Nouveau', kn_weak: 'Faible', kn_okay: 'Correct', kn_strong: 'Solide',
+    qz_know_help: 'Choisis les mots à travailler, selon ce que tu en connais déjà.',
+    qz_kp_all: 'Tout', qz_kp_work: 'À bosser', qz_kp_almost: 'Presque acquis', qz_kp_review: 'Réviser les acquis',
     wc_fast: 'rapide', wc_standard: 'standard', wc_serious: 'sérieux', wc_crazy: 'fou',
     // ── Quiz (play) ──
     qp_not_enough: 'Pas assez de mots dans ta collection pour ces réglages. Ajoute des mots ou élargis tes filtres, puis réessaie.',
@@ -1203,6 +1207,8 @@ export const TRANSLATIONS = {
     qz_empty_capture_cta: '捕捉词语',
     qz_empty_quiz_sub: '暂时没有要复习的内容 — 来做个测验保持状态吧。',
     kn_new: '入门', kn_weak: '薄弱', kn_okay: '一般', kn_strong: '良好',
+    qz_know_help: '根据你的掌握程度，选择要练习的词。',
+    qz_kp_all: '全部', qz_kp_work: '待加强', qz_kp_almost: '快掌握', qz_kp_review: '复习已掌握',
     wc_fast: '快速', wc_standard: '标准', wc_serious: '认真', wc_crazy: '疯狂',
     // ── 测验（进行中）──
     qp_not_enough: '按这些设置，你词库里的词不够。请添加更多词或放宽筛选后再试。',

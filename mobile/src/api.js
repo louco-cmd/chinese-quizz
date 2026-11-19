@@ -707,6 +707,15 @@ export function getUpcomingSessions() {
   return request('/api/m/agenda/upcoming');
 }
 
+// Synchro calendrier externe (abonnement .ics). Renvoie { url, webcal, google }.
+export function getCalFeed() {
+  return request('/api/m/cal/feed');
+}
+// Régénère l'URL d'abonnement (révoque l'ancienne).
+export function rotateCalFeed() {
+  return request('/api/m/cal/feed/rotate', { method: 'POST' });
+}
+
 // Stats prof (page Profil) : élèves, cours donnés, note moyenne.
 export function getTeacherStats() {
   return request('/api/m/teacher/stats');

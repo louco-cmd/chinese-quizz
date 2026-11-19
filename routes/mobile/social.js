@@ -232,8 +232,11 @@ router.post('/api/m/duels/create', requireToken, async (req, res) => {
   const challengerId = req.tokenUser.id;
   const {
     opponent_id, duel_type = 'classic', word_count = 20,
-    quiz_type = 'pinyin', bet_amount = 0,
+    quiz_type: rawQuizType = 'pinyin', bet_amount = 0,
   } = req.body || {};
+  // Modes supportés : pinyin (trad→pinyin), reading (hanzi→pinyin), character
+  // (trad→hanzi). Tout le reste retombe sur pinyin.
+  const quiz_type = ['pinyin', 'reading', 'character'].includes(rawQuizType) ? rawQuizType : 'pinyin';
   const bet = Math.max(0, parseInt(bet_amount, 10) || 0);
 
   if (!opponent_id) return res.status(400).json({ error: 'Opponent required' });

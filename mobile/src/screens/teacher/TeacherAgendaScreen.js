@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions, Platform
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import BottomSheet from '../../ui/BottomSheet';
+import CalendarSyncSheet from '../../components/CalendarSyncSheet';
 import CatLoader from '../../components/CatLoader';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import { getTeacherLessons, deleteTeacherLesson, updateTeacherLesson, getTeacherAvailability, setTeacherAvailability, getTeacherDateSlots, setTeacherDateSlots } from '../../api';
@@ -231,7 +232,7 @@ function DayEditor({ date, onClose, onSaved, t, lang }) {
 }
 
 // Carte « Mon calendrier » : prochains cours + cours de la semaine + CTA dispos.
-function SummaryCard({ t, lang, lessons, weekCount, onEditAvail, onEditLesson, onStart }) {
+function SummaryCard({ t, lang, lessons, weekCount, onEditAvail, onEditLesson, onStart, onSync }) {
   return (
     <View style={{ backgroundColor: '#fff', borderRadius: 18, padding: 20, ...SHADOW_CARD }}>
       <Text style={{ fontSize: 22, fontWeight: '800', color: '#1a1a2e' }}>{t('ag_my_calendar')}</Text>
@@ -275,6 +276,10 @@ function SummaryCard({ t, lang, lessons, weekCount, onEditAvail, onEditLesson, o
 
       <Pressable onPress={onEditAvail} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', marginTop: 18 }}>
         <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14.5 }}>{t('ag_edit_avail')}</Text>
+      </Pressable>
+      <Pressable onPress={onSync} style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 7, paddingVertical: 12, marginTop: 8 }}>
+        <Ionicons name="sync-outline" size={16} color={COLORS.jiayou} />
+        <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 13.5 }}>Sync with my calendar</Text>
       </Pressable>
     </View>
   );
@@ -534,6 +539,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
   const [selected, setSelected] = useState(localKey(new Date()));
   const [viewMode, setViewMode] = useState('week'); // week | day | month
   const [editingAvail, setEditingAvail] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [editingDay, setEditingDay] = useState(null); // date YYYY-MM-DD en cours d'édition
   const [detailLesson, setDetailLesson] = useState(null); // cours sélectionné pour le detail sheet
 
@@ -696,7 +702,8 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
 
   const Summary = (
     <SummaryCard t={t} lang={lang} lessons={upcomingLessons} weekCount={weekCount}
-      onEditAvail={() => setEditingAvail(true)} onEditLesson={editLesson} onStart={startClass} />
+      onEditAvail={() => setEditingAvail(true)} onEditLesson={editLesson} onStart={startClass}
+      onSync={() => setSyncing(true)} />
   );
 
   return (
@@ -718,6 +725,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
       <AvailabilityEditor visible={editingAvail} onClose={() => setEditingAvail(false)} onSaved={load} t={t} lang={lang} />
       <DayEditor date={editingDay} onClose={() => setEditingDay(null)} onSaved={load} t={t} lang={lang} />
       <LessonDetailSheet lesson={detailLesson} visible={!!detailLesson} onClose={() => setDetailLesson(null)} onSaved={load} onStart={startClass} t={t} lang={lang} />
+      <CalendarSyncSheet visible={syncing} onClose={() => setSyncing(false)} />
     </View>
   );
 }

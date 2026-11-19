@@ -204,7 +204,7 @@ export default function DuelDetailScreen({ duelId, onBack, onRematch, onDefeat }
 
   const details = [
     { icon: 'shuffle', label: t('dd_mode'), value: duel.duel_type === 'classic' ? t('dd_random') : t('dd_aa_match') },
-    { icon: 'help-circle', label: t('dd_quiz_type'), value: duel.quiz_type === 'pinyin' ? t('qz_pinyin') : t('qz_characters') },
+    { icon: 'help-circle', label: t('dd_quiz_type'), value: duel.quiz_type === 'pinyin' ? t('qz_pinyin') : duel.quiz_type === 'reading' ? t('qz_reading') : t('qz_characters') },
     { icon: 'list', label: t('dd_words'), value: String(words.length) },
     ...(duel.bet_amount > 0 ? [{ icon: 'cash', label: t('dd_bet'), value: `${duel.bet_amount}₵` }] : []),
   ];

@@ -14,15 +14,16 @@ const WORD_COUNTS = [
   { value: 30, sub: 'wc_serious' },
   { value: 100, sub: 'wc_crazy' },
 ];
-// Niveaux de maîtrise, ordonnés du plus faible au plus fort (comme une plage HSK).
-const KNOWLEDGE = [
-  { key: 'seed', emoji: '🌱', lk: 'kn_new' },
-  { key: 'meh', emoji: '😐', lk: 'kn_weak' },
-  { key: 'ok', emoji: '🙂', lk: 'kn_okay' },
-  { key: 'cool', emoji: '😎', lk: 'kn_strong' },
-  { key: 'trophy', emoji: '🏆', lk: 'quiz_mastered' },
+// Filtre de maîtrise par INTENTION (plutôt qu'une plage min/max cryptique) : on
+// choisit directement « ce que je veux travailler ». `levels` = clés de maîtrise
+// envoyées au backend (vide = tous). Les clés (seed/meh/ok/cool/trophy) sont
+// celles attendues côté serveur.
+const KNOW_PRESETS = [
+  { key: 'all', lk: 'qz_kp_all', emojis: '', levels: [] },
+  { key: 'work', lk: 'qz_kp_work', emojis: '🌱😐🙂', levels: ['seed', 'meh', 'ok'] },
+  { key: 'almost', lk: 'qz_kp_almost', emojis: '😎', levels: ['cool'] },
+  { key: 'review', lk: 'qz_kp_review', emojis: '🏆', levels: ['trophy'] },
 ];
-const K_MAX = KNOWLEDGE.length - 1;
 
 // `tight` : marge réduite quand un sous-titre bleu suit immédiatement (titre collé
 // à sa valeur). Sinon marge normale au-dessus des tuiles/boutons.
@@ -45,8 +46,7 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
   const [hskMin, setHskMin] = useState(1);
   const [hskMax, setHskMax] = useState(7);
   const [count, setCount] = useState(20);
-  const [kMin, setKMin] = useState(0);       // plage de niveaux de maîtrise (comme HSK)
-  const [kMax, setKMax] = useState(K_MAX);
+  const [knowPreset, setKnowPreset] = useState('all'); // intention de maîtrise
 
   // Modes selon la langue apprise : chinois = pinyin/caractères/lecture ; autres =
   // écrire le mot (montre la trad) / lecture (montre le mot → donne la trad).
@@ -62,15 +62,8 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
       ];
 
   useEffect(() => {
-    if (visible) { setType(defaultType); setHskMin(1); setHskMax(7); setCount(20); setKMin(0); setKMax(K_MAX); }
+    if (visible) { setType(defaultType); setHskMin(1); setHskMax(7); setCount(20); setKnowPreset('all'); }
   }, [visible, defaultType]);
-
-  function tapKnow(i) {
-    if (i < kMin) setKMin(i);
-    else if (i > kMax) setKMax(i);
-    else { setKMin(i); setKMax(i); }
-  }
-  const kAll = kMin === 0 && kMax === K_MAX;
 
   function tapLevel(v) {
     if (v < hskMin) setHskMin(v);
@@ -92,8 +85,8 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
     if (scope === 'ids') { onStart({ type }); return; }
     if (scope === 'pack') { onStart({ type, count }); return; }
     const hsk = isAll ? 'all' : `${hskMin}-${hskMax}`;
-    // Plage complète = tous les niveaux (vide) ; sinon les clés de la plage.
-    const levels = kAll ? [] : KNOWLEDGE.slice(kMin, kMax + 1).map((b) => b.key);
+    // Preset d'intention → clés de maîtrise (vide = tous les niveaux).
+    const levels = (KNOW_PRESETS.find((p) => p.key === knowPreset) || KNOW_PRESETS[0]).levels;
     onStart({ type, count, hsk, levels });
   }
 
@@ -158,19 +151,18 @@ export default function QuizSettingsPopup({ visible, scope = 'collection', packL
             </>
           ) : null}
 
-          {/* Difficulté — même UI (plage de tuiles) que le HSK, juste dessous. */}
+          {/* Maîtrise par INTENTION : « ce que je veux travailler » plutôt qu'une
+              plage min/max d'emojis (jugée obscure par les utilisateurs). */}
           <SectionLabel tight>{t('qz_difficulty')}</SectionLabel>
-          <Text style={{ fontSize: 14, fontWeight: '500', color: COLORS.jiayou, marginBottom: 12 }}>
-            {kAll ? t('qz_all_levels') : kMin === kMax ? t(KNOWLEDGE[kMin].lk) : `${t(KNOWLEDGE[kMin].lk)} → ${t(KNOWLEDGE[kMax].lk)}`}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 20 }}>
-            {KNOWLEDGE.map((b, i) => {
-              const active = i >= kMin && i <= kMax;
-              const edge = i === kMin || i === kMax;
+          <Text style={{ fontSize: 12.5, color: COLORS.muted, marginBottom: 12 }}>{t('qz_know_help')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 10, justifyContent: 'space-between', marginBottom: 20 }}>
+            {KNOW_PRESETS.map((p) => {
+              const active = knowPreset === p.key;
               return (
-                <Pressable key={b.key} onPress={() => tapKnow(i)}
-                  style={{ flex: 1, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: active ? (edge ? COLORS.jiayou : '#cfe2ff') : '#f1f3f5' }}>
-                  <Text style={{ fontSize: 20, opacity: active ? 1 : 0.45 }}>{b.emoji}</Text>
+                <Pressable key={p.key} onPress={() => setKnowPreset(p.key)}
+                  style={{ width: '48%', minHeight: 58, borderRadius: 14, borderWidth: 2, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 6, borderColor: active ? COLORS.jiayou : '#e0e0e0', backgroundColor: active ? '#e8f0ff' : '#fff' }}>
+                  {p.emojis ? <Text style={{ fontSize: 18, marginBottom: 3 }}>{p.emojis}</Text> : null}
+                  <Text numberOfLines={1} style={{ fontWeight: '700', fontSize: 13, color: active ? COLORS.jiayou : '#1a1a2e' }}>{t(p.lk)}</Text>
                 </Pressable>
               );
             })}
