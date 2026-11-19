@@ -19,7 +19,10 @@ function WordCountSlider({ value, onChange }) {
   const N = WORD_STOPS.length;
   const idxOf = (v) => { const i = WORD_STOPS.indexOf(v); return i >= 0 ? i : 2; };
   const [pos, setPos] = useState(idxOf(value)); // position continue 0..N-1
-  useEffect(() => { setPos(idxOf(value)); }, [value]);
+  const draggingRef = useRef(false);
+  // Resync depuis l'extérieur (reset à l'ouverture) — MAIS jamais pendant un drag,
+  // sinon onChange→count→cet effet remet `pos` sur le stop arrondi → tremblement.
+  useEffect(() => { if (!draggingRef.current) setPos(idxOf(value)); }, [value]);
 
   const trackRef = useRef(null);
   const geo = useRef({ x: 0, w: 0 });
@@ -39,9 +42,10 @@ function WordCountSlider({ value, onChange }) {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: (e, g) => { measure(); setFromAbs(g.x0); },
+      onPanResponderGrant: (e, g) => { draggingRef.current = true; measure(); setFromAbs(g.x0); },
       onPanResponderMove: (e, g) => setFromAbs(g.moveX),
-      onPanResponderRelease: () => { const r = Math.round(posRef.current); setPos(r); onChangeRef.current(WORD_STOPS[r]); },
+      onPanResponderRelease: () => { draggingRef.current = false; const r = Math.round(posRef.current); setPos(r); onChangeRef.current(WORD_STOPS[r]); },
+      onPanResponderTerminate: () => { draggingRef.current = false; const r = Math.round(posRef.current); setPos(r); onChangeRef.current(WORD_STOPS[r]); },
     })
   ).current;
 
