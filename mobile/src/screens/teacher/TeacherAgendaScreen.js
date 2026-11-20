@@ -261,8 +261,8 @@ function CtaCards({ t, lang, next, stacked, onEditAvail, onStartNext }) {
     <Pressable key="next" onPress={() => next && onStartNext(next, joinable)} style={{ flex: stacked ? undefined : 1 }} className="active:opacity-90">
       <View style={{ flex: stacked ? undefined : 1, backgroundColor: '#fff', borderRadius: 16, padding: 14, minHeight: 92, justifyContent: 'center', ...SHADOW_CARD }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-          <Ionicons name="videocam" size={15} color={COLORS.jiayou} />
-          <Text style={{ color: '#1a1a2e', fontWeight: '800', fontSize: 13.5 }}>{t('ag_start_next')}</Text>
+          <Ionicons name={next ? 'videocam' : 'calendar-clear-outline'} size={15} color={next ? COLORS.jiayou : COLORS.mutedLight} />
+          <Text style={{ color: next ? '#1a1a2e' : COLORS.mutedLight, fontWeight: '800', fontSize: 13.5 }}>{next ? t('ag_start_next') : t('ag_no_upcoming_title')}</Text>
         </View>
         {next ? (
           <>
@@ -273,9 +273,7 @@ function CtaCards({ t, lang, next, stacked, onEditAvail, onStartNext }) {
               </View>
             ) : null}
           </>
-        ) : (
-          <Text style={{ color: COLORS.mutedLight, fontSize: 12 }}>{t('ag_no_upcoming')}</Text>
-        )}
+        ) : null}
       </View>
     </Pressable>
   );
