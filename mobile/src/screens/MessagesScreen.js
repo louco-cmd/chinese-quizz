@@ -186,9 +186,9 @@ function Thread({ conv, onBack }) {
   }
 
   return (
-    // paddingBottom = hauteur du clavier → tout le contenu (fil + input) remonte,
-    // l'input flotte juste au-dessus du clavier.
-    <View style={{ flex: 1, paddingBottom: kb }}>
+    // On remonte le contenu de la hauteur du clavier, MOINS l'inset bas (barre de
+    // navigation gestuelle) que cette hauteur inclut déjà → sinon gap sous l'input.
+    <View style={{ flex: 1, paddingBottom: kb > 0 ? Math.max(0, kb - insets.bottom) : 0 }}>
       {/* En-tête du fil */}
       <View className="flex-row items-center gap-3 px-4 py-2.5 bg-white border-b border-line-soft">
         <Pressable onPress={onBack} hitSlop={10}><Ionicons name="chevron-back" size={22} color={COLORS.ink} /></Pressable>
@@ -219,7 +219,7 @@ function Thread({ conv, onBack }) {
       {error ? <Text className="text-danger text-[12px] text-center py-1">{error}</Text> : null}
 
       {/* Barre de saisie */}
-      <View className="flex-row items-end gap-2 px-3 pt-2 bg-white border-t border-line-soft" style={{ paddingBottom: kb > 0 ? 8 : Math.max(insets.bottom, 8) }}>
+      <View className="flex-row items-end gap-2 px-3 pt-2 bg-white border-t border-line-soft" style={{ paddingBottom: kb > 0 ? 6 : Math.max(insets.bottom, 8) }}>
         <TextInput
           value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor={COLORS.mutedLight}
           multiline maxLength={2000}
