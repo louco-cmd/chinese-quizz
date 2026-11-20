@@ -221,7 +221,7 @@ function Thread({ conv, onBack }) {
     // flotte pile au-dessus du clavier, quelles que soient la TabBar et les insets.
     <View ref={rootRef} style={{ flex: 1, minHeight: 0, paddingBottom: lift }}>
       {/* En-tête du fil */}
-      <View className="flex-row items-center gap-3 px-4 py-2.5 bg-white border-b border-line-soft">
+      <View className="flex-row items-center gap-3 px-4 py-2.5 bg-white border-b border-line-soft" style={{ flexShrink: 0 }}>
         <Pressable onPress={onBack} hitSlop={10}><Ionicons name="chevron-back" size={22} color={COLORS.ink} /></Pressable>
         <Avatar icon={peer?.avatar_icon} color={peer?.avatar_color} name={peer?.name} size={34} />
         <Text className="text-ink font-extrabold text-[16px] flex-1" numberOfLines={1}>{peer?.name || 'User'}</Text>
@@ -250,7 +250,7 @@ function Thread({ conv, onBack }) {
       {error ? <Text className="text-danger text-[12px] text-center py-1">{error}</Text> : null}
 
       {/* Barre de saisie */}
-      <View className="flex-row items-end gap-2 px-3 pt-2 bg-white border-t border-line-soft" style={{ paddingBottom: lift > 0 ? 6 : Math.max(insets.bottom, 8) }}>
+      <View className="flex-row items-end gap-2 px-3 pt-2 bg-white border-t border-line-soft" style={{ flexShrink: 0, paddingBottom: lift > 0 ? 6 : Math.max(insets.bottom, 8) }}>
         <TextInput
           value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor={COLORS.mutedLight}
           multiline maxLength={2000}
