@@ -4,14 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ErrorRetry } from '../../components/ErrorRetry';
-import { teacherOverview, teacherClasses, teacherCreateClass, teacherStudents, getUpcomingSessions } from '../../api';
+import { teacherOverview, teacherClasses, teacherCreateClass, getUpcomingSessions } from '../../api';
 import { Modal, Button } from '../../ui';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import CatLoader from '../../components/CatLoader';
 
-function initials(name) {
-  return (name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
-}
 function hhmm(d) { return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
 function fmtWhen(iso) {
   const d = new Date(iso);
@@ -26,7 +23,6 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
   const isDesktop = width >= 992;
   const [ov, setOv] = useState(null);
   const [classes, setClasses] = useState([]);
-  const [students, setStudents] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,8 +35,8 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
   const load = useCallback(async () => {
     setError('');
     try {
-      const [o, c, s, u] = await Promise.all([teacherOverview(), teacherClasses(), teacherStudents(), getUpcomingSessions()]);
-      setOv(o); setClasses(c.classrooms || []); setStudents(s.students || []);
+      const [o, c, u] = await Promise.all([teacherOverview(), teacherClasses(), getUpcomingSessions()]);
+      setOv(o); setClasses(c.classrooms || []);
       setUpcoming((u.sessions || []).filter((x) => x.i_am_teacher).slice(0, 2));
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   }, []);
@@ -59,86 +55,88 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
   if (loading) return <View className="flex-1 items-center justify-center bg-surface-page"><CatLoader size={110} /></View>;
   if (error) return <View className="flex-1 bg-surface-page"><ErrorRetry error={error} onRetry={load} /></View>;
 
-  // ── Colonne gauche : nom + liste des élèves + « See calendar » ──────────────
-  const sidebar = (
+  // ── Carte récap « My classes » : 4 stats (Students / Lessons / Revenue / Mastered).
+  //   Revenue = PLACEHOLDER (« — ») : l'agrégation réelle du CA (ventes × commission)
+  //   n'est pas encore câblée côté backend — à brancher plus tard (cf. mémoire).
+  const stats = [
+    { label: 'Students', value: ov?.students ?? 0, color: COLORS.success },
+    { label: 'Lessons', value: ov?.tasks ?? 0, color: COLORS.danger },
+    { label: 'Revenue', value: '—', color: COLORS.mutedLight },
+    { label: 'Mastered', value: `${ov?.avg_knowledge ?? 0}%`, color: COLORS.ink },
+  ];
+  const statsCard = (
     <View className="bg-white rounded-2xl p-5" style={SHADOW_CARD}>
-      <Text className="text-ink font-extrabold text-[20px] mb-4">{teacherName || 'Teacher'}</Text>
-      <View className="flex-row items-center justify-between mb-2">
-        <Text className="text-ink font-bold text-[15px]">Students</Text>
-        <Text className="text-muted-light font-bold text-[14px]">{students.length}</Text>
+      <View className="flex-row items-center gap-2 mb-4">
+        <Ionicons name="stats-chart" size={16} color={COLORS.muted} />
+        <Text className="text-ink font-extrabold text-[16px]">My classes</Text>
       </View>
-      {students.length === 0 ? (
-        <Text className="text-muted-light text-[12.5px] py-3">No students yet — invite them from a class.</Text>
-      ) : students.map((s) => (
-        <View key={s.id} className="flex-row items-center gap-2.5 py-2">
-          <View className="rounded-full bg-[#e7edf7] items-center justify-center" style={{ width: 34, height: 34 }}>
-            <Text className="text-jiayou font-extrabold text-[12px]">{initials(s.name)}</Text>
+      <View className="flex-row">
+        {stats.map((s) => (
+          <View key={s.label} className="flex-1 items-center px-1">
+            <Text style={{ color: s.color, fontSize: 20, fontWeight: '800' }} numberOfLines={1}>{s.value}</Text>
+            <Text className="text-muted-light text-[11px] mt-1 text-center" numberOfLines={1}>{s.label}</Text>
           </View>
-          <View className="flex-1">
-            <Text className="text-ink font-bold text-[13.5px]" numberOfLines={1}>{s.name || 'Student'}</Text>
-            <Text className="text-muted-light text-[11px]">{s.class_count} class{s.class_count === 1 ? '' : 'es'} · {s.word_count} words</Text>
-          </View>
-        </View>
-      ))}
-      <Pressable onPress={onOpenAgenda} className="bg-jiayou rounded-full py-3 items-center mt-4 active:opacity-90">
-        <Text className="text-white font-bold text-[14px]">See calendar</Text>
-      </Pressable>
+        ))}
+      </View>
     </View>
   );
 
-  // ── Haut droite : CTA nouvelle classe + mini-carte « Next lesson » ──────────
-  const topRow = (
-    <View className={isDesktop ? 'flex-row gap-4 mb-4' : 'mb-4'}>
-      <Pressable onPress={() => { setCErr(''); setName(''); setCreating(true); }} className={`active:opacity-90 ${isDesktop ? 'flex-1' : 'mb-3'}`}>
-        <LinearGradient colors={['#1a73ff', '#0a3fc4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 16, paddingVertical: 22, paddingHorizontal: 16, minHeight: 92, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="rocket" size={20} color="#fff" style={{ marginBottom: 6 }} />
-          <Text className="text-white font-bold text-[16px]">Open a new class</Text>
-          <Text className="text-white/80 text-[12.5px] mt-0.5">Invite students to a new class</Text>
+  // ── CTA : « Open a new class » (plein, bleu) + « Start next Lesson » (prochain cours).
+  const next = upcoming[0];
+  const nextJoinable = next
+    ? (Date.now() >= new Date(next.starts_at).getTime() - 15 * 60000 && Date.now() <= new Date(next.ends_at).getTime() + 10 * 60000)
+    : false;
+  const ctaRow = (
+    <View className="flex-row gap-3 mb-4" style={{ alignItems: 'stretch' }}>
+      {/* Ouvrir une nouvelle classe → modal de création. */}
+      <Pressable onPress={() => { setCErr(''); setName(''); setCreating(true); }} className="flex-1 active:opacity-90">
+        <LinearGradient colors={['#1a73ff', '#0a3fc4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 14, minHeight: 104, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 34, height: 34, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+            <Ionicons name="add" size={22} color="#fff" />
+          </View>
+          <Text className="text-white font-bold text-[15px] text-center">Open a new class</Text>
+          <Text className="text-white/80 text-[11.5px] mt-0.5 text-center">Invite a student on a new class</Text>
         </LinearGradient>
       </Pressable>
-      <View className="bg-white rounded-2xl p-4" style={[SHADOW_CARD, isDesktop ? { width: 260 } : null]}>
-        <Text className="text-ink font-extrabold text-[14px] mb-2">Next lesson</Text>
-        {upcoming.length === 0 ? (
-          <Text className="text-muted-light text-[12.5px]">No upcoming lesson.</Text>
-        ) : upcoming.map((u) => {
-          const now = Date.now();
-          const st = new Date(u.starts_at).getTime(), en = new Date(u.ends_at).getTime();
-          const joinable = now >= st - 15 * 60000 && now <= en + 10 * 60000;
-          const started = now >= st;
-          const trial = (u.note || '').toLowerCase() === 'trial';
-          return (
-            <View key={u.id} className="flex-row items-center justify-between py-1.5">
-              <View className="flex-row items-center gap-1.5">
-                <Text className="text-ink text-[13px] font-semibold">{fmtWhen(u.starts_at)}</Text>
-                {trial ? (
-                  <View className="bg-[#fff4e5] rounded px-1.5 py-0.5">
-                    <Text className="text-[#c77700] font-extrabold text-[9px]">TRIAL</Text>
-                  </View>
-                ) : null}
+
+      {/* Démarrer le prochain cours : rejoint la visio si c'est l'heure, sinon agenda. */}
+      <Pressable
+        onPress={() => { if (next && nextJoinable) onVideoCall?.(next); else onOpenAgenda?.(); }}
+        className="flex-1 active:opacity-90"
+      >
+        <View className="bg-white rounded-2xl p-4 flex-1 justify-center" style={[SHADOW_CARD, { minHeight: 104 }]}>
+          <View className="flex-row items-center gap-1.5 mb-1.5">
+            <Ionicons name="videocam" size={15} color={COLORS.jiayou} />
+            <Text className="text-ink font-extrabold text-[13.5px]">Start next Lesson</Text>
+          </View>
+          {next ? (
+            <>
+              <Text className="text-muted text-[12px]" numberOfLines={1}>
+                {fmtWhen(next.starts_at)} · {new Date(next.starts_at).toLocaleDateString()}
+              </Text>
+              <View className="self-start rounded-full px-2.5 py-1 mt-2" style={{ backgroundColor: COLORS.ink }}>
+                <Text className="text-white font-bold text-[11px]" numberOfLines={1}>{next.other_name || next.student_name || 'Student'}</Text>
               </View>
-              {joinable ? (
-                <Pressable onPress={() => onVideoCall?.(u)} className="bg-jiayou rounded-full px-3 py-1.5">
-                  <Text className="text-white font-bold text-[11.5px]">{started ? 'Rejoin' : 'Start class'}</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          );
-        })}
-      </View>
+            </>
+          ) : (
+            <Text className="text-muted-light text-[12px] mt-1">No upcoming lesson</Text>
+          )}
+        </View>
+      </Pressable>
     </View>
   );
 
-  // ── Ligne de classe ─────────────────────────────────────────────────────────
+  // ── Ligne de classe (avatar bleu + nom + élèves·tâches + code + détails) ─────
   const classRow = (c) => (
     <View key={c.id} className="bg-white rounded-2xl px-4 py-3.5 mb-3" style={SHADOW_CARD}>
       <View className="flex-row items-center gap-3">
-        <View className="rounded-full bg-jiayou-soft items-center justify-center" style={{ width: 38, height: 38 }}>
-          <Ionicons name="easel" size={18} color={COLORS.jiayou} />
+        <View className="rounded-full items-center justify-center" style={{ width: 40, height: 40, backgroundColor: COLORS.jiayou }}>
+          <Ionicons name="school" size={19} color="#fff" />
         </View>
         <View className="flex-1">
           <Text className="text-ink font-extrabold text-[15px]" numberOfLines={1}>{c.name}</Text>
           <Text className="text-muted-light text-[12px] mt-0.5">
-            {c.student_count} student{c.student_count === 1 ? '' : 's'} · {c.lesson_count} task{c.lesson_count === 1 ? '' : 's'}
+            {c.student_count} student{c.student_count === 1 ? '' : 's'} · {c.lesson_count} Task{c.lesson_count === 1 ? '' : 's'}
           </Text>
         </View>
       </View>
@@ -159,7 +157,7 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
 
   const main = (
     <>
-      {topRow}
+      {ctaRow}
       {classes.length === 0 ? (
         <View className="items-center py-10">
           <Ionicons name="easel-outline" size={30} color="#c4c9d0" />
@@ -175,12 +173,12 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
         <View style={{ width: '100%', maxWidth: 1180, alignSelf: 'center', paddingHorizontal: isDesktop ? 24 : 16 }}>
           {isDesktop ? (
             <View className="flex-row items-start gap-6">
-              <View style={{ width: 300 }}>{sidebar}</View>
+              <View style={{ width: 340 }}>{statsCard}</View>
               <View style={{ flex: 1 }}>{main}</View>
             </View>
           ) : (
             <>
-              <View className="mb-4">{sidebar}</View>
+              <View className="mb-4">{statsCard}</View>
               {main}
             </>
           )}
