@@ -65,7 +65,7 @@ function ConversationList({ onOpen, onBack, bottomClear = 0 }) {
               </View>
               <Text className={`text-[12.5px] mt-0.5 ${c.unread ? 'text-ink font-semibold' : 'text-muted-light'}`} numberOfLines={1}>{c.last_body || ''}</Text>
             </View>
-            {c.unread ? <View className="rounded-full min-w-[20px] h-5 px-1.5 items-center justify-center" style={{ backgroundColor: COLORS.jiayou }}><Text className="text-white font-bold text-[11px]">{c.unread}</Text></View> : null}
+            {c.unread ? <View className="rounded-full min-w-[20px] h-5 px-1.5 items-center justify-center" style={{ backgroundColor: COLORS.danger }}><Text className="text-white font-bold text-[11px]">{c.unread > 99 ? '99+' : c.unread}</Text></View> : null}
           </Pressable>
         ))}
 
@@ -234,14 +234,18 @@ function Thread({ conv, onBack, bottomClear = 0 }) {
         <ScrollView ref={scrollRef} className="flex-1 bg-surface-page" style={{ minHeight: 0 }} contentContainerStyle={{ padding: 14, paddingBottom: 18 }} onContentSizeChange={scrollToEnd}>
           {messages.length === 0 ? (
             <Text className="text-muted-light text-[12.5px] text-center mt-10">Say hello 👋</Text>
-          ) : messages.map((m) => {
+          ) : messages.map((m, i) => {
             const mine = m.sender_id === me;
+            // Heure affichée une seule fois par « grappe » : seulement sur le
+            // dernier message d'une suite de même expéditeur et même minute.
+            const next = messages[i + 1];
+            const showTime = !next || next.sender_id !== m.sender_id || timeShort(next.created_at) !== timeShort(m.created_at);
             return (
-              <View key={m.id} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '82%', marginBottom: 8 }}>
+              <View key={m.id} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '82%', marginBottom: showTime ? 8 : 2 }}>
                 <View style={{ backgroundColor: mine ? COLORS.jiayou : '#fff', borderRadius: 16, borderBottomRightRadius: mine ? 4 : 16, borderBottomLeftRadius: mine ? 16 : 4, paddingHorizontal: 12, paddingVertical: 8, opacity: m._pending ? 0.6 : 1, ...SHADOW_CARD }}>
                   <Text style={{ color: mine ? '#fff' : COLORS.ink, fontSize: 14.5, lineHeight: 20 }}>{m.body}</Text>
                 </View>
-                <Text style={{ fontSize: 10, color: COLORS.mutedLight, marginTop: 2, alignSelf: mine ? 'flex-end' : 'flex-start' }}>{timeShort(m.created_at)}</Text>
+                {showTime ? <Text style={{ fontSize: 10, color: COLORS.mutedLight, marginTop: 2, alignSelf: mine ? 'flex-end' : 'flex-start' }}>{timeShort(m.created_at)}</Text> : null}
               </View>
             );
           })}
