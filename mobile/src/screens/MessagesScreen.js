@@ -115,10 +115,20 @@ function Thread({ conv, onBack, bottomClear = 0 }) {
     if (Platform.OS === 'web') {
       if (typeof window === 'undefined' || !window.visualViewport) return undefined;
       const vv = window.visualViewport;
+      // On NE se base PAS sur window.innerHeight (viewport de layout, qui varie
+      // selon le navigateur/PWA et sur-élève l'input). On mesure le BAS RÉEL du
+      // conteneur (getBoundingClientRect via measureInWindow) et on le compare au
+      // bas VISIBLE du visualViewport (height + offsetTop). lift = recouvrement
+      // réel du clavier sur la zone de messages — même logique que le natif.
       const onResize = () => {
-        const covered = Math.max(0, (window.innerHeight || 0) - vv.height - vv.offsetTop);
-        setLift(covered);
-        scrollToEnd();
+        const node = rootRef.current;
+        if (!node) return;
+        const visibleBottom = vv.height + vv.offsetTop;
+        node.measureInWindow((x, y, w, h) => {
+          const over = (y + h) - visibleBottom;
+          setLift(over > 1 ? over + 4 : 0);
+          scrollToEnd();
+        });
       };
       vv.addEventListener('resize', onResize);
       vv.addEventListener('scroll', onResize);
