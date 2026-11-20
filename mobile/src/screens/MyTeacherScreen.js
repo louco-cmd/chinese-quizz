@@ -170,13 +170,17 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
   const [repeat, setRepeat] = useState(false);   // réserver chaque semaine
   const [weeks, setWeeks] = useState(8);          // nb d'occurrences hebdo
   const [recurSel, setRecurSel] = useState([]);   // créneaux récurrents sélectionnés (multi)
+  const [selOnce, setSelOnce] = useState(null);   // créneau ponctuel sélectionné (étape 1)
+  const [done, setDone] = useState(null);         // { title, message } → drawer de succès
   const localTz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return ''; } })();
 
   const reload = useCallback(() => {
     setErr('');
     getStudentSlots(teacherId).then((r) => setSlots(r.slots || [])).catch((e) => setErr(e.message));
   }, [teacherId]);
-  useEffect(() => { if (visible) { setSlots(null); setRepeat(false); setWeeks(8); setRecurSel([]); reload(); } }, [visible, reload]);
+  useEffect(() => { if (visible) { setSlots(null); setRepeat(false); setWeeks(8); setRecurSel([]); setSelOnce(null); setDone(null); reload(); } }, [visible, reload]);
+  // Fermeture complète (réinitialise la sélection + le succès).
+  const closeAll = () => { setDone(null); setSelOnce(null); onClose?.(); };
   // La dispo « libre sur la durée » change avec le nb de semaines / l'onglet → on
   // repart d'une sélection vide (les anciens créneaux peuvent ne plus être valides).
   useEffect(() => { setRecurSel([]); }, [weeks, repeat]);
@@ -194,16 +198,17 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
   }, [slots]);
 
 
-  // Onglet « One time class » : réserve un seul créneau.
+  // Onglet « One time class » : réserve le créneau sélectionné (étape 2).
   async function bookOnce(iso) {
     setBusy(iso);
     try {
       await bookSlot(teacherId, iso);
-      onBooked?.(); onClose?.();
-      Alert.alert('', "Lesson booked! You'll find it in your upcoming sessions.");
+      onBooked?.();
+      setSelOnce(null);
+      setDone({ title: 'Lesson booked 🎉', message: "You'll find it in your upcoming sessions." });
     } catch (e) {
       Alert.alert('', e.taken || /available|taken/i.test(e.message || '') ? 'This slot was just taken — pick another.' : (e.message || 'Error'));
-      reload();
+      setSelOnce(null); reload();
     } finally { setBusy(null); }
   }
 
@@ -218,14 +223,16 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
         total += r.booked_count || 0;
         miss += (r.requested || weeks) - (r.booked_count || 0);
       }
-      onBooked?.(); onClose?.();
-      Alert.alert(
-        total ? 'Weekly lessons booked!' : 'Nothing booked',
-        total
-          ? `${total} lesson${total > 1 ? 's' : ''} booked across ${recurSel.length} weekly slot${recurSel.length > 1 ? 's' : ''}.` +
-            (miss > 0 ? `\n\n${miss} occurrence${miss > 1 ? 's were' : ' was'} skipped (teacher not available or already taken).` : '')
-          : 'Those slots are no longer available — pick others.'
-      );
+      onBooked?.();
+      if (total) {
+        setDone({
+          title: 'Weekly lessons booked 🎉',
+          message: `${total} lesson${total > 1 ? 's' : ''} booked across ${recurSel.length} weekly slot${recurSel.length > 1 ? 's' : ''}.` +
+            (miss > 0 ? `\n\n${miss} occurrence${miss > 1 ? 's were' : ' was'} skipped (teacher not available or already taken).` : ''),
+        });
+      } else {
+        Alert.alert('Nothing booked', 'Those slots are no longer available — pick others.');
+      }
     } catch (e) {
       Alert.alert('', e.message || 'Error');
     } finally { setBusy(null); }
@@ -237,9 +244,9 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
   return (
     <BottomSheet
       visible={visible}
-      onClose={onClose}
+      onClose={closeAll}
       maxHeightRatio={0.88}
-      footer={repeat && recurSel.length ? (
+      footer={done ? null : repeat && recurSel.length ? (
         <View style={{ paddingTop: 12, marginTop: 4, borderTopWidth: 1, borderColor: '#eef1f5' }}>
           {recurSel.map((iso) => (
             <Text key={iso} style={{ fontSize: 12.5, fontWeight: '700', color: COLORS.muted, marginBottom: 4 }} numberOfLines={1}>
@@ -255,8 +262,33 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
             style={{ marginTop: 8 }}
           />
         </View>
+      ) : !repeat && selOnce ? (
+        <View style={{ paddingTop: 12, marginTop: 4, borderTopWidth: 1, borderColor: '#eef1f5' }}>
+          <Text style={{ fontSize: 12.5, fontWeight: '700', color: COLORS.muted, marginBottom: 8, textAlign: 'center', textTransform: 'capitalize' }}>
+            <Ionicons name="calendar" size={12} color={COLORS.jiayou} />  {fmtDay(new Date(selOnce))} · {fmtTime(selOnce)}
+          </Text>
+          <Button
+            title="Book this class"
+            icon="checkmark-circle"
+            loading={busy === selOnce}
+            onPress={() => bookOnce(selOnce)}
+            fullWidth
+          />
+        </View>
       ) : null}
     >
+      {/* ── Drawer de succès ───────────────────────────────────────── */}
+      {done ? (
+        <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+          <View style={{ width: 66, height: 66, borderRadius: 33, backgroundColor: '#e7f7ee', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+            <Ionicons name="checkmark-circle" size={42} color="#1a9e5c" />
+          </View>
+          <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e', textAlign: 'center' }}>{done.title}</Text>
+          <Text style={{ fontSize: 13.5, color: COLORS.muted, textAlign: 'center', marginTop: 8, lineHeight: 20, paddingHorizontal: 8 }}>{done.message}</Text>
+          <Button title="OK" icon="checkmark" onPress={closeAll} fullWidth style={{ marginTop: 22 }} />
+        </View>
+      ) : (
+      <>
       <View style={{ alignItems: 'center', marginBottom: 16 }}>
         <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 18 }}>{initials(teacherName)}</Text>
@@ -299,19 +331,24 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
                     <View key={i} style={{ marginBottom: 16 }}>
                       <Text style={{ fontSize: 12.5, fontWeight: '800', color: COLORS.mutedLight, marginBottom: 9, textTransform: 'uppercase', letterSpacing: 0.4 }}>{fmtDay(g.date)}</Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {g.items.map((s) => (
-                          <Pressable key={s.starts_at} onPress={() => bookOnce(s.starts_at)} disabled={busy === s.starts_at}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.jiayouSoft, borderWidth: 1, borderColor: '#cfe0ff', opacity: busy === s.starts_at ? 0.6 : 1 }}>
-                            <Ionicons name="time" size={13} color={COLORS.jiayou} />
-                            <Text style={{ fontSize: 13.5, fontWeight: '800', color: COLORS.jiayou }}>{fmtTime(s.starts_at)}</Text>
-                          </Pressable>
-                        ))}
+                        {g.items.map((s) => {
+                          const sel = selOnce === s.starts_at;
+                          return (
+                            <Pressable key={s.starts_at} onPress={() => setSelOnce(sel ? null : s.starts_at)}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 999, backgroundColor: sel ? COLORS.jiayou : COLORS.jiayouSoft, borderWidth: 1, borderColor: sel ? COLORS.jiayou : '#cfe0ff' }}>
+                              <Ionicons name={sel ? 'checkmark' : 'time'} size={13} color={sel ? '#fff' : COLORS.jiayou} />
+                              <Text style={{ fontSize: 13.5, fontWeight: '800', color: sel ? '#fff' : COLORS.jiayou }}>{fmtTime(s.starts_at)}</Text>
+                            </Pressable>
+                          );
+                        })}
                       </View>
                     </View>
                   ))}
                 </ScrollView>
               )}
         </>
+      )}
+      </>
       )}
     </BottomSheet>
   );
