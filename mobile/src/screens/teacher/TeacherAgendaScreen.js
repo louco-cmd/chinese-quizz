@@ -289,7 +289,7 @@ function keyToDate(k) { const [y, m, d] = k.split('-').map(Number); return new D
 function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function jsMon0(d) { return (d.getDay() + 6) % 7; }
 
-function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, week, t, rowH = ROW_H }) {
+function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, onPickDay, lang, week, t, rowH = ROW_H }) {
   const loc = lang === 'zh' ? 'zh-CN' : lang === 'fr' ? 'fr-FR' : 'en-US';
   const todayK = localKey(new Date());
 
@@ -318,11 +318,12 @@ function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, wee
         {days.map((d, i) => {
           const isToday = localKey(d) === todayK;
           let lab; try { lab = d.toLocaleDateString(loc, { weekday: 'short' }).replace('.', ''); } catch { lab = ''; }
+          // En vue semaine : clic sur l'en-tête d'un jour → ouvre la vue Jour.
           return (
-            <View key={i} style={{ flex: 1, alignItems: 'center', paddingVertical: 6 }}>
+            <TouchableOpacity key={i} activeOpacity={week && onPickDay ? 0.6 : 1} disabled={!week || !onPickDay} onPress={() => onPickDay?.(d)} style={{ flex: 1, alignItems: 'center', paddingVertical: 6 }}>
               <Text style={{ fontSize: 10, fontWeight: '800', color: isToday ? COLORS.jiayou : '#8a94a3', textTransform: 'uppercase' }}>{lab}</Text>
               <Text style={{ fontSize: 13, fontWeight: '800', color: isToday ? COLORS.jiayou : '#1a1a2e', marginTop: 1 }}>{d.getDate()}</Text>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>
@@ -710,7 +711,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
             </View>
             {/* Grille dimensionnée (rowH dynamique) pour tenir sans scroll. */}
             <View style={{ position: 'relative' }}>
-                <TimeGrid days={days} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} lang={lang} week={!isDay} t={t} rowH={gridRowH} />
+                <TimeGrid days={days} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} onPickDay={(d) => { setSelected(localKey(d)); setViewMode('day'); }} lang={lang} week={!isDay} t={t} rowH={gridRowH} />
                 {avail.size === 0 ? (
                   <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,249,250,0.72)' }}>
                     <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 18, alignItems: 'center', maxWidth: 280, ...SHADOW_CARD }}>
