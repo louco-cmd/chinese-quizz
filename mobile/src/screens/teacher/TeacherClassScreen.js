@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ErrorRetry } from '../../components/ErrorRetry';
+import BottomSheet from '../../ui/BottomSheet';
 import CreateTaskPopup from './CreateTaskPopup';
 import {
   teacherClass, teacherClassLessons, teacherRevokeStudent, teacherDeleteClass,
@@ -15,28 +16,19 @@ import CatLoader from '../../components/CatLoader';
 function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
 }
-function hhmm(d) { return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
-// Fenêtre de visio : jouable de 15 min avant à 10 min après la fin.
-function lessonJoinable(l) {
-  const now = Date.now();
-  const s = new Date(l.starts_at).getTime(), e = new Date(l.ends_at).getTime();
-  return now >= s - 15 * 60000 && now <= e + 10 * 60000;
-}
-
 // Petite barre de progression bleue (primitive ProgressBar).
 function Bar({ pct }) {
   return <ProgressBar value={Math.max(0, Math.min(100, pct))} max={100} height={8} color={COLORS.jiayou} track="#eef2f8" style={{ marginTop: 6 }} />;
 }
 
-export default function TeacherClassScreen({ classId, direction, onBack, onOpenTask, onVideoCall }) {
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 992;
+export default function TeacherClassScreen({ classId, direction, onBack, onOpenTask }) {
   const [data, setData] = useState(null);
   const [lessons, setLessons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [showStudents, setShowStudents] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -71,47 +63,54 @@ export default function TeacherClassScreen({ classId, direction, onBack, onOpenT
   const c = data.classroom;
   const students = data.students || [];
 
-  // ── Colonne gauche : titre + code + élèves (progression) ────────────────────
-  const sidebar = (
-    <View className="bg-white rounded-2xl p-5" style={SHADOW_CARD}>
-      <Text className="text-ink font-extrabold text-[20px] mb-3">{c.name}</Text>
-      <View className="flex-row items-center justify-between bg-surface-page rounded-xl px-3 py-2 mb-3">
-        <Text className="text-muted-light text-[12px]">Class code</Text>
-        <View className="flex-row items-center gap-2">
-          <Text className="font-extrabold text-jiayou tracking-[2px] text-[14px]">{c.join_code}</Text>
-          <Pressable onPress={copyCode} hitSlop={8}><Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={15} color={COLORS.jiayou} /></Pressable>
+  // ── Drawer « Add a student » : code d'invitation à copier + élèves de la classe
+  const studentsDrawer = (
+    <BottomSheet visible={showStudents} onClose={() => setShowStudents(false)} maxHeightRatio={0.85}>
+      <Text style={{ fontSize: 19, fontWeight: '800', color: '#1a1a2e', textAlign: 'center' }}>{c.name}</Text>
+      <Text style={{ fontSize: 12.5, color: COLORS.muted, textAlign: 'center', marginTop: 4, marginBottom: 16 }}>Share the code so a student can join</Text>
+
+      {/* Code d'invitation à copier */}
+      <Pressable onPress={copyCode} className="flex-row items-center justify-between rounded-2xl px-4 py-3 mb-4" style={{ backgroundColor: COLORS.jiayouSoft }}>
+        <View>
+          <Text className="text-muted-light text-[11px]">Class code</Text>
+          <Text className="font-extrabold text-jiayou text-[22px] mt-0.5" style={{ letterSpacing: 3 }}>{c.join_code}</Text>
         </View>
-      </View>
-      {students.length === 0 ? (
-        <Text className="text-muted-light text-[12.5px] py-3 text-center">No students yet. Share the code!</Text>
-      ) : students.map((s, i) => {
-        const pct = Number(s.avg_score) || 0;
-        return (
-          <View key={s.id} className={`py-3 ${i === students.length - 1 ? '' : 'border-b border-line-soft'}`}>
-            <View className="flex-row items-center gap-2.5">
-              <View className="rounded-full bg-[#e7edf7] items-center justify-center" style={{ width: 34, height: 34 }}>
-                <Text className="text-jiayou font-extrabold text-[12px]">{initials(s.name)}</Text>
+        <View className="flex-row items-center gap-1.5 rounded-full px-3.5 py-2.5" style={{ backgroundColor: COLORS.jiayou }}>
+          <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={15} color="#fff" />
+          <Text className="text-white font-bold text-[12.5px]">{copied ? 'Copied' : 'Copy'}</Text>
+        </View>
+      </Pressable>
+
+      <Text className="text-ink font-extrabold text-[14px] mb-1">In this class{students.length ? ` · ${students.length}` : ''}</Text>
+      <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+        {students.length === 0 ? (
+          <Text className="text-muted-light text-[12.5px] py-6 text-center">No students yet. Share the code above!</Text>
+        ) : students.map((s, i) => {
+          const pct = Number(s.avg_score) || 0;
+          return (
+            <View key={s.id} className={`py-3 ${i === students.length - 1 ? '' : 'border-b border-line-soft'}`}>
+              <View className="flex-row items-center gap-2.5">
+                <View className="rounded-full bg-[#e7edf7] items-center justify-center" style={{ width: 34, height: 34 }}>
+                  <Text className="text-jiayou font-extrabold text-[12px]">{initials(s.name)}</Text>
+                </View>
+                <View className="flex-1 min-w-0">
+                  <Text className="text-ink font-bold text-[13.5px]" numberOfLines={1}>{s.name || 'Student'}</Text>
+                  <Text className="text-muted-light text-[11px]">{s.word_count} words</Text>
+                </View>
+                <Pressable onPress={() => confirmRevoke(s)} disabled={revoking} hitSlop={8} className="w-7 h-7 items-center justify-center">
+                  <Ionicons name="close" size={15} color="#c4c9d0" />
+                </Pressable>
               </View>
-              <View className="flex-1 min-w-0">
-                <Text className="text-ink font-bold text-[13.5px]" numberOfLines={1}>{s.name || 'Student'}</Text>
-                <Text className="text-muted-light text-[11px]">{s.word_count} words</Text>
-              </View>
-              <Pressable onPress={() => confirmRevoke(s)} disabled={revoking} hitSlop={8} className="w-7 h-7 items-center justify-center">
-                <Ionicons name="close" size={15} color="#c4c9d0" />
-              </Pressable>
+              <Bar pct={pct} />
+              <Text className="text-muted-light text-[10.5px] mt-1">{pct}% mastered words</Text>
             </View>
-            <Bar pct={pct} />
-            <Text className="text-muted-light text-[10.5px] mt-1">{pct}% mastered words</Text>
-          </View>
-        );
-      })}
-    </View>
+          );
+        })}
+      </ScrollView>
+    </BottomSheet>
   );
 
-  // ── Haut : « Create a task » (dégradé) + « Start next Lesson » (prochain cours)
-  const next = data.next_lesson;
-  const nextJoinable = next ? lessonJoinable(next) : false;
-  const nextDate = next ? (() => { const s = new Date(next.starts_at); try { return s.toLocaleDateString(); } catch { return ''; } })() : '';
+  // ── Haut : « Create a task » (dégradé) + « Add a student » (ouvre le drawer) ──
   const topCards = (
     <View className="flex-row mb-4" style={{ gap: 12, alignItems: 'stretch' }}>
       {/* Créer une task → partage résumé + mots aux élèves. */}
@@ -123,21 +122,12 @@ export default function TeacherClassScreen({ classId, direction, onBack, onOpenT
         </LinearGradient>
       </Pressable>
 
-      {/* Prochain cours : démarre la visio si c'est l'heure, sinon informatif. */}
-      <Pressable onPress={() => { if (next && nextJoinable) onVideoCall?.(next); }} className="flex-1 active:opacity-90">
+      {/* Ajouter un élève → drawer avec le code d'invitation + les élèves actuels. */}
+      <Pressable onPress={() => setShowStudents(true)} className="flex-1 active:opacity-90">
         <View className="bg-white rounded-2xl p-4 flex-1 justify-center items-center" style={[SHADOW_CARD, { minHeight: 112 }]}>
-          <Ionicons name={next ? 'videocam' : 'calendar-clear-outline'} size={22} color={next ? COLORS.jiayou : COLORS.mutedLight} style={{ marginBottom: 5 }} />
-          <Text className={next ? 'text-ink font-extrabold text-[14.5px] text-center' : 'text-muted-light font-extrabold text-[14.5px] text-center'}>{next ? 'Start next Lesson' : 'No upcoming class'}</Text>
-          {next ? (
-            <>
-              <Text className="text-muted text-[12px] mt-0.5" numberOfLines={1}>{hhmm(new Date(next.starts_at))} · {nextDate}</Text>
-              {next.student_name ? (
-                <View className="self-center rounded-full px-2.5 py-1 mt-2" style={{ backgroundColor: COLORS.ink }}>
-                  <Text className="text-white font-bold text-[11px]" numberOfLines={1}>{next.student_name}</Text>
-                </View>
-              ) : null}
-            </>
-          ) : null}
+          <Ionicons name="person-add" size={23} color={COLORS.jiayou} style={{ marginBottom: 6 }} />
+          <Text className="text-ink font-extrabold text-[15px] text-center">Add a student</Text>
+          <Text className="text-muted-light text-[11.5px] mt-0.5 text-center">{students.length ? `${students.length} in this class` : 'Share the class code'}</Text>
         </View>
       </Pressable>
     </View>
@@ -184,24 +174,17 @@ export default function TeacherClassScreen({ classId, direction, onBack, onOpenT
             <Ionicons name="chevron-back" size={20} color={COLORS.muted} />
             <Text className="text-muted text-[14px]">Classes</Text>
           </Pressable>
-          {isDesktop ? (
-            // Desktop : élèves/code en colonne gauche, contenu (CTA + tasks) à droite.
-            <View className="flex-row items-start gap-6">
-              <View style={{ width: 300 }}>{sidebar}</View>
-              <View style={{ flex: 1 }}>{topCards}{taskList}{deleteBtn}</View>
-            </View>
-          ) : (
-            // Mobile (Figma) : CTA + tasks en premier ; la carte élèves/code reste
-            // sous la liste pour garder la progression par élève + le code d'invit.
-            <>
-              {topCards}
-              {taskList}
-              <View className="mt-1 mb-1">{sidebar}</View>
-              {deleteBtn}
-            </>
-          )}
+          {/* CTA (Create a task / Add a student) + liste des tasks + suppression.
+              La gestion des élèves + le code sont dans le drawer « Add a student ». */}
+          <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center' }}>
+            {topCards}
+            {taskList}
+            {deleteBtn}
+          </View>
         </View>
       </ScrollView>
+
+      {studentsDrawer}
 
       <CreateTaskPopup visible={creating} classId={classId} direction={direction} onClose={() => setCreating(false)} onCreated={load} />
 

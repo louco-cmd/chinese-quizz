@@ -151,20 +151,7 @@ router.get('/api/m/teacher/classes/:id', requireToken, requireTeacher, async (re
        ORDER BY u.name ASC`,
       [req.params.id]
     );
-    // Prochain cours réservé (créneau booké) avec un élève de cette classe →
-    // alimente la carte « Start next Lesson » du détail de classe.
-    const { rows: nextRows } = await pool.query(
-      `SELECT ts.id, ts.starts_at, ts.ends_at, ts.note, ts.student_id,
-              su.name AS student_name, su.avatar_icon AS other_avatar, su.avatar_color AS other_color
-       FROM teacher_slots ts
-       JOIN users su ON su.id = ts.student_id
-       WHERE ts.teacher_id = $2 AND ts.status = 'booked'
-         AND ts.ends_at > NOW() - INTERVAL '10 minutes'
-         AND ts.student_id IN (SELECT student_id FROM classroom_students WHERE classroom_id = $1 AND status = 'active')
-       ORDER BY ts.starts_at ASC LIMIT 1`,
-      [req.params.id, req.teacher.id]
-    );
-    res.json({ classroom: classRows[0], students, next_lesson: nextRows[0] || null });
+    res.json({ classroom: classRows[0], students });
   } catch (e) { console.error('m/teacher class detail:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
