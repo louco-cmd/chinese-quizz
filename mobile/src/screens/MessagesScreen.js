@@ -134,7 +134,7 @@ function Thread({ conv, onBack }) {
       requestAnimationFrame(() => {
         node.measureInWindow((x, y, w, h) => {
           const over = (y + h) - kbTop; // combien le clavier recouvre le thread
-          setLift(over > 0 ? over : 0);
+          setLift(over > 0 ? over + 8 : 0); // +8 px de marge pour ne pas coller au clavier
           scrollToEnd();
         });
       });
@@ -219,7 +219,7 @@ function Thread({ conv, onBack }) {
   return (
     // paddingBottom = chevauchement mesuré du clavier (voir effet plus haut) → l'input
     // flotte pile au-dessus du clavier, quelles que soient la TabBar et les insets.
-    <View ref={rootRef} style={{ flex: 1, paddingBottom: lift }}>
+    <View ref={rootRef} style={{ flex: 1, minHeight: 0, paddingBottom: lift }}>
       {/* En-tête du fil */}
       <View className="flex-row items-center gap-3 px-4 py-2.5 bg-white border-b border-line-soft">
         <Pressable onPress={onBack} hitSlop={10}><Ionicons name="chevron-back" size={22} color={COLORS.ink} /></Pressable>
@@ -230,7 +230,7 @@ function Thread({ conv, onBack }) {
       {loading ? (
         <View className="flex-1 items-center justify-center"><CatLoader size={90} /></View>
       ) : (
-        <ScrollView ref={scrollRef} className="flex-1 bg-surface-page" contentContainerStyle={{ padding: 14, paddingBottom: 18 }} onContentSizeChange={scrollToEnd}>
+        <ScrollView ref={scrollRef} className="flex-1 bg-surface-page" style={{ minHeight: 0 }} contentContainerStyle={{ padding: 14, paddingBottom: 18 }} onContentSizeChange={scrollToEnd}>
           {messages.length === 0 ? (
             <Text className="text-muted-light text-[12.5px] text-center mt-10">Say hello 👋</Text>
           ) : messages.map((m) => {
