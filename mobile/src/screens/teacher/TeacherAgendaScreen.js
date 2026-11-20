@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, TouchableOpacity, ScrollView, Alert, useWindowDimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -622,8 +622,10 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
 
   // Hauteur de cellule du mois calculée pour que les 6 rangées + l'en-tête tiennent
   // dans l'espace mesuré (calH) → calendrier « fit », sans scroll de page.
-  const avH = calH || 420;
-  const monthCellH = Math.max(34, Math.min(86, Math.floor((avH - 66) / 6)));
+  const avH = calH || 440;
+  // ~132px = en-tête du mois (titre + flèches) + ligne des jours + marges internes.
+  // On soustrait ça avant de répartir sur 6 rangées → aucun rang rogné.
+  const monthCellH = Math.max(30, Math.min(84, Math.floor((avH - 132) / 6)));
   const monthMaxChips = monthCellH >= 54 ? 2 : 1;
 
   const CalendarArea = (
@@ -643,8 +645,9 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
               const isToday = date.dateString === localKey(new Date());
               const disabled = state === 'disabled';
               return (
-                // Clic sur un jour → vue Jour (timeline du jour).
-                <Pressable onPress={() => { setSelected(date.dateString); setViewMode('day'); }} style={{ width: '100%' }}>
+                // Clic sur un jour → vue Jour (timeline du jour). TouchableOpacity :
+                // plus fiable que Pressable dans un dayComponent custom.
+                <TouchableOpacity activeOpacity={0.6} onPress={() => { setSelected(date.dateString); setViewMode('day'); }} style={{ width: '100%' }}>
                   <View style={{ height: monthCellH, borderRadius: 10, paddingTop: 2, paddingHorizontal: 2, marginHorizontal: 2, marginVertical: 1, overflow: 'hidden',
                     backgroundColor: hasOpen && !disabled ? 'rgba(13,110,253,0.10)' : 'transparent',
                     borderWidth: isSel ? 1.5 : 0, borderColor: COLORS.jiayou }}>
@@ -653,15 +656,15 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
                     {dayLes.slice(0, monthMaxChips).map((les) => {
                       const bg = lessonFinished(les, Date.now()) ? '#c4ccd6' : isTrial(les) ? '#f59e0b' : COLORS.jiayou;
                       return (
-                        <Pressable key={les.id} onPress={() => openLesson(les)}
+                        <TouchableOpacity key={les.id} activeOpacity={0.7} onPress={() => openLesson(les)}
                           style={{ backgroundColor: bg, borderRadius: 4, paddingHorizontal: 2, paddingVertical: 1, marginBottom: 1 }}>
                           <Text style={{ color: '#fff', fontSize: 8.5, fontWeight: '800', textAlign: 'center' }} numberOfLines={1}>{hhmm(new Date(les.starts_at))}</Text>
-                        </Pressable>
+                        </TouchableOpacity>
                       );
                     })}
                     {dayLes.length > monthMaxChips ? <Text style={{ fontSize: 8, color: COLORS.muted, textAlign: 'center' }}>+{dayLes.length - monthMaxChips}</Text> : null}
                   </View>
-                </Pressable>
+                </TouchableOpacity>
               );
             }}
           />
