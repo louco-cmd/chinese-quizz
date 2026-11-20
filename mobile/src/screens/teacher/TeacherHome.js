@@ -112,6 +112,7 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
         classId={view.id} direction={direction}
         onBack={() => setView(null)}
         onOpenTask={(lessonId) => setView({ type: 'task', lessonId, classId: view.id })}
+        onVideoCall={onVideoCall}
       />
     );
   } else if (view?.type === 'task') {
