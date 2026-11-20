@@ -619,7 +619,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
   );
 
   const CalendarArea = (
-    <View style={{ flex: 1 }}>
+    <View>
       {viewMode === 'month' && (
         <>
           <View style={{ borderRadius: 16, overflow: 'hidden', backgroundColor: '#fff', ...SHADOW_CARD }}>
@@ -676,31 +676,28 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
         const rangeLabel = `${weekDaysArr[0].getDate()} – ${dayLabel(weekDaysArr[6], lang)}`;
         const navBtn = { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eef2f7' };
         return (
-          <View style={{ flex: 1 }}>
+          <View>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <Pressable onPress={() => shift(-1)} hitSlop={8} style={navBtn}><Ionicons name="chevron-back" size={18} color={COLORS.jiayou} /></Pressable>
               <Text style={{ fontSize: 14, fontWeight: '800', color: '#1a1a2e', textTransform: 'capitalize' }}>{rangeLabel}</Text>
               <Pressable onPress={() => shift(1)} hitSlop={8} style={navBtn}><Ionicons name="chevron-forward" size={18} color={COLORS.jiayou} /></Pressable>
             </View>
-            {/* La grille horaire est haute : elle scrolle en interne, la page reste fixe. */}
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 6 }} showsVerticalScrollIndicator={false}>
-              <View style={{ position: 'relative' }}>
-                <TimeGrid days={weekDaysArr} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} lang={lang} week t={t} />
-                {/* Aucune dispo → incitation au centre du calendrier. */}
-                {avail.size === 0 ? (
-                  <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,249,250,0.72)' }}>
-                    <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 18, alignItems: 'center', maxWidth: 280, ...SHADOW_CARD }}>
-                      <Ionicons name="calendar-outline" size={28} color={COLORS.jiayou} />
-                      <Text style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e', marginTop: 8, textAlign: 'center' }}>{t('ag_no_avail_title')}</Text>
-                      <Text style={{ fontSize: 12.5, color: COLORS.muted, textAlign: 'center', marginTop: 4, lineHeight: 17 }}>{t('ag_no_avail_sub')}</Text>
-                      <Pressable onPress={() => setEditingAvail(true)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11, marginTop: 14 }}>
-                        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13.5 }}>{t('ag_edit_avail')}</Text>
-                      </Pressable>
-                    </View>
+            <View style={{ position: 'relative' }}>
+              <TimeGrid days={weekDaysArr} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} lang={lang} week t={t} />
+              {/* Aucune dispo → incitation au centre du calendrier. */}
+              {avail.size === 0 ? (
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,249,250,0.72)' }}>
+                  <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 18, alignItems: 'center', maxWidth: 280, ...SHADOW_CARD }}>
+                    <Ionicons name="calendar-outline" size={28} color={COLORS.jiayou} />
+                    <Text style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e', marginTop: 8, textAlign: 'center' }}>{t('ag_no_avail_title')}</Text>
+                    <Text style={{ fontSize: 12.5, color: COLORS.muted, textAlign: 'center', marginTop: 4, lineHeight: 17 }}>{t('ag_no_avail_sub')}</Text>
+                    <Pressable onPress={() => setEditingAvail(true)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11, marginTop: 14 }}>
+                      <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13.5 }}>{t('ag_edit_avail')}</Text>
+                    </Pressable>
                   </View>
-                ) : null}
-              </View>
-            </ScrollView>
+                </View>
+              ) : null}
+            </View>
           </View>
         );
       })()}
@@ -716,11 +713,11 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      {/* Pas de scroll vertical de page : tout tient dans l'écran. Le calendrier
-          occupe l'espace dispo (flex:1), les CTA restent ancrées. */}
-      <View style={{ flex: 1, padding: 16, width: '100%', maxWidth: wide ? 1100 : 640, alignSelf: 'center' }}>
+      {/* Contenu compact (mois + 2 CTA) : tient à l'écran sans scroll sur la
+          plupart des appareils ; la ScrollView ne défile que si ça déborde. */}
+      <ScrollView contentContainerStyle={{ padding: 16, width: '100%', maxWidth: wide ? 1100 : 640, alignSelf: 'center' }}>
         {wide ? (
-          <View style={{ flex: 1, flexDirection: 'row', gap: 20, alignItems: 'stretch' }}>
+          <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
             <View style={{ width: 300 }}>{ctaCards(true)}</View>
             <View style={{ flex: 1 }}>
               {ViewTabs}
@@ -734,7 +731,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
             <View style={{ marginTop: 12 }}>{ctaCards(false)}</View>
           </>
         )}
-      </View>
+      </ScrollView>
 
       <AvailabilityEditor visible={editingAvail} onClose={() => setEditingAvail(false)} onSaved={load} t={t} lang={lang} />
       <DayEditor date={editingDay} onClose={() => setEditingDay(null)} onSaved={load} t={t} lang={lang} />
