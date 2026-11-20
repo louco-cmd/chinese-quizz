@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, TouchableOpacity, ScrollView, Alert, useWindowDimensions } from 'react-native';
+import { View, Text, Pressable, TouchableOpacity, ScrollView, Alert, useWindowDimensions, PanResponder } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -655,6 +655,8 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
           <Calendar
             current={selected}
             firstDay={1}
+            enableSwipeMonths
+            onMonthChange={(m) => setSelected(m.dateString)}
             hideExtraDays={false}
             theme={{ arrowColor: COLORS.jiayou, textMonthFontWeight: '800', textDayHeaderFontWeight: '700', 'stylesheet.calendar.main': { week: { marginVertical: 0, flexDirection: 'row', justifyContent: 'space-around' } } }}
             dayComponent={({ date, state }) => {
@@ -696,6 +698,13 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
         const shift = (n) => setSelected(localKey(addDays(selDate, (isDay ? 1 : 7) * n)));
         const rangeLabel = isDay ? dayLabel(selDate, lang) : `${weekDaysArr[0].getDate()} – ${dayLabel(weekDaysArr[6], lang)}`;
         const navBtn = { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eef2f7' };
+        // Swipe horizontal → jour/semaine précédent·e ou suivant·e. Le seuil
+        // (dx dominant) laisse passer les taps sur les cours et les boutons Edit.
+        const swipe = PanResponder.create({
+          onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 24 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
+          onPanResponderRelease: (_e, g) => { if (g.dx <= -40) shift(1); else if (g.dx >= 40) shift(-1); },
+          onPanResponderTerminationRequest: () => true,
+        });
         return (
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -710,7 +719,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
               <Pressable onPress={() => shift(1)} hitSlop={8} style={navBtn}><Ionicons name="chevron-forward" size={18} color={COLORS.jiayou} /></Pressable>
             </View>
             {/* Grille dimensionnée (rowH dynamique) pour tenir sans scroll. */}
-            <View style={{ position: 'relative' }}>
+            <View style={{ position: 'relative' }} {...swipe.panHandlers}>
                 <TimeGrid days={days} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} onPickDay={(d) => { setSelected(localKey(d)); setViewMode('day'); }} lang={lang} week={!isDay} t={t} rowH={gridRowH} />
                 {avail.size === 0 ? (
                   <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,249,250,0.72)' }}>
