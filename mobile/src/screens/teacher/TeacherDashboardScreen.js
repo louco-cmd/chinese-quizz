@@ -133,6 +133,9 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
         </View>
         <View className="flex-1">
           <Text className="text-ink font-extrabold text-[15px]" numberOfLines={1}>{c.name}</Text>
+          {c.student_names && c.student_names.length > 0 ? (
+            <Text className="text-muted text-[12px] mt-0.5" numberOfLines={1}>{c.student_names.join(', ')}</Text>
+          ) : null}
           <Text className="text-muted-light text-[12px] mt-0.5">
             {c.student_count} student{c.student_count === 1 ? '' : 's'} · {c.lesson_count} Task{c.lesson_count === 1 ? '' : 's'}
           </Text>

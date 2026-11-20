@@ -99,9 +99,11 @@ router.get('/api/m/teacher/classes', requireToken, requireTeacher, async (req, r
     const { rows } = await pool.query(
       `SELECT c.id, c.name, c.type, c.join_code, c.archived, c.created_at,
               COUNT(DISTINCT cs.student_id) FILTER (WHERE cs.status = 'active')::int AS student_count,
-              COUNT(DISTINCT l.id)::int AS lesson_count
+              COUNT(DISTINCT l.id)::int AS lesson_count,
+              ARRAY_REMOVE(ARRAY_AGG(DISTINCT u.name) FILTER (WHERE cs.status = 'active'), NULL) AS student_names
        FROM classrooms c
        LEFT JOIN classroom_students cs ON cs.classroom_id = c.id
+       LEFT JOIN users u ON u.id = cs.student_id
        LEFT JOIN lessons l ON l.classroom_id = c.id
        WHERE c.teacher_id = $1
        GROUP BY c.id
