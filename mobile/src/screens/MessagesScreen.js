@@ -188,9 +188,10 @@ function Thread({ conv, onBack }) {
   }
 
   return (
-    // On remonte le contenu de la hauteur du clavier, MOINS l'inset bas (barre de
-    // navigation gestuelle) que cette hauteur inclut déjà → sinon gap sous l'input.
-    <View style={{ flex: 1, paddingBottom: kb > 0 ? Math.max(0, kb - insets.bottom) : 0 }}>
+    // Clavier Android en mode « resize » : la fenêtre se redimensionne déjà au-dessus
+    // du clavier → l'input (bas d'une colonne flex) remonte tout seul. Aucun padding
+    // manuel à ajouter (sinon gap). Le ScrollView occupe l'espace et se réduit.
+    <View style={{ flex: 1 }}>
       {/* En-tête du fil */}
       <View className="flex-row items-center gap-3 px-4 py-2.5 bg-white border-b border-line-soft">
         <Pressable onPress={onBack} hitSlop={10}><Ionicons name="chevron-back" size={22} color={COLORS.ink} /></Pressable>
