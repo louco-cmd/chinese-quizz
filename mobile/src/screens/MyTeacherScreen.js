@@ -576,6 +576,7 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
       <StudentLessonSheet
         lesson={lessonSheet}
         visible={!!lessonSheet}
+        teacherId={teacherId}
         onClose={() => setLessonSheet(null)}
         onJoin={(id) => onVideoCall?.(id)}
         onCancelled={load}

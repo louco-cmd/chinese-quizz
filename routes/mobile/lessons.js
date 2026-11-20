@@ -1013,6 +1013,55 @@ router.post('/api/m/student/slots/:id/cancel', requireToken, async (req, res) =>
   } catch (e) { console.error('m/student slots cancel:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
+// ── POST /api/m/student/slots/:id/reschedule : déplacer MA réservation ─────────
+// {starts_at} = nouveau créneau (ouvert) du MÊME prof. Transactionnel : réserve le
+// nouveau (anti double-booking) puis libère l'ancien ; garde la note (trial).
+router.post('/api/m/student/slots/:id/reschedule', requireToken, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    const start = new Date(req.body?.starts_at);
+    if (!id || isNaN(start)) return res.status(400).json({ error: 'Invalid request' });
+    if (start.getTime() <= Date.now()) return res.status(400).json({ error: 'Slot is in the past' });
+    if (start.getMinutes() !== 0 || start.getSeconds() !== 0) return res.status(400).json({ error: 'Invalid slot time' });
+
+    await client.query('BEGIN');
+    const cur = await client.query(
+      `SELECT teacher_id, starts_at, note FROM teacher_slots
+        WHERE id = $1 AND student_id = $2 AND status = 'booked' AND starts_at > NOW() FOR UPDATE`,
+      [id, uid]);
+    if (!cur.rows.length) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Cannot reschedule this booking' }); }
+    const { teacher_id, note } = cur.rows[0];
+    const newIso = start.toISOString();
+    if (new Date(cur.rows[0].starts_at).toISOString() === newIso) { await client.query('COMMIT'); return res.json({ ok: true, id, unchanged: true }); }
+    if (!(await slotOpenForTeacher(teacher_id, start))) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Slot not available', taken: true }); }
+
+    const end = new Date(start.getTime() + SLOT_MIN * 60000);
+    const ins = await client.query(
+      `INSERT INTO teacher_slots (teacher_id, starts_at, ends_at, student_id, status, note, booked_at)
+       VALUES ($1, $2, $3, $4, 'booked', $5, NOW())
+       ON CONFLICT (teacher_id, starts_at) WHERE status = 'booked' DO NOTHING
+       RETURNING id`,
+      [teacher_id, newIso, end.toISOString(), uid, note || null]);
+    if (!ins.rows.length) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Slot no longer available', taken: true }); }
+    await client.query(`DELETE FROM teacher_slots WHERE id = $1 AND student_id = $2 AND status = 'booked'`, [id, uid]);
+    await client.query('COMMIT');
+
+    // Prévient le prof (best-effort).
+    try {
+      const who = await pool.query(`SELECT COALESCE(NULLIF(TRIM(name), ''), 'A student') AS name FROM users WHERE id = $1`, [uid]);
+      const when = start.toLocaleString('en-US', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      notify(teacher_id, 'lesson_rescheduled', 'Lesson rescheduled',
+        `${who.rows[0].name} moved their ${note === 'trial' ? 'trial ' : ''}lesson to ${when}.`, { slotId: ins.rows[0].id }).catch(() => {});
+    } catch { /* noop */ }
+    res.json({ ok: true, id: ins.rows[0].id });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('m/student slots reschedule:', e); res.status(500).json({ error: 'Server error' });
+  } finally { client.release(); }
+});
+
 // ── GET /api/m/agenda/upcoming : mes sessions réservées à venir (prof OU élève) ─
 router.get('/api/m/agenda/upcoming', requireToken, async (req, res) => {
   try {

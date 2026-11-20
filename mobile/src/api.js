@@ -710,6 +710,9 @@ export function bookRecurringSlots(teacherId, startsAt, weeks) {
 export function cancelSlotBooking(id) {
   return request(`/api/m/student/slots/${id}/cancel`, { method: 'POST' });
 }
+export function rescheduleSlotBooking(id, startsAt) {
+  return request(`/api/m/student/slots/${id}/reschedule`, { method: 'POST', body: { starts_at: startsAt } });
+}
 export function getUpcomingSessions() {
   return request('/api/m/agenda/upcoming');
 }
