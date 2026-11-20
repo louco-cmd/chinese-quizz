@@ -247,7 +247,7 @@ function CtaCards({ t, lang, next, stacked, onEditAvail, onStartNext }) {
   const editCard = (
     <Pressable key="edit" onPress={onEditAvail} style={{ flex: stacked ? undefined : 1 }} className="active:opacity-90">
       <LinearGradient colors={['#1a73ff', '#0a3fc4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={{ borderRadius: 16, padding: 16, minHeight: 94, alignItems: 'center', justifyContent: 'center' }}>
+        style={{ flex: stacked ? undefined : 1, borderRadius: 16, padding: 16, minHeight: 92, alignItems: 'center', justifyContent: 'center' }}>
         <View style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center', marginBottom: 7 }}>
           <Ionicons name="time-outline" size={18} color="#fff" />
         </View>
@@ -259,7 +259,7 @@ function CtaCards({ t, lang, next, stacked, onEditAvail, onStartNext }) {
 
   const nextCard = (
     <Pressable key="next" onPress={() => next && onStartNext(next, joinable)} style={{ flex: stacked ? undefined : 1 }} className="active:opacity-90">
-      <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 14, minHeight: 94, justifyContent: 'center', ...SHADOW_CARD }}>
+      <View style={{ flex: stacked ? undefined : 1, backgroundColor: '#fff', borderRadius: 16, padding: 14, minHeight: 92, justifyContent: 'center', ...SHADOW_CARD }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
           <Ionicons name="videocam" size={15} color={COLORS.jiayou} />
           <Text style={{ color: '#1a1a2e', fontWeight: '800', fontSize: 13.5 }}>{t('ag_start_next')}</Text>
@@ -539,7 +539,8 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
   const [dateHours, setDateHours] = useState(new Map()); // date YYYY-MM-DD -> Set(heures) override
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(localKey(new Date()));
-  const [viewMode, setViewMode] = useState('month'); // month | week (Today = recentrage)
+  const [viewMode, setViewMode] = useState('month'); // month | week | day (Today = recentrage)
+  const [calH, setCalH] = useState(0); // hauteur dispo mesurée pour faire tenir le calendrier
   const [editingAvail, setEditingAvail] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [editingDay, setEditingDay] = useState(null); // date YYYY-MM-DD en cours d'édition
@@ -619,86 +620,90 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
     </View>
   );
 
+  // Hauteur de cellule du mois calculée pour que les 6 rangées + l'en-tête tiennent
+  // dans l'espace mesuré (calH) → calendrier « fit », sans scroll de page.
+  const avH = calH || 420;
+  const monthCellH = Math.max(34, Math.min(86, Math.floor((avH - 66) / 6)));
+  const monthMaxChips = monthCellH >= 54 ? 2 : 1;
+
   const CalendarArea = (
-    <View>
+    <View style={{ flex: 1 }} onLayout={(e) => { const h = Math.round(e.nativeEvent.layout.height); if (Math.abs(h - calH) > 2) setCalH(h); }}>
       {viewMode === 'month' && (
-        <>
-          <View style={{ borderRadius: 16, overflow: 'hidden', backgroundColor: '#fff', ...SHADOW_CARD }}>
-            <Calendar
-              current={selected}
-              firstDay={1}
-              theme={{ arrowColor: COLORS.jiayou, textMonthFontWeight: '800', textDayHeaderFontWeight: '700' }}
-              dayComponent={({ date, state }) => {
-                const d = new Date(date.year, date.month - 1, date.day);
-                const hasOpen = dateHours.has(date.dateString) || openWeekdays.has(jsMon0(d));
-                const dayLes = lessonsByDay(d);
-                const isSel = date.dateString === selected;
-                const isToday = date.dateString === localKey(new Date());
-                const disabled = state === 'disabled';
-                return (
-                  <Pressable onPress={() => { setSelected(date.dateString); setEditingDay(date.dateString); }} style={{ width: '100%' }}>
-                    {/* Bloc interne : marges = espacement entre cases. */}
-                    <View style={{ minHeight: 56, borderRadius: 10, paddingVertical: 3, paddingHorizontal: 3, marginHorizontal: 3, marginVertical: 2,
-                      backgroundColor: hasOpen && !disabled ? 'rgba(13,110,253,0.10)' : 'transparent',
-                      borderWidth: isSel ? 1.5 : 0, borderColor: COLORS.jiayou }}>
-                      <Text style={{ fontSize: 12.5, fontWeight: isToday ? '800' : '600', textAlign: 'center', marginBottom: 2,
-                        color: disabled ? '#ccd2da' : isToday ? COLORS.jiayou : '#1a1a2e' }}>{date.day}</Text>
-                      {/* Cellule CTA par cours planifié (heure) */}
-                      {dayLes.slice(0, 2).map((les) => {
-                        const bg = lessonFinished(les, Date.now()) ? '#c4ccd6' : isTrial(les) ? '#f59e0b' : COLORS.jiayou;
-                        return (
-                          <Pressable key={les.id} onPress={() => openLesson(les)}
-                            style={{ backgroundColor: bg, borderRadius: 5, paddingHorizontal: 3, paddingVertical: 1.5, marginBottom: 2 }}>
-                            <Text style={{ color: '#fff', fontSize: 8.5, fontWeight: '800', textAlign: 'center' }} numberOfLines={1}>{hhmm(new Date(les.starts_at))}</Text>
-                          </Pressable>
-                        );
-                      })}
-                      {dayLes.length > 2 ? <Text style={{ fontSize: 8, color: COLORS.muted, textAlign: 'center' }}>+{dayLes.length - 2}</Text> : null}
-                    </View>
-                  </Pressable>
-                );
-              }}
-            />
-          </View>
-          <View style={{ flexDirection: 'row', gap: 16, justifyContent: 'center', marginTop: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: 'rgba(13,110,253,0.18)' }} />
-              <Text style={{ fontSize: 11.5, color: COLORS.mutedLight }}>Open hours</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: COLORS.jiayou }} />
-              <Text style={{ fontSize: 11.5, color: COLORS.mutedLight }}>Planned lesson</Text>
-            </View>
-          </View>
-        </>
+        <View style={{ flex: 1, borderRadius: 16, overflow: 'hidden', backgroundColor: '#fff', ...SHADOW_CARD }}>
+          <Calendar
+            current={selected}
+            firstDay={1}
+            hideExtraDays={false}
+            theme={{ arrowColor: COLORS.jiayou, textMonthFontWeight: '800', textDayHeaderFontWeight: '700', 'stylesheet.calendar.main': { week: { marginVertical: 0, flexDirection: 'row', justifyContent: 'space-around' } } }}
+            dayComponent={({ date, state }) => {
+              const d = new Date(date.year, date.month - 1, date.day);
+              const hasOpen = dateHours.has(date.dateString) || openWeekdays.has(jsMon0(d));
+              const dayLes = lessonsByDay(d);
+              const isSel = date.dateString === selected;
+              const isToday = date.dateString === localKey(new Date());
+              const disabled = state === 'disabled';
+              return (
+                // Clic sur un jour → vue Jour (timeline du jour).
+                <Pressable onPress={() => { setSelected(date.dateString); setViewMode('day'); }} style={{ width: '100%' }}>
+                  <View style={{ height: monthCellH, borderRadius: 10, paddingTop: 2, paddingHorizontal: 2, marginHorizontal: 2, marginVertical: 1, overflow: 'hidden',
+                    backgroundColor: hasOpen && !disabled ? 'rgba(13,110,253,0.10)' : 'transparent',
+                    borderWidth: isSel ? 1.5 : 0, borderColor: COLORS.jiayou }}>
+                    <Text style={{ fontSize: 12, fontWeight: isToday ? '800' : '600', textAlign: 'center', marginBottom: 1,
+                      color: disabled ? '#ccd2da' : isToday ? COLORS.jiayou : '#1a1a2e' }}>{date.day}</Text>
+                    {dayLes.slice(0, monthMaxChips).map((les) => {
+                      const bg = lessonFinished(les, Date.now()) ? '#c4ccd6' : isTrial(les) ? '#f59e0b' : COLORS.jiayou;
+                      return (
+                        <Pressable key={les.id} onPress={() => openLesson(les)}
+                          style={{ backgroundColor: bg, borderRadius: 4, paddingHorizontal: 2, paddingVertical: 1, marginBottom: 1 }}>
+                          <Text style={{ color: '#fff', fontSize: 8.5, fontWeight: '800', textAlign: 'center' }} numberOfLines={1}>{hhmm(new Date(les.starts_at))}</Text>
+                        </Pressable>
+                      );
+                    })}
+                    {dayLes.length > monthMaxChips ? <Text style={{ fontSize: 8, color: COLORS.muted, textAlign: 'center' }}>+{dayLes.length - monthMaxChips}</Text> : null}
+                  </View>
+                </Pressable>
+              );
+            }}
+          />
+        </View>
       )}
-      {viewMode === 'week' && (() => {
-        const shift = (n) => setSelected(localKey(addDays(selDate, 7 * n)));
-        const rangeLabel = `${weekDaysArr[0].getDate()} – ${dayLabel(weekDaysArr[6], lang)}`;
+      {(viewMode === 'week' || viewMode === 'day') && (() => {
+        const isDay = viewMode === 'day';
+        const days = isDay ? [selDate] : weekDaysArr;
+        const shift = (n) => setSelected(localKey(addDays(selDate, (isDay ? 1 : 7) * n)));
+        const rangeLabel = isDay ? dayLabel(selDate, lang) : `${weekDaysArr[0].getDate()} – ${dayLabel(weekDaysArr[6], lang)}`;
         const navBtn = { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eef2f7' };
         return (
-          <View>
+          <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-              <Pressable onPress={() => shift(-1)} hitSlop={8} style={navBtn}><Ionicons name="chevron-back" size={18} color={COLORS.jiayou} /></Pressable>
+              {/* En vue Jour : flèche retour au mois à gauche du label. */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {isDay ? (
+                  <Pressable onPress={() => setViewMode('month')} hitSlop={8} style={navBtn}><Ionicons name="grid-outline" size={16} color={COLORS.jiayou} /></Pressable>
+                ) : null}
+                <Pressable onPress={() => shift(-1)} hitSlop={8} style={navBtn}><Ionicons name="chevron-back" size={18} color={COLORS.jiayou} /></Pressable>
+              </View>
               <Text style={{ fontSize: 14, fontWeight: '800', color: '#1a1a2e', textTransform: 'capitalize' }}>{rangeLabel}</Text>
               <Pressable onPress={() => shift(1)} hitSlop={8} style={navBtn}><Ionicons name="chevron-forward" size={18} color={COLORS.jiayou} /></Pressable>
             </View>
-            <View style={{ position: 'relative' }}>
-              <TimeGrid days={weekDaysArr} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} lang={lang} week t={t} />
-              {/* Aucune dispo → incitation au centre du calendrier. */}
-              {avail.size === 0 ? (
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,249,250,0.72)' }}>
-                  <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 18, alignItems: 'center', maxWidth: 280, ...SHADOW_CARD }}>
-                    <Ionicons name="calendar-outline" size={28} color={COLORS.jiayou} />
-                    <Text style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e', marginTop: 8, textAlign: 'center' }}>{t('ag_no_avail_title')}</Text>
-                    <Text style={{ fontSize: 12.5, color: COLORS.muted, textAlign: 'center', marginTop: 4, lineHeight: 17 }}>{t('ag_no_avail_sub')}</Text>
-                    <Pressable onPress={() => setEditingAvail(true)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11, marginTop: 14 }}>
-                      <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13.5 }}>{t('ag_edit_avail')}</Text>
-                    </Pressable>
+            {/* Grille haute → scroll interne, la page reste fixe. */}
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 6 }} showsVerticalScrollIndicator={false}>
+              <View style={{ position: 'relative' }}>
+                <TimeGrid days={days} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} lang={lang} week={!isDay} t={t} />
+                {avail.size === 0 ? (
+                  <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,249,250,0.72)' }}>
+                    <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 18, alignItems: 'center', maxWidth: 280, ...SHADOW_CARD }}>
+                      <Ionicons name="calendar-outline" size={28} color={COLORS.jiayou} />
+                      <Text style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e', marginTop: 8, textAlign: 'center' }}>{t('ag_no_avail_title')}</Text>
+                      <Text style={{ fontSize: 12.5, color: COLORS.muted, textAlign: 'center', marginTop: 4, lineHeight: 17 }}>{t('ag_no_avail_sub')}</Text>
+                      <Pressable onPress={() => setEditingAvail(true)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11, marginTop: 14 }}>
+                        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13.5 }}>{t('ag_edit_avail')}</Text>
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              ) : null}
-            </View>
+                ) : null}
+              </View>
+            </ScrollView>
           </View>
         );
       })()}
@@ -716,9 +721,11 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       {/* Contenu compact (mois + 2 CTA) : tient à l'écran sans scroll sur la
           plupart des appareils ; la ScrollView ne défile que si ça déborde. */}
-      <ScrollView contentContainerStyle={{ padding: 16, width: '100%', maxWidth: wide ? 1100 : 640, alignSelf: 'center' }}>
+      {/* Layout flex (pas de ScrollView de page) : le calendrier occupe l'espace
+          mesuré et les CTA restent ancrées en bas → tient à l'écran sans scroll. */}
+      <View style={{ flex: 1, padding: 16, width: '100%', maxWidth: wide ? 1100 : 640, alignSelf: 'center' }}>
         {wide ? (
-          <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
+          <View style={{ flex: 1, flexDirection: 'row', gap: 20, alignItems: 'stretch' }}>
             <View style={{ width: 300 }}>{ctaCards(true)}</View>
             <View style={{ flex: 1 }}>
               {ViewTabs}
@@ -732,7 +739,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
             <View style={{ marginTop: 12 }}>{ctaCards(false)}</View>
           </>
         )}
-      </ScrollView>
+      </View>
 
       <AvailabilityEditor visible={editingAvail} onClose={() => setEditingAvail(false)} onSaved={load} t={t} lang={lang} />
       <DayEditor date={editingDay} onClose={() => setEditingDay(null)} onSaved={load} t={t} lang={lang} />
