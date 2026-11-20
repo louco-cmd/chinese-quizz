@@ -1,11 +1,37 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../../components/ErrorRetry';
-import { teacherLessonProgress, teacherDeleteLesson, teacherUpdateLesson } from '../../api';
-import { Modal, Button, StatTile, StatRow } from '../../ui';
+import { teacherLessonProgress, teacherDeleteLesson } from '../../api';
+import { Modal, Button } from '../../ui';
+import CreateTaskPopup from './CreateTaskPopup';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import CatLoader from '../../components/CatLoader';
+
+const SUMMARY_LINE_H = 20;
+const SUMMARY_MAX_LINES = 5;
+
+// Texte repliable : au-delà de 5 lignes on tronque avec un « Show more / less ».
+// On mesure la hauteur réelle via un Text invisible (onTextLayout n'existe pas sur
+// react-native-web) → marche en natif ET sur web.
+function CollapsibleText({ text }) {
+  const [expanded, setExpanded] = useState(false);
+  const [fullH, setFullH] = useState(0);
+  const needsClamp = fullH > SUMMARY_LINE_H * SUMMARY_MAX_LINES + 2;
+  return (
+    <View>
+      <Text style={{ fontSize: 14, lineHeight: SUMMARY_LINE_H, color: '#495267' }} numberOfLines={expanded ? undefined : SUMMARY_MAX_LINES}>{text}</Text>
+      {/* Mesure invisible de la hauteur totale (non tronquée). */}
+      <Text pointerEvents="none" style={{ fontSize: 14, lineHeight: SUMMARY_LINE_H, position: 'absolute', left: 0, right: 0, opacity: 0, zIndex: -1 }}
+        onLayout={(e) => { const h = e.nativeEvent.layout.height; if (Math.abs(h - fullH) > 1) setFullH(h); }}>{text}</Text>
+      {needsClamp ? (
+        <Pressable onPress={() => setExpanded((x) => !x)} hitSlop={6} style={{ marginTop: 4, alignSelf: 'flex-start' }}>
+          <Text style={{ color: COLORS.jiayou, fontWeight: '700', fontSize: 12.5 }}>{expanded ? 'Show less' : 'Show more'}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
 
 // Ligne de mot — style « duel results » : terme (caractère + pinyin) à gauche,
 // traduction à droite. Largeur fixe du terme en desktop → colonnes alignées.
@@ -23,7 +49,7 @@ function WordRow({ word, last, isDesktop }) {
   );
 }
 
-export default function TeacherTaskScreen({ lessonId, onBack }) {
+export default function TeacherTaskScreen({ lessonId, direction, onBack }) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 900;
   const [data, setData] = useState(null);
@@ -31,12 +57,7 @@ export default function TeacherTaskScreen({ lessonId, onBack }) {
   const [error, setError] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  // Édition (titre + résumé)
   const [editOpen, setEditOpen] = useState(false);
-  const [eTitle, setETitle] = useState('');
-  const [eSummary, setESummary] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [eErr, setEErr] = useState('');
 
   const load = useCallback(async () => {
     setError('');
@@ -49,18 +70,6 @@ export default function TeacherTaskScreen({ lessonId, onBack }) {
     try { await teacherDeleteLesson(lessonId); onBack(true); } catch (e) { setError(e.message); setConfirmDel(false); } finally { setDeleting(false); }
   }
 
-  function openEdit() {
-    setETitle(data?.lesson?.title || '');
-    setESummary(data?.lesson?.summary || '');
-    setEErr(''); setEditOpen(true);
-  }
-  async function doEdit() {
-    if (!eTitle.trim()) { setEErr('Title required'); return; }
-    setSaving(true); setEErr('');
-    try { await teacherUpdateLesson(lessonId, { title: eTitle.trim(), summary: eSummary.trim() }); setEditOpen(false); await load(); }
-    catch (e) { setEErr(e.message || 'Error'); } finally { setSaving(false); }
-  }
-
   if (loading) return <View className="flex-1 items-center justify-center bg-surface-page"><CatLoader size={110} /></View>;
   if (error && !data) return <View className="flex-1 bg-surface-page"><ErrorRetry error={error} onRetry={load} /></View>;
 
@@ -68,6 +77,13 @@ export default function TeacherTaskScreen({ lessonId, onBack }) {
   const studentCount = students.length;
   const totalQuizzes = students.reduce((a, s) => a + (Number(s.quiz_count) || 0), 0);
   const avgKnowledge = studentCount ? Math.round(students.reduce((a, s) => a + (Number(s.knowledge) || 0), 0) / studentCount) : 0;
+
+  // Bloc stats, même présentation que la carte « My classes » de la page Classes.
+  const stats = [
+    { label: 'Avg knowledge', value: `${avgKnowledge}%`, color: COLORS.jiayou },
+    { label: `Quiz${totalQuizzes === 1 ? '' : 'zes'} done`, value: totalQuizzes, color: COLORS.ink },
+    { label: `Student${studentCount === 1 ? '' : 's'}`, value: studentCount, color: COLORS.ink },
+  ];
 
   return (
     <View className="flex-1 bg-surface-page">
@@ -78,26 +94,36 @@ export default function TeacherTaskScreen({ lessonId, onBack }) {
             <Text className="text-muted text-[14px]">Back to class</Text>
           </Pressable>
 
-          {/* ── En-tête + bloc statistique ─────────────────────────────── */}
+          {/* ── Bloc statistique (style page Classes) ──────────────────── */}
+          <View className="bg-white rounded-2xl p-5 mb-4" style={SHADOW_CARD}>
+            <View className="flex-row items-center gap-2 mb-4">
+              <Ionicons name="stats-chart" size={16} color={COLORS.muted} />
+              <Text className="text-ink font-extrabold text-[16px]">Task stats</Text>
+            </View>
+            <View className="flex-row">
+              {stats.map((s) => (
+                <View key={s.label} className="flex-1 items-center px-1">
+                  <Text style={{ color: s.color, fontSize: 20, fontWeight: '800' }} numberOfLines={1}>{s.value}</Text>
+                  <Text className="text-muted-light text-[11px] mt-1 text-center" numberOfLines={1}>{s.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* ── Bloc titre + texte (résumé repliable) ──────────────────── */}
           <View className="bg-white rounded-2xl p-5 mb-4" style={SHADOW_CARD}>
             <Text className="text-jiayou font-extrabold text-[20px]">{lesson.title}</Text>
             <Text className="text-muted-light text-[12px] mt-1">
               {new Date(lesson.created_at).toLocaleDateString()} · {words.length} word{words.length === 1 ? '' : 's'}
             </Text>
-            {lesson.summary ? <Text className="text-[#495267] text-[14px] mt-2 leading-5">{lesson.summary}</Text> : null}
-
-            <StatRow style={{ marginTop: 14 }}>
-              <StatTile value={`${avgKnowledge}%`} label="Avg knowledge" valueColor={COLORS.jiayou} />
-              <StatTile value={totalQuizzes} label={`Quiz${totalQuizzes === 1 ? '' : 'zes'} done`} />
-              <StatTile value={studentCount} label={`Student${studentCount === 1 ? '' : 's'}`} />
-            </StatRow>
+            {lesson.summary ? <View className="mt-2"><CollapsibleText text={lesson.summary} /></View> : null}
           </View>
 
           {/* ── Liste des mots (style duel results) ────────────────────── */}
           <View className="bg-white rounded-2xl overflow-hidden mb-4" style={SHADOW_CARD}>
             <View className="flex-row items-center gap-2 px-4 pt-4 pb-2">
               <Ionicons name="book" size={16} color={COLORS.jiayou} />
-              <Text className="font-bold text-jiayou text-[14px]">Words</Text>
+              <Text className="font-bold text-jiayou text-[14px]">Words to learn</Text>
             </View>
             {words.length === 0 ? (
               <View className="items-center py-8">
@@ -111,36 +137,22 @@ export default function TeacherTaskScreen({ lessonId, onBack }) {
 
           {/* ── Actions : Edit / Delete ────────────────────────────────── */}
           <View className="flex-row gap-3">
-            <Button title="Edit task" variant="secondary" icon="create-outline" onPress={openEdit} style={{ flex: 1, justifyContent: 'center' }} />
+            <Button title="Edit task" variant="secondary" icon="create-outline" onPress={() => setEditOpen(true)} style={{ flex: 1, justifyContent: 'center' }} />
             <Button title="Delete task" variant="danger" icon="trash-outline" onPress={() => setConfirmDel(true)} style={{ flex: 1, justifyContent: 'center' }} />
           </View>
         </View>
       </ScrollView>
 
-      {/* ── Modal édition (titre + résumé) ───────────────────────────── */}
-      <Modal visible={editOpen} onClose={() => setEditOpen(false)} maxWidth={460}>
-        <Text className="text-[17px] font-bold text-ink mb-3">Edit task</Text>
-        <Text className="text-[13px] font-semibold text-muted mb-1.5">Title *</Text>
-        <TextInput
-          value={eTitle} onChangeText={setETitle} maxLength={120} placeholder="Task title"
-          placeholderTextColor={COLORS.mutedLight}
-          className="bg-surface-page border border-line rounded-xl px-3.5 h-12 text-[15px] text-ink mb-3"
-        />
-        <Text className="text-[13px] font-semibold text-muted mb-1.5">Summary (optional)</Text>
-        <TextInput
-          value={eSummary} onChangeText={setESummary} maxLength={2000} multiline placeholder="Notes for your students…"
-          placeholderTextColor={COLORS.mutedLight}
-          className="bg-surface-page border border-line rounded-xl px-3.5 py-3 text-[15px] text-ink"
-          style={{ minHeight: 80, textAlignVertical: 'top' }}
-        />
-        {eErr ? <Text className="text-danger text-[13px] font-semibold mt-2">{eErr}</Text> : null}
-        <View className="flex-row gap-3 mt-4">
-          <Button title="Cancel" variant="secondary" onPress={() => setEditOpen(false)} style={{ flex: 1, justifyContent: 'center' }} />
-          <Button title="Save" loading={saving} onPress={doEdit} style={{ flex: 1, justifyContent: 'center' }} />
-        </View>
-      </Modal>
+      {/* ── Édition de la task (titre + résumé + mots) ───────────────── */}
+      <CreateTaskPopup
+        visible={editOpen}
+        direction={direction}
+        editLesson={editOpen ? { id: lessonId, title: lesson.title, summary: lesson.summary, words } : null}
+        onClose={() => setEditOpen(false)}
+        onCreated={() => { setEditOpen(false); load(); }}
+      />
 
-      {/* ── Modal confirmation suppression ───────────────────────────── */}
+      {/* ── Confirmation suppression ─────────────────────────────────── */}
       <Modal visible={confirmDel} onClose={() => setConfirmDel(false)} maxWidth={380}>
         <View className="items-center mb-2"><Text className="text-[30px]">🗑️</Text></View>
         <Text className="text-[16px] font-bold text-ink text-center mb-1">Delete this task?</Text>

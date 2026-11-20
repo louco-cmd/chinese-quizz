@@ -1,16 +1,18 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, Button } from '../../ui';
-import { teacherLookupWords, teacherCreateLesson } from '../../api';
+import { teacherLookupWords, teacherCreateLesson, teacherUpdateLesson } from '../../api';
 import { COLORS } from '../../theme';
 
 const CN = /[一-鿿]/;
 const inputSm = 'bg-surface-page border border-line rounded-lg px-2.5 h-10 text-[14px] text-ink';
 
-// Création d'une task en 3 étapes (titre/résumé → mots → traductions),
+// Création / édition d'une task en 3 étapes (titre/résumé → mots → traductions),
 // direction-aware comme teach-class.ejs. `direction` = quiz_direction du prof.
-export default function CreateTaskPopup({ visible, classId, direction, onClose, onCreated }) {
+// `editLesson` (optionnel) = { id, title, summary, words:[{chinese,pinyin,english}] }
+// → mode édition : pré-rempli, enregistre via PATCH (titre + résumé + mots).
+export default function CreateTaskPopup({ visible, classId, direction, editLesson = null, onClose, onCreated }) {
   const isZhEn = direction === 'zh→en'; // cours d'anglais → saisie en anglais
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState('');
@@ -26,6 +28,15 @@ export default function CreateTaskPopup({ visible, classId, direction, onClose, 
     setStep(1); setTitle(''); setSummary(''); setInput('');
     setPending([]); setCards([]); setErr(''); setBusy(false);
   }
+  // À l'ouverture en mode édition : pré-remplir titre/résumé/mots existants.
+  useEffect(() => {
+    if (!visible) return;
+    if (editLesson) {
+      setStep(1); setInput(''); setPending([]); setErr(''); setBusy(false);
+      setTitle(editLesson.title || ''); setSummary(editLesson.summary || '');
+      setCards((editLesson.words || []).map((w) => ({ chinese: w.chinese || '', pinyin: w.pinyin || '', english: w.english || '', found: true })));
+    }
+  }, [visible, editLesson]);
   function close() { reset(); onClose(); }
 
   const wordValid = (v) => (!v ? true : isZhEn ? !CN.test(v) : !/[^一-鿿]/.test(v));
@@ -47,7 +58,12 @@ export default function CreateTaskPopup({ visible, classId, direction, onClose, 
   async function fetchWords() {
     let list = [...pending];
     if (input.trim() && wordValid(input.trim()) && !list.includes(input.trim())) list = [...list, input.trim()];
-    if (!list.length) { setErr('Add at least one word.'); return; }
+    if (!list.length) {
+      // Aucun nouveau mot à résoudre : si on a déjà des mots (édition), on passe
+      // directement aux traductions ; sinon on exige au moins un mot.
+      if (cards.length) { setStep(3); return; }
+      setErr('Add at least one word.'); return;
+    }
     setBusy(true); setErr('');
     try {
       const { results } = await teacherLookupWords(list);
@@ -75,11 +91,13 @@ export default function CreateTaskPopup({ visible, classId, direction, onClose, 
     const bad = cards.find((w) => !cardComplete(w));
     if (bad) { setErr(`Complete the translation for "${isZhEn ? bad.english : bad.chinese}"`); return; }
     setBusy(true); setErr('');
+    const payload = {
+      title: title.trim(), summary: summary.trim(),
+      words: cards.map((w) => ({ chinese: w.chinese, pinyin: w.pinyin, english: w.english })),
+    };
     try {
-      await teacherCreateLesson(classId, {
-        title: title.trim(), summary: summary.trim(),
-        words: cards.map((w) => ({ chinese: w.chinese, pinyin: w.pinyin, english: w.english })),
-      });
+      if (editLesson) await teacherUpdateLesson(editLesson.id, payload);
+      else await teacherCreateLesson(classId, payload);
       onCreated();
       close();
     } catch (e) { setErr(e.message || 'Error'); setBusy(false); }
@@ -89,7 +107,7 @@ export default function CreateTaskPopup({ visible, classId, direction, onClose, 
     <Modal visible={visible} onClose={close} maxWidth={460} scroll={false}>
       {/* En-tête + points d'étape */}
       <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-[17px] font-bold text-ink">New task</Text>
+        <Text className="text-[17px] font-bold text-ink">{editLesson ? 'Edit task' : 'New task'}</Text>
         <View className="flex-row gap-1.5">
           {[1, 2, 3].map((i) => <View key={i} className={`h-1.5 rounded-full ${i <= step ? 'w-5 bg-jiayou' : 'w-1.5 bg-line'}`} />)}
         </View>
@@ -170,7 +188,7 @@ export default function CreateTaskPopup({ visible, classId, direction, onClose, 
           {err ? <Text className="text-danger text-[13px] font-semibold mt-2">{err}</Text> : null}
           <View className="flex-row gap-3 mt-4">
             <Button title="Back" variant="secondary" onPress={() => setStep(2)} style={{ flex: 1, justifyContent: 'center' }} />
-            <Button title="Create task" loading={busy} onPress={create} style={{ flex: 1, justifyContent: 'center' }} />
+            <Button title={editLesson ? 'Save task' : 'Create task'} loading={busy} onPress={create} style={{ flex: 1, justifyContent: 'center' }} />
           </View>
         </>
       )}

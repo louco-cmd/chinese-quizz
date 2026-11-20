@@ -206,6 +206,38 @@ router.get('/api/m/teacher/classes/:id/lessons', requireToken, requireTeacher, a
   } catch (e) { console.error('m/teacher lessons:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
+// Résout une liste de mots {chinese,pinyin,english} en mot_id (trouve dans le dico
+// partagé ou crée), dans une transaction `client`. Retourne les mot_id uniques.
+// Partagé par la création (POST) et l'édition (PATCH) d'une task.
+async function resolveMotIds(client, words, langs, userId) {
+  const motIds = [];
+  for (const w of (Array.isArray(words) ? words.slice(0, 50) : [])) {
+    const chinese = String(w.chinese || '').trim();
+    if (!chinese) continue;
+    const pinyin = String(w.pinyin || '').trim().slice(0, 100);
+    const english = String(w.english || '').trim().slice(0, 300);
+    const existing = await client.query('SELECT id, hsk FROM mots WHERE chinese = $1 LIMIT 1', [chinese]);
+    let motId;
+    if (existing.rows.length) {
+      motId = existing.rows[0].id;
+      if (existing.rows[0].hsk == null && english) {
+        await client.query('UPDATE mots SET pinyin = $1 WHERE id = $2', [pinyin, motId]);
+        await syncConceptSiblings(client, motId, english, langs.native, { replace: true, userId });
+      }
+    } else {
+      if (!english) continue;
+      const ins = await client.query(
+        `INSERT INTO mots (chinese, pinyin, lang) VALUES ($1, $2, $3) RETURNING id`,
+        [chinese.slice(0, 50), pinyin, langs.learning]
+      );
+      motId = ins.rows[0].id;
+      await syncConceptSiblings(client, motId, english, langs.native, { userId });
+    }
+    motIds.push(motId);
+  }
+  return [...new Set(motIds)];
+}
+
 router.post('/api/m/teacher/classes/:id/lessons', requireToken, requireTeacher, async (req, res) => {
   const client = await pool.connect();
   try {
@@ -224,32 +256,8 @@ router.post('/api/m/teacher/classes/:id/lessons', requireToken, requireTeacher, 
     );
     const lessonId = lrows[0].id;
     const langs = await getUserLangs(req.tokenUser.id);
-    const motIds = [];
-    for (const w of words) {
-      const chinese = String(w.chinese || '').trim();
-      if (!chinese) continue;
-      const pinyin = String(w.pinyin || '').trim().slice(0, 100);
-      const english = String(w.english || '').trim().slice(0, 300);
-      const existing = await client.query('SELECT id, hsk FROM mots WHERE chinese = $1 LIMIT 1', [chinese]);
-      let motId;
-      if (existing.rows.length) {
-        motId = existing.rows[0].id;
-        if (existing.rows[0].hsk == null && english) {
-          await client.query('UPDATE mots SET pinyin = $1 WHERE id = $2', [pinyin, motId]);
-          await syncConceptSiblings(client, motId, english, langs.native, { replace: true, userId: req.tokenUser.id });
-        }
-      } else {
-        if (!english) continue;
-        const ins = await client.query(
-          `INSERT INTO mots (chinese, pinyin, lang) VALUES ($1, $2, $3) RETURNING id`,
-          [chinese.slice(0, 50), pinyin, langs.learning]
-        );
-        motId = ins.rows[0].id;
-        await syncConceptSiblings(client, motId, english, langs.native, { userId: req.tokenUser.id });
-      }
-      motIds.push(motId);
-    }
-    for (const motId of [...new Set(motIds)]) {
+    const motIds = await resolveMotIds(client, words, langs, req.tokenUser.id);
+    for (const motId of motIds) {
       await client.query(
         `INSERT INTO lesson_words (lesson_id, mot_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
         [lessonId, motId]
@@ -455,22 +463,48 @@ router.get('/api/m/teacher/lessons/:lessonId/progress', requireToken, requireTea
   } catch (e) { console.error('m/teacher progress:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
-// Édition d'une task : titre + résumé (les mots se gèrent à la création/suppression).
+// Édition d'une task : titre + résumé, et (optionnel) remplacement de la liste de
+// mots. `words` absent → on ne touche pas aux mots ; présent → on remplace tout.
 router.patch('/api/m/teacher/lessons/:lessonId', requireToken, requireTeacher, async (req, res) => {
+  const client = await pool.connect();
   try {
     const title = String(req.body?.title || '').trim().slice(0, 120);
     const summary = String(req.body?.summary || '').trim().slice(0, 2000);
+    const hasWords = Array.isArray(req.body?.words);
     if (!title) return res.status(400).json({ error: 'Title required' });
-    const { rows } = await pool.query(
+
+    await client.query('BEGIN');
+    const { rows } = await client.query(
       `UPDATE lessons l SET title = $3, summary = $4
          FROM classrooms c
         WHERE l.id = $1 AND l.classroom_id = c.id AND c.teacher_id = $2
         RETURNING l.id`,
       [req.params.lessonId, req.teacher.id, title, summary]
     );
-    if (!rows.length) return res.status(404).json({ error: 'Task not found' });
+    if (!rows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Task not found' }); }
+
+    if (hasWords) {
+      const langs = await getUserLangs(req.tokenUser.id);
+      const motIds = await resolveMotIds(client, req.body.words, langs, req.tokenUser.id);
+      // Remplace la liste : supprime les liens absents, ajoute les nouveaux. Les
+      // user_mots (connaissance) et lesson_quiz_results ne sont pas touchés.
+      await client.query(
+        `DELETE FROM lesson_words WHERE lesson_id = $1 AND ($2::int[] = '{}' OR mot_id <> ALL($2::int[]))`,
+        [rows[0].id, motIds]
+      );
+      for (const motId of motIds) {
+        await client.query(
+          `INSERT INTO lesson_words (lesson_id, mot_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [rows[0].id, motId]
+        );
+      }
+    }
+    await client.query('COMMIT');
     res.json({ success: true });
-  } catch (e) { console.error('m/teacher update lesson:', e); res.status(500).json({ error: 'Server error' }); }
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('m/teacher update lesson:', e); res.status(500).json({ error: 'Server error' });
+  } finally { client.release(); }
 });
 
 router.delete('/api/m/teacher/lessons/:lessonId', requireToken, requireTeacher, async (req, res) => {

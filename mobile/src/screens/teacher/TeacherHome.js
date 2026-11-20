@@ -147,7 +147,7 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
       />
     );
   } else if (view?.type === 'task') {
-    content = <TeacherTaskScreen lessonId={view.lessonId} onBack={() => setView({ type: 'class', id: view.classId })} />;
+    content = <TeacherTaskScreen lessonId={view.lessonId} direction={direction} onBack={() => setView({ type: 'class', id: view.classId })} />;
   } else if (view?.type === 'bank') {
     // Bank DANS le shell → header 加油 Mentor + tab bar conservés.
     content = <BankScreen onBack={() => setView(null)} />;
