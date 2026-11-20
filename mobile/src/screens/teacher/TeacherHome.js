@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, Pressable, useWindowDimensions } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { View, Text, Pressable, useWindowDimensions, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TeacherDashboardScreen from './TeacherDashboardScreen';
@@ -16,6 +16,7 @@ import StoreScreen from '../StoreScreen';
 import CreatePackScreen from '../CreatePackScreen';
 import TeachersScreen from '../TeachersScreen';
 import MessagesScreen from '../MessagesScreen';
+import { getConversations } from '../../api';
 import QuizScreen from '../QuizScreen';
 import PricingScreen from '../PricingScreen';
 import TeacherPricingScreen from './TeacherPricingScreen';
@@ -68,16 +69,24 @@ function TeacherHeader({ onSettings, onLogo, onBank, onPlan, plan, insetTop, bal
   );
 }
 
-function TeacherTabBar({ active, onChange, insetBottom, maxWidth }) {
+function TeacherTabBar({ active, onChange, insetBottom, maxWidth, badges = {} }) {
   return (
     <View style={{ paddingBottom: insetBottom }} className="bg-white border-t border-line-soft">
       {/* En desktop, boutons centrés (max-width) plutôt qu'étirés. */}
       <View style={{ flexDirection: 'row', width: '100%', maxWidth, alignSelf: 'center' }}>
         {TABS.map((t) => {
           const on = active === t.key;
+          const badge = badges[t.key] || 0;
           return (
             <Pressable key={t.key} onPress={() => onChange(t.key)} className="flex-1 items-center py-2.5">
-              <Ionicons name={on ? t.icon : `${t.icon}-outline`} size={22} color={on ? COLORS.jiayou : '#9aa4b2'} />
+              <View>
+                <Ionicons name={on ? t.icon : `${t.icon}-outline`} size={22} color={on ? COLORS.jiayou : '#9aa4b2'} />
+                {badge ? (
+                  <View style={{ position: 'absolute', top: -5, right: -10, minWidth: 16, height: 16, paddingHorizontal: 4, borderRadius: 999, backgroundColor: COLORS.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#fff' }}>
+                    <Text style={{ color: '#fff', fontSize: 9.5, fontWeight: '800' }}>{badge > 99 ? '99+' : badge}</Text>
+                  </View>
+                ) : null}
+              </View>
               <Text className={`text-[11px] mt-0.5 ${on ? 'text-jiayou font-bold' : 'text-muted-light'}`}>{t.label}</Text>
             </Pressable>
           );
@@ -96,7 +105,27 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
   const tabMaxWidth = width >= 992 ? 460 : undefined;
   const [tab, setTab] = useState('classes');
   const [view, setView] = useState(null);
+  const [unread, setUnread] = useState(0);
   const direction = profile?.quiz_direction || 'en→zh';
+
+  // Compteur de messages non-lus pour la pastille de l'onglet Messages. Léger :
+  // on rafraîchit au montage, quand l'app repasse active, à chaque bascule
+  // d'onglet (la lecture dans l'onglet Messages remet à zéro), et un poll lent
+  // (45 s) pendant que l'app est active — pas de requête en arrière-plan.
+  const refreshUnread = useCallback(async () => {
+    try { const d = await getConversations(); setUnread(d?.unread_total || 0); } catch { /* silencieux */ }
+  }, []);
+  useEffect(() => {
+    refreshUnread();
+    let timer = setInterval(refreshUnread, 45000);
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') { refreshUnread(); if (!timer) timer = setInterval(refreshUnread, 45000); }
+      else if (timer) { clearInterval(timer); timer = null; }
+    });
+    return () => { if (timer) clearInterval(timer); sub.remove(); };
+  }, [refreshUnread]);
+  // Rafraîchit à chaque bascule d'onglet (ex. on quitte Messages après lecture).
+  useEffect(() => { refreshUnread(); }, [tab, refreshUnread]);
 
   // Support / legal : plein écran (leur propre retour). Réglages : dans le shell
   // (header 加油 Mentor + tab bar conservés) — voir plus bas dans `content`.
@@ -209,7 +238,7 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
         balance={profile?.balance}
       />
       <View className="flex-1">{content}</View>
-      {kbOpen ? null : <TeacherTabBar active={tab} onChange={changeTab} insetBottom={insets.bottom} maxWidth={tabMaxWidth} />}
+      {kbOpen ? null : <TeacherTabBar active={tab} onChange={changeTab} insetBottom={insets.bottom} maxWidth={tabMaxWidth} badges={{ messages: tab === 'messages' ? 0 : unread }} />}
     </View>
   );
 }

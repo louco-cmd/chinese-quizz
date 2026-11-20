@@ -65,7 +65,7 @@ function ConversationList({ onOpen, onBack, bottomClear = 0 }) {
               </View>
               <Text className={`text-[12.5px] mt-0.5 ${c.unread ? 'text-ink font-semibold' : 'text-muted-light'}`} numberOfLines={1}>{c.last_body || ''}</Text>
             </View>
-            {c.unread ? <View className="rounded-full min-w-[20px] h-5 px-1.5 items-center justify-center" style={{ backgroundColor: COLORS.danger }}><Text className="text-white font-bold text-[11px]">{c.unread > 99 ? '99+' : c.unread}</Text></View> : null}
+            {c.unread ? <View className="rounded-full min-w-[22px] h-[22px] px-2 items-center justify-center" style={{ backgroundColor: COLORS.jiayouSoft }}><Text className="font-bold text-[11.5px]" style={{ color: COLORS.jiayou }}>{c.unread > 99 ? '99+' : c.unread}</Text></View> : null}
           </Pressable>
         ))}
 
