@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import BottomSheet from '../../ui/BottomSheet';
@@ -9,7 +9,7 @@ import { ErrorRetry } from '../../components/ErrorRetry';
 import { getTeacherLessons, deleteTeacherLesson, updateTeacherLesson, getTeacherAvailability, setTeacherAvailability, getTeacherDateSlots, setTeacherDateSlots } from '../../api';
 import { useT } from '../../i18n';
 import { Button } from '../../ui';
-import { COLORS, TAB_CLEARANCE, SHADOW_CARD } from '../../theme';
+import { COLORS, SHADOW_CARD } from '../../theme';
 
 function localKey(d) {
   const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
@@ -231,56 +231,57 @@ function DayEditor({ date, onClose, onSaved, t, lang }) {
   );
 }
 
-// Carte « Mon calendrier » : prochains cours + cours de la semaine + CTA dispos.
-function SummaryCard({ t, lang, lessons, weekCount, onEditAvail, onEditLesson, onStart, onSync }) {
-  return (
-    <View style={{ backgroundColor: '#fff', borderRadius: 18, padding: 20, ...SHADOW_CARD }}>
-      <Text style={{ fontSize: 22, fontWeight: '800', color: '#1a1a2e' }}>{t('ag_my_calendar')}</Text>
+// Deux CTA compactes (remplacent la grosse carte récap) :
+//  • « Modifier mes dispos » (plein, bleu) → éditeur de semaine type
+//  • « Prochain cours » (blanc) → démarre la visio si c'est l'heure, sinon détail
+// `stacked` : empilées (desktop, colonne gauche) ou côte à côte (mobile, bas).
+function CtaCards({ t, lang, next, stacked, onEditAvail, onStartNext }) {
+  const s = next ? new Date(next.starts_at) : null;
+  const joinable = next ? lessonJoinable(next, Date.now()) : false;
+  const dateStr = s ? (() => {
+    try { return s.toLocaleDateString(lang === 'zh' ? 'zh-CN' : lang === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short' }); }
+    catch { return localKey(s); }
+  })() : '';
 
-      <Text style={{ fontSize: 14, fontWeight: '800', color: '#1a1a2e', marginTop: 16, marginBottom: 8 }}>{t('ag_next_lesson')}</Text>
-      {lessons.length === 0 ? (
-        <Text style={{ fontSize: 13, color: COLORS.mutedLight, paddingVertical: 4 }}>{t('ag_no_upcoming')}</Text>
-      ) : lessons.slice(0, 3).map((u, i) => {
-        const s = new Date(u.starts_at);
-        const now = Date.now();
-        const isToday = localKey(s) === localKey(new Date());
-        const when = `${isToday ? t('ag_today') : dayLabel(s, lang)} ${hhmm(s)}`;
-        const joinable = lessonJoinable(u, now);
-        const started = now >= s.getTime();
-        const trial = isTrial(u);
-        return (
-          <View key={u.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 7 }}>
-            <View style={{ flex: 1, paddingRight: 10 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 14, color: '#1a1a2e', fontWeight: '600' }}>{when}</Text>
-                {trial ? <TrialBadge t={t} /> : null}
+  const editCard = (
+    <Pressable key="edit" onPress={onEditAvail} style={{ flex: stacked ? undefined : 1 }} className="active:opacity-90">
+      <LinearGradient colors={['#1a73ff', '#0a3fc4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={{ borderRadius: 16, padding: 16, minHeight: 94, alignItems: 'center', justifyContent: 'center' }}>
+        <View style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center', marginBottom: 7 }}>
+          <Ionicons name="time-outline" size={18} color="#fff" />
+        </View>
+        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14, textAlign: 'center' }}>{t('ag_edit_avail')}</Text>
+        <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 2, textAlign: 'center' }}>{t('ag_avail_cta_sub')}</Text>
+      </LinearGradient>
+    </Pressable>
+  );
+
+  const nextCard = (
+    <Pressable key="next" onPress={() => next && onStartNext(next, joinable)} style={{ flex: stacked ? undefined : 1 }} className="active:opacity-90">
+      <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 14, minHeight: 94, justifyContent: 'center', ...SHADOW_CARD }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+          <Ionicons name="videocam" size={15} color={COLORS.jiayou} />
+          <Text style={{ color: '#1a1a2e', fontWeight: '800', fontSize: 13.5 }}>{t('ag_start_next')}</Text>
+        </View>
+        {next ? (
+          <>
+            <Text style={{ color: COLORS.muted, fontSize: 12 }} numberOfLines={1}>{hhmm(s)} · {dateStr}</Text>
+            {next.student_name ? (
+              <View style={{ alignSelf: 'flex-start', backgroundColor: '#1a1a2e', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginTop: 7 }}>
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 11 }} numberOfLines={1}>{next.student_name}</Text>
               </View>
-              {u.student_name ? <Text style={{ fontSize: 11.5, color: COLORS.mutedLight }} numberOfLines={1}>{u.student_name}</Text> : null}
-            </View>
-            {joinable ? (
-              <Pressable onPress={() => onStart(u)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}>
-                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12.5 }}>{t(started ? 'ag_rejoin' : 'ag_start_class')}</Text>
-              </Pressable>
-            ) : (
-              <Pressable onPress={() => onEditLesson(u)} style={{ backgroundColor: '#eef2f7', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}>
-                <Text style={{ color: '#55607a', fontWeight: '700', fontSize: 12.5 }}>{t('ag_edit')}</Text>
-              </Pressable>
-            )}
-          </View>
-        );
-      })}
+            ) : null}
+          </>
+        ) : (
+          <Text style={{ color: COLORS.mutedLight, fontSize: 12 }}>{t('ag_no_upcoming')}</Text>
+        )}
+      </View>
+    </Pressable>
+  );
 
-      <View style={{ height: 1, backgroundColor: '#f0f2f5', marginVertical: 14 }} />
-      <Text style={{ fontSize: 14, fontWeight: '800', color: '#1a1a2e' }}>{t('ag_lessons_week')}</Text>
-      <Text style={{ fontSize: 26, fontWeight: '800', color: COLORS.jiayou, marginTop: 2 }}>{weekCount}</Text>
-
-      <Pressable onPress={onEditAvail} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingVertical: 14, alignItems: 'center', marginTop: 18 }}>
-        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14.5 }}>{t('ag_edit_avail')}</Text>
-      </Pressable>
-      <Pressable onPress={onSync} style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 7, paddingVertical: 12, marginTop: 8 }}>
-        <Ionicons name="sync-outline" size={16} color={COLORS.jiayou} />
-        <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 13.5 }}>Sync with my calendar</Text>
-      </Pressable>
+  return (
+    <View style={stacked ? { gap: 12 } : { flexDirection: 'row', gap: 12 }}>
+      {editCard}{nextCard}
     </View>
   );
 }
@@ -537,7 +538,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
   const [dateHours, setDateHours] = useState(new Map()); // date YYYY-MM-DD -> Set(heures) override
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(localKey(new Date()));
-  const [viewMode, setViewMode] = useState('week'); // week | day | month
+  const [viewMode, setViewMode] = useState('month'); // month | week (Today = recentrage)
   const [editingAvail, setEditingAvail] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [editingDay, setEditingDay] = useState(null); // date YYYY-MM-DD en cours d'édition
@@ -559,11 +560,6 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
   const now = new Date();
   // « À venir » inclut les cours encore rejoignables (jusqu'à 10 min après la fin).
   const upcomingLessons = useMemo(() => (lessons || []).filter((s) => new Date(s.ends_at).getTime() + REJOIN_MS > now.getTime()).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at)), [lessons]);
-
-  const weekCount = useMemo(() => {
-    const [a, b] = weekRange(new Date());
-    return upcomingLessons.filter((s) => new Date(s.starts_at) >= a && new Date(s.starts_at) < b).length;
-  }, [upcomingLessons]);
 
   // Jours de semaine (0=lun) qui ont au moins une heure ouverte → fond bleu.
   const openWeekdays = useMemo(() => {
@@ -596,23 +592,34 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
   }
   if (error) return <ErrorRetry onRetry={load} />;
 
+  // Tabs Month | Week + bouton « Today » (recentre sur aujourd'hui, pas un mode) +
+  // icône de synchro calendrier à droite.
   const ViewTabs = (
-    <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: '#eef1f5', borderRadius: 999, padding: 4, gap: 2 }}>
-      {[['week', t('ag_view_week')], ['day', t('ag_view_day')], ['month', t('ag_view_month')]].map(([k, label]) => {
-        const on = viewMode === k;
-        return (
-          <Pressable key={k} onPress={() => setViewMode(k)}
-            style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: on ? '#fff' : 'transparent' }}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: on ? COLORS.jiayou : '#8a94a3' }}>{label}</Text>
-          </Pressable>
-        );
-      })}
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+      <View style={{ flexDirection: 'row', backgroundColor: '#eef1f5', borderRadius: 999, padding: 4, gap: 2 }}>
+        {[['month', t('ag_view_month')], ['week', t('ag_view_week')]].map(([k, label]) => {
+          const on = viewMode === k;
+          return (
+            <Pressable key={k} onPress={() => setViewMode(k)}
+              style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: on ? '#fff' : 'transparent' }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: on ? COLORS.jiayou : '#8a94a3' }}>{label}</Text>
+            </Pressable>
+          );
+        })}
+        <Pressable onPress={() => setSelected(localKey(new Date()))}
+          style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#8a94a3' }}>{t('ag_view_today')}</Text>
+        </Pressable>
+      </View>
+      <Pressable onPress={() => setSyncing(true)} hitSlop={8}
+        style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: '#eef2f7', alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name="sync-outline" size={18} color={COLORS.jiayou} />
+      </Pressable>
     </View>
   );
 
-  const RightPanel = (
+  const CalendarArea = (
     <View style={{ flex: 1 }}>
-      <View style={{ marginBottom: 12 }}>{ViewTabs}</View>
       {viewMode === 'month' && (
         <>
           <View style={{ borderRadius: 16, overflow: 'hidden', backgroundColor: '#fff', ...SHADOW_CARD }}>
@@ -630,7 +637,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
                 return (
                   <Pressable onPress={() => { setSelected(date.dateString); setEditingDay(date.dateString); }} style={{ width: '100%' }}>
                     {/* Bloc interne : marges = espacement entre cases. */}
-                    <View style={{ minHeight: 70, borderRadius: 10, paddingVertical: 4, paddingHorizontal: 3, marginHorizontal: 3, marginVertical: 2,
+                    <View style={{ minHeight: 56, borderRadius: 10, paddingVertical: 3, paddingHorizontal: 3, marginHorizontal: 3, marginVertical: 2,
                       backgroundColor: hasOpen && !disabled ? 'rgba(13,110,253,0.10)' : 'transparent',
                       borderWidth: isSel ? 1.5 : 0, borderColor: COLORS.jiayou }}>
                       <Text style={{ fontSize: 12.5, fontWeight: isToday ? '800' : '600', textAlign: 'center', marginBottom: 2,
@@ -664,63 +671,70 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
           </View>
         </>
       )}
-      {(viewMode === 'week' || viewMode === 'day') && (() => {
-        const isWeek = viewMode === 'week';
-        const days = isWeek ? weekDaysArr : [selDate];
-        const shift = (n) => setSelected(localKey(addDays(selDate, (isWeek ? 7 : 1) * n)));
-        const rangeLabel = isWeek ? `${weekDaysArr[0].getDate()} – ${dayLabel(weekDaysArr[6], lang)}` : dayLabel(selDate, lang);
+      {viewMode === 'week' && (() => {
+        const shift = (n) => setSelected(localKey(addDays(selDate, 7 * n)));
+        const rangeLabel = `${weekDaysArr[0].getDate()} – ${dayLabel(weekDaysArr[6], lang)}`;
         const navBtn = { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#eef2f7' };
         return (
-          <>
+          <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <Pressable onPress={() => shift(-1)} hitSlop={8} style={navBtn}><Ionicons name="chevron-back" size={18} color={COLORS.jiayou} /></Pressable>
               <Text style={{ fontSize: 14, fontWeight: '800', color: '#1a1a2e', textTransform: 'capitalize' }}>{rangeLabel}</Text>
               <Pressable onPress={() => shift(1)} hitSlop={8} style={navBtn}><Ionicons name="chevron-forward" size={18} color={COLORS.jiayou} /></Pressable>
             </View>
-            <View style={{ position: 'relative' }}>
-              <TimeGrid days={days} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} lang={lang} week={isWeek} t={t} />
-              {/* Aucune dispo → incitation au centre du calendrier. */}
-              {avail.size === 0 ? (
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,249,250,0.72)' }}>
-                  <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 18, alignItems: 'center', maxWidth: 280, ...SHADOW_CARD }}>
-                    <Ionicons name="calendar-outline" size={28} color={COLORS.jiayou} />
-                    <Text style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e', marginTop: 8, textAlign: 'center' }}>{t('ag_no_avail_title')}</Text>
-                    <Text style={{ fontSize: 12.5, color: COLORS.muted, textAlign: 'center', marginTop: 4, lineHeight: 17 }}>{t('ag_no_avail_sub')}</Text>
-                    <Pressable onPress={() => setEditingAvail(true)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11, marginTop: 14 }}>
-                      <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13.5 }}>{t('ag_edit_avail')}</Text>
-                    </Pressable>
+            {/* La grille horaire est haute : elle scrolle en interne, la page reste fixe. */}
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 6 }} showsVerticalScrollIndicator={false}>
+              <View style={{ position: 'relative' }}>
+                <TimeGrid days={weekDaysArr} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} lang={lang} week t={t} />
+                {/* Aucune dispo → incitation au centre du calendrier. */}
+                {avail.size === 0 ? (
+                  <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,249,250,0.72)' }}>
+                    <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 18, alignItems: 'center', maxWidth: 280, ...SHADOW_CARD }}>
+                      <Ionicons name="calendar-outline" size={28} color={COLORS.jiayou} />
+                      <Text style={{ fontSize: 14.5, fontWeight: '800', color: '#1a1a2e', marginTop: 8, textAlign: 'center' }}>{t('ag_no_avail_title')}</Text>
+                      <Text style={{ fontSize: 12.5, color: COLORS.muted, textAlign: 'center', marginTop: 4, lineHeight: 17 }}>{t('ag_no_avail_sub')}</Text>
+                      <Pressable onPress={() => setEditingAvail(true)} style={{ backgroundColor: COLORS.jiayou, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11, marginTop: 14 }}>
+                        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 13.5 }}>{t('ag_edit_avail')}</Text>
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              ) : null}
-            </View>
-            {avail.size > 0 ? <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, textAlign: 'center', marginTop: 10 }}>{t('ag_grid_hint')}</Text> : null}
-          </>
+                ) : null}
+              </View>
+            </ScrollView>
+          </View>
         );
       })()}
     </View>
   );
 
-  const Summary = (
-    <SummaryCard t={t} lang={lang} lessons={upcomingLessons} weekCount={weekCount}
-      onEditAvail={() => setEditingAvail(true)} onEditLesson={editLesson} onStart={startClass}
-      onSync={() => setSyncing(true)} />
+  const next = upcomingLessons[0];
+  const ctaCards = (stacked) => (
+    <CtaCards t={t} lang={lang} next={next} stacked={stacked}
+      onEditAvail={() => setEditingAvail(true)}
+      onStartNext={(n, joinable) => (joinable ? startClass(n) : openLesson(n))} />
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: TAB_CLEARANCE, width: '100%', maxWidth: wide ? 1100 : 640, alignSelf: 'center' }}>
+      {/* Pas de scroll vertical de page : tout tient dans l'écran. Le calendrier
+          occupe l'espace dispo (flex:1), les CTA restent ancrées. */}
+      <View style={{ flex: 1, padding: 16, width: '100%', maxWidth: wide ? 1100 : 640, alignSelf: 'center' }}>
         {wide ? (
-          <View style={{ flexDirection: 'row', gap: 20, alignItems: 'flex-start' }}>
-            <View style={[{ width: 320 }, Platform.OS === 'web' ? { position: 'sticky', top: 16 } : null]}>{Summary}</View>
-            {RightPanel}
+          <View style={{ flex: 1, flexDirection: 'row', gap: 20, alignItems: 'stretch' }}>
+            <View style={{ width: 300 }}>{ctaCards(true)}</View>
+            <View style={{ flex: 1 }}>
+              {ViewTabs}
+              {CalendarArea}
+            </View>
           </View>
         ) : (
           <>
-            <View style={{ marginBottom: 16 }}>{Summary}</View>
-            {RightPanel}
+            {ViewTabs}
+            {CalendarArea}
+            <View style={{ marginTop: 12 }}>{ctaCards(false)}</View>
           </>
         )}
-      </ScrollView>
+      </View>
 
       <AvailabilityEditor visible={editingAvail} onClose={() => setEditingAvail(false)} onSaved={load} t={t} lang={lang} />
       <DayEditor date={editingDay} onClose={() => setEditingDay(null)} onSaved={load} t={t} lang={lang} />
