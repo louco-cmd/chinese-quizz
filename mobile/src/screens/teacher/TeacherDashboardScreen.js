@@ -106,8 +106,8 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
       >
         <View className="bg-white rounded-2xl p-4 flex-1 justify-center" style={[SHADOW_CARD, { minHeight: 104 }]}>
           <View className="flex-row items-center gap-1.5 mb-1.5">
-            <Ionicons name="videocam" size={15} color={COLORS.jiayou} />
-            <Text className="text-ink font-extrabold text-[13.5px]">Start next Lesson</Text>
+            <Ionicons name={next ? 'videocam' : 'calendar-clear-outline'} size={15} color={next ? COLORS.jiayou : COLORS.mutedLight} />
+            <Text className={next ? 'text-ink font-extrabold text-[13.5px]' : 'text-muted-light font-extrabold text-[13.5px]'}>{next ? 'Start next Lesson' : 'No upcoming class'}</Text>
           </View>
           {next ? (
             <>
@@ -118,9 +118,7 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
                 <Text className="text-white font-bold text-[11px]" numberOfLines={1}>{next.other_name || next.student_name || 'Student'}</Text>
               </View>
             </>
-          ) : (
-            <Text className="text-muted-light text-[12px] mt-1">No upcoming lesson</Text>
-          )}
+          ) : null}
         </View>
       </Pressable>
     </View>
