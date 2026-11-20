@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, AppState, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, Keyboard, Platform, AppState, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '../ui/Avatar';
@@ -97,10 +97,23 @@ function Thread({ conv, onBack }) {
   const [error, setError] = useState('');
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [kb, setKb] = useState(0); // hauteur du clavier → soulève l'input
   const scrollRef = useRef(null);
   const lastIdRef = useRef(0);
 
   const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+
+  // Mesure directe de la hauteur du clavier (fiable quel que soit le mode Android
+  // overlay/pan/resize) → on décale l'input de cette hauteur pour le faire flotter.
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = (e) => { setKb(e?.endCoordinates?.height || 0); scrollToEnd(); };
+    const onHide = () => setKb(0);
+    const s1 = Keyboard.addListener(showEvt, onShow);
+    const s2 = Keyboard.addListener(hideEvt, onHide);
+    return () => { s1.remove(); s2.remove(); };
+  }, []);
 
   // Première charge : ouvre la conversation si besoin, puis récupère les messages.
   useEffect(() => {
@@ -173,7 +186,9 @@ function Thread({ conv, onBack }) {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
+    // paddingBottom = hauteur du clavier → tout le contenu (fil + input) remonte,
+    // l'input flotte juste au-dessus du clavier.
+    <View style={{ flex: 1, paddingBottom: kb }}>
       {/* En-tête du fil */}
       <View className="flex-row items-center gap-3 px-4 py-2.5 bg-white border-b border-line-soft">
         <Pressable onPress={onBack} hitSlop={10}><Ionicons name="chevron-back" size={22} color={COLORS.ink} /></Pressable>
@@ -204,7 +219,7 @@ function Thread({ conv, onBack }) {
       {error ? <Text className="text-danger text-[12px] text-center py-1">{error}</Text> : null}
 
       {/* Barre de saisie */}
-      <View className="flex-row items-end gap-2 px-3 pt-2 bg-white border-t border-line-soft" style={{ paddingBottom: Math.max(insets.bottom, 8) }}>
+      <View className="flex-row items-end gap-2 px-3 pt-2 bg-white border-t border-line-soft" style={{ paddingBottom: kb > 0 ? 8 : Math.max(insets.bottom, 8) }}>
         <TextInput
           value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor={COLORS.mutedLight}
           multiline maxLength={2000}
@@ -215,7 +230,7 @@ function Thread({ conv, onBack }) {
           {sending ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="send" size={18} color="#fff" />}
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
