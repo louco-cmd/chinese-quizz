@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, Keyboard, Platform, AppState, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, Keyboard, Platform, AppState, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '../ui/Avatar';
@@ -105,23 +105,36 @@ function Thread({ conv, onBack }) {
 
   const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
 
-  // Fait flotter l'input au-dessus du clavier SANS supposer le mode (overlay/pan/
-  // resize) ni la présence d'une TabBar en dessous. On mesure le bas de l'écran du
-  // thread (bas du root, stable car le padding est interne) : la place sous lui
-  // (B = TabBar + insets) est déjà occupée, donc le chevauchement réel du clavier
-  // = hauteur clavier − B. On soulève de ce chevauchement (0 si déjà au-dessus).
+  // Fait flotter l'input pile au-dessus du clavier, sans supposer le mode clavier
+  // ni la présence d'une TabBar sous le thread.
+  //  • Natif : on soulève du chevauchement = (bas du thread) − (haut du clavier,
+  //    screenY). Le bas du root est stable (le padding est interne).
+  //  • Web/PWA : pas d'events Keyboard → on mesure via visualViewport la zone du
+  //    bas couverte par le clavier logiciel.
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      if (typeof window === 'undefined' || !window.visualViewport) return undefined;
+      const vv = window.visualViewport;
+      const onResize = () => {
+        const covered = Math.max(0, (window.innerHeight || 0) - vv.height - vv.offsetTop);
+        setLift(covered);
+        scrollToEnd();
+      };
+      vv.addEventListener('resize', onResize);
+      vv.addEventListener('scroll', onResize);
+      onResize();
+      return () => { vv.removeEventListener('resize', onResize); vv.removeEventListener('scroll', onResize); };
+    }
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const onShow = (e) => {
-      const kbH = e?.endCoordinates?.height || 0;
+      const kbTop = e?.endCoordinates?.screenY;
       const node = rootRef.current;
-      if (!node || !kbH) { scrollToEnd(); return; }
+      if (!node || kbTop == null) { scrollToEnd(); return; }
       requestAnimationFrame(() => {
         node.measureInWindow((x, y, w, h) => {
-          const winH = Dimensions.get('window').height;
-          const below = Math.max(0, winH - (y + h)); // place sous le thread (TabBar + insets)
-          setLift(Math.max(0, kbH - below));
+          const over = (y + h) - kbTop; // combien le clavier recouvre le thread
+          setLift(over > 0 ? over : 0);
           scrollToEnd();
         });
       });
