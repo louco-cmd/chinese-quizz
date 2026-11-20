@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, Keyboard, Platform, AppState, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, Keyboard, Platform, AppState, ActivityIndicator, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '../ui/Avatar';
@@ -98,19 +98,35 @@ function Thread({ conv, onBack }) {
   const [error, setError] = useState('');
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const [kb, setKb] = useState(0); // hauteur du clavier → soulève l'input
+  const [lift, setLift] = useState(0); // px pour soulever l'input au-dessus du clavier
   const scrollRef = useRef(null);
+  const rootRef = useRef(null);
   const lastIdRef = useRef(0);
 
   const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
 
-  // Mesure directe de la hauteur du clavier (fiable quel que soit le mode Android
-  // overlay/pan/resize) → on décale l'input de cette hauteur pour le faire flotter.
+  // Fait flotter l'input au-dessus du clavier SANS supposer le mode (overlay/pan/
+  // resize) ni la présence d'une TabBar en dessous. On mesure le bas de l'écran du
+  // thread (bas du root, stable car le padding est interne) : la place sous lui
+  // (B = TabBar + insets) est déjà occupée, donc le chevauchement réel du clavier
+  // = hauteur clavier − B. On soulève de ce chevauchement (0 si déjà au-dessus).
   useEffect(() => {
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const onShow = (e) => { setKb(e?.endCoordinates?.height || 0); scrollToEnd(); };
-    const onHide = () => setKb(0);
+    const onShow = (e) => {
+      const kbH = e?.endCoordinates?.height || 0;
+      const node = rootRef.current;
+      if (!node || !kbH) { scrollToEnd(); return; }
+      requestAnimationFrame(() => {
+        node.measureInWindow((x, y, w, h) => {
+          const winH = Dimensions.get('window').height;
+          const below = Math.max(0, winH - (y + h)); // place sous le thread (TabBar + insets)
+          setLift(Math.max(0, kbH - below));
+          scrollToEnd();
+        });
+      });
+    };
+    const onHide = () => setLift(0);
     const s1 = Keyboard.addListener(showEvt, onShow);
     const s2 = Keyboard.addListener(hideEvt, onHide);
     return () => { s1.remove(); s2.remove(); };
@@ -188,10 +204,9 @@ function Thread({ conv, onBack }) {
   }
 
   return (
-    // Clavier Android en mode « resize » : la fenêtre se redimensionne déjà au-dessus
-    // du clavier → l'input (bas d'une colonne flex) remonte tout seul. Aucun padding
-    // manuel à ajouter (sinon gap). Le ScrollView occupe l'espace et se réduit.
-    <View style={{ flex: 1 }}>
+    // paddingBottom = chevauchement mesuré du clavier (voir effet plus haut) → l'input
+    // flotte pile au-dessus du clavier, quelles que soient la TabBar et les insets.
+    <View ref={rootRef} style={{ flex: 1, paddingBottom: lift }}>
       {/* En-tête du fil */}
       <View className="flex-row items-center gap-3 px-4 py-2.5 bg-white border-b border-line-soft">
         <Pressable onPress={onBack} hitSlop={10}><Ionicons name="chevron-back" size={22} color={COLORS.ink} /></Pressable>
@@ -222,7 +237,7 @@ function Thread({ conv, onBack }) {
       {error ? <Text className="text-danger text-[12px] text-center py-1">{error}</Text> : null}
 
       {/* Barre de saisie */}
-      <View className="flex-row items-end gap-2 px-3 pt-2 bg-white border-t border-line-soft" style={{ paddingBottom: kb > 0 ? 6 : Math.max(insets.bottom, 8) }}>
+      <View className="flex-row items-end gap-2 px-3 pt-2 bg-white border-t border-line-soft" style={{ paddingBottom: lift > 0 ? 6 : Math.max(insets.bottom, 8) }}>
         <TextInput
           value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor={COLORS.mutedLight}
           multiline maxLength={2000}
