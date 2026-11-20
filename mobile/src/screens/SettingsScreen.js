@@ -352,6 +352,7 @@ export default function SettingsScreen({ onLogout, onOpen, onOpenTeacher, onBack
           <SettingsGroup title={t('set_grp_account')}>
             <SettingsRow icon="school" iconColor="#0d6efd" iconBg="#e8f0ff" label={t('set_find_teacher')} sub={t('set_find_teacher_sub')} onPress={() => onOpen?.('teachers')} right={<BetaPill />} />
             <SettingsRow icon="person" iconColor="#6f42c1" iconBg="#efe7fb" label={t('set_my_teacher')} sub={t('set_my_teacher_sub')} onPress={openMyTeacher} right={teacherBusy ? <ActivityIndicator color={COLORS.jiayou} /> : <BetaPill />} />
+            <SettingsRow icon="chatbubbles" iconColor="#0d6efd" iconBg="#e8f0ff" label={t('set_messages')} sub={t('set_messages_sub')} onPress={() => onOpen?.('messages')} right={<BetaPill />} />
             <SettingsRow icon="star" iconColor="#856404" iconBg="#fff3cd" label={t('set_premium')} sub={t('set_premium_sub')} onPress={() => onOpen?.('pricing')} />
           </SettingsGroup>
 

@@ -242,6 +242,12 @@ export function teacherRevokeStudent(classId, studentId) { return request(`/api/
 export function teacherClassLessons(id) { return request(`/api/m/teacher/classes/${id}/lessons`); }
 export function teacherCreateLesson(classId, payload) { return request(`/api/m/teacher/classes/${classId}/lessons`, { method: 'POST', body: payload }); }
 export function teacherLessonProgress(lessonId) { return request(`/api/m/teacher/lessons/${lessonId}/progress`); }
+
+// ── Messagerie prof ↔ élève (1:1, texte) ──────────────────────────────────────
+export function getConversations() { return request('/api/m/messages'); }
+export function openConversation(peerId) { return request('/api/m/messages/open', { method: 'POST', body: { peer_id: peerId } }); }
+export function getMessages(convId, after = 0) { return request(`/api/m/messages/${convId}?after=${after || 0}`); }
+export function sendMessage(convId, body) { return request(`/api/m/messages/${convId}`, { method: 'POST', body: { body } }); }
 export function teacherDeleteLesson(lessonId) { return request(`/api/m/teacher/lessons/${lessonId}`, { method: 'DELETE' }); }
 export function teacherLookupWords(words) { return request('/api/m/teacher/mots/lookup', { method: 'POST', body: { words } }); }
 export function teacherSendTask(payload) { return request('/api/m/teacher/send-task', { method: 'POST', body: payload }); }

@@ -15,6 +15,7 @@ import BankScreen from '../BankScreen';
 import StoreScreen from '../StoreScreen';
 import CreatePackScreen from '../CreatePackScreen';
 import TeachersScreen from '../TeachersScreen';
+import MessagesScreen from '../MessagesScreen';
 import QuizScreen from '../QuizScreen';
 import PricingScreen from '../PricingScreen';
 import TeacherPricingScreen from './TeacherPricingScreen';
@@ -123,6 +124,9 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
   } else if (view?.type === 'teachers') {
     // Liste des professeurs (même écran que côté élève), DANS le shell.
     content = <TeachersScreen onBack={() => setView({ type: 'settings' })} />;
+  } else if (view?.type === 'messages') {
+    // Messagerie prof ↔ élève, DANS le shell.
+    content = <MessagesScreen onBack={() => setView({ type: 'settings' })} />;
   } else if (view?.type === 'settings') {
     // Réglages DANS le shell → header 加油 Mentor + tab bar conservés.
     content = (
@@ -130,6 +134,7 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
         onBack={() => setView(null)}
         onLogout={onLogout}
         onOpenTeachers={() => setView({ type: 'teachers' })}
+        onOpenMessages={() => setView({ type: 'messages' })}
         onOpenSupport={() => setView({ type: 'support' })}
         onOpenLegal={() => setView({ type: 'legal' })}
         onReplayFlow={onReplayFlow}

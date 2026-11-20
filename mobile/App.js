@@ -19,6 +19,7 @@ import TabBar from './src/components/TabBar';
 import LoginScreen from './src/screens/LoginScreen';
 import TeachersScreen from './src/screens/TeachersScreen';
 import MyTeacherScreen from './src/screens/MyTeacherScreen';
+import MessagesScreen from './src/screens/MessagesScreen';
 import CollectionScreen from './src/screens/CollectionScreen';
 import AddWordScreen from './src/screens/AddWordScreen';
 import QuizScreen from './src/screens/QuizScreen';
@@ -266,6 +267,8 @@ function App() {
       } else if (type === 'red_envelope' || type === 'reengage') {
         setTab('add'); // enveloppes en popup / relance inactif → home
         if (type === 'red_envelope') checkEnvelopes(); // révèle tout de suite au tap
+      } else if (type === 'message') {
+        setTab('messages'); // ouvre la messagerie (côté élève ; le prof arrive sur sa home)
       } else if (type === 'daily_quiz') {
         // Push « quiz du jour » : récupère les 10 mots tailored puis ouvre le quiz.
         getDailyQuiz()
@@ -370,7 +373,7 @@ function App() {
       // 4) Plateforme prof : ses onglets gèrent leur propre retour.
       if (profile?.role === 'teacher') return false;
       // 5) Sous-écrans → parent (miroir de leurs boutons onBack).
-      const PARENTS = { settings: 'account', account: 'add', writing: 'settings', 'create-pack': 'store', myteacher: 'settings' };
+      const PARENTS = { settings: 'account', account: 'add', writing: 'settings', 'create-pack': 'store', myteacher: 'settings', messages: 'settings' };
       if (PARENTS[tab]) { setTab(PARENTS[tab]); return true; }
       if (['bank', 'pricing', 'teachers', 'import', 'support', 'legal', 'terms', 'privacy', 'credits', 'trophies'].includes(tab)) {
         setTab(bankReturn || 'add'); return true;
@@ -388,6 +391,7 @@ function App() {
     switch (tab) {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
       case 'myteacher': return <MyTeacherScreen teacherId={teacherView?.teacher_id || teacherView?.id} teacherName={teacherView?.name} onBack={() => setTab('settings')} onVideoCall={setVideoCallLesson} />;
+      case 'messages': return <MessagesScreen onBack={() => setTab('settings')} />;
       case 'collection': return <CollectionScreen onNavigate={setTab} onOpenCredits={() => { setBankReturn('collection'); setTab('credits'); }} />;
       case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
       case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} initialQuizIds={dailyQuizIds} onInitialQuizConsumed={() => setDailyQuizIds(null)} onBalanceChanged={refreshBalance} onNavigate={setTab} onActivityDone={checkTrophies} />;

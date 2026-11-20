@@ -898,6 +898,37 @@ const pool = new Pool({
       )
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC)`);
+
+    // ── Messagerie prof ↔ élève (1:1, texte) ─────────────────────────────────
+    // Une conversation = une paire (teacher_id, student_id) unique. *_read_at =
+    // dernière lecture de chaque partie (→ compteur de non-lus). Autorisation
+    // d'ouverture gérée côté route (lien classe actif OU cours d'essai booké).
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id SERIAL PRIMARY KEY,
+        teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_message_at TIMESTAMP,
+        teacher_read_at TIMESTAMP,
+        student_read_at TIMESTAMP,
+        UNIQUE (teacher_id, student_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_conversations_teacher ON conversations(teacher_id, last_message_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_conversations_student ON conversations(student_id, last_message_at DESC)`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        body TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, id)`);
+    console.log("✅ Tables 'conversations' / 'messages' vérifiées.");
+
     // Relance email "long time no see" : dernière relance envoyée (anti-spam).
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reengage_emailed_at TIMESTAMP`);
     // Abonnement premium via RevenueCat (Play Billing / StoreKit) — piloté par webhook.

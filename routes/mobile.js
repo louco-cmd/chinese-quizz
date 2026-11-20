@@ -797,6 +797,8 @@ require('./mobile/admin')(router, { requireToken });
 // ── Notifications / push (token, centre, read) → routes/mobile/notifications.js ──
 require('./mobile/notifications')(router, { requireToken });
 
+// ── Messagerie prof ↔ élève (1:1, texte) → routes/mobile/messages.js ──
+require('./mobile/messages')(router, { requireToken, notify });
 
 
 // ── Compte / profil / réglages / langues / parcours / RGPD → routes/mobile/account.js ──

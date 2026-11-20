@@ -12,7 +12,7 @@ import { COLORS } from '../../theme';
 // Réglages professeur — miroir de teach-settings.ejs.
 // Rendu DANS le shell prof (sous le header 加油 persistant), donc on ne rajoute
 // PAS insets.top ici (le header gère déjà le safe-area) — sinon gros vide en haut.
-export default function TeacherSettingsScreen({ onBack, onLogout, onOpenTeachers, onOpenSupport, onOpenLegal, onReplayFlow }) {
+export default function TeacherSettingsScreen({ onBack, onLogout, onOpenTeachers, onOpenMessages, onOpenSupport, onOpenLegal, onReplayFlow }) {
   const [s, setS] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -71,6 +71,7 @@ export default function TeacherSettingsScreen({ onBack, onLogout, onOpenTeachers
           </Pressable>
 
           <SettingsGroup title="Account">
+            <SettingsRow icon="chatbubbles" iconColor={COLORS.jiayou} iconBg="#e8f0ff" label="Messages" sub="Chat with your students" onPress={onOpenMessages} />
             <SettingsRow icon="people" iconColor={COLORS.jiayou} iconBg="#e8f0ff" label="See teacher listing" sub="Browse teachers on Jiayou" onPress={onOpenTeachers} />
           </SettingsGroup>
 
