@@ -55,14 +55,27 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
   if (loading) return <View className="flex-1 items-center justify-center bg-surface-page"><CatLoader size={110} /></View>;
   if (error) return <View className="flex-1 bg-surface-page"><ErrorRetry error={error} onRetry={load} /></View>;
 
-  // ── Carte récap « My classes » : 4 stats (Students / Lessons / Revenue / Mastered).
-  //   Revenue = PLACEHOLDER (« — ») : l'agrégation réelle du CA (ventes × commission)
-  //   n'est pas encore câblée côté backend — à brancher plus tard (cf. mémoire).
+  // ── Carte récap « My classes » : 4 stats (Students / Lessons / Revenue / Trend).
+  //   Revenue = revenus générés CE MOIS (₵) agrégés depuis les transactions prof
+  //   (cours donnés, part quiz élève, tâches finies, ventes de packs).
+  //   Trend = variation vs mois N-1 (progression / régression) sur ces revenus.
+  const revMonth = ov?.rev_month ?? 0;
+  const revPrev = ov?.rev_prev ?? 0;
+  // % de variation du revenu vs mois précédent. Prev = 0 → « New » si on a généré
+  // quelque chose ce mois, sinon neutre.
+  let trendStr = '—', trendColor = COLORS.mutedLight;
+  if (revPrev > 0) {
+    const pct = Math.round(((revMonth - revPrev) / revPrev) * 100);
+    trendStr = `${pct > 0 ? '↑ +' : pct < 0 ? '↓ ' : ''}${pct}%`;
+    trendColor = pct > 0 ? COLORS.success : pct < 0 ? COLORS.danger : COLORS.mutedLight;
+  } else if (revMonth > 0) {
+    trendStr = 'New'; trendColor = COLORS.success;
+  }
   const stats = [
     { label: 'Students', value: ov?.students ?? 0, color: COLORS.success },
     { label: 'Lessons', value: ov?.tasks ?? 0, color: COLORS.danger },
-    { label: 'Revenue', value: '—', color: COLORS.mutedLight },
-    { label: 'Mastered', value: `${ov?.avg_knowledge ?? 0}%`, color: COLORS.ink },
+    { label: 'Revenue', value: `${revMonth}₵`, color: COLORS.jiayou },
+    { label: 'vs last month', value: trendStr, color: trendColor },
   ];
   const statsCard = (
     <View className="bg-white rounded-2xl p-5" style={SHADOW_CARD}>

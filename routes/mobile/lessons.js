@@ -86,7 +86,18 @@ router.get('/api/m/teacher/overview', requireToken, requireTeacher, async (req, 
             FROM classroom_students cs
             JOIN classrooms cl ON cl.id = cs.classroom_id AND cl.teacher_id = $1
             JOIN user_mots um ON um.user_id = cs.student_id
-            WHERE cs.status = 'active')::int AS avg_knowledge`,
+            WHERE cs.status = 'active')::int AS avg_knowledge,
+         (SELECT COALESCE(SUM(amount), 0)
+            FROM transactions
+            WHERE user_id = $1 AND amount > 0
+              AND type IN ('teacher_lesson','teacher_quiz_share','teacher_class_done','pack_sale')
+              AND created_at >= date_trunc('month', now()))::int AS rev_month,
+         (SELECT COALESCE(SUM(amount), 0)
+            FROM transactions
+            WHERE user_id = $1 AND amount > 0
+              AND type IN ('teacher_lesson','teacher_quiz_share','teacher_class_done','pack_sale')
+              AND created_at >= date_trunc('month', now()) - interval '1 month'
+              AND created_at <  date_trunc('month', now()))::int AS rev_prev`,
       [req.teacher.id]
     );
     res.json(rows[0]);
