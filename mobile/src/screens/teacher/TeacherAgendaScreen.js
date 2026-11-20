@@ -321,10 +321,16 @@ function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, wee
           const dayLes = lessonsByDay(d);
           return (
             <View key={i} style={{ flex: 1, borderLeftWidth: 1, borderColor: '#f2f4f7', position: 'relative', height: GRID_HOURS.length * rowH }}>
-              {/* Cellules horaires + fond bleu transparent sur les heures OUVRÉES */}
-              {GRID_HOURS.map((h, idx) => (
-                <View key={h} style={{ position: 'absolute', top: idx * rowH, left: 0, right: 0, height: rowH, borderTopWidth: 1, borderColor: '#f2f4f7', backgroundColor: isOpenOn(d, h) ? 'rgba(13,110,253,0.10)' : 'transparent' }} />
-              ))}
+              {/* Cellules horaires : heures OUVERTES fortement mises en avant
+                  (fond bleu franc + liseré d'accent), heures fermées atténuées. */}
+              {GRID_HOURS.map((h, idx) => {
+                const open = isOpenOn(d, h);
+                return (
+                  <View key={h} style={{ position: 'absolute', top: idx * rowH, left: 0, right: 0, height: rowH, borderTopWidth: 1, borderColor: open ? 'rgba(13,110,253,0.18)' : '#f2f4f7', backgroundColor: open ? 'rgba(13,110,253,0.16)' : '#fafbfc' }}>
+                    {open ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2.5, backgroundColor: COLORS.jiayou }} /> : null}
+                  </View>
+                );
+              })}
               {/* Cours positionnés dans leur créneau */}
               {dayLes.map((les) => {
                 const st = new Date(les.starts_at), en = new Date(les.ends_at);
@@ -647,7 +653,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
                 // plus fiable que Pressable dans un dayComponent custom.
                 <TouchableOpacity activeOpacity={0.6} onPress={() => { setSelected(date.dateString); setViewMode('day'); }} style={{ width: '100%' }}>
                   <View style={{ height: monthCellH, borderRadius: 10, paddingTop: 2, paddingHorizontal: 2, marginHorizontal: 2, marginVertical: 1, overflow: 'hidden',
-                    backgroundColor: hasOpen && !disabled ? 'rgba(13,110,253,0.10)' : 'transparent',
+                    backgroundColor: disabled ? 'transparent' : hasOpen ? 'rgba(13,110,253,0.16)' : '#f7f8fb',
                     borderWidth: isSel ? 1.5 : 0, borderColor: COLORS.jiayou }}>
                     <Text style={{ fontSize: 12, fontWeight: isToday ? '800' : '600', textAlign: 'center', marginBottom: 1,
                       color: disabled ? '#ccd2da' : isToday ? COLORS.jiayou : '#1a1a2e' }}>{date.day}</Text>
