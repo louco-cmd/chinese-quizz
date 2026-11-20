@@ -292,6 +292,24 @@ function jsMon0(d) { return (d.getDay() + 6) % 7; }
 function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, week, t, rowH = ROW_H }) {
   const loc = lang === 'zh' ? 'zh-CN' : lang === 'fr' ? 'fr-FR' : 'en-US';
   const todayK = localKey(new Date());
+
+  // ── Lignes à hauteur variable : les heures OUVERTES (sur au moins un jour
+  //    affiché) sont plus hautes, les heures fermées compressées. La hauteur
+  //    totale reste identique (16 × rowH) → le calendrier tient toujours sans
+  //    scroll ; les lignes sont juste réparties différemment.
+  const openHour = (h) => days.some((d) => isOpenOn(d, h));
+  const closedH = Math.max(16, Math.round(rowH * 0.5));
+  const openCount = GRID_HOURS.filter(openHour).length;
+  const closedCount = GRID_HOURS.length - openCount;
+  const extra = (rowH - closedH) * closedCount; // espace libéré par les heures fermées
+  const openH = rowH + (openCount ? extra / openCount : 0);
+  const heights = GRID_HOURS.map((h) => (openHour(h) ? openH : closedH));
+  const offs = [];
+  { let acc = 0; for (let i = 0; i < heights.length; i++) { offs.push(acc); acc += heights[i]; } offs.push(acc); }
+  const totalH = offs[GRID_HOURS.length];
+  // Position Y d'un instant exprimé en heures-depuis-07h (fractionnaire).
+  const yAt = (hf) => { const c = Math.max(0, Math.min(GRID_HOURS.length, hf)); const idx = Math.min(GRID_HOURS.length - 1, Math.floor(c)); return offs[idx] + (c - idx) * heights[idx]; };
+
   return (
     <View style={{ backgroundColor: '#fff', borderRadius: 16, overflow: 'hidden', ...SHADOW_CARD }}>
       {/* En-têtes de jours */}
@@ -311,31 +329,28 @@ function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, wee
       {/* Corps : gutter d'heures + colonnes */}
       <View style={{ flexDirection: 'row' }}>
         <View style={{ width: 38 }}>
-          {GRID_HOURS.map((h) => (
-            <View key={h} style={{ height: rowH, alignItems: 'flex-end', paddingRight: 4 }}>
-              <Text style={{ fontSize: 9.5, color: COLORS.mutedLight, marginTop: -5 }}>{String(h).padStart(2, '0')}:00</Text>
+          {GRID_HOURS.map((h, idx) => (
+            <View key={h} style={{ height: heights[idx], alignItems: 'flex-end', paddingRight: 4 }}>
+              <Text style={{ fontSize: 9.5, color: openHour(h) ? COLORS.muted : COLORS.mutedLight, marginTop: -5 }}>{String(h).padStart(2, '0')}:00</Text>
             </View>
           ))}
         </View>
         {days.map((d, i) => {
           const dayLes = lessonsByDay(d);
           return (
-            <View key={i} style={{ flex: 1, borderLeftWidth: 1, borderColor: '#f2f4f7', position: 'relative', height: GRID_HOURS.length * rowH }}>
-              {/* Cellules horaires : heures OUVERTES fortement mises en avant
-                  (fond bleu franc + liseré d'accent), heures fermées atténuées. */}
-              {GRID_HOURS.map((h, idx) => {
-                const open = isOpenOn(d, h);
-                return (
-                  <View key={h} style={{ position: 'absolute', top: idx * rowH, left: 0, right: 0, height: rowH, borderTopWidth: 1, borderColor: open ? 'rgba(13,110,253,0.18)' : '#f2f4f7', backgroundColor: open ? 'rgba(13,110,253,0.16)' : '#fafbfc' }}>
-                    {open ? <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2.5, backgroundColor: COLORS.jiayou }} /> : null}
-                  </View>
-                );
-              })}
+            <View key={i} style={{ flex: 1, borderLeftWidth: 1, borderColor: '#f2f4f7', position: 'relative', height: totalH }}>
+              {/* Cellules horaires : les heures ouvertes sont plus HAUTES (voir
+                  hauteurs plus haut), teinte bleue discrète ; fermées compressées. */}
+              {GRID_HOURS.map((h, idx) => (
+                <View key={h} style={{ position: 'absolute', top: offs[idx], left: 0, right: 0, height: heights[idx], borderTopWidth: 1, borderColor: '#f2f4f7', backgroundColor: isOpenOn(d, h) ? 'rgba(13,110,253,0.10)' : 'transparent' }} />
+              ))}
               {/* Cours positionnés dans leur créneau */}
               {dayLes.map((les) => {
                 const st = new Date(les.starts_at), en = new Date(les.ends_at);
-                const top = Math.max(0, ((st.getHours() - 7) + st.getMinutes() / 60) * rowH);
-                const hgt = Math.max(16, ((en - st) / 3600000) * rowH - 2);
+                const stHF = (st.getHours() - 7) + st.getMinutes() / 60;
+                const enHF = (en.getHours() - 7) + en.getMinutes() / 60;
+                const top = Math.max(0, yAt(stHF));
+                const hgt = Math.max(16, yAt(enHF) - yAt(stHF) - 2);
                 const finished = lessonFinished(les, Date.now());
                 const trial = isTrial(les);
                 // Carte superposée : liseré gauche (gris = terminé, orange = essai, bleu = à venir).
@@ -653,7 +668,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
                 // plus fiable que Pressable dans un dayComponent custom.
                 <TouchableOpacity activeOpacity={0.6} onPress={() => { setSelected(date.dateString); setViewMode('day'); }} style={{ width: '100%' }}>
                   <View style={{ height: monthCellH, borderRadius: 10, paddingTop: 2, paddingHorizontal: 2, marginHorizontal: 2, marginVertical: 1, overflow: 'hidden',
-                    backgroundColor: disabled ? 'transparent' : hasOpen ? 'rgba(13,110,253,0.16)' : '#f7f8fb',
+                    backgroundColor: hasOpen && !disabled ? 'rgba(13,110,253,0.10)' : 'transparent',
                     borderWidth: isSel ? 1.5 : 0, borderColor: COLORS.jiayou }}>
                     <Text style={{ fontSize: 12, fontWeight: isToday ? '800' : '600', textAlign: 'center', marginBottom: 1,
                       color: disabled ? '#ccd2da' : isToday ? COLORS.jiayou : '#1a1a2e' }}>{date.day}</Text>
