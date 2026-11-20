@@ -11,6 +11,7 @@ const ICONS = {
   lesson_cancelled: { icon: 'close-circle', color: '#d4373e', bg: '#fdecef' },
   lesson_modified: { icon: 'calendar', color: '#0d6efd', bg: '#e8f0ff' },
   new_task: { icon: 'book', color: '#198754', bg: '#e8f5e9' },
+  message: { icon: 'chatbubble-ellipses', color: '#0d6efd', bg: '#e8f0ff' },
 };
 const DEFAULT = { icon: 'notifications', color: COLORS.muted, bg: '#eceef1' };
 
@@ -25,7 +26,7 @@ function timeAgo(iso) {
   return d === 1 ? 'yesterday' : `${d}d ago`;
 }
 
-export default function NotificationsPopup({ visible, notifications = [], onClose }) {
+export default function NotificationsPopup({ visible, notifications = [], onClose, onNavigate }) {
   return (
     <Popup visible={visible} onClose={onClose} maxWidth={420} scroll={false}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -40,8 +41,13 @@ export default function NotificationsPopup({ visible, notifications = [], onClos
         <ScrollView style={{ maxHeight: 380 }}>
           {notifications.map((n) => {
             const c = ICONS[n.type] || DEFAULT;
+            // Les notifs routables (ex. « message ») sont cliquables → ferme la
+            // popup et laisse le parent naviguer vers l'écran ciblé.
+            const tappable = !!onNavigate;
+            const Row = tappable ? Pressable : View;
             return (
-              <View key={n.id} style={{ flexDirection: 'row', gap: 12, paddingVertical: 11, borderBottomWidth: 1, borderColor: '#f2f2f4' }}>
+              <Row key={n.id} onPress={tappable ? () => { onClose?.(); onNavigate(n); } : undefined}
+                style={{ flexDirection: 'row', gap: 12, paddingVertical: 11, borderBottomWidth: 1, borderColor: '#f2f2f4' }}>
                 <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name={c.icon} size={19} color={c.color} />
                 </View>
@@ -51,7 +57,7 @@ export default function NotificationsPopup({ visible, notifications = [], onClos
                   <Text style={{ fontSize: 11, color: COLORS.mutedLight, marginTop: 3 }}>{timeAgo(n.created_at)}</Text>
                 </View>
                 {!n.read ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.jiayou, marginTop: 6 }} /> : null}
-              </View>
+              </Row>
             );
           })}
         </ScrollView>

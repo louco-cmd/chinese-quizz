@@ -91,6 +91,7 @@ function ConversationList({ onOpen, onBack }) {
 function Thread({ conv, onBack }) {
   const insets = useSafeAreaInsets();
   const [convId, setConvId] = useState(conv.id);
+  const [peer, setPeer] = useState(conv.peer || null); // peut être null si ouvert via notif (id seul)
   const [messages, setMessages] = useState([]);
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -127,6 +128,7 @@ function Thread({ conv, onBack }) {
         const r = await getMessages(id, 0);
         if (!alive) return;
         setMe(r.me);
+        if (r.peer) setPeer(r.peer); // peer renvoyé par le thread (cas « ouvert par id seul »)
         setMessages(r.messages || []);
         lastIdRef.current = (r.messages || []).reduce((mx, m) => Math.max(mx, m.id), 0);
         scrollToEnd();
@@ -134,7 +136,7 @@ function Thread({ conv, onBack }) {
       finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
-  }, [conv.id, conv.peer.id]);
+  }, [conv.id, conv.peer?.id]);
 
   // Polling des nouveaux messages (après lastId) pendant que le thread est ouvert
   // et l'app active. Aucune requête au repos / app en arrière-plan.
@@ -192,8 +194,8 @@ function Thread({ conv, onBack }) {
       {/* En-tête du fil */}
       <View className="flex-row items-center gap-3 px-4 py-2.5 bg-white border-b border-line-soft">
         <Pressable onPress={onBack} hitSlop={10}><Ionicons name="chevron-back" size={22} color={COLORS.ink} /></Pressable>
-        <Avatar icon={conv.peer.avatar_icon} color={conv.peer.avatar_color} name={conv.peer.name} size={34} />
-        <Text className="text-ink font-extrabold text-[16px] flex-1" numberOfLines={1}>{conv.peer.name || 'User'}</Text>
+        <Avatar icon={peer?.avatar_icon} color={peer?.avatar_color} name={peer?.name} size={34} />
+        <Text className="text-ink font-extrabold text-[16px] flex-1" numberOfLines={1}>{peer?.name || 'User'}</Text>
       </View>
 
       {loading ? (
@@ -234,8 +236,14 @@ function Thread({ conv, onBack }) {
   );
 }
 
-export default function MessagesScreen({ onBack }) {
-  const [open, setOpen] = useState(null); // { id, peer } | null
+export default function MessagesScreen({ onBack, initialConvId = null, onInitialConsumed }) {
+  const [open, setOpen] = useState(initialConvId ? { id: initialConvId, peer: null } : null); // { id, peer } | null
+
+  // Ouverture directe d'un fil depuis une notif « message » (id seul, peer chargé
+  // ensuite par le thread). Consommé une fois pour ne pas rouvrir au retour.
+  useEffect(() => {
+    if (initialConvId) { setOpen({ id: initialConvId, peer: null }); onInitialConsumed?.(); }
+  }, [initialConvId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Retour matériel Android : fil ouvert → revient à la liste ; liste → parent
   // (jamais quitter l'app). Monté après le handler global → passe avant lui.

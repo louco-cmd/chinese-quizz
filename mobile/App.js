@@ -64,6 +64,7 @@ function App() {
   const [dailyQuizIds, setDailyQuizIds] = useState(null); // ids du quiz du jour (push quotidien)
   const [editPack, setEditPack] = useState(null); // pack à éditer (create-pack pré-rempli)
   const [duelDeepLink, setDuelDeepLink] = useState(null); // id de duel à ouvrir en détail (depuis une notif)
+  const [msgConvId, setMsgConvId] = useState(null); // id de conversation à ouvrir (depuis une notif « message »)
   const [storeSort, setStoreSort] = useState(null); // tri imposé au JiaStore (notif « nouveau pack » → recent)
   const [videoCallLesson, setVideoCallLesson] = useState(null); // visio plein-écran : number (élève) | slot {id, student_id, student_name} (prof)
   const [endCourse, setEndCourse] = useState(null); // slot du cours terminé → page « fin de cours » (prof)
@@ -268,6 +269,7 @@ function App() {
         setTab('add'); // enveloppes en popup / relance inactif → home
         if (type === 'red_envelope') checkEnvelopes(); // révèle tout de suite au tap
       } else if (type === 'message') {
+        if (data.conversationId) setMsgConvId(Number(data.conversationId)); // ouvre le fil ciblé
         setTab('messages'); // ouvre la messagerie (côté élève ; le prof arrive sur sa home)
       } else if (type === 'daily_quiz') {
         // Push « quiz du jour » : récupère les 10 mots tailored puis ouvre le quiz.
@@ -387,11 +389,31 @@ function App() {
     return () => sub.remove();
   }, [tab, flow, flowFromSettings, authed, profile, showWelcome, envelopes, bankReturn, trophyQueue, showIg]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Tap sur une notif du centre 🔔 → route vers l'écran ciblé (réutilise le même
+  // routage que les push). Pour « message » : ouvre le fil ciblé si fourni.
+  function handleNotifNavigate(n) {
+    const type = n?.type;
+    const data = n?.data || {};
+    if (type === 'message') {
+      if (data.conversationId) setMsgConvId(Number(data.conversationId));
+      setTab('messages');
+    } else if ((type === 'duel_result' || type === 'duel_reminder') && data.duelId) {
+      setDuelDeepLink(Number(data.duelId)); setTab('duels');
+    } else if (type === 'duel_new' || type === 'duel_expired') {
+      setTab('duels');
+    } else if (type === 'pack_new' || type === 'pack_sold') {
+      if (type === 'pack_new') setStoreSort('recent');
+      setTab('store');
+    } else if (type === 'red_envelope') {
+      setTab('add'); checkEnvelopes();
+    }
+  }
+
   function renderScreen() {
     switch (tab) {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
       case 'myteacher': return <MyTeacherScreen teacherId={teacherView?.teacher_id || teacherView?.id} teacherName={teacherView?.name} onBack={() => setTab('settings')} onVideoCall={setVideoCallLesson} />;
-      case 'messages': return <MessagesScreen onBack={() => setTab('settings')} />;
+      case 'messages': return <MessagesScreen onBack={() => setTab('settings')} initialConvId={msgConvId} onInitialConsumed={() => setMsgConvId(null)} />;
       case 'collection': return <CollectionScreen onNavigate={setTab} onOpenCredits={() => { setBankReturn('collection'); setTab('credits'); }} />;
       case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
       case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} initialQuizIds={dailyQuizIds} onInitialQuizConsumed={() => setDailyQuizIds(null)} onBalanceChanged={refreshBalance} onNavigate={setTab} onActivityDone={checkTrophies} />;
@@ -499,6 +521,7 @@ function App() {
           onLogo={() => setTab('add')}
           onBalance={() => { if (tab !== 'bank') { setBankReturn(tab); setTab('bank'); } }}
           onPlan={() => { if (tab !== 'pricing') { setBankReturn(tab); setTab('pricing'); } }}
+          onNotifNavigate={handleNotifNavigate}
           hideLogo={tab === 'add'}
         />
         {/* Rappel non bloquant de vérification d'email (masqué si vérifié / OAuth). */}

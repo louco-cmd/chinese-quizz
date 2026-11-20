@@ -9,7 +9,7 @@ import { COLORS } from '../theme';
 
 // Header bleu constant, identique à l'EJS (partials/header.ejs) :
 // gauche = 加油！ + badge de plan ; droite = solde + icône compte.
-export default function Header({ onAccount, onLogo, onBalance, onPlan, plan: planProp, profile, bg, hideLogo = false, accountIcon = 'person-circle', refreshKey = 0 }) {
+export default function Header({ onAccount, onLogo, onBalance, onPlan, onNotifNavigate, plan: planProp, profile, bg, hideLogo = false, accountIcon = 'person-circle', refreshKey = 0 }) {
   const [balance, setBalance] = useState(profile?.balance ?? null);
   const [plan, setPlan] = useState(planProp || profile?.plan || 'free');
 
@@ -101,7 +101,8 @@ export default function Header({ onAccount, onLogo, onBalance, onPlan, plan: pla
         </View>
       </View>
 
-      <NotificationsPopup visible={notifOpen} notifications={notifs} onClose={() => setNotifOpen(false)} />
+      <NotificationsPopup visible={notifOpen} notifications={notifs} onClose={() => setNotifOpen(false)}
+        onNavigate={onNotifNavigate ? (n) => { setNotifOpen(false); onNotifNavigate(n); } : undefined} />
     </SafeAreaView>
   );
 }
