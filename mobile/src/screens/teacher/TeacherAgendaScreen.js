@@ -294,7 +294,7 @@ function keyToDate(k) { const [y, m, d] = k.split('-').map(Number); return new D
 function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function jsMon0(d) { return (d.getDay() + 6) % 7; }
 
-function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, week, t }) {
+function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, week, t, rowH = ROW_H }) {
   const loc = lang === 'zh' ? 'zh-CN' : lang === 'fr' ? 'fr-FR' : 'en-US';
   const todayK = localKey(new Date());
   return (
@@ -317,7 +317,7 @@ function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, wee
       <View style={{ flexDirection: 'row' }}>
         <View style={{ width: 38 }}>
           {GRID_HOURS.map((h) => (
-            <View key={h} style={{ height: ROW_H, alignItems: 'flex-end', paddingRight: 4 }}>
+            <View key={h} style={{ height: rowH, alignItems: 'flex-end', paddingRight: 4 }}>
               <Text style={{ fontSize: 9.5, color: COLORS.mutedLight, marginTop: -5 }}>{String(h).padStart(2, '0')}:00</Text>
             </View>
           ))}
@@ -325,16 +325,16 @@ function TimeGrid({ days, isOpenOn, lessonsByDay, onCancel, onEditDay, lang, wee
         {days.map((d, i) => {
           const dayLes = lessonsByDay(d);
           return (
-            <View key={i} style={{ flex: 1, borderLeftWidth: 1, borderColor: '#f2f4f7', position: 'relative', height: GRID_HOURS.length * ROW_H }}>
+            <View key={i} style={{ flex: 1, borderLeftWidth: 1, borderColor: '#f2f4f7', position: 'relative', height: GRID_HOURS.length * rowH }}>
               {/* Cellules horaires + fond bleu transparent sur les heures OUVRÉES */}
               {GRID_HOURS.map((h, idx) => (
-                <View key={h} style={{ position: 'absolute', top: idx * ROW_H, left: 0, right: 0, height: ROW_H, borderTopWidth: 1, borderColor: '#f2f4f7', backgroundColor: isOpenOn(d, h) ? 'rgba(13,110,253,0.10)' : 'transparent' }} />
+                <View key={h} style={{ position: 'absolute', top: idx * rowH, left: 0, right: 0, height: rowH, borderTopWidth: 1, borderColor: '#f2f4f7', backgroundColor: isOpenOn(d, h) ? 'rgba(13,110,253,0.10)' : 'transparent' }} />
               ))}
               {/* Cours positionnés dans leur créneau */}
               {dayLes.map((les) => {
                 const st = new Date(les.starts_at), en = new Date(les.ends_at);
-                const top = Math.max(0, ((st.getHours() - 7) + st.getMinutes() / 60) * ROW_H);
-                const hgt = Math.max(26, ((en - st) / 3600000) * ROW_H - 3);
+                const top = Math.max(0, ((st.getHours() - 7) + st.getMinutes() / 60) * rowH);
+                const hgt = Math.max(16, ((en - st) / 3600000) * rowH - 2);
                 const finished = lessonFinished(les, Date.now());
                 const trial = isTrial(les);
                 // Carte superposée : liseré gauche (gris = terminé, orange = essai, bleu = à venir).
@@ -608,9 +608,9 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
             </Pressable>
           );
         })}
-        <Pressable onPress={() => setSelected(localKey(new Date()))}
-          style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999 }}>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: '#8a94a3' }}>{t('ag_view_today')}</Text>
+        <Pressable onPress={() => { setSelected(localKey(new Date())); setViewMode('day'); }}
+          style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: viewMode === 'day' ? '#fff' : 'transparent' }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: viewMode === 'day' ? COLORS.jiayou : '#8a94a3' }}>{t('ag_view_today')}</Text>
         </Pressable>
       </View>
       <Pressable onPress={() => setSyncing(true)} hitSlop={8}
@@ -627,6 +627,9 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
   // On soustrait ça avant de répartir sur 6 rangées → aucun rang rogné.
   const monthCellH = Math.max(30, Math.min(84, Math.floor((avH - 132) / 6)));
   const monthMaxChips = monthCellH >= 54 ? 2 : 1;
+  // Hauteur de ligne de la grille semaine/jour, calculée pour tenir sans scroll :
+  // ~120px = ligne de nav + en-tête jours + pied « Edit » + marges.
+  const gridRowH = Math.max(16, Math.min(46, Math.floor((avH - 120) / GRID_HOURS.length)));
 
   const CalendarArea = (
     <View style={{ flex: 1 }} onLayout={(e) => { const h = Math.round(e.nativeEvent.layout.height); if (Math.abs(h - calH) > 2) setCalH(h); }}>
@@ -689,10 +692,9 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
               <Text style={{ fontSize: 14, fontWeight: '800', color: '#1a1a2e', textTransform: 'capitalize' }}>{rangeLabel}</Text>
               <Pressable onPress={() => shift(1)} hitSlop={8} style={navBtn}><Ionicons name="chevron-forward" size={18} color={COLORS.jiayou} /></Pressable>
             </View>
-            {/* Grille haute → scroll interne, la page reste fixe. */}
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 6 }} showsVerticalScrollIndicator={false}>
-              <View style={{ position: 'relative' }}>
-                <TimeGrid days={days} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} lang={lang} week={!isDay} t={t} />
+            {/* Grille dimensionnée (rowH dynamique) pour tenir sans scroll. */}
+            <View style={{ position: 'relative' }}>
+                <TimeGrid days={days} isOpenOn={isOpenOn} lessonsByDay={lessonsByDay} onCancel={openLesson} onEditDay={setEditingDay} lang={lang} week={!isDay} t={t} rowH={gridRowH} />
                 {avail.size === 0 ? (
                   <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(248,249,250,0.72)' }}>
                     <View style={{ backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 20, paddingVertical: 18, alignItems: 'center', maxWidth: 280, ...SHADOW_CARD }}>
@@ -705,8 +707,7 @@ export default function TeacherAgendaScreen({ onVideoCall }) {
                     </View>
                   </View>
                 ) : null}
-              </View>
-            </ScrollView>
+            </View>
           </View>
         );
       })()}
