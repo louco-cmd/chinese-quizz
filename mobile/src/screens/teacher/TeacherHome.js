@@ -26,6 +26,7 @@ const TABS = [
   { key: 'store', icon: 'storefront', label: 'JiaStore' },
   { key: 'classes', icon: 'easel', label: 'Classes' },
   { key: 'agenda', icon: 'calendar', label: 'Agenda' },
+  { key: 'messages', icon: 'chatbubbles', label: 'Messages' },
   { key: 'profile', icon: 'person-circle', label: 'Profile' },
 ];
 
@@ -124,9 +125,6 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
   } else if (view?.type === 'teachers') {
     // Liste des professeurs (même écran que côté élève), DANS le shell.
     content = <TeachersScreen onBack={() => setView({ type: 'settings' })} />;
-  } else if (view?.type === 'messages') {
-    // Messagerie prof ↔ élève, DANS le shell.
-    content = <MessagesScreen onBack={() => setView({ type: 'settings' })} />;
   } else if (view?.type === 'settings') {
     // Réglages DANS le shell → header 加油 Mentor + tab bar conservés.
     content = (
@@ -134,7 +132,6 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
         onBack={() => setView(null)}
         onLogout={onLogout}
         onOpenTeachers={() => setView({ type: 'teachers' })}
-        onOpenMessages={() => setView({ type: 'messages' })}
         onOpenSupport={() => setView({ type: 'support' })}
         onOpenLegal={() => setView({ type: 'legal' })}
         onReplayFlow={onReplayFlow}
@@ -175,6 +172,9 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
     );
   } else if (tab === 'agenda') {
     content = <TeacherAgendaScreen onVideoCall={onVideoCall} />;
+  } else if (tab === 'messages') {
+    // Messagerie prof ↔ élève : onglet du footer (retour → Classes).
+    content = <MessagesScreen onBack={() => setTab('classes')} />;
   } else if (tab === 'profile') {
     content = <TeacherProfileScreen />;
   } else {

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, AppState, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, AppState, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Avatar from '../ui/Avatar';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
+import useAndroidBack from '../useAndroidBack';
 import { getConversations, openConversation, getMessages, sendMessage } from '../api';
 import { COLORS, SHADOW_CARD } from '../theme';
 
@@ -172,7 +173,7 @@ function Thread({ conv, onBack }) {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={insets.top + 8}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>
       {/* En-tête du fil */}
       <View className="flex-row items-center gap-3 px-4 py-2.5 bg-white border-b border-line-soft">
         <Pressable onPress={onBack} hitSlop={10}><Ionicons name="chevron-back" size={22} color={COLORS.ink} /></Pressable>
@@ -220,6 +221,13 @@ function Thread({ conv, onBack }) {
 
 export default function MessagesScreen({ onBack }) {
   const [open, setOpen] = useState(null); // { id, peer } | null
+
+  // Retour matériel Android : fil ouvert → revient à la liste ; liste → parent
+  // (jamais quitter l'app). Monté après le handler global → passe avant lui.
+  useAndroidBack(() => {
+    if (open) { setOpen(null); return true; }
+    onBack?.(); return true;
+  }, true, [open]);
 
   if (open) return <Thread conv={open} onBack={() => setOpen(null)} />;
   return (
