@@ -100,7 +100,8 @@ function Thread({ conv, onBack, bottomClear = 0 }) {
   const [sending, setSending] = useState(false);
   const [lift, setLift] = useState(0); // px pour soulever l'input au-dessus du clavier
   const scrollRef = useRef(null);
-  const rootRef = useRef(null);
+  const rootRef = useRef(null);     // conteneur interne (porte le paddingBottom = lift)
+  const measureRef = useRef(null);  // conteneur EXTERNE sans padding → bas stable à mesurer
   const lastIdRef = useRef(0);
 
   const scrollToEnd = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
@@ -116,12 +117,13 @@ function Thread({ conv, onBack, bottomClear = 0 }) {
       if (typeof window === 'undefined' || !window.visualViewport) return undefined;
       const vv = window.visualViewport;
       // On NE se base PAS sur window.innerHeight (viewport de layout, qui varie
-      // selon le navigateur/PWA et sur-élève l'input). On mesure le BAS RÉEL du
-      // conteneur (getBoundingClientRect via measureInWindow) et on le compare au
-      // bas VISIBLE du visualViewport (height + offsetTop). lift = recouvrement
-      // réel du clavier sur la zone de messages — même logique que le natif.
+      // selon le navigateur/PWA). On mesure le BAS RÉEL du conteneur EXTERNE
+      // (measureRef, SANS le paddingBottom dynamique → hauteur stable) et on le
+      // compare au bas VISIBLE du visualViewport (height + offsetTop). Mesurer le
+      // conteneur paddé créerait une boucle (son bas inclut le lift, et plusieurs
+      // events scroll/resize arrivent pendant l'animation → le lift gonflait).
       const onResize = () => {
-        const node = rootRef.current;
+        const node = measureRef.current;
         if (!node) return;
         const visibleBottom = vv.height + vv.offsetTop;
         node.measureInWindow((x, y, w, h) => {
@@ -139,7 +141,7 @@ function Thread({ conv, onBack, bottomClear = 0 }) {
     const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const onShow = (e) => {
       const kbTop = e?.endCoordinates?.screenY;
-      const node = rootRef.current;
+      const node = measureRef.current;
       if (!node || kbTop == null) { scrollToEnd(); return; }
       requestAnimationFrame(() => {
         node.measureInWindow((x, y, w, h) => {
@@ -227,9 +229,12 @@ function Thread({ conv, onBack, bottomClear = 0 }) {
   }
 
   return (
-    // paddingBottom = max(chevauchement clavier, hauteur TabBar absolue). Clavier
-    // ouvert → l'input flotte au-dessus ; fermé → il reste au-dessus de la TabBar
-    // (qui est en position absolute dans le shell étudiant, d'où `bottomClear`).
+    // Conteneur EXTERNE (measureRef) : flex:1 sans padding dynamique → son bas est
+    // STABLE, c'est lui qu'on mesure pour calculer le recouvrement du clavier.
+    // Conteneur INTERNE (rootRef) : porte le paddingBottom = max(chevauchement
+    // clavier, hauteur TabBar absolue). Clavier ouvert → l'input flotte au-dessus ;
+    // fermé → il reste au-dessus de la TabBar (absolute dans le shell étudiant).
+    <View ref={measureRef} style={{ flex: 1, minHeight: 0 }}>
     <View ref={rootRef} style={{ flex: 1, minHeight: 0, paddingBottom: Math.max(lift, bottomClear) }}>
       {/* En-tête du fil */}
       <View className="flex-row items-center gap-3 px-4 py-2.5 bg-white border-b border-line-soft" style={{ flexShrink: 0 }}>
@@ -276,6 +281,7 @@ function Thread({ conv, onBack, bottomClear = 0 }) {
           {sending ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="send" size={18} color="#fff" />}
         </Pressable>
       </View>
+    </View>
     </View>
   );
 }
