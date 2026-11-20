@@ -413,7 +413,7 @@ function App() {
     switch (tab) {
       case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
       case 'myteacher': return <MyTeacherScreen teacherId={teacherView?.teacher_id || teacherView?.id} teacherName={teacherView?.name} onBack={() => setTab('settings')} onVideoCall={setVideoCallLesson} />;
-      case 'messages': return <MessagesScreen onBack={() => setTab('settings')} initialConvId={msgConvId} onInitialConsumed={() => setMsgConvId(null)} />;
+      case 'messages': return <MessagesScreen onBack={() => setTab('settings')} initialConvId={msgConvId} onInitialConsumed={() => setMsgConvId(null)} underTabBar />;
       case 'collection': return <CollectionScreen onNavigate={setTab} onOpenCredits={() => { setBankReturn('collection'); setTab('credits'); }} />;
       case 'add': return <AddWordScreen onBalanceChanged={refreshBalance} />;
       case 'quiz': return <QuizScreen onOpenStore={() => { setBankReturn('quiz'); setTab('store'); }} onCapture={() => setTab('add')} initialPack={quizPack} onInitialConsumed={() => setQuizPack(null)} initialQuizIds={dailyQuizIds} onInitialQuizConsumed={() => setDailyQuizIds(null)} onBalanceChanged={refreshBalance} onNavigate={setTab} onActivityDone={checkTrophies} />;

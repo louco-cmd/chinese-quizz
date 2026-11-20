@@ -23,7 +23,7 @@ function dayShort(iso) {
 }
 
 // ── Liste des conversations + contacts autorisés ────────────────────────────
-function ConversationList({ onOpen, onBack }) {
+function ConversationList({ onOpen, onBack, bottomClear = 0 }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
@@ -40,7 +40,7 @@ function ConversationList({ onOpen, onBack }) {
   const empty = conversations.length === 0 && contacts.length === 0;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 + bottomClear }}>
       <View style={{ width: '100%', maxWidth: 720, alignSelf: 'center' }}>
         <Pressable onPress={onBack} hitSlop={10} className="flex-row items-center gap-1 mb-3">
           <Ionicons name="chevron-back" size={20} color={COLORS.muted} /><Text className="text-muted text-[14px]">Back</Text>
@@ -88,7 +88,7 @@ function ConversationList({ onOpen, onBack }) {
 }
 
 // ── Fil de discussion (thread) : messages + saisie, polling pendant qu'il est ouvert
-function Thread({ conv, onBack }) {
+function Thread({ conv, onBack, bottomClear = 0 }) {
   const insets = useSafeAreaInsets();
   const [convId, setConvId] = useState(conv.id);
   const [peer, setPeer] = useState(conv.peer || null); // peut être null si ouvert via notif (id seul)
@@ -217,9 +217,10 @@ function Thread({ conv, onBack }) {
   }
 
   return (
-    // paddingBottom = chevauchement mesuré du clavier (voir effet plus haut) → l'input
-    // flotte pile au-dessus du clavier, quelles que soient la TabBar et les insets.
-    <View ref={rootRef} style={{ flex: 1, minHeight: 0, paddingBottom: lift }}>
+    // paddingBottom = max(chevauchement clavier, hauteur TabBar absolue). Clavier
+    // ouvert → l'input flotte au-dessus ; fermé → il reste au-dessus de la TabBar
+    // (qui est en position absolute dans le shell étudiant, d'où `bottomClear`).
+    <View ref={rootRef} style={{ flex: 1, minHeight: 0, paddingBottom: Math.max(lift, bottomClear) }}>
       {/* En-tête du fil */}
       <View className="flex-row items-center gap-3 px-4 py-2.5 bg-white border-b border-line-soft" style={{ flexShrink: 0 }}>
         <Pressable onPress={onBack} hitSlop={10}><Ionicons name="chevron-back" size={22} color={COLORS.ink} /></Pressable>
@@ -250,7 +251,7 @@ function Thread({ conv, onBack }) {
       {error ? <Text className="text-danger text-[12px] text-center py-1">{error}</Text> : null}
 
       {/* Barre de saisie */}
-      <View className="flex-row items-end gap-2 px-3 pt-2 bg-white border-t border-line-soft" style={{ flexShrink: 0, paddingBottom: lift > 0 ? 6 : Math.max(insets.bottom, 8) }}>
+      <View className="flex-row items-end gap-2 px-3 pt-2 bg-white border-t border-line-soft" style={{ flexShrink: 0, paddingBottom: lift > 0 ? 6 : (bottomClear > 0 ? 10 : Math.max(insets.bottom, 8)) }}>
         <TextInput
           value={text} onChangeText={setText} placeholder="Message…" placeholderTextColor={COLORS.mutedLight}
           multiline maxLength={2000}
@@ -265,8 +266,15 @@ function Thread({ conv, onBack }) {
   );
 }
 
-export default function MessagesScreen({ onBack, initialConvId = null, onInitialConsumed }) {
+export default function MessagesScreen({ onBack, initialConvId = null, onInitialConsumed, underTabBar = false }) {
+  const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(initialConvId ? { id: initialConvId, peer: null } : null); // { id, peer } | null
+
+  // Dans le shell étudiant la TabBar est en position:absolute (flotte par-dessus le
+  // contenu) → on réserve sa hauteur réelle pour que l'input/la liste ne passent pas
+  // dessous. Côté prof la TabBar est en flux (bottomClear = 0).
+  const tabBarH = 60 + (insets.bottom > 0 ? insets.bottom + 6 : 12); // = paddingTop(8)+row(52)+paddingBottom
+  const bottomClear = underTabBar ? tabBarH : 0;
 
   // Ouverture directe d'un fil depuis une notif « message » (id seul, peer chargé
   // ensuite par le thread). Consommé une fois pour ne pas rouvrir au retour.
@@ -281,10 +289,10 @@ export default function MessagesScreen({ onBack, initialConvId = null, onInitial
     onBack?.(); return true;
   }, true, [open]);
 
-  if (open) return <Thread conv={open} onBack={() => setOpen(null)} />;
+  if (open) return <Thread conv={open} onBack={() => setOpen(null)} bottomClear={bottomClear} />;
   return (
     <View className="flex-1 bg-surface-page">
-      <ConversationList onOpen={setOpen} onBack={onBack} />
+      <ConversationList onOpen={setOpen} onBack={onBack} bottomClear={bottomClear} />
     </View>
   );
 }
