@@ -249,6 +249,7 @@ export function openConversation(peerId) { return request('/api/m/messages/open'
 export function getMessages(convId, after = 0) { return request(`/api/m/messages/${convId}?after=${after || 0}`); }
 export function sendMessage(convId, body) { return request(`/api/m/messages/${convId}`, { method: 'POST', body: { body } }); }
 export function teacherDeleteLesson(lessonId) { return request(`/api/m/teacher/lessons/${lessonId}`, { method: 'DELETE' }); }
+export function teacherUpdateLesson(lessonId, payload) { return request(`/api/m/teacher/lessons/${lessonId}`, { method: 'PATCH', body: payload }); }
 export function teacherLookupWords(words) { return request('/api/m/teacher/mots/lookup', { method: 'POST', body: { words } }); }
 export function teacherSendTask(payload) { return request('/api/m/teacher/send-task', { method: 'POST', body: payload }); }
 // Fin de cours par IA (POC) : transcript collé → { summary, words } (DeepSeek).

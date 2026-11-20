@@ -455,6 +455,24 @@ router.get('/api/m/teacher/lessons/:lessonId/progress', requireToken, requireTea
   } catch (e) { console.error('m/teacher progress:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
+// Édition d'une task : titre + résumé (les mots se gèrent à la création/suppression).
+router.patch('/api/m/teacher/lessons/:lessonId', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const title = String(req.body?.title || '').trim().slice(0, 120);
+    const summary = String(req.body?.summary || '').trim().slice(0, 2000);
+    if (!title) return res.status(400).json({ error: 'Title required' });
+    const { rows } = await pool.query(
+      `UPDATE lessons l SET title = $3, summary = $4
+         FROM classrooms c
+        WHERE l.id = $1 AND l.classroom_id = c.id AND c.teacher_id = $2
+        RETURNING l.id`,
+      [req.params.lessonId, req.teacher.id, title, summary]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Task not found' });
+    res.json({ success: true });
+  } catch (e) { console.error('m/teacher update lesson:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
 router.delete('/api/m/teacher/lessons/:lessonId', requireToken, requireTeacher, async (req, res) => {
   try {
     const { rowCount } = await pool.query(
