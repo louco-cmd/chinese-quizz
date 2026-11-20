@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import BottomSheet from '../../ui/BottomSheet';
 import CalendarSyncSheet from '../../components/CalendarSyncSheet';
 import CatLoader from '../../components/CatLoader';
