@@ -248,9 +248,6 @@ function CtaCards({ t, lang, next, stacked, onEditAvail, onStartNext }) {
     <Pressable key="edit" onPress={onEditAvail} style={{ flex: stacked ? undefined : 1 }} className="active:opacity-90">
       <LinearGradient colors={['#1a73ff', '#0a3fc4']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={{ flex: stacked ? undefined : 1, borderRadius: 16, padding: 16, minHeight: 92, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.22)', alignItems: 'center', justifyContent: 'center', marginBottom: 7 }}>
-          <Ionicons name="time-outline" size={18} color="#fff" />
-        </View>
         <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14, textAlign: 'center' }}>{t('ag_edit_avail')}</Text>
         <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 2, textAlign: 'center' }}>{t('ag_avail_cta_sub')}</Text>
       </LinearGradient>
