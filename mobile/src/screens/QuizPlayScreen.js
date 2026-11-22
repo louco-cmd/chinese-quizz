@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, Animated, Easing, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, ActivityIndicator, ScrollView, Animated, Easing, Keyboard, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ErrorRetry } from '../components/ErrorRetry';
 import { getMe, getQuizPlayWords, saveQuiz, saveTaskResult } from '../api';
@@ -109,9 +109,30 @@ export default function QuizPlayScreen({ config, onExit }) {
   const firstRef = useRef(null);
   const inputRefs = useRef([]); // un ref par champ syllabe (auto-avance)
   const scrollRef = useRef(null);
+  // Hauteur du clavier : avec l'edge-to-edge (défaut Expo 57) Android ne
+  // redimensionne plus la vue sous le clavier → on réserve nous-mêmes ce bas de
+  // page (paddingBottom) pour que l'input + le bouton puissent remonter au-dessus.
+  const [kbHeight, setKbHeight] = useState(0);
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = (e) => {
+      setKbHeight(e?.endCoordinates?.height || 0);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
+    };
+    const onHide = () => setKbHeight(0);
+    const s1 = Keyboard.addListener(showEvt, onShow);
+    const s2 = Keyboard.addListener(hideEvt, onHide);
+    return () => { s1.remove(); s2.remove(); };
+  }, []);
   // Au focus d'un champ : remonte le contenu pour que l'input + le bouton ne
   // soient pas cachés par le clavier (surtout quand une description s'affiche).
   const onInputFocus = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 120);
+  // Quand un feedback / une carte de révélation s'affiche, le contenu grandit et
+  // pousse l'input sous le clavier → on re-remonte pour le garder visible.
+  useEffect(() => {
+    if (feedback && kbHeight > 0) setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+  }, [feedback, kbHeight]);
 
   const load = useCallback(async () => {
     setLoading(true); setError(''); setNotEnough(false);
@@ -367,11 +388,11 @@ export default function QuizPlayScreen({ config, onExit }) {
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <TopBar onExit={onExit} progress={`${idx + 1}/${words.length}`} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ padding: 16, paddingBottom: 48, alignItems: 'center' }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 48 + kbHeight, alignItems: 'center' }}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
       >
         <View style={{ width: '100%', maxWidth: 560 }}>
           {/* Question — consigne + mot sur sa propre ligne (unifié EN/ZH) */}
@@ -463,7 +484,6 @@ export default function QuizPlayScreen({ config, onExit }) {
           </View>
         </View>
       </ScrollView>
-      </KeyboardAvoidingView>
     </View>
   );
 }
