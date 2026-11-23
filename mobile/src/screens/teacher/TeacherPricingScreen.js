@@ -2,6 +2,7 @@ import { View, Text, ScrollView, Pressable, Linking, Platform } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useWindowDimensions } from 'react-native';
+import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import { Button } from '../../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../../theme';
 
@@ -45,28 +46,30 @@ function FeatureRow({ f, last }) {
   );
 }
 
-export default function TeacherPricingScreen({ onBack, isPro = false }) {
+export default function TeacherPricingScreen({ isPro = false }) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 760;
+  const [fontsLoaded] = useFonts({ LaBelleAurore_400Regular });
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
       <ScrollView contentContainerStyle={{ paddingBottom: TAB_CLEARANCE }}>
-        {/* Hero */}
-        <View style={{ backgroundColor: COLORS.jiayou, paddingTop: 16, paddingBottom: 26, paddingHorizontal: 16 }}>
-          {onBack ? (
-            <Pressable onPress={onBack} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 }}>
-              <Ionicons name="chevron-back" size={22} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '700' }}>Back</Text>
-            </Pressable>
-          ) : null}
-          <View style={{ alignItems: 'center', marginTop: 6 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Ionicons name="school" size={26} color="#fff" />
-              <Text style={{ color: '#fff', fontSize: 28, fontWeight: '800' }}>Mentor Pro</Text>
-            </View>
-            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, marginTop: 8, textAlign: 'center', paddingHorizontal: 12 }}>
-              Unlock AI recaps and keep more of what you earn.
+        {/* Hero — slogan cursif (La Belle Aurore), comme la page premium élève. */}
+        <View style={{ backgroundColor: COLORS.jiayou, paddingTop: 16, paddingBottom: 28, paddingHorizontal: 16 }}>
+          <View style={{ alignItems: 'center', marginTop: 8 }}>
+            <Text
+              // Police cursive à grandes hampes/jambages : lineHeight généreux
+              // (~1.4×) + pas de scaling système → évite le rognage vertical du
+              // texte sur certains mobiles (accessibilité grande police).
+              allowFontScaling={false}
+              style={{
+                color: '#fff',
+                fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined,
+                fontStyle: fontsLoaded ? 'normal' : 'italic',
+                fontSize: 48, lineHeight: 68, textAlign: 'center', paddingHorizontal: 8,
+              }}
+            >
+              Unlock your teaching
             </Text>
           </View>
         </View>
