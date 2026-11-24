@@ -66,7 +66,7 @@ export default function TeacherPricingScreen({ isPro = false }) {
                 color: '#fff',
                 fontFamily: fontsLoaded ? 'LaBelleAurore_400Regular' : undefined,
                 fontStyle: fontsLoaded ? 'normal' : 'italic',
-                fontSize: 48, lineHeight: 68, textAlign: 'center', paddingHorizontal: 8,
+                fontSize: 52, lineHeight: 74, textAlign: 'center', paddingHorizontal: 8,
               }}
             >
               Unlock your teaching
