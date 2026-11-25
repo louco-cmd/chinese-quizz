@@ -184,4 +184,45 @@ router.post('/api/m/create-checkout', requireToken, async (req, res) => {
   }
 });
 
+// ── POST /api/m/teacher/create-checkout : abonnement PROF (teacher_pro) web ────
+// Entitlement prof distinct : metadata.planName='teacher_pro' → le webhook écrit
+// users.teacher_pro_expires_at (et NON user_subscriptions, réservé au premium élève).
+// `plan` = 'monthly' (défaut) | 'yearly'. Prix via STRIPE_PRICE_TEACHER_PRO[_YEARLY].
+router.post('/api/m/teacher/create-checkout', requireToken, async (req, res) => {
+  try {
+    const yearly = req.body?.plan === 'yearly';
+    const priceID = yearly
+      ? (process.env.STRIPE_PRICE_TEACHER_PRO_YEARLY || process.env.STRIPE_PRICE_TEACHER_PRO)
+      : process.env.STRIPE_PRICE_TEACHER_PRO;
+    if (!priceID) return res.status(500).json({ error: 'Teacher plan not configured' });
+    const uid = req.tokenUser.id;
+    const { rows: u } = await pool.query('SELECT email FROM users WHERE id = $1', [uid]);
+    const email = u[0]?.email;
+
+    const ALLOWED = ['https://app.jiayou.fr', 'https://jiayou.fr', 'http://localhost:8081'];
+    const raw = String(req.body?.returnUrl || '').replace(/\/+$/, '');
+    const base = ALLOWED.includes(raw) ? raw : 'https://app.jiayou.fr';
+
+    const period = yearly ? 'yearly' : 'monthly';
+    const meta = { userId: String(uid), planName: 'teacher_pro', period };
+    const params = {
+      mode: 'subscription',
+      line_items: [{ price: priceID, quantity: 1 }],
+      success_url: `${base}/?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${base}/`,
+      metadata: meta,
+      // Propage au niveau SUBSCRIPTION → les webhooks renouvellement/annulation
+      // remontent au bon compte et au bon entitlement (teacher_pro).
+      subscription_data: { metadata: meta },
+    };
+    if (email) params.customer_email = email;
+
+    const session = await stripe.checkout.sessions.create(params);
+    res.json({ url: session.url });
+  } catch (e) {
+    console.error('m/teacher/create-checkout error:', e);
+    res.status(500).json({ error: 'Could not start checkout' });
+  }
+});
+
 };

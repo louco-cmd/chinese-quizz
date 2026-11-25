@@ -1752,6 +1752,9 @@ async function handleCheckoutSessionCompleted(session) {
   try {
     console.log('💳 Checkout complété:', session.id);
 
+    // Abonnement PROF (teacher_pro) → entitlement + colonnes dédiés, pas premium.
+    if (session.metadata?.planName === 'teacher_pro') return handleTeacherProCheckout(session);
+
     // ── Résolution FIABLE de l'utilisateur ──────────────────────────────────
     // `metadata.userId` (posé par nos endpoints create-checkout) EN PRIORITÉ.
     // AVANT : lookup par email EXACT uniquement → si l'email tapé au checkout
@@ -1811,6 +1814,75 @@ async function handleCheckoutSessionCompleted(session) {
 }
 
 // ==========================================
+// 👨‍🏫 TEACHER PRO via Stripe (web)
+// ==========================================
+// Entitlement prof DISTINCT du premium élève : on écrit users.teacher_pro_expires_at
+// / teacher_pro_will_renew (mêmes colonnes que RevenueCat), SANS toucher à
+// user_subscriptions (réservé au premium élève). Routé par metadata.planName.
+async function resolveTeacherUserId(obj) {
+  const metaId = parseInt(obj.metadata?.userId, 10);
+  if (Number.isInteger(metaId)) {
+    const r = await pool.query('SELECT id FROM users WHERE id = $1', [metaId]);
+    if (r.rows.length) return r.rows[0].id;
+  }
+  const email = obj.customer_email || obj.customer_details?.email;
+  if (email) {
+    const r = await pool.query('SELECT id FROM users WHERE lower(btrim(email)) = lower(btrim($1))', [email]);
+    if (r.rows.length) return r.rows[0].id;
+  }
+  return null;
+}
+
+async function handleTeacherProCheckout(session) {
+  try {
+    console.log('💳 [teacher_pro] checkout:', session.id);
+    const userId = await resolveTeacherUserId(session);
+    if (!userId) {
+      console.error('🚨 [teacher_pro checkout] PAIEMENT NON CRÉDITÉ — user introuvable. session=%s metadata=%j email=%s',
+        session.id, session.metadata, session.customer_email || session.customer_details?.email);
+      return;
+    }
+    if (session.subscription) {
+      const subscription = await stripe.subscriptions.retrieve(session.subscription);
+      // L'objet retrieve peut ne pas reporter la metadata de session → on la force.
+      subscription.metadata = { ...(subscription.metadata || {}), planName: 'teacher_pro', userId: String(userId) };
+      await handleTeacherProSubscription(subscription, 'checkout.session.completed');
+    }
+  } catch (e) { console.error('❌ handleTeacherProCheckout:', e); }
+}
+
+async function handleTeacherProSubscription(subscription, eventType) {
+  try {
+    console.log(`🔔 [teacher_pro] ${eventType.toUpperCase()} - ${subscription.id}`);
+    const userId = await resolveTeacherUserId(subscription);
+    if (!userId) { console.log('❌ [teacher_pro] user non trouvé pour', subscription.id); return; }
+
+    const { periodEndDate } = extractStripePeriod(subscription);
+    const status = subscription.status;
+    const cancelAtPeriodEnd =
+      (subscription.cancel_at_period_end === true) ||
+      (typeof subscription.cancel_at === 'number' && subscription.cancel_at > Math.floor(Date.now() / 1000));
+    const ACTIVE = ['active', 'trialing', 'past_due'];
+
+    if (ACTIVE.includes(status)) {
+      await pool.query(
+        'UPDATE users SET teacher_pro_expires_at = $1, teacher_pro_will_renew = $2 WHERE id = $3',
+        [periodEndDate, !cancelAtPeriodEnd, userId]);
+      console.log(`✅ [teacher_pro] user ${userId} actif → expires ${periodEndDate?.toISOString() || 'n/a'} renew=${!cancelAtPeriodEnd}`);
+    } else {
+      // canceled / unpaid / incomplete_expired : garder l'accès jusqu'à la fin de
+      // période si encore future (annulation programmée), sinon couper.
+      if (periodEndDate && periodEndDate > new Date()) {
+        await pool.query('UPDATE users SET teacher_pro_expires_at = $1, teacher_pro_will_renew = FALSE WHERE id = $2', [periodEndDate, userId]);
+      } else {
+        await pool.query('UPDATE users SET teacher_pro_expires_at = NULL, teacher_pro_will_renew = FALSE WHERE id = $1', [userId]);
+      }
+      console.log(`🔴 [teacher_pro] user ${userId} status=${status} → fin de période/coupé`);
+    }
+  } catch (e) { console.error('❌ handleTeacherProSubscription:', e); }
+}
+
+// ==========================================
 // 🧰 HELPERS STRIPE (API 2025-12-15.clover)
 // ==========================================
 // ⚠️ Depuis l'API "basil/clover", current_period_start/end n'existent PLUS au
@@ -1852,6 +1924,9 @@ function invoiceSubscriptionId(invoice) {
 // ==========================================
 async function handleSubscriptionEvent(subscription, eventType) {
   console.log(`🔔 ${eventType.toUpperCase()} - ID: ${subscription.id}`);
+
+  // Abonnement PROF (teacher_pro) → handler dédié (colonnes teacher_pro_*).
+  if (subscription.metadata?.planName === 'teacher_pro') return handleTeacherProSubscription(subscription, eventType);
 
   try {
     // 1. EXTRAIRE LES DATES (item-first, cf. extractStripePeriod)

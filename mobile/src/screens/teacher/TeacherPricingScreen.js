@@ -7,9 +7,15 @@ import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-
 import { Button } from '../../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../../theme';
 import { buyTeacherPro, getTeacherProPlans, restorePurchases, purchasesAvailable, yearlySavingPct } from '../../purchases';
-import { syncRevenueCat } from '../../api';
+import { syncRevenueCat, createTeacherCheckout } from '../../api';
 
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions';
+// Formules affichées sur le WEB (pas d'offering RevenueCat) : libellés seuls, le
+// prix exact est montré par Stripe au checkout.
+const WEB_PLANS = [
+  { id: 'monthly', label: 'Monthly', annual: false },
+  { id: 'yearly', label: 'Yearly', annual: true },
+];
 
 // Page « Mentor Pro » — pendant prof de PricingScreen (élève). teacher_pro est un
 // abonnement DIGITAL → même règle stores que le premium élève : IAP sur natif,
@@ -59,7 +65,8 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
   // Achat in-app réellement dispo (clé RevenueCat + module natif dans ce build).
   const native = Platform.OS !== 'web' && purchasesAvailable();
   const [plans, setPlans] = useState([]);       // offres RevenueCat (natif)
-  const [planId, setPlanId] = useState(null);   // formule sélectionnée
+  const [planId, setPlanId] = useState(null);   // formule sélectionnée (natif)
+  const [webPlanId, setWebPlanId] = useState('yearly'); // formule choisie (web), annuel par défaut
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -85,15 +92,29 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
   const plan = plans.find((p) => p.id === planId) || null;
   const saving = yearlySavingPct(plans);
 
-  // Natif → Play Billing (RevenueCat). Jamais de fallback Stripe en natif (interdit
-  // stores + « silent success »). Web → Stripe teacher_pro pas encore branché.
+  // Liste + sélection unifiées : natif = offering RevenueCat (prix du store),
+  // web = libellés statiques (prix montré par Stripe au checkout).
+  const selList = native ? plans : WEB_PLANS;
+  const selId = native ? planId : webPlanId;
+  const setSel = native ? setPlanId : setWebPlanId;
+  const sel = selList.find((p) => p.id === selId) || selList[0] || null;
+
+  // Natif → Play Billing (RevenueCat). Web → Stripe Checkout. JAMAIS de Stripe en
+  // natif (interdit stores + « silent success »).
   async function onSubscribe() {
     if (isPro) { if (native) Linking.openURL(PLAY_SUBSCRIPTIONS_URL); return; }
-    if (!native) { setErr('Teacher billing on the web is coming soon.'); return; }
     setErr(''); setBusy(true);
     try {
-      const ok = await buyTeacherPro(plan);
-      if (ok) { await syncRevenueCat().catch(() => {}); onPurchased?.(); } // écrit teacher_pro_expires_at sans attendre le webhook
+      if (native) {
+        const ok = await buyTeacherPro(plan);
+        if (ok) { await syncRevenueCat().catch(() => {}); onPurchased?.(); } // écrit teacher_pro_expires_at sans attendre le webhook
+      } else {
+        // Web → Stripe Checkout teacher_pro (le webhook crédite teacher_pro_expires_at).
+        const origin = (typeof window !== 'undefined' && window.location?.origin) || undefined;
+        const period = sel?.annual ? 'yearly' : 'monthly';
+        const { url } = await createTeacherCheckout(period, origin);
+        await Linking.openURL(url);
+      }
     } catch (e) {
       if (e?.userCancelled !== true) setErr(e?.message || 'Purchase failed. Please try again.');
     } finally { setBusy(false); }
@@ -158,15 +179,16 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
               </LinearGradient>
               <View style={{ padding: 18 }}>
                 {PRO_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === PRO_FEATURES.length - 1} />)}
-                {/* Choix de la formule (natif + offering ≥ 2 packages). */}
-                {plans.length > 1 && !isPro ? (
+                {/* Choix de la formule : natif = packages de l'offering (prix du store),
+                    web = libellés statiques (prix exact affiché par Stripe). */}
+                {selList.length > 1 && !isPro ? (
                   <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-                    {plans.map((p) => {
-                      const on = p.id === planId;
+                    {selList.map((p) => {
+                      const on = p.id === selId;
                       return (
                         <Pressable
                           key={p.id}
-                          onPress={() => setPlanId(p.id)}
+                          onPress={() => setSel(p.id)}
                           style={{
                             flex: 1, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center',
                             borderWidth: 2, borderColor: on ? COLORS.jiayou : '#e6e8eb',
@@ -174,10 +196,12 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
                           }}
                         >
                           <Text style={{ fontSize: 13, fontWeight: '700', color: on ? COLORS.jiayou : '#1d1d1f' }}>{p.label}</Text>
-                          <Text style={{ fontSize: 15, fontWeight: '800', color: on ? COLORS.jiayou : '#1d1d1f', marginTop: 2 }}>{p.priceString}</Text>
-                          {p.annual && saving ? (
+                          {p.priceString ? (
+                            <Text style={{ fontSize: 15, fontWeight: '800', color: on ? COLORS.jiayou : '#1d1d1f', marginTop: 2 }}>{p.priceString}</Text>
+                          ) : null}
+                          {p.annual && (saving || !native) ? (
                             <View style={{ marginTop: 5, backgroundColor: COLORS.success, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-                              <Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '700' }}>Save {saving}%</Text>
+                              <Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '700' }}>{native && saving ? `Save ${saving}%` : 'Best value'}</Text>
                             </View>
                           ) : null}
                         </Pressable>
@@ -185,16 +209,17 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
                     })}
                   </View>
                 ) : null}
-                {/* CTA : natif → Play Billing (RevenueCat) ; web → bientôt (Stripe à venir). */}
-                <Button
-                  onPress={onSubscribe}
-                  loading={busy}
-                  disabled={!native && !isPro}
-                  icon={isPro ? 'settings-outline' : 'rocket'}
-                  title={isPro ? 'Manage subscription' : native ? `Subscribe${plan ? ` — ${plan.priceString}` : ''}` : 'Coming soon'}
-                  fullWidth
-                  style={{ marginTop: 18, justifyContent: 'center' }}
-                />
+                {/* CTA : natif → Play Billing (RevenueCat) ; web → Stripe Checkout. */}
+                {(native || !isPro) ? (
+                  <Button
+                    onPress={onSubscribe}
+                    loading={busy}
+                    icon={isPro ? 'settings-outline' : 'rocket'}
+                    title={isPro ? 'Manage subscription' : native ? `Subscribe${plan ? ` — ${plan.priceString}` : ''}` : 'Continue to checkout'}
+                    fullWidth
+                    style={{ marginTop: 18, justifyContent: 'center' }}
+                  />
+                ) : null}
                 {err ? (
                   <Text style={{ textAlign: 'center', color: COLORS.danger, fontSize: 12, marginTop: 8 }}>{err}</Text>
                 ) : null}
@@ -205,7 +230,12 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
                 ) : null}
                 {!native && !isPro ? (
                   <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 11.5, marginTop: 10, lineHeight: 17 }}>
-                    Teacher billing on the web is being set up. Subscribe from the mobile app for now.
+                    Secure checkout by Stripe. The exact price is shown before you pay.
+                  </Text>
+                ) : null}
+                {!native && isPro ? (
+                  <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 11.5, marginTop: 10, lineHeight: 17 }}>
+                    You're on Teacher Pro. Manage or cancel from the Stripe link in your receipt email.
                   </Text>
                 ) : null}
               </View>

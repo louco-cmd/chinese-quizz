@@ -599,6 +599,11 @@ export function createCheckout(returnUrl) {
   return request('/api/m/create-checkout', { method: 'POST', body: { returnUrl } });
 }
 
+// Checkout Stripe de l'abonnement PROF (teacher_pro), web. `plan` = 'monthly'|'yearly'.
+export function createTeacherCheckout(plan, returnUrl) {
+  return request('/api/m/teacher/create-checkout', { method: 'POST', body: { plan, returnUrl } });
+}
+
 // Resync live de l'abonnement depuis Stripe → { isPremium, cancelAtPeriodEnd, currentPeriodEnd }.
 export function refreshSubscription() {
   return request('/api/m/subscription/refresh', { method: 'POST' });
