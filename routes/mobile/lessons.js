@@ -1174,11 +1174,15 @@ function lessonRoom(slotId) {
   return `jiayou-${slotId}-${mac}`;
 }
 
-// Compte rendu IA activé ? (transcription Daily → DeepSeek). Garde-fou par env
-// pour maîtriser le coût (Deepgram + LLM). TODO : gate premium prof ET élève.
-// Cf. mémoire ai-lesson-recap.
-function recapAllowed() {
-  return process.env.AI_RECAP_ENABLED === '1' && !!DEEPSEEK_API_KEY;
+// Compte rendu IA activé ? (transcription Daily → DeepSeek). Double garde-fou :
+//  1) env AI_RECAP_ENABLED + clé DeepSeek (coût global Deepgram + LLM) ;
+//  2) le PROF du cours doit être teacher_pro (fonctionnalité payante prof).
+// → aucun coût de transcription n'est engagé pour un prof gratuit.
+// Cf. mémoire ai-lesson-recap / teacher-freemium.
+async function recapAllowed(teacherId) {
+  if (process.env.AI_RECAP_ENABLED !== '1' || !DEEPSEEK_API_KEY) return false;
+  if (!teacherId) return false;
+  try { return await isTeacherPro(teacherId); } catch { return false; }
 }
 
 // Crée (ou récupère) une room Daily.co et génère un meeting token.
@@ -1259,7 +1263,7 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
     // Le prof rejoint un vrai créneau dans la fenêtre horaire → le cours a lieu :
     // on crédite « cours donné » (idempotent, fire-and-forget).
     if (isHost) awardLessonReward(id, s.teacher_id);
-    const transcribe = recapAllowed();
+    const transcribe = await recapAllowed(s.teacher_id);
     // Langue de transcription selon le sens du cours (zh→en = apprend l'anglais).
     const transcribeLang = s.quiz_direction === 'zh→en' ? 'en' : 'zh';
 
