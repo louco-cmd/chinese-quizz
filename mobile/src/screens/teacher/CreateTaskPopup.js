@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../../ui';
 import RichTextArea from '../../components/RichTextArea';
 import CatLoader from '../../components/CatLoader';
+import AiRecapLoader from '../../components/teachers/AiRecapLoader';
 import { teacherLookupWords, teacherCreateLesson, teacherUpdateLesson, teacherStudentClassContext, teacherSendTask, getLessonRecap } from '../../api';
 import { COLORS } from '../../theme';
 
@@ -51,6 +52,7 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
   const [existingId, setExistingId] = useState(null);
   const [newName, setNewName] = useState('');
   const [recapLoading, setRecapLoading] = useState(false); // IA génère le compte rendu
+  const [skipRecap, setSkipRecap] = useState(false);       // prof choisit d'écrire à la main
   const recapDone = useRef(false);
 
   // Titre par défaut = date du jour (lisible) quand le prof n'en met pas.
@@ -61,7 +63,7 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
     setTitle(''); setSummary(''); setInput('');
     setCards([]); setErr(''); setBusy(false); cidRef.current = 0;
     setCtx(null); setStudentClassId(null); setUseExisting(false); setExistingId(null); setNewName('');
-    setRecapLoading(false); recapDone.current = false;
+    setRecapLoading(false); setSkipRecap(false); recapDone.current = false;
   }
   // À l'ouverture : reset (création) ou pré-remplissage (édition).
   useEffect(() => {
@@ -389,7 +391,7 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
             <Pressable onPress={close} hitSlop={8} className="w-9 h-9 items-center justify-center -ml-1.5">
               <Ionicons name="close" size={24} color={COLORS.muted} />
             </Pressable>
-            <Button title={isEnd ? 'Send' : editLesson ? 'Save' : 'Create'} size="sm" loading={busy} onPress={save} style={{ paddingHorizontal: 20 }} />
+            <Button title={isEnd ? 'Send' : editLesson ? 'Save' : 'Create'} size="sm" loading={busy} disabled={isEnd && recapLoading && !skipRecap} onPress={save} style={{ paddingHorizontal: 20 }} />
           </View>
         </View>
 
@@ -406,21 +408,18 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
             </View>
           ) : null}
 
-          {/* IA : génération du compte rendu en cours (transcription → résumé + mots). */}
-          {recapLoading ? (
-            <View className="flex-row items-center gap-3 bg-jiayou-soft border border-[#dbe3f1] rounded-xl px-3.5 py-3 mb-3">
-              <CatLoader size={34} />
-              <View style={{ flex: 1 }}>
-                <View className="flex-row items-center gap-1.5">
-                  <Ionicons name="sparkles" size={14} color={COLORS.jiayou} />
-                  <Text className="text-[13.5px] font-bold text-jiayou">Preparing the recap…</Text>
-                </View>
-                <Text className="text-[11.5px] text-muted mt-0.5">The AI is summarizing the lesson and pulling the vocabulary. You can start writing — it fills in automatically.</Text>
-              </View>
+          {/* IA encore en cours après « skip » : petit rappel au-dessus du formulaire. */}
+          {recapLoading && skipRecap ? (
+            <View className="flex-row items-center gap-3 bg-jiayou-soft border border-[#dbe3f1] rounded-xl px-3.5 py-2.5 mb-3">
+              <CatLoader size={28} />
+              <Text className="flex-1 text-[12px] text-muted">The AI recap is still cooking — it'll drop in when ready.</Text>
             </View>
           ) : null}
 
-          {isDesktop ? (
+          {isEnd && recapLoading && !skipRecap ? (
+            /* ── Mode AI-load : écran d'attente dédié ─────────────────────── */
+            <AiRecapLoader studentName={studentName} onSkip={() => setSkipRecap(true)} />
+          ) : isDesktop ? (
             <View className="flex-row gap-6">{DetailsBlock}{WordsBlock}</View>
           ) : (
             <>{DetailsBlock}{WordsBlock}</>
