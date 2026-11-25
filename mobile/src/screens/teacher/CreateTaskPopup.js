@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../../ui';
 import RichTextArea from '../../components/RichTextArea';
-import { teacherLookupWords, teacherCreateLesson, teacherUpdateLesson, teacherStudentClassContext, teacherSendTask } from '../../api';
+import CatLoader from '../../components/CatLoader';
+import { teacherLookupWords, teacherCreateLesson, teacherUpdateLesson, teacherStudentClassContext, teacherSendTask, getLessonRecap } from '../../api';
 import { COLORS } from '../../theme';
 
 const CN = /[一-鿿]/;
@@ -49,6 +50,8 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
   const [useExisting, setUseExisting] = useState(false);
   const [existingId, setExistingId] = useState(null);
   const [newName, setNewName] = useState('');
+  const [recapLoading, setRecapLoading] = useState(false); // IA génère le compte rendu
+  const recapDone = useRef(false);
 
   // Titre par défaut = date du jour (lisible) quand le prof n'en met pas.
   const todayLabel = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
@@ -58,6 +61,7 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
     setTitle(''); setSummary(''); setInput('');
     setCards([]); setErr(''); setBusy(false); cidRef.current = 0;
     setCtx(null); setStudentClassId(null); setUseExisting(false); setExistingId(null); setNewName('');
+    setRecapLoading(false); recapDone.current = false;
   }
   // À l'ouverture : reset (création) ou pré-remplissage (édition).
   useEffect(() => {
@@ -91,6 +95,50 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
       .catch(() => { if (alive) setCtx({ classes: [], student_classes: [] }); });
     return () => { alive = false; };
   }, [visible, isEnd, endCourse?.student_id]);
+
+  // Mode fin de cours : récupère le compte rendu IA (transcription → DeepSeek).
+  // pending → animation + poll ; ready → préremplit résumé + mots ; sinon manuel.
+  useEffect(() => {
+    if (!visible || !isEnd || !endCourse?.id) return;
+    recapDone.current = false;
+    let alive = true;
+    let tries = 0;
+
+    const applyReady = async (data) => {
+      if (!alive || recapDone.current) return;
+      recapDone.current = true;
+      setRecapLoading(false);
+      if (data.summary) setSummary((s) => (s && s.trim() ? s : data.summary)); // n'écrase pas une saisie
+      const words = Array.isArray(data.words) ? data.words.filter(Boolean) : [];
+      if (!words.length) return;
+      try {
+        const { results } = await teacherLookupWords(words);
+        const built = (results || []).map((r) => {
+          const typed = r.input;
+          if (r.mot) return { cid: ++cidRef.current, chinese: r.mot.chinese, pinyin: r.mot.pinyin || '', english: r.mot.english || '', found: true, loading: false };
+          if (isZhEn) return { cid: ++cidRef.current, chinese: '', pinyin: '', english: typed, found: false, loading: false };
+          return { cid: ++cidRef.current, chinese: typed, pinyin: r.pinyin || '', english: '', found: false, loading: false };
+        });
+        if (alive) setCards((cs) => {
+          const seen = new Set(cs.map(dupKey));
+          return [...cs, ...built.filter((c) => !seen.has(isZhEn ? c.english : c.chinese))];
+        });
+      } catch { /* mots facultatifs */ }
+    };
+
+    const poll = async () => {
+      if (!alive || recapDone.current) return;
+      try {
+        const d = await getLessonRecap(endCourse.id);
+        if (!alive) return;
+        if (d.status === 'ready') { applyReady(d); return; }
+        if (d.status === 'pending' && tries < 30) { tries += 1; setRecapLoading(true); setTimeout(poll, 4000); return; }
+        setRecapLoading(false); // none / error / timeout → saisie manuelle
+      } catch { if (alive) setRecapLoading(false); }
+    };
+    poll();
+    return () => { alive = false; };
+  }, [visible, isEnd, endCourse?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Hauteur du clavier : dans un <Modal>, KeyboardAvoidingView ne marche pas sur
   // Android → on réserve la hauteur en paddingBottom du scroll.
@@ -355,6 +403,20 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
           {err ? (
             <View className="bg-[#fdf2f2] border border-[#f3d2d2] rounded-xl px-3.5 py-2.5 mb-3">
               <Text className="text-danger text-[13px] font-semibold">{err}</Text>
+            </View>
+          ) : null}
+
+          {/* IA : génération du compte rendu en cours (transcription → résumé + mots). */}
+          {recapLoading ? (
+            <View className="flex-row items-center gap-3 bg-jiayou-soft border border-[#dbe3f1] rounded-xl px-3.5 py-3 mb-3">
+              <CatLoader size={34} />
+              <View style={{ flex: 1 }}>
+                <View className="flex-row items-center gap-1.5">
+                  <Ionicons name="sparkles" size={14} color={COLORS.jiayou} />
+                  <Text className="text-[13.5px] font-bold text-jiayou">Preparing the recap…</Text>
+                </View>
+                <Text className="text-[11.5px] text-muted mt-0.5">The AI is summarizing the lesson and pulling the vocabulary. You can start writing — it fills in automatically.</Text>
+              </View>
             </View>
           ) : null}
 

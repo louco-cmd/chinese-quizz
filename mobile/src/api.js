@@ -756,3 +756,8 @@ export function getLessonNote(id) {
 export function saveLessonNote(id, body) {
   return request(`/api/m/lesson/${id}/note`, { method: 'PUT', body: { body } });
 }
+
+// Compte rendu IA d'un cours (status: pending|ready|none|error + summary + words).
+export function getLessonRecap(id) {
+  return request(`/api/m/lesson/${id}/recap`);
+}

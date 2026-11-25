@@ -1154,9 +1154,18 @@ function lessonRoom(slotId) {
   return `jiayou-${slotId}-${mac}`;
 }
 
+// Compte rendu IA activé ? (transcription Daily → DeepSeek). Garde-fou par env
+// pour maîtriser le coût (Deepgram + LLM). TODO : gate premium prof ET élève.
+// Cf. mémoire ai-lesson-recap.
+function recapAllowed() {
+  return process.env.AI_RECAP_ENABLED === '1' && !!DEEPSEEK_API_KEY;
+}
+
 // Crée (ou récupère) une room Daily.co et génère un meeting token.
 // rooms sont "private" (pas d'accès sans token) + expiry auto après le cours.
-async function dailyRoom(roomName, endsAt) {
+// `transcribe` → stocke le transcript (enable_transcription_storage) pour que le
+// webhook transcript.ready-to-download se déclenche.
+async function dailyRoom(roomName, endsAt, transcribe = false) {
   const base = 'https://api.daily.co/v1';
   const headers = { Authorization: `Bearer ${DAILY_API_KEY}`, 'Content-Type': 'application/json' };
   const expTs = Math.floor(new Date(endsAt).getTime() / 1000) + JOIN_LATE_MS / 1000;
@@ -1164,9 +1173,11 @@ async function dailyRoom(roomName, endsAt) {
   // Crée la room si elle n'existe pas encore (idempotent : 409 = déjà là).
   let domainRes = await fetch(`${base}/rooms/${roomName}`, { headers });
   if (domainRes.status === 404) {
+    const props = { exp: expTs, enable_prejoin_ui: false };
+    if (transcribe) props.enable_transcription_storage = true;
     const r = await fetch(`${base}/rooms`, {
       method: 'POST', headers,
-      body: JSON.stringify({ name: roomName, privacy: 'private', properties: { exp: expTs, enable_prejoin_ui: false } }),
+      body: JSON.stringify({ name: roomName, privacy: 'private', properties: props }),
     });
     if (!r.ok) throw new Error(`Daily create room: ${r.status}`);
     domainRes = r;
@@ -1175,12 +1186,15 @@ async function dailyRoom(roomName, endsAt) {
   return roomData.url; // https://{subdomain}.daily.co/{roomName}
 }
 
-async function dailyToken(roomName, { isOwner, userId, userName, expiresAt }) {
+async function dailyToken(roomName, { isOwner, userId, userName, expiresAt, autoTranscribe = false }) {
   const headers = { Authorization: `Bearer ${DAILY_API_KEY}`, 'Content-Type': 'application/json' };
   const exp = Math.floor(new Date(expiresAt).getTime() / 1000) + JOIN_LATE_MS / 1000;
+  const properties = { room_name: roomName, is_owner: isOwner, user_id: String(userId), user_name: userName, exp };
+  // La transcription démarre automatiquement quand le PROF (owner) rejoint.
+  if (autoTranscribe && isOwner) properties.auto_start_transcription = true;
   const r = await fetch('https://api.daily.co/v1/meeting-tokens', {
     method: 'POST', headers,
-    body: JSON.stringify({ properties: { room_name: roomName, is_owner: isOwner, user_id: String(userId), user_name: userName, exp } }),
+    body: JSON.stringify({ properties }),
   });
   if (!r.ok) {
     const body = await r.text();
@@ -1217,12 +1231,21 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
 
     const room = lessonRoom(id);
     const isHost = uid === s.teacher_id;
+    const transcribe = recapAllowed();
 
     // Daily.co (activé si DAILY_API_KEY est défini)
     if (DAILY_API_KEY) {
       try {
-        const roomUrl = await dailyRoom(room, s.ends_at);
-        const token = await dailyToken(room, { isOwner: isHost, userId: uid, userName: s.user_name, expiresAt: s.ends_at });
+        const roomUrl = await dailyRoom(room, s.ends_at, transcribe);
+        const token = await dailyToken(room, { isOwner: isHost, userId: uid, userName: s.user_name, expiresAt: s.ends_at, autoTranscribe: transcribe });
+        // Quand le PROF rejoint avec transcription active → marque le recap « en
+        // attente » pour que la popup fin de cours affiche l'animation.
+        if (transcribe && isHost) {
+          pool.query(
+            `INSERT INTO lesson_recaps (slot_id, status, updated_at) VALUES ($1, 'pending', now())
+             ON CONFLICT (slot_id) DO NOTHING`, [id]
+          ).catch((e) => console.error('[recap] mark pending:', e.message));
+        }
         return res.json({ available: true, room, domain: 'daily.co', isHost, url: `${roomUrl}?t=${token}` });
       } catch (dailyErr) {
         console.error('[daily] room/token error — falling back to Jitsi:', dailyErr.message);
@@ -1271,6 +1294,125 @@ router.put('/api/m/lesson/:id/note', requireToken, async (req, res) => {
       [id, uid, body]);
     res.json({ ok: true });
   } catch (e) { console.error('m/lesson note put:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ── Compte rendu IA : webhook Daily (transcription) + lecture du recap ────────
+
+// VTT → texte brut (retire index, timestamps, balises).
+function vttToText(vtt) {
+  return String(vtt || '')
+    .split('\n')
+    .filter((l) => l.trim() && !/^WEBVTT/.test(l) && !/^\d+$/.test(l.trim()) && !/-->/.test(l) && !/^NOTE/.test(l))
+    .map((l) => l.replace(/<[^>]+>/g, '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .slice(0, 40000);
+}
+
+// Récupère le texte du transcript Daily (lien d'accès signé → fichier VTT).
+async function fetchDailyTranscript(transcriptId) {
+  const headers = { Authorization: `Bearer ${DAILY_API_KEY}` };
+  const r = await fetch(`https://api.daily.co/v1/transcript/${transcriptId}/access-link`, { headers });
+  if (!r.ok) throw new Error(`Daily access-link: ${r.status}`);
+  const j = await r.json();
+  const link = j.link || j.download_link || j.url;
+  if (!link) throw new Error('No transcript link');
+  const fr = await fetch(link);
+  if (!fr.ok) throw new Error(`transcript download: ${fr.status}`);
+  return vttToText(await fr.text());
+}
+
+const slotFromRoom = (roomName) => {
+  const m = /^jiayou-(\d+)-([0-9a-f]{24})$/.exec(String(roomName || ''));
+  return m ? parseInt(m[1], 10) : null;
+};
+
+// Transcript prêt → DeepSeek → stocke le recap sur le slot.
+async function generateRecapForSlot(slotId, transcriptId) {
+  const { rows } = await pool.query(
+    `SELECT t.quiz_direction FROM teacher_slots ts JOIN users t ON t.id = ts.teacher_id WHERE ts.id = $1`, [slotId]);
+  const dir = rows[0]?.quiz_direction || 'en→zh';
+  const learning = dir === 'zh→en' ? 'English' : 'Chinese';
+  const native = dir === 'zh→en' ? 'Chinese' : 'English';
+  try {
+    const transcript = await fetchDailyTranscript(transcriptId);
+    if (!transcript || transcript.length < 20) {
+      await pool.query(`UPDATE lesson_recaps SET status='none', updated_at=now() WHERE slot_id=$1`, [slotId]);
+      return;
+    }
+    const { summary, words } = await deepseekRecap(transcript, { learning, native });
+    await pool.query(
+      `INSERT INTO lesson_recaps (slot_id, status, summary, words, transcript, updated_at)
+       VALUES ($1,'ready',$2,$3,$4, now())
+       ON CONFLICT (slot_id) DO UPDATE SET status='ready', summary=EXCLUDED.summary, words=EXCLUDED.words, transcript=EXCLUDED.transcript, updated_at=now()`,
+      [slotId, summary || '', JSON.stringify(words || []), transcript.slice(0, 20000)]);
+  } catch (e) {
+    console.error('[recap] generate error:', e.message);
+    await pool.query(
+      `INSERT INTO lesson_recaps (slot_id, status, updated_at) VALUES ($1,'error', now())
+       ON CONFLICT (slot_id) DO UPDATE SET status='error', updated_at=now()`, [slotId]).catch(() => {});
+  }
+}
+
+// Mappe l'événement transcript → slot (payload.room_name, fallback metadata).
+async function processTranscriptEvent(p) {
+  const transcriptId = p.id;
+  if (!transcriptId) return;
+  let roomName = p.room_name;
+  let slotId = slotFromRoom(roomName);
+  if (!slotId) {
+    try {
+      const r = await fetch(`https://api.daily.co/v1/transcript/${transcriptId}`, { headers: { Authorization: `Bearer ${DAILY_API_KEY}` } });
+      if (r.ok) { const j = await r.json(); roomName = j.room_name || roomName; slotId = slotFromRoom(roomName); }
+    } catch { /* noop */ }
+  }
+  if (!slotId) { console.warn('[daily-webhook] unmapped room', roomName); return; }
+  if (lessonRoom(slotId) !== roomName) { console.warn('[daily-webhook] room mac mismatch'); return; }
+  await generateRecapForSlot(slotId, transcriptId);
+}
+
+// Webhook Daily — body BRUT + HMAC (cf. server.js). Répond 200 vite, traite après.
+router.post('/api/m/webhooks/daily', (req, res) => {
+  const secret = process.env.DAILY_WEBHOOK_SECRET;
+  const raw = req.rawBody || '';
+  if (!secret) { console.warn('[daily-webhook] DAILY_WEBHOOK_SECRET not set'); return res.status(200).json({ ok: true }); }
+  try {
+    const sig = req.get('X-Webhook-Signature');
+    const ts = req.get('X-Webhook-Timestamp');
+    if (sig && ts) {
+      const computed = crypto.createHmac('sha256', Buffer.from(secret, 'base64')).update(`${ts}.${raw}`).digest('base64');
+      const a = Buffer.from(computed), b = Buffer.from(sig);
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        console.warn('[daily-webhook] bad signature');
+        return res.status(401).json({ error: 'bad signature' });
+      }
+    }
+  } catch (e) { console.error('[daily-webhook] verify:', e.message); }
+
+  res.status(200).json({ ok: true }); // ACK immédiat (test de création + retries)
+
+  let event;
+  try { event = JSON.parse(raw || '{}'); } catch { return; }
+  if (event.type === 'transcript.ready-to-download') {
+    processTranscriptEvent(event.payload || {}).catch((e) => console.error('[recap] async:', e.message));
+  } else if (event.type === 'transcript.error') {
+    const slotId = slotFromRoom((event.payload || {}).room_name);
+    if (slotId) pool.query(`UPDATE lesson_recaps SET status='error', updated_at=now() WHERE slot_id=$1`, [slotId]).catch(() => {});
+  }
+});
+
+// Lecture du recap (prof du cours uniquement). status: pending|ready|none|error.
+router.get('/api/m/lesson/:id/recap', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    const bad = await noteAuth(uid, id);
+    if (bad) return res.status(bad.code).json({ error: bad.error });
+    const r = await pool.query(`SELECT status, summary, words FROM lesson_recaps WHERE slot_id = $1`, [id]);
+    if (!r.rows.length) return res.json({ status: 'none', summary: '', words: [] });
+    const row = r.rows[0];
+    res.json({ status: row.status, summary: row.summary || '', words: row.words || [] });
+  } catch (e) { console.error('m/lesson recap get:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
 };

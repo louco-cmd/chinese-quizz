@@ -439,6 +439,23 @@ const pool = new Pool({
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_lesson_notes_teacher ON lesson_notes(teacher_id)`);
     console.log("✅ Table 'lesson_notes' vérifiée ou créée.");
 
+    // ── Table lesson_recaps : compte rendu IA d'un cours (transcription → LLM) ──
+    // 1 ligne par slot. status : pending (transcription activée, en attente du
+    // webhook Daily) | ready (résumé + mots prêts) | none (pas de transcript) |
+    // error. Alimentée par le webhook Daily + DeepSeek ; lue par la popup fin de
+    // cours pour préremplir. transcript gardé court (purge RGPD).
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lesson_recaps (
+        slot_id INTEGER PRIMARY KEY,
+        status VARCHAR(12) NOT NULL DEFAULT 'pending',
+        summary TEXT NOT NULL DEFAULT '',
+        words JSONB NOT NULL DEFAULT '[]'::jsonb,
+        transcript TEXT,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log("✅ Table 'lesson_recaps' vérifiée ou créée.");
+
     // ── Table teacher_availability : « semaine type » récurrente du prof ────────
     // Un bloc = un créneau HORAIRE d'1h ouvert un jour de semaine donné
     // (weekday 0=lundi … 6=dimanche, hour 0..23). Les créneaux réservables des

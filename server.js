@@ -90,8 +90,9 @@ const authLimiter = rateLimit({
 
 // -------------------- Configuration Express --------------------
 app.use((req, res, next) => {
-  if (req.originalUrl === '/webhook') {
-    // Pour le webhook, ne PAS parser le JSON
+  // Webhooks (Stripe /webhook, Daily /api/m/webhooks/daily) : body brut requis
+  // pour la vérification de signature → on ne parse PAS le JSON ici.
+  if (req.originalUrl === '/webhook' || req.originalUrl === '/api/m/webhooks/daily') {
     next();
   } else {
     // Pour toutes les autres routes, parser normalement
@@ -105,6 +106,11 @@ app.use('/webhook', express.raw({
     // Sauvegarder le body brut pour la vérification
     req.rawBody = buf.toString();
   }
+}));
+// Webhook Daily (transcription → compte rendu IA) : body brut pour HMAC.
+app.use('/api/m/webhooks/daily', express.raw({
+  type: '*/*',
+  verify: (req, res, buf) => { req.rawBody = buf.toString(); },
 }));
 app.use(express.urlencoded({ extended: true }));
 // Cache headers : on cache agressivement les assets immuables, mais on garde
