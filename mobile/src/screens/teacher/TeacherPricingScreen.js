@@ -6,7 +6,7 @@ import { useWindowDimensions } from 'react-native';
 import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import { Button } from '../../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../../theme';
-import { buyTeacherPro, getTeacherProPlans, restorePurchases, purchasesAvailable } from '../../purchases';
+import { buyTeacherPro, getTeacherProPlans, restorePurchases, purchasesAvailable, yearlySavingPct } from '../../purchases';
 import { syncRevenueCat } from '../../api';
 
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions';
@@ -58,16 +58,32 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
 
   // Achat in-app réellement dispo (clé RevenueCat + module natif dans ce build).
   const native = Platform.OS !== 'web' && purchasesAvailable();
-  const [plan, setPlan] = useState(null);
+  const [plans, setPlans] = useState([]);       // offres RevenueCat (natif)
+  const [planId, setPlanId] = useState(null);   // formule sélectionnée
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  // Offering teacher_pro : prix localisés du store (mensuel + annuel). Silencieux
+  // si l'offering est vide → on retombe sur l'affichage statique $25/mois.
+  useEffect(() => {
+    if (!native || isPro) return;
+    let alive = true;
+    getTeacherProPlans().then((list) => {
+      if (!alive || !list.length) return;
+      setPlans(list);
+      setPlanId((list.find((p) => p.annual) || list[0]).id); // annuel par défaut
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [native, isPro]);
+
+  // À l'ouverture : synchro RevenueCat → base (rattrape un webhook manquant).
   useEffect(() => {
     if (!native) return;
-    let alive = true;
-    getTeacherProPlans().then((list) => { if (alive) setPlan(list[0] || null); }).catch(() => {});
-    return () => { alive = false; };
-  }, [native]);
+    syncRevenueCat().then((s) => { if (s?.teacherActive && !isPro) onPurchased?.(); }).catch(() => {});
+  }, [native]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const plan = plans.find((p) => p.id === planId) || null;
+  const saving = yearlySavingPct(plans);
 
   // Natif → Play Billing (RevenueCat). Jamais de fallback Stripe en natif (interdit
   // stores + « silent success »). Web → Stripe teacher_pro pas encore branché.
@@ -135,20 +151,47 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
                   </View>
                 ) : (
                   <>
-                    <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800' }}>$25</Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>per month</Text>
+                    <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800' }}>{plan ? plan.priceString : '$25'}</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>{plan ? plan.period : 'per month'}</Text>
                   </>
                 )}
               </LinearGradient>
               <View style={{ padding: 18 }}>
                 {PRO_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === PRO_FEATURES.length - 1} />)}
+                {/* Choix de la formule (natif + offering ≥ 2 packages). */}
+                {plans.length > 1 && !isPro ? (
+                  <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                    {plans.map((p) => {
+                      const on = p.id === planId;
+                      return (
+                        <Pressable
+                          key={p.id}
+                          onPress={() => setPlanId(p.id)}
+                          style={{
+                            flex: 1, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center',
+                            borderWidth: 2, borderColor: on ? COLORS.jiayou : '#e6e8eb',
+                            backgroundColor: on ? '#e8f0ff' : '#fff',
+                          }}
+                        >
+                          <Text style={{ fontSize: 13, fontWeight: '700', color: on ? COLORS.jiayou : '#1d1d1f' }}>{p.label}</Text>
+                          <Text style={{ fontSize: 15, fontWeight: '800', color: on ? COLORS.jiayou : '#1d1d1f', marginTop: 2 }}>{p.priceString}</Text>
+                          {p.annual && saving ? (
+                            <View style={{ marginTop: 5, backgroundColor: COLORS.success, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
+                              <Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '700' }}>Save {saving}%</Text>
+                            </View>
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
                 {/* CTA : natif → Play Billing (RevenueCat) ; web → bientôt (Stripe à venir). */}
                 <Button
                   onPress={onSubscribe}
                   loading={busy}
                   disabled={!native && !isPro}
                   icon={isPro ? 'settings-outline' : 'rocket'}
-                  title={isPro ? 'Manage subscription' : native ? 'Subscribe' : 'Coming soon'}
+                  title={isPro ? 'Manage subscription' : native ? `Subscribe${plan ? ` — ${plan.priceString}` : ''}` : 'Coming soon'}
                   fullWidth
                   style={{ marginTop: 18, justifyContent: 'center' }}
                 />
