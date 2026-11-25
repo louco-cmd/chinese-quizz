@@ -1,98 +1,114 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, Modal, Keyboard, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Button } from '../../ui';
+import { Button } from '../../ui';
 import { teacherLookupWords, teacherCreateLesson, teacherUpdateLesson } from '../../api';
 import { COLORS } from '../../theme';
 
 const CN = /[一-鿿]/;
 const inputSm = 'bg-surface-page border border-line rounded-lg px-2.5 h-10 text-[14px] text-ink';
 
-// Création / édition d'une task en 3 étapes (titre/résumé → mots → traductions),
-// direction-aware comme teach-class.ejs. `direction` = quiz_direction du prof.
+// Création / édition d'une task — PLEIN ÉCRAN, une seule page (fusion de l'ancien
+// wizard titre → mots → traductions). direction-aware comme teach-class.ejs.
+//  • Titre OPTIONNEL : vide → la date du jour sert de titre.
+//  • Description sur toute la largeur.
+//  • Mots : chaque ajout résout la traduction et l'ajoute DIRECTEMENT à la liste
+//    éditable en dessous (modifiable en direct, qu'il manque une trad ou non).
+//  • Desktop : titre+description à gauche, mots à droite (côte à côte, une page).
 // `editLesson` (optionnel) = { id, title, summary, words:[{chinese,pinyin,english}] }
-// → mode édition : pré-rempli, enregistre via PATCH (titre + résumé + mots).
 export default function CreateTaskPopup({ visible, classId, direction, editLesson = null, onClose, onCreated }) {
   const isZhEn = direction === 'zh→en'; // cours d'anglais → saisie en anglais
-  const [step, setStep] = useState(1);
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 760;
+
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [input, setInput] = useState('');
-  const [pending, setPending] = useState([]);   // mots tapés
-  const [cards, setCards] = useState([]);        // {chinese, pinyin, english, found}
+  const [cards, setCards] = useState([]); // {cid, chinese, pinyin, english, found, loading}
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [kb, setKb] = useState(0);
   const inputRef = useRef(null);
+  const cidRef = useRef(0);
+
+  // Titre par défaut = date du jour (lisible) quand le prof n'en met pas.
+  const todayLabel = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 
   function reset() {
-    setStep(1); setTitle(''); setSummary(''); setInput('');
-    setPending([]); setCards([]); setErr(''); setBusy(false);
+    setTitle(''); setSummary(''); setInput('');
+    setCards([]); setErr(''); setBusy(false); cidRef.current = 0;
   }
-  // À l'ouverture en mode édition : pré-remplir titre/résumé/mots existants.
+  // À l'ouverture : reset (création) ou pré-remplissage (édition).
   useEffect(() => {
     if (!visible) return;
     if (editLesson) {
-      setStep(1); setInput(''); setPending([]); setErr(''); setBusy(false);
+      setInput(''); setErr(''); setBusy(false);
       setTitle(editLesson.title || ''); setSummary(editLesson.summary || '');
-      setCards((editLesson.words || []).map((w) => ({ chinese: w.chinese || '', pinyin: w.pinyin || '', english: w.english || '', found: true })));
+      setCards((editLesson.words || []).map((w) => ({
+        cid: ++cidRef.current,
+        chinese: w.chinese || '', pinyin: w.pinyin || '', english: w.english || '', found: true, loading: false,
+      })));
+    } else {
+      reset();
     }
   }, [visible, editLesson]);
+
+  // Hauteur du clavier : dans un <Modal>, KeyboardAvoidingView ne marche pas sur
+  // Android → on réserve la hauteur en paddingBottom du scroll.
+  useEffect(() => {
+    if (!visible) { setKb(0); return; }
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const s = Keyboard.addListener(showEvt, (e) => setKb(e.endCoordinates?.height || 0));
+    const h = Keyboard.addListener(hideEvt, () => setKb(0));
+    return () => { s.remove(); h.remove(); };
+  }, [visible]);
+
   function close() { reset(); onClose(); }
 
   const wordValid = (v) => (!v ? true : isZhEn ? !CN.test(v) : !/[^一-鿿]/.test(v));
+  const dupKey = (c) => (isZhEn ? c.english : c.chinese);
 
-  function addPill() {
+  // Ajout d'un mot : on le pousse TOUT DE SUITE (optimiste) puis on résout la
+  // traduction en arrière-plan et on patche la ligne → liste live.
+  async function addWord() {
     const v = input.trim();
     if (!v || !wordValid(v)) return;
-    if (!pending.includes(v)) setPending((p) => [...p, v]);
-    setInput('');
-    // Garde le focus pour enchaîner les mots sans re-cliquer.
+    if (cards.some((c) => dupKey(c) === v)) { setInput(''); return; }
+    const cid = ++cidRef.current;
+    const base = isZhEn
+      ? { chinese: '', pinyin: '', english: v }
+      : { chinese: v, pinyin: '', english: '' };
+    setCards((cs) => [...cs, { cid, ...base, found: false, loading: true }]);
+    setInput(''); setErr('');
     inputRef.current?.focus();
-  }
-
-  async function goStep2() {
-    if (!title.trim()) { setErr('Title required'); return; }
-    setErr(''); setStep(2);
-  }
-
-  async function fetchWords() {
-    let list = [...pending];
-    if (input.trim() && wordValid(input.trim()) && !list.includes(input.trim())) list = [...list, input.trim()];
-    if (!list.length) {
-      // Aucun nouveau mot à résoudre : si on a déjà des mots (édition), on passe
-      // directement aux traductions ; sinon on exige au moins un mot.
-      if (cards.length) { setStep(3); return; }
-      setErr('Add at least one word.'); return;
-    }
-    setBusy(true); setErr('');
     try {
-      const { results } = await teacherLookupWords(list);
-      const next = [...cards];
-      (results || []).forEach((r) => {
-        const typed = r.input;
-        const dupe = next.some((t) => (isZhEn ? t.english === typed : t.chinese === typed));
-        if (dupe) return;
-        if (r.mot) next.push({ chinese: r.mot.chinese, pinyin: r.mot.pinyin || '', english: r.mot.english || '', found: true });
-        else if (isZhEn) next.push({ chinese: '', pinyin: '', english: typed, found: false });
-        else next.push({ chinese: typed, pinyin: r.pinyin || '', english: '', found: false });
-      });
-      setCards(next); setPending([]); setInput('');
-      setStep(3);
-    } catch (e) { setErr(e.message || 'Lookup error'); } finally { setBusy(false); }
+      const { results } = await teacherLookupWords([v]);
+      const r = (results || [])[0];
+      setCards((cs) => cs.map((c) => {
+        if (c.cid !== cid) return c;
+        if (r?.mot) return { ...c, chinese: r.mot.chinese, pinyin: r.mot.pinyin || '', english: r.mot.english || '', found: true, loading: false };
+        // Pas trouvé : on garde la saisie, on complète juste le pinyin si fourni.
+        return { ...c, pinyin: !isZhEn ? (r?.pinyin || c.pinyin) : c.pinyin, found: false, loading: false };
+      }));
+    } catch {
+      setCards((cs) => cs.map((c) => (c.cid === cid ? { ...c, loading: false } : c)));
+    }
   }
 
   const cardComplete = (w) => (isZhEn ? !!String(w.chinese).trim() : !!String(w.english).trim());
+  function setCard(cid, patch) { setCards((cs) => cs.map((c) => (c.cid === cid ? { ...c, ...patch } : c))); }
+  function removeCard(cid) { setCards((cs) => cs.filter((c) => c.cid !== cid)); }
 
-  function setCard(i, patch) { setCards((cs) => cs.map((c, j) => (j === i ? { ...c, ...patch } : c))); }
-  function removeCard(i) { setCards((cs) => cs.filter((_, j) => j !== i)); }
-
-  async function create() {
-    if (!cards.length) { setErr('No words to send.'); return; }
+  async function save() {
+    if (!cards.length) { setErr('Add at least one word.'); return; }
     const bad = cards.find((w) => !cardComplete(w));
-    if (bad) { setErr(`Complete the translation for "${isZhEn ? bad.english : bad.chinese}"`); return; }
+    if (bad) { setErr(`Complete the translation for "${(isZhEn ? bad.english : bad.chinese) || '—'}"`); return; }
     setBusy(true); setErr('');
     const payload = {
-      title: title.trim(), summary: summary.trim(),
+      title: title.trim() || todayLabel,
+      summary: summary.trim(),
       words: cards.map((w) => ({ chinese: w.chinese, pinyin: w.pinyin, english: w.english })),
     };
     try {
@@ -103,95 +119,109 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
     } catch (e) { setErr(e.message || 'Error'); setBusy(false); }
   }
 
-  return (
-    <Modal visible={visible} onClose={close} maxWidth={460} scroll={false}>
-      {/* En-tête + points d'étape */}
-      <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-[17px] font-bold text-ink">{editLesson ? 'Edit task' : 'New task'}</Text>
-        <View className="flex-row gap-1.5">
-          {[1, 2, 3].map((i) => <View key={i} className={`h-1.5 rounded-full ${i <= step ? 'w-5 bg-jiayou' : 'w-1.5 bg-line'}`} />)}
-        </View>
+  // ── Blocs réutilisés (mobile = empilés, desktop = côte à côte) ──────────────
+  const DetailsBlock = (
+    <View style={{ flex: isDesktop ? 1 : undefined }}>
+      <Text className="text-[13px] font-semibold text-muted mb-1.5">Title</Text>
+      <TextInput
+        value={title} onChangeText={setTitle} maxLength={120}
+        placeholder={todayLabel} placeholderTextColor={COLORS.mutedLight}
+        className="bg-surface-page border border-line rounded-xl px-3.5 h-12 text-[15px] text-ink" />
+      <Text className="text-[11.5px] text-muted-light mt-1">Optional — left empty, today's date is used.</Text>
+
+      <Text className="text-[13px] font-semibold text-muted mb-1.5 mt-4">Description</Text>
+      <TextInput
+        value={summary} onChangeText={setSummary} maxLength={2000} multiline
+        placeholder="Notes for your students — what this task is about…"
+        placeholderTextColor={COLORS.mutedLight}
+        className="bg-surface-page border border-line rounded-xl px-3.5 py-3 text-[15px] text-ink"
+        style={{ minHeight: isDesktop ? 220 : 150, textAlignVertical: 'top' }} />
+    </View>
+  );
+
+  const WordsBlock = (
+    <View style={{ flex: isDesktop ? 1 : undefined, marginTop: isDesktop ? 0 : 20 }}>
+      <Text className="text-[13px] font-semibold text-muted mb-1.5">
+        Words {isZhEn ? '(English)' : '(Chinese 中文)'}
+      </Text>
+      <View className="flex-row gap-2">
+        <TextInput
+          ref={inputRef} value={input} onChangeText={setInput} onSubmitEditing={addWord}
+          blurOnSubmit={false} returnKeyType="next" autoCapitalize="none"
+          placeholder={isZhEn ? 'type a word + ↵' : '输入汉字 + ↵'} placeholderTextColor={COLORS.mutedLight}
+          className="flex-1 bg-surface-page border border-line rounded-xl px-3.5 h-12 text-[15px] text-ink" />
+        <Pressable onPress={addWord} className="w-12 h-12 rounded-xl bg-jiayou items-center justify-center">
+          <Ionicons name="add" size={22} color="#fff" />
+        </Pressable>
       </View>
+      {input && !wordValid(input.trim()) ? (
+        <Text className="text-danger text-[12px] mt-1.5">{isZhEn ? 'English words only' : '只能输入中文 · Chinese only'}</Text>
+      ) : null}
 
-      {step === 1 && (
-        <>
-          <Text className="text-[13px] font-semibold text-muted mb-1.5">Title *</Text>
-          <TextInput value={title} onChangeText={setTitle} maxLength={120} placeholder="e.g. Week 1 — greetings"
-            placeholderTextColor={COLORS.mutedLight} className="bg-surface-page border border-line rounded-xl px-3.5 h-12 text-[15px] text-ink mb-3" />
-          <Text className="text-[13px] font-semibold text-muted mb-1.5">Summary (optional)</Text>
-          <TextInput value={summary} onChangeText={setSummary} maxLength={2000} multiline placeholder="Notes for your students…"
-            placeholderTextColor={COLORS.mutedLight} className="bg-surface-page border border-line rounded-xl px-3.5 py-3 text-[15px] text-ink" style={{ minHeight: 80, textAlignVertical: 'top' }} />
-          {err ? <Text className="text-danger text-[13px] font-semibold mt-2">{err}</Text> : null}
-          <View className="flex-row gap-3 mt-4">
-            <Button title="Cancel" variant="secondary" onPress={close} style={{ flex: 1, justifyContent: 'center' }} />
-            <Button title="Next" onPress={goStep2} style={{ flex: 1, justifyContent: 'center' }} />
+      {/* Liste live des mots, éditable en direct */}
+      <View className="mt-3">
+        {cards.length === 0 ? (
+          <View className="items-center py-6">
+            <Ionicons name="albums-outline" size={26} color={COLORS.mutedLight} />
+            <Text className="text-[12.5px] text-muted-light mt-2">No word yet — add some above.</Text>
           </View>
-        </>
-      )}
+        ) : cards.map((w) => {
+          const ok = cardComplete(w);
+          return (
+            <View key={w.cid} className={`flex-row items-center gap-2 rounded-xl border p-2 mb-2 ${ok ? 'border-[#cfe6d6] bg-[#f2fbf5]' : 'border-[#f3d2d2] bg-[#fdf5f5]'}`}>
+              <Text className="text-jiayou font-extrabold text-[16px] min-w-[42px] text-center">{(isZhEn ? w.english : w.chinese) || '—'}</Text>
+              {w.loading ? (
+                <View className="flex-1 flex-row items-center gap-2"><ActivityIndicator size="small" color={COLORS.jiayou} /><Text className="text-[12.5px] text-muted-light">looking up…</Text></View>
+              ) : isZhEn ? (
+                <>
+                  <TextInput value={w.chinese} onChangeText={(t) => setCard(w.cid, { chinese: t })} placeholder="汉字 *" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputSm}`} />
+                  <TextInput value={w.pinyin} onChangeText={(t) => setCard(w.cid, { pinyin: t })} placeholder="pinyin" placeholderTextColor={COLORS.mutedLight} className={inputSm} style={{ maxWidth: 96 }} />
+                </>
+              ) : (
+                <>
+                  <TextInput value={w.pinyin} onChangeText={(t) => setCard(w.cid, { pinyin: t })} placeholder="pinyin" placeholderTextColor={COLORS.mutedLight} className={inputSm} style={{ maxWidth: 96 }} />
+                  <TextInput value={w.english} onChangeText={(t) => setCard(w.cid, { english: t })} placeholder="english *" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputSm}`} />
+                </>
+              )}
+              <Pressable onPress={() => removeCard(w.cid)} hitSlop={6}><Ionicons name="close" size={16} color={COLORS.danger} /></Pressable>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
 
-      {step === 2 && (
-        <>
-          <Text className="text-[13px] font-semibold text-muted mb-1.5">
-            Add words {isZhEn ? '(English)' : '(Chinese 中文)'}
-          </Text>
-          <View className="flex-row gap-2">
-            <TextInput ref={inputRef} value={input} onChangeText={setInput} onSubmitEditing={addPill}
-              autoFocus blurOnSubmit={false} returnKeyType="next" autoCapitalize="none"
-              placeholder={isZhEn ? 'type a word…' : '输入汉字…'} placeholderTextColor={COLORS.mutedLight}
-              className="flex-1 bg-surface-page border border-line rounded-xl px-3.5 h-12 text-[15px] text-ink" />
-            <Pressable onPress={addPill} className="w-12 h-12 rounded-xl bg-jiayou items-center justify-center"><Ionicons name="add" size={22} color="#fff" /></Pressable>
-          </View>
-          {input && !wordValid(input.trim()) ? (
-            <Text className="text-danger text-[12px] mt-1.5">{isZhEn ? 'English words only' : '只能输入中文 · Chinese only'}</Text>
+  return (
+    <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={close}>
+      <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: COLORS.page }}>
+        {/* En-tête fixe : fermer · titre · enregistrer */}
+        <View className="flex-row items-center justify-between px-4 h-14 border-b border-line bg-white">
+          <Pressable onPress={close} hitSlop={8} className="flex-row items-center gap-1">
+            <Ionicons name="close" size={24} color={COLORS.muted} />
+          </Pressable>
+          <Text className="text-[16px] font-bold text-ink">{editLesson ? 'Edit task' : 'New task'}</Text>
+          <Button title={editLesson ? 'Save' : 'Create'} loading={busy} onPress={save} style={{ paddingHorizontal: 16, height: 38, justifyContent: 'center' }} />
+        </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 24 + kb, width: '100%', maxWidth: isDesktop ? 1000 : 560, alignSelf: 'center' }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {err ? (
+            <View className="bg-[#fdf2f2] border border-[#f3d2d2] rounded-xl px-3.5 py-2.5 mb-3">
+              <Text className="text-danger text-[13px] font-semibold">{err}</Text>
+            </View>
           ) : null}
-          <View className="flex-row flex-wrap gap-2 mt-3">
-            {pending.map((w, i) => (
-              <View key={i} className="flex-row items-center gap-1.5 bg-jiayou-soft border border-[#dbe3f1] rounded-full pl-3 pr-1.5 py-1.5">
-                <Text className="text-[14px] text-ink">{w}</Text>
-                <Pressable onPress={() => setPending((p) => p.filter((_, j) => j !== i))} hitSlop={6}><Ionicons name="close-circle" size={16} color={COLORS.muted} /></Pressable>
-              </View>
-            ))}
-          </View>
-          {err ? <Text className="text-danger text-[13px] font-semibold mt-2">{err}</Text> : null}
-          <View className="flex-row gap-3 mt-4">
-            <Button title="Back" variant="secondary" onPress={() => setStep(1)} style={{ flex: 1, justifyContent: 'center' }} />
-            <Button title="Continue" loading={busy} onPress={fetchWords} style={{ flex: 1, justifyContent: 'center' }} />
-          </View>
-        </>
-      )}
 
-      {step === 3 && (
-        <>
-          <Text className="text-[13px] font-semibold text-muted mb-2">Complete the translations</Text>
-          <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled">
-            {cards.map((w, i) => {
-              const ok = cardComplete(w);
-              return (
-                <View key={i} className={`flex-row items-center gap-2 rounded-xl border p-2 mb-2 ${ok ? 'border-[#cfe6d6] bg-[#f2fbf5]' : 'border-[#f3d2d2] bg-[#fdf5f5]'}`}>
-                  <Text className="text-jiayou font-extrabold text-[16px] min-w-[42px] text-center">{(isZhEn ? w.english : w.chinese) || '—'}</Text>
-                  {isZhEn ? (
-                    <>
-                      <TextInput value={w.chinese} onChangeText={(t) => setCard(i, { chinese: t })} placeholder="汉字 *" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputSm}`} />
-                      <TextInput value={w.pinyin} onChangeText={(t) => setCard(i, { pinyin: t })} placeholder="pinyin" placeholderTextColor={COLORS.mutedLight} className={inputSm} style={{ maxWidth: 96 }} />
-                    </>
-                  ) : (
-                    <>
-                      <TextInput value={w.pinyin} onChangeText={(t) => setCard(i, { pinyin: t })} placeholder="pinyin" placeholderTextColor={COLORS.mutedLight} className={inputSm} style={{ maxWidth: 96 }} />
-                      <TextInput value={w.english} onChangeText={(t) => setCard(i, { english: t })} placeholder="english *" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputSm}`} />
-                    </>
-                  )}
-                  <Pressable onPress={() => removeCard(i)} hitSlop={6}><Ionicons name="close" size={16} color={COLORS.danger} /></Pressable>
-                </View>
-              );
-            })}
-          </ScrollView>
-          {err ? <Text className="text-danger text-[13px] font-semibold mt-2">{err}</Text> : null}
-          <View className="flex-row gap-3 mt-4">
-            <Button title="Back" variant="secondary" onPress={() => setStep(2)} style={{ flex: 1, justifyContent: 'center' }} />
-            <Button title={editLesson ? 'Save task' : 'Create task'} loading={busy} onPress={create} style={{ flex: 1, justifyContent: 'center' }} />
-          </View>
-        </>
-      )}
+          {isDesktop ? (
+            <View className="flex-row gap-6">{DetailsBlock}{WordsBlock}</View>
+          ) : (
+            <>{DetailsBlock}{WordsBlock}</>
+          )}
+        </ScrollView>
+      </SafeAreaView>
     </Modal>
   );
 }
