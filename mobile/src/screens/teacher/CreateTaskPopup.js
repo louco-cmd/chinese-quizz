@@ -31,6 +31,8 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
   const [kb, setKb] = useState(0);
   const inputRef = useRef(null);
   const cidRef = useRef(0);
+  const scrollRef = useRef(null);
+  const wordsY = useRef(0); // position Y de la section « mots » (scroll au focus)
 
   // Titre par défaut = date du jour (lisible) quand le prof n'en met pas.
   const todayLabel = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
@@ -80,7 +82,9 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
     const base = isZhEn
       ? { chinese: '', pinyin: '', english: v }
       : { chinese: v, pinyin: '', english: '' };
-    setCards((cs) => [...cs, { cid, ...base, found: false, loading: true }]);
+    // Les nouveaux mots s'ajoutent EN HAUT de la liste (juste sous le champ) →
+    // restent visibles même clavier ouvert.
+    setCards((cs) => [{ cid, ...base, found: false, loading: true }, ...cs]);
     setInput(''); setErr('');
     inputRef.current?.focus();
     try {
@@ -139,14 +143,21 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
     </View>
   );
 
+  // Au focus du champ mots : remonte la section en haut de l'écran pour que le
+  // champ + les résultats restent au-dessus du clavier.
+  const onWordsFocus = () => setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, wordsY.current - 12), animated: true }), 90);
+
   const WordsBlock = (
-    <View style={{ flex: isDesktop ? 1 : undefined, marginTop: isDesktop ? 0 : 20 }}>
+    <View
+      onLayout={(e) => { wordsY.current = e.nativeEvent.layout.y; }}
+      style={{ flex: isDesktop ? 1 : undefined, marginTop: isDesktop ? 0 : 20 }}
+    >
       <Text className="text-[13px] font-semibold text-muted mb-1.5">
         Words {isZhEn ? '(English)' : '(Chinese 中文)'}
       </Text>
       <View className="flex-row gap-2">
         <TextInput
-          ref={inputRef} value={input} onChangeText={setInput} onSubmitEditing={addWord}
+          ref={inputRef} value={input} onChangeText={setInput} onSubmitEditing={addWord} onFocus={onWordsFocus}
           blurOnSubmit={false} returnKeyType="next" autoCapitalize="none"
           placeholder={isZhEn ? 'type a word + ↵' : '输入汉字 + ↵'} placeholderTextColor={COLORS.mutedLight}
           className="flex-1 bg-surface-page border border-line rounded-xl px-3.5 h-12 text-[15px] text-ink" />
@@ -200,10 +211,11 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
             <Ionicons name="close" size={24} color={COLORS.muted} />
           </Pressable>
           <Text className="text-[16px] font-bold text-ink">{editLesson ? 'Edit task' : 'New task'}</Text>
-          <Button title={editLesson ? 'Save' : 'Create'} loading={busy} onPress={save} style={{ paddingHorizontal: 16, height: 38, justifyContent: 'center' }} />
+          <Button title={editLesson ? 'Save' : 'Create'} size="sm" loading={busy} onPress={save} style={{ paddingHorizontal: 20 }} />
         </View>
 
         <ScrollView
+          ref={scrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 16, paddingBottom: 24 + kb, width: '100%', maxWidth: isDesktop ? 1000 : 560, alignSelf: 'center' }}
           keyboardShouldPersistTaps="handled"
