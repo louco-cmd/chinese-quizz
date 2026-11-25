@@ -8,6 +8,7 @@ import { teacherOverview, teacherClasses, teacherCreateClass, getUpcomingSession
 import { Modal, Button } from '../../ui';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import CatLoader from '../../components/CatLoader';
+import LessonDetailSheet from '../../components/teachers/LessonDetailSheet';
 
 function hhmm(d) { return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
 function fmtWhen(iso) {
@@ -31,6 +32,7 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
   const [saving, setSaving] = useState(false);
   const [cErr, setCErr] = useState('');
   const [copied, setCopied] = useState(null);
+  const [detailLesson, setDetailLesson] = useState(null); // drawer détail cours (unifié avec l'Agenda)
 
   const load = useCallback(async () => {
     setError('');
@@ -96,9 +98,6 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
 
   // ── CTA : « Open a new class » (plein, bleu) + « Start next Lesson » (prochain cours).
   const next = upcoming[0];
-  const nextJoinable = next
-    ? (Date.now() >= new Date(next.starts_at).getTime() - 15 * 60000 && Date.now() <= new Date(next.ends_at).getTime() + 10 * 60000)
-    : false;
   const ctaRow = (
     <View className="flex-row gap-3 mb-4" style={{ alignItems: 'stretch' }}>
       {/* Ouvrir une nouvelle classe → modal de création. */}
@@ -112,26 +111,22 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
         </LinearGradient>
       </Pressable>
 
-      {/* Démarrer le prochain cours : rejoint la visio si c'est l'heure, sinon agenda. */}
+      {/* Démarrer le prochain cours : même mise en page que « Open a new class »
+          (cercle d'icône centré + titre + sous-titre) mais fond clair, icône vidéo. */}
       <Pressable
-        onPress={() => { if (next && nextJoinable) onVideoCall?.(next); else onOpenAgenda?.(); }}
+        onPress={() => { if (next) setDetailLesson(next); else onOpenAgenda?.(); }}
         className="flex-1 active:opacity-90"
       >
-        <View className="bg-white rounded-2xl p-4 flex-1 justify-center" style={[SHADOW_CARD, { minHeight: 104 }]}>
-          <View className="flex-row items-center gap-1.5 mb-1.5">
-            <Ionicons name={next ? 'videocam' : 'calendar-clear-outline'} size={15} color={next ? COLORS.jiayou : COLORS.mutedLight} />
-            <Text className={next ? 'text-ink font-extrabold text-[13.5px]' : 'text-muted-light font-extrabold text-[13.5px]'}>{next ? 'Start next Lesson' : 'No upcoming class'}</Text>
+        <View className="bg-white rounded-2xl items-center justify-center" style={[SHADOW_CARD, { flex: 1, minHeight: 104, paddingVertical: 18, paddingHorizontal: 14 }]}>
+          <View style={{ width: 34, height: 34, borderRadius: 999, backgroundColor: COLORS.jiayouSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+            <Ionicons name={next ? 'videocam' : 'calendar-clear-outline'} size={19} color={next ? COLORS.jiayou : COLORS.mutedLight} />
           </View>
-          {next ? (
-            <>
-              <Text className="text-muted text-[12px]" numberOfLines={1}>
-                {fmtWhen(next.starts_at)} · {new Date(next.starts_at).toLocaleDateString()}
-              </Text>
-              <View className="self-start rounded-full px-2.5 py-1 mt-2" style={{ backgroundColor: COLORS.ink }}>
-                <Text className="text-white font-bold text-[11px]" numberOfLines={1}>{next.other_name || next.student_name || 'Student'}</Text>
-              </View>
-            </>
-          ) : null}
+          <Text className="text-ink font-bold text-[15px] text-center">{next ? 'Start next Lesson' : 'No upcoming class'}</Text>
+          <Text className="text-muted text-[11.5px] mt-0.5 text-center" numberOfLines={2}>
+            {next
+              ? `${fmtWhen(next.starts_at)} · ${next.other_name || next.student_name || 'Student'}`
+              : 'Nothing scheduled yet'}
+          </Text>
         </View>
       </Pressable>
     </View>
@@ -213,6 +208,15 @@ export default function TeacherDashboardScreen({ teacherName, onOpenClass, onOpe
           <Button title="Create" loading={saving} onPress={create} style={{ flex: 1, justifyContent: 'center' }} />
         </View>
       </Modal>
+
+      {/* Drawer détail du prochain cours — même composant que l'Agenda. */}
+      <LessonDetailSheet
+        lesson={detailLesson}
+        visible={!!detailLesson}
+        onClose={() => setDetailLesson(null)}
+        onSaved={load}
+        onStart={(l) => onVideoCall?.(l)}
+      />
     </View>
   );
 }

@@ -16,7 +16,8 @@ import StoreScreen from '../StoreScreen';
 import CreatePackScreen from '../CreatePackScreen';
 import TeachersScreen from '../TeachersScreen';
 import MessagesScreen from '../MessagesScreen';
-import { getConversations } from '../../api';
+import NotificationsPopup from '../../components/NotificationsPopup';
+import { getConversations, getNotifications, markNotificationsRead } from '../../api';
 import QuizScreen from '../QuizScreen';
 import PricingScreen from '../PricingScreen';
 import TeacherPricingScreen from './TeacherPricingScreen';
@@ -43,7 +44,29 @@ function TeacherPlanBadge({ plan }) {
   );
 }
 
-function TeacherHeader({ onSettings, onLogo, onBank, onPlan, plan, insetTop, balance }) {
+function TeacherHeader({ onSettings, onLogo, onBank, onPlan, plan, insetTop, balance, onNotifNavigate }) {
+  // Centre de notifications prof (même système que l'élève, notifs par user_id :
+  // réservations, reprogrammations, messages, ventes de packs…).
+  const [notifs, setNotifs] = useState([]);
+  const [unread, setUnread] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const loadNotifs = useCallback(() => {
+    getNotifications().then((d) => { setNotifs(d.notifications || []); setUnread(d.unread || 0); }).catch(() => {});
+  }, []);
+  useEffect(() => { loadNotifs(); }, [loadNotifs]);
+  // Rafraîchit au retour de veille + toutes les 60 s.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') loadNotifs(); });
+    const iv = setInterval(loadNotifs, 60000);
+    return () => { sub.remove(); clearInterval(iv); };
+  }, [loadNotifs]);
+
+  function openNotifs() {
+    setNotifOpen(true);
+    if (unread > 0) { setUnread(0); markNotificationsRead().catch(() => {}); } // efface le badge
+  }
+
   return (
     <View style={{ paddingTop: insetTop }} className="bg-jiayou">
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16 }}>
@@ -62,9 +85,21 @@ function TeacherHeader({ onSettings, onLogo, onBank, onPlan, plan, insetTop, bal
           >
             <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }}>{balance == null ? '…' : `${balance}₵`}</Text>
           </Pressable>
+          {/* Cloche notifications + badge non-lu */}
+          <Pressable onPress={openNotifs} hitSlop={8}>
+            <Ionicons name="notifications" size={23} color="#fff" />
+            {unread > 0 ? (
+              <View style={{ position: 'absolute', top: -4, right: -5, minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 3, backgroundColor: '#e0322e', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: COLORS.jiayou }}>
+                <Text style={{ color: '#fff', fontSize: 9.5, fontWeight: '800' }}>{unread > 9 ? '9+' : unread}</Text>
+              </View>
+            ) : null}
+          </Pressable>
           <Pressable onPress={onSettings} hitSlop={10}><Ionicons name="settings-outline" size={22} color="#fff" /></Pressable>
         </View>
       </View>
+
+      <NotificationsPopup visible={notifOpen} notifications={notifs} onClose={() => setNotifOpen(false)}
+        onNavigate={onNotifNavigate ? (n) => { setNotifOpen(false); onNotifNavigate(n); } : undefined} />
     </View>
   );
 }
@@ -236,6 +271,11 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
         plan={profile?.isSpecialGuest ? 'guest' : (profile?.isTeacherPro ? 'pro' : 'free')}
         insetTop={insets.top}
         balance={profile?.balance}
+        onNotifNavigate={(n) => {
+          const t = n?.type || '';
+          if (t === 'message') changeTab('messages');
+          else if (/lesson|book|trial|slot/.test(t)) changeTab('agenda');
+        }}
       />
       <View className="flex-1">{content}</View>
       {kbOpen ? null : <TeacherTabBar active={tab} onChange={changeTab} insetBottom={insets.bottom} maxWidth={tabMaxWidth} badges={{ messages: tab === 'messages' ? 0 : unread }} />}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, Pressable, Linking, Platform, PermissionsAndroid } from 'react-native';
+import { View, Text, Pressable, Linking, Platform, PermissionsAndroid, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Android : caméra/micro sont des permissions runtime. react-native-webview ne les
@@ -18,6 +18,7 @@ async function ensureMediaPermissions() {
 import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
+import LessonNotesPanel from '../components/teachers/LessonNotesPanel';
 import { getLessonRoom } from '../api';
 import { COLORS } from '../theme';
 
@@ -30,6 +31,7 @@ function getWebView() {
 
 export default function VideoCallScreen({ lessonId, displayName, onBack }) {
   var insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [state, setState] = useState(null);
   const [error, setError] = useState('');
 
@@ -83,43 +85,50 @@ export default function VideoCallScreen({ lessonId, displayName, onBack }) {
     ? state.url
     : state.url + '#config.lobby.enabled=false&config.prejoinPageEnabled=false' + jitsiExtra;
 
+  // Notes du prof (host) pendant la visio : colonne latérale si écran large,
+  // sinon bouton flottant + overlay. Côté élève : rien.
+  const showNotes = !!state.isHost;
+  const wide = width >= 900;
+
+  // Enveloppe commune : Back + (notes latérales | média) + notes flottantes.
+  const shell = (media) => (
+    <View style={{ flex: 1, backgroundColor: '#0b0e12' }}>
+      {Back}
+      <View style={{ flex: 1, flexDirection: 'row' }}>
+        {showNotes && wide ? <LessonNotesPanel lessonId={lessonId} mode="side" /> : null}
+        <View style={{ flex: 1, position: 'relative' }}>{media}</View>
+      </View>
+      {showNotes && !wide ? <LessonNotesPanel lessonId={lessonId} mode="floating" /> : null}
+    </View>
+  );
+
   // Web : iframe plein écran.
   if (Platform.OS === 'web') {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#0b0e12' }}>
-        {Back}
-        <View style={{ flex: 1, position: 'relative' }}>
-          {React.createElement('iframe', {
-            src: src, title: 'Lesson call', allow: 'camera; microphone; fullscreen; display-capture; autoplay',
-            style: { width: '100%', height: '100%', border: 'none', flex: 1, minHeight: 400 },
-          })}
-        </View>
-      </View>
-    );
+    return shell(React.createElement('iframe', {
+      src: src, title: 'Lesson call', allow: 'camera; microphone; fullscreen; display-capture; autoplay',
+      style: { width: '100%', height: '100%', border: 'none', flex: 1, minHeight: 400 },
+    }));
   }
 
   // Natif : WebView embarquée (caméra + micro autorisés).
   var WebView = getWebView();
   if (WebView) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#0b0e12' }}>
-        {Back}
-        <WebView
-          source={{ uri: src }}
-          style={{ flex: 1, backgroundColor: '#0b0e12' }}
-          mediaPlaybackRequiresUserAction={false}
-          allowsInlineMediaPlayback={true}
-          mediaCapturePermissionGrantType="grant"
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          startInLoadingState={true}
-          renderLoading={() => (
-            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0b0e12' }}>
-              <CatLoader size={90} />
-            </View>
-          )}
-        />
-      </View>
+    return shell(
+      <WebView
+        source={{ uri: src }}
+        style={{ flex: 1, backgroundColor: '#0b0e12' }}
+        mediaPlaybackRequiresUserAction={false}
+        allowsInlineMediaPlayback={true}
+        mediaCapturePermissionGrantType="grant"
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        startInLoadingState={true}
+        renderLoading={() => (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0b0e12' }}>
+            <CatLoader size={90} />
+          </View>
+        )}
+      />
     );
   }
 

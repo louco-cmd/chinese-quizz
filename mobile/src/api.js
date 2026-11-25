@@ -748,3 +748,11 @@ export function getMentor(id) {
 export function getLessonRoom(id) {
   return request(`/api/m/lesson/${id}/room`);
 }
+
+// Notes privées du prof pour un cours (slot). Lisible/éditable par le prof seul.
+export function getLessonNote(id) {
+  return request(`/api/m/lesson/${id}/note`);
+}
+export function saveLessonNote(id, body) {
+  return request(`/api/m/lesson/${id}/note`, { method: 'PUT', body: { body } });
+}

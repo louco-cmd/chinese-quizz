@@ -424,6 +424,21 @@ const pool = new Pool({
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_teacher_slots_student ON teacher_slots(student_id)`);
     console.log("✅ Table 'teacher_slots' vérifiée ou créée.");
 
+    // ── Table lesson_notes : notes PRIVÉES du prof prises pendant la visio ──────
+    // Un document de notes par cours (slot teacher_slots). teacher_id = auteur
+    // (autorisation vérifiée via le slot). Pas de FK sur slot_id : un créneau peut
+    // être supprimé (annulation/reprog) sans qu'on veuille perdre l'historique.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lesson_notes (
+        slot_id INTEGER PRIMARY KEY,
+        teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        body TEXT NOT NULL DEFAULT '',
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_lesson_notes_teacher ON lesson_notes(teacher_id)`);
+    console.log("✅ Table 'lesson_notes' vérifiée ou créée.");
+
     // ── Table teacher_availability : « semaine type » récurrente du prof ────────
     // Un bloc = un créneau HORAIRE d'1h ouvert un jour de semaine donné
     // (weekday 0=lundi … 6=dimanche, hour 0..23). Les créneaux réservables des

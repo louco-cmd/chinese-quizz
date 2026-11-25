@@ -1235,4 +1235,42 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
   } catch (e) { console.error('m/lesson room:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
+// ── Notes PRIVÉES du prof pour un cours (slot) ───────────────────────────────
+// Un document de notes par slot, lisible/éditable par le SEUL prof du cours.
+// Autorisation via le slot (teacher_id). Cf. table lesson_notes (config/database).
+async function noteAuth(uid, id) {
+  if (!id) return { code: 400, error: 'Invalid lesson' };
+  const slot = await pool.query(`SELECT teacher_id FROM teacher_slots WHERE id = $1 AND status = 'booked'`, [id]);
+  if (!slot.rows.length) return { code: 404, error: 'Lesson not found' };
+  if (uid !== slot.rows[0].teacher_id) return { code: 403, error: 'Teacher only' };
+  return null;
+}
+
+router.get('/api/m/lesson/:id/note', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    const bad = await noteAuth(uid, id);
+    if (bad) return res.status(bad.code).json({ error: bad.error });
+    const n = await pool.query(`SELECT body, updated_at FROM lesson_notes WHERE slot_id = $1`, [id]);
+    res.json({ body: n.rows[0]?.body || '', updated_at: n.rows[0]?.updated_at || null });
+  } catch (e) { console.error('m/lesson note get:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+router.put('/api/m/lesson/:id/note', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const id = parseInt(req.params.id, 10);
+    const bad = await noteAuth(uid, id);
+    if (bad) return res.status(bad.code).json({ error: bad.error });
+    const body = typeof req.body?.body === 'string' ? req.body.body.slice(0, 20000) : '';
+    await pool.query(
+      `INSERT INTO lesson_notes (slot_id, teacher_id, body, updated_at)
+       VALUES ($1, $2, $3, now())
+       ON CONFLICT (slot_id) DO UPDATE SET body = EXCLUDED.body, updated_at = now()`,
+      [id, uid, body]);
+    res.json({ ok: true });
+  } catch (e) { console.error('m/lesson note put:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
 };
