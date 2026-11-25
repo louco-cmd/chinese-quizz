@@ -242,9 +242,19 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
               )}
             </LinearGradient>
             <View style={{ padding: 18 }}>
-              {/* Choix de la formule (natif + offering configurée). */}
+              {sub.cancelAtPeriodEnd ? (
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#fff8e1', borderRadius: 12, padding: 12, marginBottom: 14 }}>
+                  <Ionicons name="time-outline" size={18} color="#b8860b" />
+                  <Text style={{ flex: 1, fontSize: 13, color: '#7a5c00', lineHeight: 18, fontWeight: '600' }}>
+                    {t('pricing_cancel_notice').replace('{date}', fmtDate(sub.currentPeriodEnd))}
+                  </Text>
+                </View>
+              ) : null}
+              {PREMIUM_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === PREMIUM_FEATURES.length - 1} />)}
+              {/* Choix de la formule (natif + offering configurée) — juste au-dessus du
+                  CTA : valeur d'abord, prix ensuite, action après (cf. paywall prof). */}
               {plans.length > 1 && !isPremium ? (
-                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
                   {plans.map((p) => {
                     const on = p.id === planId;
                     return (
@@ -269,15 +279,6 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                   })}
                 </View>
               ) : null}
-              {sub.cancelAtPeriodEnd ? (
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#fff8e1', borderRadius: 12, padding: 12, marginBottom: 14 }}>
-                  <Ionicons name="time-outline" size={18} color="#b8860b" />
-                  <Text style={{ flex: 1, fontSize: 13, color: '#7a5c00', lineHeight: 18, fontWeight: '600' }}>
-                    {t('pricing_cancel_notice').replace('{date}', fmtDate(sub.currentPeriodEnd))}
-                  </Text>
-                </View>
-              ) : null}
-              {PREMIUM_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === PREMIUM_FEATURES.length - 1} />)}
               <Button
                 onPress={onPremiumPress}
                 loading={portalBusy}
