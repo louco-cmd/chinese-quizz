@@ -10,7 +10,6 @@ import { teacherLookupWords, teacherCreateLesson, teacherUpdateLesson, teacherSt
 import { COLORS } from '../../theme';
 
 const CN = /[一-鿿]/;
-const inputSm = 'bg-surface-page border border-line rounded-lg px-2.5 h-10 text-[14px] text-ink';
 // Champ flexible (traduction) : multiligne → les sens longs s'affichent sur
 // plusieurs lignes au lieu de scroller horizontalement (pas de scroll parasite).
 const inputFlex = 'bg-surface-page border border-line rounded-lg px-2.5 py-2 text-[14px] text-ink';
@@ -361,11 +360,11 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
               ) : isZhEn ? (
                 <>
                   <TextInput value={w.chinese} onChangeText={(t) => setCard(w.cid, { chinese: t })} multiline placeholder="汉字 *" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputFlex}`} style={{ minHeight: 40 }} textAlignVertical="center" />
-                  <TextInput value={w.pinyin} onChangeText={(t) => setCard(w.cid, { pinyin: t })} placeholder="pinyin" placeholderTextColor={COLORS.mutedLight} className={inputSm} style={{ maxWidth: 96 }} />
+                  <TextInput value={w.pinyin} onChangeText={(t) => setCard(w.cid, { pinyin: t })} multiline placeholder="pinyin" placeholderTextColor={COLORS.mutedLight} className={inputFlex} style={{ width: 96, minHeight: 40 }} textAlignVertical="center" />
                 </>
               ) : (
                 <>
-                  <TextInput value={w.pinyin} onChangeText={(t) => setCard(w.cid, { pinyin: t })} placeholder="pinyin" placeholderTextColor={COLORS.mutedLight} className={inputSm} style={{ maxWidth: 96 }} />
+                  <TextInput value={w.pinyin} onChangeText={(t) => setCard(w.cid, { pinyin: t })} multiline placeholder="pinyin" placeholderTextColor={COLORS.mutedLight} className={inputFlex} style={{ width: 96, minHeight: 40 }} textAlignVertical="center" />
                   <TextInput value={w.english} onChangeText={(t) => setCard(w.cid, { english: t })} multiline placeholder="english *" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputFlex}`} style={{ minHeight: 40 }} textAlignVertical="center" />
                 </>
               )}
