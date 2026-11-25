@@ -12,8 +12,27 @@ const { teacherTz, slotOpenForTeacher, studentLinkedToTeacher } = require('../..
 module.exports = function registerLessonRoutes(router, deps) {
   const { requireToken, notify, getUserLangs, syncConceptSiblings, isTeacherPro, FREE_TEACHER_LIMITS } = deps;
 
-// Coins gagnés par le prof quand il envoie la fin d'un cours réellement donné.
+// Coins prof : +LESSON quand le cours a réellement eu lieu (prof rejoint la
+// visio), indépendamment de la task ; +TASK_SENT en plus à l'envoi de la task.
 const TEACHER_COIN_LESSON = 10;
+const TEACHER_COIN_TASK_SENT = 5;
+
+// Récompense « cours donné » : versée dès que le PROF rejoint la visio d'un vrai
+// créneau réservé, peu importe qu'une task soit envoyée ou non. Idempotent par
+// créneau via teacher_slots.reward_given → pas de double crédit sur re-join.
+async function awardLessonReward(slotId, teacherId) {
+  try {
+    const rew = await pool.query(
+      `UPDATE teacher_slots SET reward_given = true
+         WHERE id = $1 AND teacher_id = $2 AND status = 'booked' AND reward_given = false
+         RETURNING id`, [slotId, teacherId]);
+    if (!rew.rows.length) return;
+    await pool.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [TEACHER_COIN_LESSON, teacherId]);
+    await pool.query(
+      `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'teacher_lesson', $3)`,
+      [teacherId, TEACHER_COIN_LESSON, `Lesson given (slot ${slotId})`]);
+  } catch (e) { console.error('[teacher-reward] lesson:', e.message); }
+}
 const TEACH_CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'CNY', 'JPY', 'CAD', 'AUD', 'SGD', 'HKD'];
 const MENTOR_LINK_ALLOWLIST = [
   'preply.com', 'italki.com', 'superprof.', 'verbling.com', 'lingoda.com',
@@ -363,22 +382,23 @@ router.post('/api/m/teacher/send-task', requireToken, requireTeacher, async (req
       await client.query(`INSERT INTO lesson_words (lesson_id, mot_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [lessonId, motId]);
     }
 
-    // Récompense prof « cours donné » : +TEACHER_COIN_LESSON, liée à un VRAI créneau
-    // visio commencé (donc ayant eu lieu) et non encore récompensé → idempotent par
-    // créneau, pas de farming via des envois répétés de fin de cours.
+    // Récompense prof « task envoyée » : +TEACHER_COIN_TASK_SENT, en plus du « cours
+    // donné » (crédité au join visio, cf. awardLessonReward). Liée à un VRAI créneau
+    // réservé et non encore récompensé → idempotent par créneau, pas de farming via
+    // des envois répétés de fin de cours.
     const slotId = parseInt(req.body?.slot_id, 10);
     if (Number.isInteger(slotId)) {
       const rew = await client.query(
-        `UPDATE teacher_slots SET reward_given = true
+        `UPDATE teacher_slots SET task_reward_given = true
           WHERE id = $1 AND teacher_id = $2 AND student_id = $3
-            AND status = 'booked' AND starts_at < NOW() AND reward_given = false
+            AND status = 'booked' AND task_reward_given = false
           RETURNING id`,
         [slotId, req.teacher.id, studentId]);
       if (rew.rows.length) {
-        await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [TEACHER_COIN_LESSON, req.teacher.id]);
+        await client.query('UPDATE users SET balance = balance + $1 WHERE id = $2', [TEACHER_COIN_TASK_SENT, req.teacher.id]);
         await client.query(
-          `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'teacher_lesson', $3)`,
-          [req.teacher.id, TEACHER_COIN_LESSON, `Lesson given (slot ${slotId})`]);
+          `INSERT INTO transactions (user_id, amount, type, description) VALUES ($1, $2, 'teacher_task', $3)`,
+          [req.teacher.id, TEACHER_COIN_TASK_SENT, `Task sent (slot ${slotId})`]);
       }
     }
 
@@ -1236,6 +1256,9 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
 
     const room = lessonRoom(id);
     const isHost = uid === s.teacher_id;
+    // Le prof rejoint un vrai créneau dans la fenêtre horaire → le cours a lieu :
+    // on crédite « cours donné » (idempotent, fire-and-forget).
+    if (isHost) awardLessonReward(id, s.teacher_id);
     const transcribe = recapAllowed();
     // Langue de transcription selon le sens du cours (zh→en = apprend l'anglais).
     const transcribeLang = s.quiz_direction === 'zh→en' ? 'en' : 'zh';

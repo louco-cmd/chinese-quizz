@@ -422,6 +422,11 @@ const pool = new Pool({
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_teacher_slots_teacher ON teacher_slots(teacher_id, starts_at)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_teacher_slots_student ON teacher_slots(student_id)`);
+    // Récompenses prof idempotentes par créneau : reward_given = « cours donné »
+    // (crédité au join visio), task_reward_given = « task envoyée ».
+    await pool.query(`ALTER TABLE teacher_slots
+      ADD COLUMN IF NOT EXISTS reward_given BOOLEAN NOT NULL DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS task_reward_given BOOLEAN NOT NULL DEFAULT FALSE`);
     console.log("✅ Table 'teacher_slots' vérifiée ou créée.");
 
     // ── Table lesson_notes : notes PRIVÉES du prof prises pendant la visio ──────
