@@ -1165,7 +1165,7 @@ function recapAllowed() {
 // rooms sont "private" (pas d'accès sans token) + expiry auto après le cours.
 // `transcribe` → stocke le transcript (enable_transcription_storage) pour que le
 // webhook transcript.ready-to-download se déclenche.
-async function dailyRoom(roomName, endsAt, transcribe = false) {
+async function dailyRoom(roomName, endsAt, transcribe = false, transcribeLang = 'zh') {
   const base = 'https://api.daily.co/v1';
   const headers = { Authorization: `Bearer ${DAILY_API_KEY}`, 'Content-Type': 'application/json' };
   const expTs = Math.floor(new Date(endsAt).getTime() / 1000) + JOIN_LATE_MS / 1000;
@@ -1174,7 +1174,11 @@ async function dailyRoom(roomName, endsAt, transcribe = false) {
   let domainRes = await fetch(`${base}/rooms/${roomName}`, { headers });
   if (domainRes.status === 404) {
     const props = { exp: expTs, enable_prejoin_ui: false };
-    if (transcribe) props.enable_transcription_storage = true;
+    if (transcribe) {
+      props.enable_transcription_storage = true;
+      // Companion de auto_start_transcription (token prof) : langue + modèle.
+      props.auto_transcription_settings = { language: transcribeLang, model: 'nova-2-general' };
+    }
     const r = await fetch(`${base}/rooms`, {
       method: 'POST', headers,
       body: JSON.stringify({ name: roomName, privacy: 'private', properties: props }),
@@ -1216,9 +1220,10 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
     if (!id) return res.status(400).json({ error: 'Invalid lesson' });
     const { rows } = await pool.query(
       `SELECT ts.teacher_id, ts.student_id, ts.starts_at, ts.ends_at,
-              u.name AS user_name
+              u.name AS user_name, tt.quiz_direction
        FROM teacher_slots ts
        JOIN users u ON u.id = $2
+       JOIN users tt ON tt.id = ts.teacher_id
        WHERE ts.id = $1 AND ts.status = 'booked'`, [id, uid]);
     if (!rows.length) return res.status(404).json({ error: 'Lesson not found' });
     const s = rows[0];
@@ -1232,11 +1237,13 @@ router.get('/api/m/lesson/:id/room', requireToken, async (req, res) => {
     const room = lessonRoom(id);
     const isHost = uid === s.teacher_id;
     const transcribe = recapAllowed();
+    // Langue de transcription selon le sens du cours (zh→en = apprend l'anglais).
+    const transcribeLang = s.quiz_direction === 'zh→en' ? 'en' : 'zh';
 
     // Daily.co (activé si DAILY_API_KEY est défini)
     if (DAILY_API_KEY) {
       try {
-        const roomUrl = await dailyRoom(room, s.ends_at, transcribe);
+        const roomUrl = await dailyRoom(room, s.ends_at, transcribe, transcribeLang);
         const token = await dailyToken(room, { isOwner: isHost, userId: uid, userName: s.user_name, expiresAt: s.ends_at, autoTranscribe: transcribe });
         // Quand le PROF rejoint avec transcription active → marque le recap « en
         // attente » pour que la popup fin de cours affiche l'animation.
