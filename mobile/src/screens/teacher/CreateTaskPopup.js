@@ -9,6 +9,9 @@ import { COLORS } from '../../theme';
 
 const CN = /[一-鿿]/;
 const inputSm = 'bg-surface-page border border-line rounded-lg px-2.5 h-10 text-[14px] text-ink';
+// Champ flexible (traduction) : multiligne → les sens longs s'affichent sur
+// plusieurs lignes au lieu de scroller horizontalement (pas de scroll parasite).
+const inputFlex = 'bg-surface-page border border-line rounded-lg px-2.5 py-2 text-[14px] text-ink';
 
 // Création / édition d'une task — PLEIN ÉCRAN, une seule page (fusion de l'ancien
 // wizard titre → mots → traductions). direction-aware comme teach-class.ejs.
@@ -307,13 +310,13 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
                 <View className="flex-1 flex-row items-center gap-2"><ActivityIndicator size="small" color={COLORS.jiayou} /><Text className="text-[12.5px] text-muted-light">looking up…</Text></View>
               ) : isZhEn ? (
                 <>
-                  <TextInput value={w.chinese} onChangeText={(t) => setCard(w.cid, { chinese: t })} placeholder="汉字 *" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputSm}`} />
+                  <TextInput value={w.chinese} onChangeText={(t) => setCard(w.cid, { chinese: t })} multiline placeholder="汉字 *" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputFlex}`} style={{ minHeight: 40 }} textAlignVertical="center" />
                   <TextInput value={w.pinyin} onChangeText={(t) => setCard(w.cid, { pinyin: t })} placeholder="pinyin" placeholderTextColor={COLORS.mutedLight} className={inputSm} style={{ maxWidth: 96 }} />
                 </>
               ) : (
                 <>
                   <TextInput value={w.pinyin} onChangeText={(t) => setCard(w.cid, { pinyin: t })} placeholder="pinyin" placeholderTextColor={COLORS.mutedLight} className={inputSm} style={{ maxWidth: 96 }} />
-                  <TextInput value={w.english} onChangeText={(t) => setCard(w.cid, { english: t })} placeholder="english *" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputSm}`} />
+                  <TextInput value={w.english} onChangeText={(t) => setCard(w.cid, { english: t })} multiline placeholder="english *" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputFlex}`} style={{ minHeight: 40 }} textAlignVertical="center" />
                 </>
               )}
               <Pressable onPress={() => removeCard(w.cid)} hitSlop={6}><Ionicons name="close" size={16} color={COLORS.danger} /></Pressable>
@@ -327,15 +330,19 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
   return (
     <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={close}>
       <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: COLORS.page }}>
-        {/* En-tête fixe : fermer · titre · enregistrer */}
-        <View className="flex-row items-center justify-between px-4 h-14 border-b border-line bg-white">
-          <Pressable onPress={close} hitSlop={8} className="flex-row items-center gap-1">
-            <Ionicons name="close" size={24} color={COLORS.muted} />
-          </Pressable>
-          <Text className="text-[16px] font-bold text-ink" numberOfLines={1} style={{ flex: 1, textAlign: 'center', marginHorizontal: 8 }}>
+        {/* En-tête fixe : fermer · titre (centré absolu) · enregistrer */}
+        <View className="h-14 border-b border-line bg-white justify-center px-4">
+          <Text pointerEvents="none" numberOfLines={1}
+            className="text-[16px] font-bold text-ink"
+            style={{ position: 'absolute', left: 72, right: 72, textAlign: 'center' }}>
             {isEnd ? `Summary & homework · ${studentName}` : editLesson ? 'Edit task' : 'New task'}
           </Text>
-          <Button title={isEnd ? 'Send' : editLesson ? 'Save' : 'Create'} size="sm" loading={busy} onPress={save} style={{ paddingHorizontal: 20 }} />
+          <View className="flex-row items-center justify-between">
+            <Pressable onPress={close} hitSlop={8} className="w-9 h-9 items-center justify-center -ml-1.5">
+              <Ionicons name="close" size={24} color={COLORS.muted} />
+            </Pressable>
+            <Button title={isEnd ? 'Send' : editLesson ? 'Save' : 'Create'} size="sm" loading={busy} onPress={save} style={{ paddingHorizontal: 20 }} />
+          </View>
         </View>
 
         <ScrollView
