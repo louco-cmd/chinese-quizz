@@ -1719,18 +1719,27 @@ app.post('/revenuecat-webhook', async (req, res) => {
     if (!Number.isInteger(userId)) return res.json({ ok: true }); // id anonyme / test
 
     const expiresAt = ev.expiration_at_ms ? new Date(ev.expiration_at_ms) : null;
+    // Quel entitlement ? teacher_pro (abonnement prof) vs premium (élève). Les deux
+    // sont des SKU/entitlements distincts → colonnes distinctes. RevenueCat envoie
+    // entitlement_ids (liste) ; fallback entitlement_id (déprécié, single).
+    const ents = Array.isArray(ev.entitlement_ids) ? ev.entitlement_ids
+      : (ev.entitlement_id ? [ev.entitlement_id] : []);
+    const isTeacher = ents.includes('teacher_pro');
+    // Noms de colonnes issus d'une whitelist fixe (pas d'entrée utilisateur) → sûr.
+    const EXP = isTeacher ? 'teacher_pro_expires_at' : 'rc_expires_at';
+    const REN = isTeacher ? 'teacher_pro_will_renew' : 'rc_will_renew';
     const GRANT = ['INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION', 'PRODUCT_CHANGE', 'NON_RENEWING_PURCHASE', 'SUBSCRIPTION_EXTENDED'];
 
     if (GRANT.includes(type)) {
-      await pool.query('UPDATE users SET rc_expires_at = $1, rc_will_renew = TRUE WHERE id = $2', [expiresAt, userId]);
+      await pool.query(`UPDATE users SET ${EXP} = $1, ${REN} = TRUE WHERE id = $2`, [expiresAt, userId]);
     } else if (type === 'CANCELLATION') {
-      // Annulation programmée : reste premium jusqu'à l'expiration.
-      await pool.query('UPDATE users SET rc_will_renew = FALSE WHERE id = $1', [userId]);
+      // Annulation programmée : reste actif jusqu'à l'expiration.
+      await pool.query(`UPDATE users SET ${REN} = FALSE WHERE id = $1`, [userId]);
     } else if (type === 'EXPIRATION') {
-      await pool.query('UPDATE users SET rc_expires_at = NULL, rc_will_renew = FALSE WHERE id = $1', [userId]);
+      await pool.query(`UPDATE users SET ${EXP} = NULL, ${REN} = FALSE WHERE id = $1`, [userId]);
     }
     // BILLING_ISSUE / autres : on ne coupe pas (l'EXPIRATION gère la fin réelle).
-    console.log(`🟢 RevenueCat ${type} user ${userId} → expires ${expiresAt?.toISOString() || 'n/a'}`);
+    console.log(`🟢 RevenueCat ${type} user ${userId} ent=${isTeacher ? 'teacher_pro' : 'premium'} → expires ${expiresAt?.toISOString() || 'n/a'}`);
     res.json({ ok: true });
   } catch (e) {
     console.error('revenuecat webhook error:', e);

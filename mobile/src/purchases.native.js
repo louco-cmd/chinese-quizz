@@ -141,10 +141,70 @@ export async function buyPremium(plan) {
   return !!customerInfo?.entitlements?.active?.[ENTITLEMENT];
 }
 
-// Restaure un achat (changement d'appareil).
+// Restaure un achat (changement d'appareil). Renvoie l'état des DEUX entitlements
+// (premium élève + teacher_pro) — un restore ramène tout.
 export async function restorePurchases() {
   const P = RC();
   if (!P) return false;
   const info = await P.restorePurchases();
-  return !!info?.entitlements?.active?.[ENTITLEMENT];
+  const act = info?.entitlements?.active || {};
+  return !!(act[ENTITLEMENT] || act[TEACHER_ENTITLEMENT]);
+}
+
+// ── Teacher Pro — abonnement PROF (entitlement + offering distincts du premium) ──
+// RevenueCat : entitlement `teacher_pro` + une offering dédiée contenant le produit
+// Play `teacher_pro`. On cible l'offering par identifiant (offerings.all[id]) pour
+// ne pas dépendre de l'offering « current » (réservée au premium élève).
+const TEACHER_ENTITLEMENT = process.env.EXPO_PUBLIC_REVENUECAT_TEACHER_ENTITLEMENT || 'teacher_pro';
+const TEACHER_OFFERING = process.env.EXPO_PUBLIC_REVENUECAT_TEACHER_OFFERING || 'teacher_pro';
+
+async function teacherOffering(P) {
+  const offerings = await P.getOfferings();
+  return offerings?.all?.[TEACHER_OFFERING] || null;
+}
+
+// Plans de l'offering teacher_pro ([] si rien de configuré).
+export async function getTeacherProPlans() {
+  const P = RC();
+  if (!P) return [];
+  try {
+    const off = await teacherOffering(P);
+    return (off?.availablePackages || []).map(toPlan).sort((a, b) => Number(a.annual) - Number(b.annual));
+  } catch { return []; }
+}
+
+// L'entitlement teacher_pro est-il actif côté RevenueCat (source immédiate UI).
+export async function isTeacherProActive() {
+  const P = RC();
+  if (!P) return false;
+  try {
+    const info = await P.getCustomerInfo();
+    return !!info?.entitlements?.active?.[TEACHER_ENTITLEMENT];
+  } catch { return false; }
+}
+
+// Achète teacher_pro. `plan` vient de getTeacherProPlans() ; sans argument on prend
+// le 1er package de l'offering teacher_pro.
+export async function buyTeacherPro(plan) {
+  const P = RC();
+  if (!P) throw new Error('In-app purchase is not available.');
+  let pkg = plan?.pkg;
+  if (!pkg) {
+    const off = await teacherOffering(P);
+    pkg = off?.availablePackages?.[0];
+  }
+  if (!pkg) throw new Error('No teacher subscription offer available right now.');
+  const { customerInfo } = await P.purchasePackage(pkg);
+  return !!customerInfo?.entitlements?.active?.[TEACHER_ENTITLEMENT];
+}
+
+// S'abonne aux changements de l'entitlement teacher_pro (achat/renew/expiration).
+export function onTeacherProChange(cb) {
+  const P = RC();
+  if (!P) return () => {};
+  try {
+    const listener = (info) => cb(!!info?.entitlements?.active?.[TEACHER_ENTITLEMENT]);
+    P.addCustomerInfoUpdateListener(listener);
+    return () => { try { P.removeCustomerInfoUpdateListener(listener); } catch {} };
+  } catch { return () => {}; }
 }

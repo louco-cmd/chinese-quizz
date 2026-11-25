@@ -90,12 +90,22 @@ router.post('/api/m/subscription/rc-sync', requireToken, async (req, res) => {
       // Entitlement connu mais expiré → on nettoie (sans toucher à l'état Stripe).
       await pool.query('UPDATE users SET rc_expires_at = $1, rc_will_renew = FALSE WHERE id = $2', [expires, uid]);
     }
+
+    // Teacher Pro : entitlement distinct (abonnement prof), colonnes séparées.
+    const tent = sub.entitlements?.teacher_pro;
+    const tExpires = tent?.expires_date ? new Date(tent.expires_date) : null;
+    const tActive = !!(tExpires && tExpires > new Date());
+    if (tActive) {
+      await pool.query('UPDATE users SET teacher_pro_expires_at = $1, teacher_pro_will_renew = TRUE WHERE id = $2', [tExpires, uid]);
+    } else if (tent) {
+      await pool.query('UPDATE users SET teacher_pro_expires_at = $1, teacher_pro_will_renew = FALSE WHERE id = $2', [tExpires, uid]);
+    }
     // Diagnostic complet : entitlements et abonnements connus de RevenueCat pour
     // cet utilisateur. Si entitlements=[] mais subscriptions=[...], le produit
     // Play n'est pas rattaché à l'entitlement `premium`. Si les deux sont vides,
     // RevenueCat n'a jamais validé l'achat (droits du compte de service Google).
-    console.log(`🔄 rc-sync user ${uid} → active=${active} expires=${expires?.toISOString() || 'n/a'} entitlements=[${entKeys.join(',')}] subscriptions=[${subKeys.join(',')}]`);
-    res.json({ synced: true, active, expires: expires ? expires.toISOString() : null, entitlements: entKeys, subscriptions: subKeys });
+    console.log(`🔄 rc-sync user ${uid} → active=${active} teacher=${tActive} expires=${expires?.toISOString() || 'n/a'} entitlements=[${entKeys.join(',')}] subscriptions=[${subKeys.join(',')}]`);
+    res.json({ synced: true, active, teacherActive: tActive, expires: expires ? expires.toISOString() : null, teacherExpires: tExpires ? tExpires.toISOString() : null, entitlements: entKeys, subscriptions: subKeys });
   } catch (e) {
     console.error('rc-sync error:', e.message);
     res.json({ synced: false, reason: 'error' });

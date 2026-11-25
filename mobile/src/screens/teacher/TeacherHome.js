@@ -225,7 +225,7 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
   } else if (view?.type === 'pricing') {
     content = <PricingScreen onBack={() => setView(null)} isPremium={!!profile?.isPremium} onPurchased={() => setView(null)} />;
   } else if (view?.type === 'teacher-pricing') {
-    content = <TeacherPricingScreen onBack={() => setView(null)} isPro={!!profile?.isTeacherPro} />;
+    content = <TeacherPricingScreen onBack={() => setView(null)} isPro={!!profile?.isTeacherPro} onPurchased={() => setView(null)} />;
   } else if (tab === 'store') {
     // JiaStore côté prof : mêmes écrans que l'étudiant (parcourir / acheter /
     // créer-éditer des packs / quiz de pack).

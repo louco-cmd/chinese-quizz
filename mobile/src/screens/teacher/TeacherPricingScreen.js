@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -5,6 +6,10 @@ import { useWindowDimensions } from 'react-native';
 import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-aurore';
 import { Button } from '../../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../../theme';
+import { buyTeacherPro, getTeacherProPlans, restorePurchases, purchasesAvailable } from '../../purchases';
+import { syncRevenueCat } from '../../api';
+
+const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions';
 
 // Page « Mentor Pro » — pendant prof de PricingScreen (élève). teacher_pro est un
 // abonnement DIGITAL → même règle stores que le premium élève : IAP sur natif,
@@ -46,10 +51,52 @@ function FeatureRow({ f, last }) {
   );
 }
 
-export default function TeacherPricingScreen({ isPro = false }) {
+export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
   const { width } = useWindowDimensions();
   const isDesktop = width >= 760;
   const [fontsLoaded] = useFonts({ LaBelleAurore_400Regular });
+
+  // Achat in-app réellement dispo (clé RevenueCat + module natif dans ce build).
+  const native = Platform.OS !== 'web' && purchasesAvailable();
+  const [plan, setPlan] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    if (!native) return;
+    let alive = true;
+    getTeacherProPlans().then((list) => { if (alive) setPlan(list[0] || null); }).catch(() => {});
+    return () => { alive = false; };
+  }, [native]);
+
+  // Natif → Play Billing (RevenueCat). Jamais de fallback Stripe en natif (interdit
+  // stores + « silent success »). Web → Stripe teacher_pro pas encore branché.
+  async function onSubscribe() {
+    if (isPro) { if (native) Linking.openURL(PLAY_SUBSCRIPTIONS_URL); return; }
+    if (!native) { setErr('Teacher billing on the web is coming soon.'); return; }
+    setErr(''); setBusy(true);
+    try {
+      const ok = await buyTeacherPro(plan);
+      if (ok) { await syncRevenueCat().catch(() => {}); onPurchased?.(); } // écrit teacher_pro_expires_at sans attendre le webhook
+    } catch (e) {
+      if (e?.userCancelled !== true) setErr(e?.message || 'Purchase failed. Please try again.');
+    } finally { setBusy(false); }
+  }
+
+  // Restaurer un achat précédent (obligatoire sur les stores).
+  async function onRestore() {
+    setErr(''); setBusy(true);
+    try {
+      const ok = await restorePurchases();
+      if (ok) { await syncRevenueCat().catch(() => {}); onPurchased?.(); }
+      else {
+        const s = await syncRevenueCat().catch(() => null);
+        if (s?.teacherActive) onPurchased?.();
+        else setErr('No previous purchase found.');
+      }
+    } catch (e) { setErr(e?.message || 'Restore failed.'); }
+    finally { setBusy(false); }
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8f9fa' }}>
@@ -95,19 +142,29 @@ export default function TeacherPricingScreen({ isPro = false }) {
               </LinearGradient>
               <View style={{ padding: 18 }}>
                 {PRO_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === PRO_FEATURES.length - 1} />)}
-                {/* Produits de facturation pas encore configurés → CTA neutralisé. */}
+                {/* CTA : natif → Play Billing (RevenueCat) ; web → bientôt (Stripe à venir). */}
                 <Button
-                  onPress={() => {}}
-                  disabled
-                  icon="rocket"
-                  title={isPro ? 'Manage subscription' : 'Coming soon'}
+                  onPress={onSubscribe}
+                  loading={busy}
+                  disabled={!native && !isPro}
+                  icon={isPro ? 'settings-outline' : 'rocket'}
+                  title={isPro ? 'Manage subscription' : native ? 'Subscribe' : 'Coming soon'}
                   fullWidth
                   style={{ marginTop: 18, justifyContent: 'center' }}
                 />
-                <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 11.5, marginTop: 10, lineHeight: 17 }}>
-                  Teacher billing is being set up. You'll be able to subscribe here soon
-                  {Platform.OS === 'web' ? '.' : ' (in-app).'}
-                </Text>
+                {err ? (
+                  <Text style={{ textAlign: 'center', color: COLORS.danger, fontSize: 12, marginTop: 8 }}>{err}</Text>
+                ) : null}
+                {native && !isPro ? (
+                  <Pressable onPress={onRestore} hitSlop={6} style={{ marginTop: 10, alignItems: 'center' }}>
+                    <Text style={{ color: COLORS.muted, fontSize: 12.5, fontWeight: '700' }}>Restore purchase</Text>
+                  </Pressable>
+                ) : null}
+                {!native && !isPro ? (
+                  <Text style={{ textAlign: 'center', color: COLORS.muted, fontSize: 11.5, marginTop: 10, lineHeight: 17 }}>
+                    Teacher billing on the web is being set up. Subscribe from the mobile app for now.
+                  </Text>
+                ) : null}
               </View>
             </View>
 
