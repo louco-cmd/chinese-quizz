@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, Modal, Keyboard, Platform, useWindowDimensions, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, Modal, Keyboard, Platform, Switch, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from '../../ui';
-import { teacherLookupWords, teacherCreateLesson, teacherUpdateLesson } from '../../api';
+import RichTextArea from '../../components/RichTextArea';
+import { teacherLookupWords, teacherCreateLesson, teacherUpdateLesson, teacherStudentClassContext, teacherSendTask } from '../../api';
 import { COLORS } from '../../theme';
 
 const CN = /[一-鿿]/;
@@ -17,10 +18,15 @@ const inputSm = 'bg-surface-page border border-line rounded-lg px-2.5 h-10 text-
 //    éditable en dessous (modifiable en direct, qu'il manque une trad ou non).
 //  • Desktop : titre+description à gauche, mots à droite (côte à côte, une page).
 // `editLesson` (optionnel) = { id, title, summary, words:[{chinese,pinyin,english}] }
-export default function CreateTaskPopup({ visible, classId, direction, editLesson = null, onClose, onCreated }) {
+// `endCourse` (optionnel) = slot { id, student_id, student_name } → MODE FIN DE
+//   COURS : titre « Summary and homework for {student} », résolution de la classe
+//   (classe de l'élève / existante / nouvelle) et envoi via teacherSendTask.
+export default function CreateTaskPopup({ visible, classId, direction, editLesson = null, endCourse = null, onClose, onCreated }) {
   const isZhEn = direction === 'zh→en'; // cours d'anglais → saisie en anglais
   const { width } = useWindowDimensions();
   const isDesktop = width >= 760;
+  const isEnd = !!endCourse;
+  const studentName = endCourse?.student_name || 'your student';
 
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
@@ -34,12 +40,21 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
   const scrollRef = useRef(null);
   const wordsY = useRef(0); // position Y de la section « mots » (scroll au focus)
 
+  // Mode fin de cours : résolution de la classe cible.
+  const [ctx, setCtx] = useState(null); // { classes, student_classes } | null (loading)
+  const [studentClassId, setStudentClassId] = useState(null);
+  const [useExisting, setUseExisting] = useState(false);
+  const [existingId, setExistingId] = useState(null);
+  const [newName, setNewName] = useState('');
+
   // Titre par défaut = date du jour (lisible) quand le prof n'en met pas.
   const todayLabel = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+  const endTitleDefault = `Summary and homework for ${studentName}`;
 
   function reset() {
     setTitle(''); setSummary(''); setInput('');
     setCards([]); setErr(''); setBusy(false); cidRef.current = 0;
+    setCtx(null); setStudentClassId(null); setUseExisting(false); setExistingId(null); setNewName('');
   }
   // À l'ouverture : reset (création) ou pré-remplissage (édition).
   useEffect(() => {
@@ -53,8 +68,26 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
       })));
     } else {
       reset();
+      // Mode fin de cours : titre pré-rempli + nom de classe par défaut.
+      if (isEnd) { setNewName(studentName === 'your student' ? 'New class' : `${studentName}`); }
     }
-  }, [visible, editLesson]);
+  }, [visible, editLesson]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Mode fin de cours : charge le contexte de classe de l'élève.
+  useEffect(() => {
+    if (!visible || !isEnd) return;
+    let alive = true;
+    if (!endCourse?.student_id) { setCtx({ classes: [], student_classes: [] }); return; }
+    teacherStudentClassContext(endCourse.student_id)
+      .then((d) => {
+        if (!alive) return;
+        const sc = d.student_classes || [];
+        setCtx({ classes: d.classes || [], student_classes: sc });
+        if (sc.length) setStudentClassId(sc[0].id);
+      })
+      .catch(() => { if (alive) setCtx({ classes: [], student_classes: [] }); });
+    return () => { alive = false; };
+  }, [visible, isEnd, endCourse?.student_id]);
 
   // Hauteur du clavier : dans un <Modal>, KeyboardAvoidingView ne marche pas sur
   // Android → on réserve la hauteur en paddingBottom du scroll.
@@ -105,16 +138,46 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
   function setCard(cid, patch) { setCards((cs) => cs.map((c) => (c.cid === cid ? { ...c, ...patch } : c))); }
   function removeCard(cid) { setCards((cs) => cs.filter((c) => c.cid !== cid)); }
 
+  // Classe cible en mode fin de cours (class_id OU class_name).
+  const studentClasses = ctx?.student_classes || [];
+  const allClasses = ctx?.classes || [];
+  const hasStudentClass = studentClasses.length > 0;
+  function resolveClass() {
+    if (hasStudentClass) return { class_id: studentClassId || studentClasses[0].id };
+    if (useExisting) return existingId ? { class_id: existingId } : null;
+    return newName.trim() ? { class_name: newName.trim() } : null;
+  }
+
   async function save() {
-    if (!cards.length) { setErr('Add at least one word.'); return; }
+    // En fin de cours, les mots sont facultatifs (un homework peut n'être que du
+    // texte) ; sinon il faut au moins un mot.
+    if (!isEnd && !cards.length) { setErr('Add at least one word.'); return; }
     const bad = cards.find((w) => !cardComplete(w));
     if (bad) { setErr(`Complete the translation for "${(isZhEn ? bad.english : bad.chinese) || '—'}"`); return; }
+
+    const words = cards.map((w) => ({ chinese: w.chinese, pinyin: w.pinyin, english: w.english }));
+
+    if (isEnd) {
+      const cls = resolveClass();
+      if (!cls) { setErr(useExisting ? 'Pick a class.' : 'Name the new class.'); return; }
+      setBusy(true); setErr('');
+      try {
+        await teacherSendTask({
+          student_id: endCourse.student_id,
+          slot_id: endCourse.id,
+          ...cls,
+          title: title.trim() || endTitleDefault,
+          summary: summary.trim(),
+          words,
+        });
+        onCreated();
+        close();
+      } catch (e) { setErr(e.message || 'Error'); setBusy(false); }
+      return;
+    }
+
     setBusy(true); setErr('');
-    const payload = {
-      title: title.trim() || todayLabel,
-      summary: summary.trim(),
-      words: cards.map((w) => ({ chinese: w.chinese, pinyin: w.pinyin, english: w.english })),
-    };
+    const payload = { title: title.trim() || todayLabel, summary: summary.trim(), words };
     try {
       if (editLesson) await teacherUpdateLesson(editLesson.id, payload);
       else await teacherCreateLesson(classId, payload);
@@ -123,23 +186,82 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
     } catch (e) { setErr(e.message || 'Error'); setBusy(false); }
   }
 
+  const ClassRadio = ({ c, selected, onSelect, meta }) => (
+    <Pressable onPress={onSelect}
+      className="flex-row items-center gap-2.5 rounded-xl border p-3 mb-2"
+      style={{ borderWidth: 1.5, borderColor: selected ? COLORS.jiayou : '#e6e8eb', backgroundColor: selected ? '#eef4ff' : '#fff' }}>
+      <Ionicons name={selected ? 'radio-button-on' : 'radio-button-off'} size={20} color={selected ? COLORS.jiayou : '#c7ced6'} />
+      <View style={{ flex: 1 }}>
+        <Text className="text-[15px] font-bold text-ink" numberOfLines={1}>{c.name}</Text>
+        {meta ? <Text className="text-[12px] text-muted-light mt-0.5">{meta}</Text> : null}
+      </View>
+    </Pressable>
+  );
+
+  // Bloc « Classe » (mode fin de cours uniquement).
+  const ClassBlock = !isEnd ? null : (
+    <View className="mt-5">
+      <Text className="text-[13px] font-semibold text-muted mb-1.5">Class</Text>
+      {ctx === null ? (
+        <ActivityIndicator color={COLORS.jiayou} style={{ marginVertical: 8 }} />
+      ) : hasStudentClass ? (
+        studentClasses.length === 1 ? (
+          <View className="flex-row items-center gap-2 bg-jiayou-soft rounded-xl p-3">
+            <Ionicons name="checkmark-circle" size={18} color={COLORS.jiayou} />
+            <Text className="flex-1 text-[14.5px] font-bold text-ink" numberOfLines={1}>{studentClasses[0].name}</Text>
+          </View>
+        ) : (
+          <>
+            <Text className="text-[12.5px] text-muted mb-2">{studentName} is in several classes — pick one:</Text>
+            {studentClasses.map((c) => <ClassRadio key={c.id} c={c} selected={studentClassId === c.id} onSelect={() => setStudentClassId(c.id)} />)}
+          </>
+        )
+      ) : (
+        <>
+          <View className="flex-row items-center gap-2.5 mb-3">
+            <View className="flex-1">
+              <Text className="text-[14px] font-bold text-ink">Add to an existing class</Text>
+              <Text className="text-[12px] text-muted-light mt-0.5">Off → a new class is created for {studentName}.</Text>
+            </View>
+            <Switch value={useExisting} onValueChange={(v) => { setUseExisting(v); setErr(''); }} trackColor={{ false: '#d7dce3', true: COLORS.jiayou }} thumbColor="#fff" />
+          </View>
+          {useExisting ? (
+            allClasses.length === 0 ? (
+              <Text className="text-[13px] text-muted-light">No class yet — turn this off to create one.</Text>
+            ) : allClasses.map((c) => (
+              <ClassRadio key={c.id} c={c} selected={existingId === c.id} onSelect={() => setExistingId(c.id)}
+                meta={`${c.student_count} student${c.student_count === 1 ? '' : 's'} · ${c.lesson_count} task${c.lesson_count === 1 ? '' : 's'}`} />
+            ))
+          ) : (
+            <TextInput value={newName} onChangeText={setNewName} maxLength={80}
+              placeholder="e.g. Beginner A1" placeholderTextColor={COLORS.mutedLight}
+              className="bg-surface-page border border-line rounded-xl px-3.5 h-12 text-[15px] text-ink" />
+          )}
+        </>
+      )}
+    </View>
+  );
+
   // ── Blocs réutilisés (mobile = empilés, desktop = côte à côte) ──────────────
   const DetailsBlock = (
     <View style={{ flex: isDesktop ? 1 : undefined }}>
       <Text className="text-[13px] font-semibold text-muted mb-1.5">Title</Text>
       <TextInput
         value={title} onChangeText={setTitle} maxLength={120}
-        placeholder={todayLabel} placeholderTextColor={COLORS.mutedLight}
+        placeholder={isEnd ? endTitleDefault : todayLabel} placeholderTextColor={COLORS.mutedLight}
         className="bg-surface-page border border-line rounded-xl px-3.5 h-12 text-[15px] text-ink" />
-      <Text className="text-[11.5px] text-muted-light mt-1">Optional — left empty, today's date is used.</Text>
+      <Text className="text-[11.5px] text-muted-light mt-1">
+        {isEnd ? 'Optional — a default title is used if empty.' : "Optional — left empty, today's date is used."}
+      </Text>
 
-      <Text className="text-[13px] font-semibold text-muted mb-1.5 mt-4">Description</Text>
-      <TextInput
-        value={summary} onChangeText={setSummary} maxLength={2000} multiline
-        placeholder="Notes for your students — what this task is about…"
-        placeholderTextColor={COLORS.mutedLight}
-        className="bg-surface-page border border-line rounded-xl px-3.5 py-3 text-[15px] text-ink"
-        style={{ minHeight: isDesktop ? 220 : 150, textAlignVertical: 'top' }} />
+      <Text className="text-[13px] font-semibold text-muted mb-1.5 mt-4">{isEnd ? 'Summary & homework' : 'Description'}</Text>
+      <RichTextArea
+        value={summary} onChange={setSummary} maxLength={4000}
+        minHeight={isDesktop ? 220 : 160}
+        placeholder={isEnd ? 'Recap, what to review, homework…' : 'Notes for your students — what this task is about…'}
+      />
+
+      {ClassBlock}
     </View>
   );
 
@@ -210,8 +332,10 @@ export default function CreateTaskPopup({ visible, classId, direction, editLesso
           <Pressable onPress={close} hitSlop={8} className="flex-row items-center gap-1">
             <Ionicons name="close" size={24} color={COLORS.muted} />
           </Pressable>
-          <Text className="text-[16px] font-bold text-ink">{editLesson ? 'Edit task' : 'New task'}</Text>
-          <Button title={editLesson ? 'Save' : 'Create'} size="sm" loading={busy} onPress={save} style={{ paddingHorizontal: 20 }} />
+          <Text className="text-[16px] font-bold text-ink" numberOfLines={1} style={{ flex: 1, textAlign: 'center', marginHorizontal: 8 }}>
+            {isEnd ? `Summary & homework · ${studentName}` : editLesson ? 'Edit task' : 'New task'}
+          </Text>
+          <Button title={isEnd ? 'Send' : editLesson ? 'Save' : 'Create'} size="sm" loading={busy} onPress={save} style={{ paddingHorizontal: 20 }} />
         </View>
 
         <ScrollView

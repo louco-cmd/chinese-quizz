@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, Pressable, Linking, Platform, PermissionsAndroid, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -29,11 +29,30 @@ function getWebView() {
   return _WebView;
 }
 
+// Script injecté : détecte la fin d'appel côté fournisseur (Daily poste un
+// message window `left-meeting` ; Jitsi expose `videoConferenceLeft`) → on remonte
+// `left` à React Native pour enchaîner automatiquement sur la fin de cours, sans
+// laisser le prof sur la page « vous avez quitté » du fournisseur.
+const LEAVE_DETECT_JS = `(function(){
+  function leave(){ try { window.ReactNativeWebView.postMessage('left'); } catch(e){} }
+  try {
+    window.addEventListener('message', function(e){
+      try { var d = e.data || {}; var a = d.action || d.event;
+        if (a === 'left-meeting' || a === 'videoConferenceLeft') leave();
+      } catch(_){}
+    });
+  } catch(_){}
+  true;
+})();`;
+
 export default function VideoCallScreen({ lessonId, displayName, onBack }) {
   var insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [state, setState] = useState(null);
   const [error, setError] = useState('');
+  // Évite de déclencher la sortie deux fois (message + Back).
+  const leftRef = useRef(false);
+  const handleLeave = useCallback(() => { if (leftRef.current) return; leftRef.current = true; onBack?.(); }, [onBack]);
 
   const load = useCallback(async () => {
     setError('');
@@ -122,6 +141,8 @@ export default function VideoCallScreen({ lessonId, displayName, onBack }) {
         mediaCapturePermissionGrantType="grant"
         javaScriptEnabled={true}
         domStorageEnabled={true}
+        injectedJavaScript={LEAVE_DETECT_JS}
+        onMessage={(e) => { if (e.nativeEvent.data === 'left') handleLeave(); }}
         startInLoadingState={true}
         renderLoading={() => (
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0b0e12' }}>

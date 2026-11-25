@@ -8,7 +8,7 @@ import TeacherTaskScreen from './TeacherTaskScreen';
 import TeacherAgendaScreen from './TeacherAgendaScreen';
 import TeacherProfileScreen from './TeacherProfileScreen';
 import TeacherSettingsScreen from './TeacherSettingsScreen';
-import EndCourseScreen from './EndCourseScreen';
+import CreateTaskPopup from './CreateTaskPopup';
 import SupportScreen from '../SupportScreen';
 import LegalScreen from '../LegalScreen';
 import BankScreen from '../BankScreen';
@@ -162,6 +162,10 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
   // Rafraîchit à chaque bascule d'onglet (ex. on quitte Messages après lecture).
   useEffect(() => { refreshUnread(); }, [tab, refreshUnread]);
 
+  // Fin de cours : le fond revient sur la page Classes (la popup « Summary &
+  // homework » s'ouvre par-dessus).
+  useEffect(() => { if (endCourse) { setView(null); setTab('classes'); } }, [endCourse]);
+
   // Support / legal : plein écran (leur propre retour). Réglages : dans le shell
   // (header 加油 Mentor + tab bar conservés) — voir plus bas dans `content`.
   if (view?.type === 'support') {
@@ -245,19 +249,6 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
     content = <TeacherDashboardScreen teacherName={profile?.name} onOpenClass={(id) => setView({ type: 'class', id })} onOpenAgenda={() => { setView(null); setTab('agenda'); }} onVideoCall={onVideoCall} />;
   }
 
-  // Page « fin de cours » : prioritaire sur l'onglet/sous-vue courante, mais DANS
-  // le shell (header 加油 Mentor + tab bar conservés). Fermée via Back / après envoi.
-  if (endCourse) {
-    content = (
-      <EndCourseScreen
-        slot={endCourse}
-        direction={direction}
-        onClose={onCloseEndCourse}
-        onSent={onCloseEndCourse}
-      />
-    );
-  }
-
   // Un tap sur un onglet quitte la sous-vue classe/task (et la page fin de cours).
   const changeTab = (t) => { onCloseEndCourse?.(); setView(null); setTab(t); };
 
@@ -279,6 +270,16 @@ export default function TeacherHome({ profile, onLogout, onReplayFlow, onVideoCa
       />
       <View className="flex-1">{content}</View>
       {kbOpen ? null : <TeacherTabBar active={tab} onChange={changeTab} insetBottom={insets.bottom} maxWidth={tabMaxWidth} badges={{ messages: tab === 'messages' ? 0 : unread }} />}
+
+      {/* Fin de cours (post-visio) : même popup plein écran que la création de task,
+          en mode « Summary & homework for {student} ». */}
+      <CreateTaskPopup
+        visible={!!endCourse}
+        endCourse={endCourse}
+        direction={direction}
+        onClose={onCloseEndCourse}
+        onCreated={onCloseEndCourse}
+      />
     </View>
   );
 }

@@ -7,6 +7,7 @@ import { getLesson, startTask } from '../api';
 import { Button } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 import CatLoader from '../components/CatLoader';
+import MarkdownText from '../components/MarkdownText';
 
 // Page d'une task / cours (copie de student-course.ejs) : titre + notes + mots,
 // et bouton "Practice these words" qui lance le quiz sur les mots du cours.
@@ -74,7 +75,7 @@ export default function CoursePage({ lessonId, onBack, readOnly = false }) {
               {l.class_name || ''}{l.created_at ? ` · ${new Date(l.created_at).toLocaleDateString()}` : ''}
             </Text>
             {l.summary
-              ? <Text style={{ color: '#495267', marginTop: 12, lineHeight: 20 }}>{l.summary}</Text>
+              ? <View style={{ marginTop: 12 }}><MarkdownText value={l.summary} size={14} color="#495267" /></View>
               : <Text style={{ color: COLORS.muted, fontSize: 13, marginTop: 12 }}>No notes.</Text>}
           </View>
 

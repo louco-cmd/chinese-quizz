@@ -5,6 +5,7 @@ import { ErrorRetry } from '../../components/ErrorRetry';
 import { teacherLessonProgress, teacherDeleteLesson } from '../../api';
 import { Modal, Button } from '../../ui';
 import CreateTaskPopup from './CreateTaskPopup';
+import MarkdownText from '../../components/MarkdownText';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import CatLoader from '../../components/CatLoader';
 
@@ -20,7 +21,9 @@ function CollapsibleText({ text }) {
   const needsClamp = fullH > SUMMARY_LINE_H * SUMMARY_MAX_LINES + 2;
   return (
     <View>
-      <Text style={{ fontSize: 14, lineHeight: SUMMARY_LINE_H, color: '#495267' }} numberOfLines={expanded ? undefined : SUMMARY_MAX_LINES}>{text}</Text>
+      {expanded
+        ? <MarkdownText value={text} size={14} color="#495267" />
+        : <MarkdownText value={text} size={14} color="#495267" numberOfLines={SUMMARY_MAX_LINES} />}
       {/* Mesure invisible de la hauteur totale (non tronquée). */}
       <Text pointerEvents="none" style={{ fontSize: 14, lineHeight: SUMMARY_LINE_H, position: 'absolute', left: 0, right: 0, opacity: 0, zIndex: -1 }}
         onLayout={(e) => { const h = e.nativeEvent.layout.height; if (Math.abs(h - fullH) > 1) setFullH(h); }}>{text}</Text>
