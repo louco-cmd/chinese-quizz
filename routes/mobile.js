@@ -70,7 +70,7 @@ const FREE_TEACHER_LIMITS = { classes: 3, students: 3 };
 // Taux de commission marketplace par tier (prélevé sur un cours PAYANT — la
 // collecte réelle viendra avec le chantier « cours payants » / Stripe Connect ;
 // ici on expose juste le taux applicable selon le statut du prof).
-const TEACHER_COMMISSION = { free: 0.15, pro: 0.07 };
+const TEACHER_COMMISSION = { free: 0.15, pro: 0.08 };
 
 // GARDE-FOU ANTI-VANDALISME : plafond d'éditions de la base PARTAGÉE par
 // jour/utilisateur. Chaque mutation partagée est journalisée dans edit_log ; au-delà

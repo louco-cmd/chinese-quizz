@@ -30,7 +30,7 @@ function webTeacherPlans(prices) {
 
 const PRO_FEATURES = [
   { icon: 'sparkles', kind: 'yes', t: 'AI lesson recap', s: 'Auto summary + vocabulary after each class' },
-  { icon: 'pricetag', kind: 'yes', t: '7% commission', s: 'On paid lessons — half the free rate' },
+  { icon: 'pricetag', kind: 'yes', t: '8% commission', s: 'On paid lessons — lower than the 15% free rate' },
   { icon: 'infinite', kind: 'inf', t: 'Unlimited everything', s: 'Classes, students, tasks — no caps' },
   { icon: 'star', kind: 'yes', t: 'Priority in the directory', s: 'Stand out to students browsing teachers' },
 ];
