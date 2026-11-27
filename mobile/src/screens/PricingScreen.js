@@ -146,7 +146,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
   const sel = selList.find((p) => p.id === selId) || null;
 
   // Prix/période à afficher dans le hero (encart bleu) selon la formule choisie.
-  const heroPrice = (native ? plan?.priceString : sel?.priceString) || '5€';
+  const heroPrice = (native ? plan?.priceString : sel?.priceString) || '4.99€';
   const heroPeriod = native
     ? (plan?.period || t('pricing_per_month'))
     : t(sel?.periodKey || 'pricing_per_month');
@@ -329,7 +329,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                 onPress={onPremiumPress}
                 loading={portalBusy}
                 icon={isPremium ? 'settings' : 'rocket'}
-                title={isPremium ? t('pricing_manage') : (sel?.priceString || plan?.priceString) ? `${t('pricing_start')} — ${native ? (plan?.priceString || '€5/mo') : sel.priceString}` : t('pricing_start')}
+                title={isPremium ? t('pricing_manage') : (sel?.priceString || plan?.priceString) ? `${t('pricing_start')} — ${native ? (plan?.priceString || '€4.99/mo') : sel.priceString}` : t('pricing_start')}
                 fullWidth
                 style={{ marginTop: 18, justifyContent: 'center' }}
               />
