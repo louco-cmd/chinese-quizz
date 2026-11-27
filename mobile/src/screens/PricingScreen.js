@@ -11,6 +11,12 @@ import { buyPremium, purchasesAvailable, restorePurchases, getPremiumPlans, year
 
 // Android : gérer/annuler l'abonnement se fait dans le Play Store.
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions';
+// Formules affichées sur le WEB (Stripe) : RevenueCat n'est pas dispo, donc pas
+// de prix localisés ici — Stripe Checkout montre le prix exact. Annuel par défaut.
+const WEB_PLANS = [
+  { id: 'monthly', annual: false },
+  { id: 'yearly', annual: true },
+];
 
 const fmtDate = (iso) => {
   if (!iso) return '';
@@ -87,7 +93,8 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
   const [portalError, setPortalError] = useState('');
   const [sub, setSub] = useState({ cancelAtPeriodEnd: false, currentPeriodEnd: null });
   const [plans, setPlans] = useState([]);       // offres RevenueCat (natif)
-  const [planId, setPlanId] = useState(null);   // formule sélectionnée
+  const [planId, setPlanId] = useState(null);   // formule sélectionnée (natif)
+  const [webPlanId, setWebPlanId] = useState('yearly'); // formule web (Stripe)
 
   // Natif avec RevenueCat configuré → achats in-app (Play Billing). Sinon web/Stripe.
   const native = Platform.OS !== 'web' && purchasesAvailable();
@@ -107,6 +114,13 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
 
   const plan = plans.find((p) => p.id === planId) || null;
   const saving = yearlySavingPct(plans);
+
+  // Sélecteur unifié natif/web : natif = offres RevenueCat (prix localisés),
+  // web = formules statiques (prix affiché par Stripe au checkout).
+  const selList = native ? plans : WEB_PLANS;
+  const selId = native ? planId : webPlanId;
+  const setSel = native ? setPlanId : setWebPlanId;
+  const sel = selList.find((p) => p.id === selId) || null;
 
   // Natif : à l'ouverture, synchro RevenueCat → base (rattrape un webhook manquant).
   useEffect(() => {
@@ -165,7 +179,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
     setPortalError(''); setPortalBusy(true);
     try {
       const origin = (typeof window !== 'undefined' && window.location?.origin) || undefined;
-      const { url } = await createCheckout(origin);
+      const { url } = await createCheckout(origin, sel?.annual ? 'yearly' : 'monthly');
       await Linking.openURL(url);
     } catch (e) {
       setPortalError(e.message || t('pricing_err_purchase'));
@@ -251,27 +265,30 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                 </View>
               ) : null}
               {PREMIUM_FEATURES.map((f, i) => <FeatureRow key={i} f={f} last={i === PREMIUM_FEATURES.length - 1} />)}
-              {/* Choix de la formule (natif + offering configurée) — juste au-dessus du
-                  CTA : valeur d'abord, prix ensuite, action après (cf. paywall prof). */}
-              {plans.length > 1 && !isPremium ? (
+              {/* Choix de la formule (natif via RevenueCat, web via Stripe) — juste
+                  au-dessus du CTA : valeur d'abord, prix ensuite, action après. */}
+              {selList.length > 1 && !isPremium ? (
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-                  {plans.map((p) => {
-                    const on = p.id === planId;
+                  {selList.map((p) => {
+                    const on = p.id === selId;
+                    const label = native ? p.label : t(p.annual ? 'pricing_yearly' : 'pricing_monthly');
                     return (
                       <Pressable
                         key={p.id}
-                        onPress={() => setPlanId(p.id)}
+                        onPress={() => setSel(p.id)}
                         style={{
                           flex: 1, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center',
                           borderWidth: 2, borderColor: on ? COLORS.jiayou : '#e6e8eb',
                           backgroundColor: on ? COLORS.jiayouContainer : '#fff',
                         }}
                       >
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: on ? COLORS.jiayou : '#1d1d1f' }}>{p.label}</Text>
-                        <Text style={{ fontSize: 15, fontWeight: '800', color: on ? COLORS.jiayou : '#1d1d1f', marginTop: 2 }}>{p.priceString}</Text>
-                        {p.annual && saving ? (
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: on ? COLORS.jiayou : '#1d1d1f' }}>{label}</Text>
+                        {native ? (
+                          <Text style={{ fontSize: 15, fontWeight: '800', color: on ? COLORS.jiayou : '#1d1d1f', marginTop: 2 }}>{p.priceString}</Text>
+                        ) : null}
+                        {p.annual && (native ? saving : true) ? (
                           <View style={{ marginTop: 5, backgroundColor: COLORS.success, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-                            <Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '700' }}>{t('pricing_save')} {saving}%</Text>
+                            <Text style={{ color: '#fff', fontSize: 10.5, fontWeight: '700' }}>{native ? `${t('pricing_save')} ${saving}%` : t('pricing_best_value')}</Text>
                           </View>
                         ) : null}
                       </Pressable>
@@ -283,7 +300,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                 onPress={onPremiumPress}
                 loading={portalBusy}
                 icon={isPremium ? 'settings' : 'rocket'}
-                title={isPremium ? t('pricing_manage') : `${t('pricing_start')} — ${plan ? plan.priceString : '€5/mo'}`}
+                title={isPremium ? t('pricing_manage') : native ? `${t('pricing_start')} — ${plan ? plan.priceString : '€5/mo'}` : t('pricing_start')}
                 fullWidth
                 style={{ marginTop: 18, justifyContent: 'center' }}
               />

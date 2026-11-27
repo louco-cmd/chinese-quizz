@@ -595,8 +595,9 @@ export function getBillingPortal() {
 }
 
 // Session Stripe Checkout (web) : renvoie l'URL pour aller DIRECTEMENT au paiement.
-export function createCheckout(returnUrl) {
-  return request('/api/m/create-checkout', { method: 'POST', body: { returnUrl } });
+// `plan` = 'monthly' (défaut) | 'yearly'.
+export function createCheckout(returnUrl, plan) {
+  return request('/api/m/create-checkout', { method: 'POST', body: { returnUrl, plan } });
 }
 
 // Checkout Stripe de l'abonnement PROF (teacher_pro), web. `plan` = 'monthly'|'yearly'.

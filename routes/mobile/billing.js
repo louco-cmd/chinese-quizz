@@ -140,7 +140,10 @@ router.post('/api/m/billing-portal', requireToken, async (req, res) => {
 // le client ouvre l'URL directement. Retour géré par le SPA via ?session_id=.
 router.post('/api/m/create-checkout', requireToken, async (req, res) => {
   try {
-    const priceID = process.env.STRIPE_PRICE_PREMIUM;
+    const yearly = req.body?.plan === 'yearly';
+    const priceID = yearly
+      ? (process.env.STRIPE_PRICE_PREMIUM_YEARLY || process.env.STRIPE_PRICE_PREMIUM)
+      : process.env.STRIPE_PRICE_PREMIUM;
     if (!priceID) return res.status(500).json({ error: 'Stripe not configured' });
     const uid = req.tokenUser.id;
     const { rows: u } = await pool.query('SELECT email FROM users WHERE id = $1', [uid]);
