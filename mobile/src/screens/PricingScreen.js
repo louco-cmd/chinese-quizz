@@ -6,17 +6,31 @@ import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-
 import { Button } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
 import { useT } from '../i18n';
-import { getBillingPortal, refreshSubscription, syncRevenueCat, createCheckout } from '../api';
+import { getBillingPortal, refreshSubscription, syncRevenueCat, createCheckout, getBillingPrices } from '../api';
 import { buyPremium, purchasesAvailable, restorePurchases, getPremiumPlans, yearlySavingPct, isTestStore } from '../purchases';
 
 // Android : gérer/annuler l'abonnement se fait dans le Play Store.
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions';
-// Formules affichées sur le WEB (Stripe) : RevenueCat n'est pas dispo, donc pas
-// de prix localisés ici — Stripe Checkout montre le prix exact. Annuel par défaut.
-const WEB_PLANS = [
-  { id: 'monthly', annual: false },
-  { id: 'yearly', annual: true },
-];
+
+// Formate un montant Stripe (unités majeures + devise) → ex. "5€", "$25".
+export function money(amount, currency) {
+  if (amount == null) return null;
+  const c = (currency || 'eur').toLowerCase();
+  const n = Number.isInteger(amount) ? amount : Math.round(amount * 100) / 100;
+  if (c === 'usd') return `$${n}`;
+  if (c === 'gbp') return `£${n}`;
+  return `${n}€`;
+}
+
+// Construit la liste des formules WEB (Stripe) à partir des prix réels récupérés
+// du backend. Prix inconnu encore → priceString null (fallback géré à l'affichage).
+function webPlansFrom(prices) {
+  const p = prices?.premium || {};
+  return [
+    { id: 'monthly', annual: false, priceString: money(p.monthly?.amount, p.monthly?.currency), periodKey: 'pricing_per_month' },
+    { id: 'yearly', annual: true, priceString: money(p.yearly?.amount, p.yearly?.currency), periodKey: 'pricing_per_year' },
+  ];
+}
 
 const fmtDate = (iso) => {
   if (!iso) return '';
@@ -95,9 +109,18 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
   const [plans, setPlans] = useState([]);       // offres RevenueCat (natif)
   const [planId, setPlanId] = useState(null);   // formule sélectionnée (natif)
   const [webPlanId, setWebPlanId] = useState('yearly'); // formule web (Stripe)
+  const [webPrices, setWebPrices] = useState(null); // prix réels Stripe (web)
 
   // Natif avec RevenueCat configuré → achats in-app (Play Billing). Sinon web/Stripe.
   const native = Platform.OS !== 'web' && purchasesAvailable();
+
+  // Web : récupère les vrais montants Stripe pour les afficher (RevenueCat absent).
+  useEffect(() => {
+    if (native || isPremium) return;
+    let alive = true;
+    getBillingPrices().then((p) => { if (alive) setWebPrices(p); }).catch(() => {});
+    return () => { alive = false; };
+  }, [native, isPremium]);
 
   // Charge les offres du store (prix localisés). Silencieux si l'offering est vide :
   // on retombe alors sur l'affichage statique 5€/mois.
@@ -116,11 +139,17 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
   const saving = yearlySavingPct(plans);
 
   // Sélecteur unifié natif/web : natif = offres RevenueCat (prix localisés),
-  // web = formules statiques (prix affiché par Stripe au checkout).
-  const selList = native ? plans : WEB_PLANS;
+  // web = formules Stripe avec prix réels récupérés du backend.
+  const selList = native ? plans : webPlansFrom(webPrices);
   const selId = native ? planId : webPlanId;
   const setSel = native ? setPlanId : setWebPlanId;
   const sel = selList.find((p) => p.id === selId) || null;
+
+  // Prix/période à afficher dans le hero (encart bleu) selon la formule choisie.
+  const heroPrice = (native ? plan?.priceString : sel?.priceString) || '5€';
+  const heroPeriod = native
+    ? (plan?.period || t('pricing_per_month'))
+    : t(sel?.periodKey || 'pricing_per_month');
 
   // Natif : à l'ouverture, synchro RevenueCat → base (rattrape un webhook manquant).
   useEffect(() => {
@@ -250,8 +279,8 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                 </View>
               ) : (
                 <>
-                  <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800' }}>{plan ? plan.priceString : '5€'}</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>{plan ? plan.period : t('pricing_per_month')}</Text>
+                  <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800' }}>{heroPrice}</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>{heroPeriod}</Text>
                 </>
               )}
             </LinearGradient>
@@ -283,7 +312,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                         }}
                       >
                         <Text style={{ fontSize: 13, fontWeight: '700', color: on ? COLORS.jiayou : '#1d1d1f' }}>{label}</Text>
-                        {native ? (
+                        {p.priceString ? (
                           <Text style={{ fontSize: 15, fontWeight: '800', color: on ? COLORS.jiayou : '#1d1d1f', marginTop: 2 }}>{p.priceString}</Text>
                         ) : null}
                         {p.annual && (native ? saving : true) ? (
@@ -300,7 +329,7 @@ export default function PricingScreen({ onBack, isPremium = false, onPurchased }
                 onPress={onPremiumPress}
                 loading={portalBusy}
                 icon={isPremium ? 'settings' : 'rocket'}
-                title={isPremium ? t('pricing_manage') : native ? `${t('pricing_start')} — ${plan ? plan.priceString : '€5/mo'}` : t('pricing_start')}
+                title={isPremium ? t('pricing_manage') : (sel?.priceString || plan?.priceString) ? `${t('pricing_start')} — ${native ? (plan?.priceString || '€5/mo') : sel.priceString}` : t('pricing_start')}
                 fullWidth
                 style={{ marginTop: 18, justifyContent: 'center' }}
               />

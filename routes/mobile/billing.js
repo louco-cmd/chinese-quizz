@@ -187,6 +187,50 @@ router.post('/api/m/create-checkout', requireToken, async (req, res) => {
   }
 });
 
+// ── GET /api/m/billing/prices : montants réels des prix Stripe (affichage) ─────
+// Public (le prix n'est pas une donnée sensible). Sert à afficher le bon prix
+// sur le web où RevenueCat n'est pas dispo. Cache mémoire 10 min pour ne pas
+// taper Stripe à chaque ouverture du paywall. Un prix absent/erroné → null
+// (le front retombe sur un fallback). Renvoie amount en unités majeures (€).
+let _pricesCache = { at: 0, data: null };
+async function fetchStripePrice(priceId) {
+  if (!priceId) return null;
+  try {
+    const p = await stripe.prices.retrieve(priceId);
+    if (!p || p.active === false) return null;
+    return {
+      amount: typeof p.unit_amount === 'number' ? p.unit_amount / 100 : null,
+      currency: p.currency || 'eur',
+      interval: p.recurring?.interval || null, // 'month' | 'year'
+    };
+  } catch (e) {
+    console.error('billing/prices retrieve', priceId, e.message);
+    return null;
+  }
+}
+router.get('/api/m/billing/prices', async (req, res) => {
+  try {
+    if (_pricesCache.data && Date.now() - _pricesCache.at < 10 * 60 * 1000) {
+      return res.json(_pricesCache.data);
+    }
+    const [pm, py, tm, ty] = await Promise.all([
+      fetchStripePrice(process.env.STRIPE_PRICE_PREMIUM),
+      fetchStripePrice(process.env.STRIPE_PRICE_PREMIUM_YEARLY),
+      fetchStripePrice(process.env.STRIPE_PRICE_TEACHER_PRO),
+      fetchStripePrice(process.env.STRIPE_PRICE_TEACHER_PRO_YEARLY),
+    ]);
+    const data = {
+      premium: { monthly: pm, yearly: py },
+      teacher: { monthly: tm, yearly: ty },
+    };
+    _pricesCache = { at: Date.now(), data };
+    res.json(data);
+  } catch (e) {
+    console.error('m/billing/prices error:', e);
+    res.status(500).json({ error: 'Could not load prices' });
+  }
+});
+
 // ── POST /api/m/teacher/create-checkout : abonnement PROF (teacher_pro) web ────
 // Entitlement prof distinct : metadata.planName='teacher_pro' → le webhook écrit
 // users.teacher_pro_expires_at (et NON user_subscriptions, réservé au premium élève).

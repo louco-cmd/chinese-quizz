@@ -605,6 +605,12 @@ export function createTeacherCheckout(plan, returnUrl) {
   return request('/api/m/teacher/create-checkout', { method: 'POST', body: { plan, returnUrl } });
 }
 
+// Montants réels des prix Stripe (affichage web). → { premium:{monthly,yearly}, teacher:{...} }
+// chaque entrée = { amount, currency, interval } ou null.
+export function getBillingPrices() {
+  return request('/api/m/billing/prices', { method: 'GET' });
+}
+
 // Resync live de l'abonnement depuis Stripe → { isPremium, cancelAtPeriodEnd, currentPeriodEnd }.
 export function refreshSubscription() {
   return request('/api/m/subscription/refresh', { method: 'POST' });

@@ -7,15 +7,19 @@ import { useFonts, LaBelleAurore_400Regular } from '@expo-google-fonts/la-belle-
 import { Button } from '../../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../../theme';
 import { buyTeacherPro, getTeacherProPlans, restorePurchases, purchasesAvailable, yearlySavingPct } from '../../purchases';
-import { syncRevenueCat, createTeacherCheckout } from '../../api';
+import { syncRevenueCat, createTeacherCheckout, getBillingPrices } from '../../api';
+import { money } from '../PricingScreen';
 
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions';
-// Formules affichées sur le WEB (pas d'offering RevenueCat) : libellés seuls, le
-// prix exact est montré par Stripe au checkout.
-const WEB_PLANS = [
-  { id: 'monthly', label: 'Monthly', annual: false },
-  { id: 'yearly', label: 'Yearly', annual: true },
-];
+// Formules affichées sur le WEB (pas d'offering RevenueCat) : prix réels récupérés
+// du backend (Stripe) ; le montant exact est aussi reconfirmé par Stripe au checkout.
+function webTeacherPlans(prices) {
+  const p = prices?.teacher || {};
+  return [
+    { id: 'monthly', label: 'Monthly', annual: false, priceString: money(p.monthly?.amount, p.monthly?.currency), period: 'per month' },
+    { id: 'yearly', label: 'Yearly', annual: true, priceString: money(p.yearly?.amount, p.yearly?.currency), period: 'per year' },
+  ];
+}
 
 // Page « Mentor Pro » — pendant prof de PricingScreen (élève). teacher_pro est un
 // abonnement DIGITAL → même règle stores que le premium élève : IAP sur natif,
@@ -67,8 +71,17 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
   const [plans, setPlans] = useState([]);       // offres RevenueCat (natif)
   const [planId, setPlanId] = useState(null);   // formule sélectionnée (natif)
   const [webPlanId, setWebPlanId] = useState('yearly'); // formule choisie (web), annuel par défaut
+  const [webPrices, setWebPrices] = useState(null); // prix réels Stripe (web)
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+
+  // Web : récupère les vrais montants Stripe teacher_pro pour l'affichage.
+  useEffect(() => {
+    if (native || isPro) return;
+    let alive = true;
+    getBillingPrices().then((p) => { if (alive) setWebPrices(p); }).catch(() => {});
+    return () => { alive = false; };
+  }, [native, isPro]);
 
   // Offering teacher_pro : prix localisés du store (mensuel + annuel). Silencieux
   // si l'offering est vide → on retombe sur l'affichage statique $25/mois.
@@ -93,11 +106,15 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
   const saving = yearlySavingPct(plans);
 
   // Liste + sélection unifiées : natif = offering RevenueCat (prix du store),
-  // web = libellés statiques (prix montré par Stripe au checkout).
-  const selList = native ? plans : WEB_PLANS;
+  // web = formules Stripe avec prix réels récupérés du backend.
+  const selList = native ? plans : webTeacherPlans(webPrices);
   const selId = native ? planId : webPlanId;
   const setSel = native ? setPlanId : setWebPlanId;
   const sel = selList.find((p) => p.id === selId) || selList[0] || null;
+
+  // Prix/période du hero (encart bleu) selon la formule sélectionnée.
+  const heroPrice = (native ? plan?.priceString : sel?.priceString) || '$25';
+  const heroPeriod = native ? (plan?.period || 'per month') : (sel?.period || 'per month');
 
   // Natif → Play Billing (RevenueCat). Web → Stripe Checkout. JAMAIS de Stripe en
   // natif (interdit stores + « silent success »).
@@ -172,8 +189,8 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
                   </View>
                 ) : (
                   <>
-                    <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800' }}>{plan ? plan.priceString : '$25'}</Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>{plan ? plan.period : 'per month'}</Text>
+                    <Text style={{ color: '#fff', fontSize: 34, fontWeight: '800' }}>{heroPrice}</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12.5 }}>{heroPeriod}</Text>
                   </>
                 )}
               </LinearGradient>
@@ -215,7 +232,7 @@ export default function TeacherPricingScreen({ isPro = false, onPurchased }) {
                     onPress={onSubscribe}
                     loading={busy}
                     icon={isPro ? 'settings-outline' : 'rocket'}
-                    title={isPro ? 'Manage subscription' : native ? `Subscribe${plan ? ` — ${plan.priceString}` : ''}` : 'Continue to checkout'}
+                    title={isPro ? 'Manage subscription' : native ? `Subscribe${plan ? ` — ${plan.priceString}` : ''}` : `Continue to checkout${sel?.priceString ? ` — ${sel.priceString}` : ''}`}
                     fullWidth
                     style={{ marginTop: 18, justifyContent: 'center' }}
                   />
