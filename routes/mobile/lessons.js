@@ -8,6 +8,12 @@ const crypto = require('crypto');
 const { pool } = require('../../config/database');
 const { SLOT_MIN, BOOKING_HORIZON_DAYS, validTz, pad2, wallToUtc, utcToWall, deriveTeacherSlots } = require('../../lib/teacher-schedule');
 const { teacherTz, slotOpenForTeacher, studentLinkedToTeacher } = require('../../lib/teacher-slots');
+const { teacherPaidEnabled, consumeCredit, refundCreditForSlot } = require('../../lib/lesson-credits');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+// Rail B : durée d'un cours payant par défaut (min) si le prof n'a rien réglé.
+const DEFAULT_LESSON_DURATION_MIN = 60;
+const LESSON_DURATION_CHOICES = [30, 45, 60, 90];
 
 module.exports = function registerLessonRoutes(router, deps) {
   const { requireToken, notify, getUserLangs, syncConceptSiblings, isTeacherPro, FREE_TEACHER_LIMITS } = deps;
@@ -610,10 +616,24 @@ router.get('/api/m/teacher/profile', requireToken, requireTeacher, async (req, r
   try {
     const { rows } = await pool.query(
       `SELECT name, mentor_bio, mentor_links, years_experience, languages_spoken,
-              teaching_languages, session_price, session_currency, mentor_listed, presentation_video
+              teaching_languages, session_price, session_currency, mentor_listed, presentation_video,
+              lesson_duration_min, stripe_connect_id, connect_payouts_enabled, connect_details_submitted
        FROM users WHERE id = $1`, [req.teacher.id]
     );
-    res.json({ profile: rows[0] || {} });
+    const p = rows[0] || {};
+    res.json({
+      profile: {
+        ...p,
+        lesson_duration_min: p.lesson_duration_min || DEFAULT_LESSON_DURATION_MIN,
+        // Statut paiements (Rail B) exposé avec le profil pour la section « Paiements ».
+        payouts: {
+          connected: !!p.stripe_connect_id,
+          payoutsEnabled: !!p.connect_payouts_enabled,
+          detailsSubmitted: !!p.connect_details_submitted,
+          ready: !!p.stripe_connect_id && !!p.connect_payouts_enabled,
+        },
+      },
+    });
   } catch (e) { console.error('m/teacher get profile:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -637,7 +657,13 @@ router.post('/api/m/teacher/profile', requireToken, requireTeacher, async (req, 
       const p = parseFloat(rawPrice);
       if (!isNaN(p) && p >= 0) price = Math.min(Math.round(p * 100) / 100, 100000);
     }
-    const currency = TEACH_CURRENCIES.includes(req.body?.session_currency) ? req.body.session_currency : 'EUR';
+    // Rail B = mono-devise EUR (règlement + payouts sans FX intermédiaire). On force
+    // EUR côté serveur, quelle que soit la valeur envoyée (migration douce des anciens prix).
+    const currency = 'EUR';
+
+    // Durée d'un cours payant (Rail B). Optionnelle : null → défaut appliqué à la lecture.
+    let duration = parseInt(req.body?.lesson_duration_min, 10);
+    duration = LESSON_DURATION_CHOICES.includes(duration) ? duration : null;
 
     if (!name || name.length > 50) return res.status(400).json({ error: 'Name required (max 50)' });
     if (bio.length > 500) return res.status(400).json({ error: 'Intro too long (max 500)' });
@@ -660,12 +686,124 @@ router.post('/api/m/teacher/profile', requireToken, requireTeacher, async (req, 
     await pool.query(
       `UPDATE users SET name = $1, mentor_bio = $2, languages_spoken = $3,
               years_experience = $4, mentor_links = $5::jsonb, mentor_listed = $6,
-              teaching_languages = $7, session_price = $8, session_currency = $9, presentation_video = $11
+              teaching_languages = $7, session_price = $8, session_currency = $9, presentation_video = $11,
+              lesson_duration_min = COALESCE($12, lesson_duration_min)
        WHERE id = $10`,
-      [name, bio, languages, years, JSON.stringify(links), listed, teaching, price, currency, req.teacher.id, video]
+      [name, bio, languages, years, JSON.stringify(links), listed, teaching, price, currency, req.teacher.id, video, duration]
     );
     res.json({ success: true });
   } catch (e) { console.error('m/teacher save profile:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+//  RAIL B — Stripe Connect Express (payouts prof). Phase 1 : onboarding + statut.
+//  Pas de webhook ici : le statut est rafraîchi à la demande via accounts.retrieve
+//  et mis en cache dans users.connect_* (P3 ajoutera account.updated).
+// ════════════════════════════════════════════════════════════════════════════
+
+// Origine de retour autorisée (anti open-redirect), partagée avec billing.js.
+function connectReturnBase(req) {
+  const ALLOWED = ['https://app.jiayou.fr', 'https://jiayou.fr', 'http://localhost:8081'];
+  const raw = String(req.body?.returnUrl || req.query?.returnUrl || '').replace(/\/+$/, '');
+  return ALLOWED.includes(raw) ? raw : (process.env.BASE_URL || 'https://app.jiayou.fr');
+}
+
+// Rafraîchit le statut Connect depuis Stripe et le met en cache dans users.
+// Retourne { connected, payoutsEnabled, detailsSubmitted, ready }.
+async function refreshConnectStatus(teacherId, accountId) {
+  if (!accountId) return { connected: false, payoutsEnabled: false, detailsSubmitted: false, ready: false };
+  let acct;
+  try {
+    acct = await stripe.accounts.retrieve(accountId);
+  } catch (e) {
+    console.error('[connect] retrieve', accountId, e.message);
+    return { connected: true, payoutsEnabled: false, detailsSubmitted: false, ready: false, error: true };
+  }
+  const payoutsEnabled = !!acct.payouts_enabled;
+  const detailsSubmitted = !!acct.details_submitted;
+  await pool.query(
+    `UPDATE users SET connect_payouts_enabled = $1, connect_details_submitted = $2 WHERE id = $3`,
+    [payoutsEnabled, detailsSubmitted, teacherId]
+  );
+  return { connected: true, payoutsEnabled, detailsSubmitted, ready: payoutsEnabled };
+}
+
+// POST /api/m/teacher/connect/onboard : crée (ou réutilise) le compte Express et
+// renvoie une URL d'onboarding (AccountLink). Le client l'ouvre dans un navigateur
+// puis re-check le statut au retour.
+router.post('/api/m/teacher/connect/onboard', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const tid = req.teacher.id;
+    const { rows } = await pool.query(
+      'SELECT email, stripe_connect_id FROM users WHERE id = $1', [tid]);
+    const email = rows[0]?.email || undefined;
+    let accountId = rows[0]?.stripe_connect_id || null;
+
+    if (!accountId) {
+      const account = await stripe.accounts.create({
+        type: 'express',
+        email,
+        capabilities: { transfers: { requested: true } },
+        business_profile: { product_description: 'Online language lessons on Jiayou' },
+        metadata: { userId: String(tid), role: 'teacher' },
+      });
+      accountId = account.id;
+      await pool.query('UPDATE users SET stripe_connect_id = $1 WHERE id = $2', [accountId, tid]);
+    }
+
+    const base = connectReturnBase(req);
+    const link = await stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: `${base}/?connect=refresh`,
+      return_url: `${base}/?connect=return`,
+      type: 'account_onboarding',
+    });
+    res.json({ url: link.url });
+  } catch (e) {
+    console.error('m/teacher connect onboard:', e.message);
+    // Message parlant si Connect n'est pas activé côté dashboard Stripe.
+    const msg = /connect/i.test(e.message)
+      ? 'Stripe Connect is not enabled on this platform yet.'
+      : 'Could not start payout onboarding';
+    res.status(500).json({ error: msg });
+  }
+});
+
+// GET /api/m/teacher/connect/status : statut payouts (rafraîchi depuis Stripe).
+router.get('/api/m/teacher/connect/status', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT stripe_connect_id FROM users WHERE id = $1', [req.teacher.id]);
+    const status = await refreshConnectStatus(req.teacher.id, rows[0]?.stripe_connect_id);
+    res.json({ status });
+  } catch (e) {
+    console.error('m/teacher connect status:', e.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── GET /api/m/teacher/earnings : gains Rail B (reversés + à venir) ───────────
+// paid = déjà transféré sur le compte Connect ; pending = cours payants réservés
+// pas encore reversés (futurs + en attente du cron).
+router.get('/api/m/teacher/earnings', requireToken, requireTeacher, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN ts.payout_status = 'paid' THEN lp.unit_price * (1 - lp.commission_rate) END), 0) AS paid_total,
+         COUNT(*) FILTER (WHERE ts.payout_status = 'paid') AS paid_count,
+         COALESCE(SUM(CASE WHEN ts.payout_status IN ('pending','processing') THEN lp.unit_price * (1 - lp.commission_rate) END), 0) AS pending_total,
+         COUNT(*) FILTER (WHERE ts.payout_status IN ('pending','processing')) AS pending_count
+       FROM teacher_slots ts JOIN lesson_packages lp ON lp.id = ts.package_id
+       WHERE ts.teacher_id = $1`, [req.teacher.id]);
+    const r = rows[0] || {};
+    res.json({ earnings: {
+      currency: 'EUR',
+      paidTotal: Math.round(Number(r.paid_total || 0) * 100) / 100,
+      paidCount: Number(r.paid_count || 0),
+      pendingTotal: Math.round(Number(r.pending_total || 0) * 100) / 100,
+      pendingCount: Number(r.pending_count || 0),
+    } });
+  } catch (e) { console.error('m/teacher earnings:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
 // ── GET /api/m/teacher/stats : stats affichées sur la page Profil ─────────────
@@ -835,9 +973,14 @@ router.delete('/api/m/teacher/slots/:id', requireToken, requireTeacher, async (r
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ error: 'Invalid lesson' });
     const { rows } = await pool.query(
-      `DELETE FROM teacher_slots WHERE id = $1 AND teacher_id = $2 AND status = 'booked' RETURNING student_id, starts_at`,
+      `DELETE FROM teacher_slots WHERE id = $1 AND teacher_id = $2 AND status = 'booked' RETURNING student_id, starts_at, package_id`,
       [id, req.teacher.id]);
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    // Rail B : un prof qui annule rend son crédit à l'élève.
+    if (rows[0].package_id) {
+      try { await refundCreditForSlot(pool, { package_id: rows[0].package_id, student_id: rows[0].student_id, id }); }
+      catch (e) { console.error('[rail-b] refund on teacher cancel:', e.message); }
+    }
     const teacherName = (await pool.query('SELECT name FROM users WHERE id = $1', [req.teacher.id])).rows[0]?.name || 'Your teacher';
     const oldStart = new Date(rows[0].starts_at);
     const fmtDate = oldStart.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -951,16 +1094,41 @@ router.post('/api/m/student/slots/book', requireToken, async (req, res) => {
     // Le créneau doit être ouvert (évalué dans le fuseau du prof).
     if (!(await slotOpenForTeacher(teacherId, start))) return res.status(409).json({ error: 'Slot not available', taken: true });
     const end = new Date(start.getTime() + SLOT_MIN * 60000);
-    // Insert atomique : l'index unique partiel (teacher_id, starts_at) WHERE booked
-    // empêche le double-booking → ON CONFLICT = créneau déjà pris.
-    const ins = await pool.query(
-      `INSERT INTO teacher_slots (teacher_id, starts_at, ends_at, student_id, status, booked_at)
-       VALUES ($1, $2, $3, $4, 'booked', NOW())
-       ON CONFLICT (teacher_id, starts_at) WHERE status = 'booked' DO NOTHING
-       RETURNING id`,
-      [teacherId, start.toISOString(), end.toISOString(), uid]);
-    if (!ins.rows.length) return res.status(409).json({ error: 'Slot no longer available', taken: true });
-    res.json({ ok: true, id: ins.rows[0].id });
+
+    // Prof NON payant (pas de payouts/prix) → réservation gratuite, inchangée.
+    if (!(await teacherPaidEnabled(teacherId))) {
+      const ins = await pool.query(
+        `INSERT INTO teacher_slots (teacher_id, starts_at, ends_at, student_id, status, booked_at)
+         VALUES ($1, $2, $3, $4, 'booked', NOW())
+         ON CONFLICT (teacher_id, starts_at) WHERE status = 'booked' DO NOTHING
+         RETURNING id`,
+        [teacherId, start.toISOString(), end.toISOString(), uid]);
+      if (!ins.rows.length) return res.status(409).json({ error: 'Slot no longer available', taken: true });
+      return res.json({ ok: true, id: ins.rows[0].id });
+    }
+
+    // Prof PAYANT (Rail B) → il faut 1 crédit. Insert du slot + consommation atomiques.
+    const client = await pool.connect();
+    let began = false;
+    try {
+      await client.query('BEGIN'); began = true;
+      const ins = await client.query(
+        `INSERT INTO teacher_slots (teacher_id, starts_at, ends_at, student_id, status, booked_at)
+         VALUES ($1, $2, $3, $4, 'booked', NOW())
+         ON CONFLICT (teacher_id, starts_at) WHERE status = 'booked' DO NOTHING
+         RETURNING id`,
+        [teacherId, start.toISOString(), end.toISOString(), uid]);
+      if (!ins.rows.length) { await client.query('ROLLBACK'); began = false; return res.status(409).json({ error: 'Slot no longer available', taken: true }); }
+      const slotId = ins.rows[0].id;
+      const pkgId = await consumeCredit(client, uid, teacherId, slotId);
+      if (!pkgId) { await client.query('ROLLBACK'); began = false; return res.status(402).json({ error: 'No lesson credits left. Buy lessons to book.', needCredits: true }); }
+      await client.query(`UPDATE teacher_slots SET package_id = $1, payout_status = 'pending' WHERE id = $2`, [pkgId, slotId]);
+      await client.query('COMMIT'); began = false;
+      return res.json({ ok: true, id: slotId, creditUsed: true });
+    } catch (e) {
+      if (began) { try { await client.query('ROLLBACK'); } catch { /* noop */ } }
+      throw e;
+    } finally { client.release(); }
   } catch (e) { console.error('m/student slots book:', e); res.status(500).json({ error: 'Server error' }); }
 });
 
@@ -981,6 +1149,7 @@ router.post('/api/m/student/slots/book-recurring', requireToken, async (req, res
     if (!(await studentLinkedToTeacher(uid, teacherId))) {
       return res.status(403).json({ error: 'You are not an active student of this teacher' });
     }
+    const paid = await teacherPaidEnabled(teacherId); // Rail B : chaque occurrence consomme 1 crédit
     const tz = await teacherTz(teacherId);
     const w0 = utcToWall(first, tz);
     const booked = [], unavailable = [];
@@ -998,8 +1167,19 @@ router.post('/api/m/student/slots/book-recurring', requireToken, async (req, res
          ON CONFLICT (teacher_id, starts_at) WHERE status = 'booked' DO NOTHING
          RETURNING id`,
         [teacherId, iso, end.toISOString(), uid]);
-      if (ins.rows.length) booked.push({ id: ins.rows[0].id, starts_at: iso });
-      else unavailable.push({ starts_at: iso, reason: 'taken' });
+      if (!ins.rows.length) { unavailable.push({ starts_at: iso, reason: 'taken' }); continue; }
+      const slotId = ins.rows[0].id;
+      if (paid) {
+        const pkgId = await consumeCredit(pool, uid, teacherId, slotId);
+        if (!pkgId) {
+          // Plus de crédit : on annule ce créneau et on stoppe la série.
+          await pool.query('DELETE FROM teacher_slots WHERE id = $1', [slotId]);
+          unavailable.push({ starts_at: iso, reason: 'no_credits' });
+          break;
+        }
+        await pool.query(`UPDATE teacher_slots SET package_id = $1, payout_status = 'pending' WHERE id = $2`, [pkgId, slotId]);
+      }
+      booked.push({ id: slotId, starts_at: iso });
     }
     res.json({ ok: true, booked, unavailable, booked_count: booked.length, requested: weeks });
   } catch (e) { console.error('m/student slots book-recurring:', e); res.status(500).json({ error: 'Server error' }); }
@@ -1013,9 +1193,14 @@ router.post('/api/m/student/slots/:id/cancel', requireToken, async (req, res) =>
     if (!id) return res.status(400).json({ error: 'Invalid slot' });
     const { rows } = await pool.query(
       `DELETE FROM teacher_slots WHERE id = $1 AND student_id = $2 AND status = 'booked' AND starts_at > NOW()
-       RETURNING teacher_id, starts_at, note`,
+       RETURNING teacher_id, starts_at, note, package_id`,
       [id, uid]);
     if (!rows.length) return res.status(409).json({ error: 'Cannot cancel this booking' });
+    // Rail B : rend le crédit si ce créneau en avait consommé un.
+    if (rows[0].package_id) {
+      try { await refundCreditForSlot(pool, { package_id: rows[0].package_id, student_id: uid, id }); }
+      catch (e) { console.error('[rail-b] refund on cancel:', e.message); }
+    }
     // Prévient le prof (in-app 🔔 + push). Best-effort, ne bloque pas la réponse.
     try {
       const slot = rows[0];
@@ -1048,22 +1233,23 @@ router.post('/api/m/student/slots/:id/reschedule', requireToken, async (req, res
 
     await client.query('BEGIN');
     const cur = await client.query(
-      `SELECT teacher_id, starts_at, note FROM teacher_slots
+      `SELECT teacher_id, starts_at, note, package_id, payout_status FROM teacher_slots
         WHERE id = $1 AND student_id = $2 AND status = 'booked' AND starts_at > NOW() FOR UPDATE`,
       [id, uid]);
     if (!cur.rows.length) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Cannot reschedule this booking' }); }
-    const { teacher_id, note } = cur.rows[0];
+    const { teacher_id, note, package_id, payout_status } = cur.rows[0];
     const newIso = start.toISOString();
     if (new Date(cur.rows[0].starts_at).toISOString() === newIso) { await client.query('COMMIT'); return res.json({ ok: true, id, unchanged: true }); }
     if (!(await slotOpenForTeacher(teacher_id, start))) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Slot not available', taken: true }); }
 
     const end = new Date(start.getTime() + SLOT_MIN * 60000);
+    // Rail B : le crédit déjà consommé (package_id) suit le créneau déplacé.
     const ins = await client.query(
-      `INSERT INTO teacher_slots (teacher_id, starts_at, ends_at, student_id, status, note, booked_at)
-       VALUES ($1, $2, $3, $4, 'booked', $5, NOW())
+      `INSERT INTO teacher_slots (teacher_id, starts_at, ends_at, student_id, status, note, booked_at, package_id, payout_status)
+       VALUES ($1, $2, $3, $4, 'booked', $5, NOW(), $6, $7)
        ON CONFLICT (teacher_id, starts_at) WHERE status = 'booked' DO NOTHING
        RETURNING id`,
-      [teacher_id, newIso, end.toISOString(), uid, note || null]);
+      [teacher_id, newIso, end.toISOString(), uid, note || null, package_id || null, payout_status || null]);
     if (!ins.rows.length) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'Slot no longer available', taken: true }); }
     await client.query(`DELETE FROM teacher_slots WHERE id = $1 AND student_id = $2 AND status = 'booked'`, [id, uid]);
     await client.query('COMMIT');

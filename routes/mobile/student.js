@@ -6,7 +6,13 @@
 const crypto = require('crypto');
 const { pool } = require('../../config/database');
 const { SLOT_MIN, BOOKING_HORIZON_DAYS, validTz, deriveTeacherSlots } = require('../../lib/teacher-schedule');
-const { slotOpenForTeacher } = require('../../lib/teacher-slots');
+const { slotOpenForTeacher, studentLinkedToTeacher } = require('../../lib/teacher-slots');
+const { PACK_SIZES, MAX_CREDITS, PACKAGE_VALID_DAYS, teacherPaidEnabled, creditsBalance } = require('../../lib/lesson-credits');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+// Commission marketplace (miroir de routes/mobile.js TEACHER_COMMISSION). Figée
+// sur le package à l'achat. Free 15% / Pro 8%.
+const RAILB_COMMISSION = { free: 0.15, pro: 0.08 };
 
 // Génère un join_code unique (classrooms.join_code = NOT NULL + unique), y compris
 // pour les classes 1:1 auto-créées par « Join the teacher ». Miroir de
@@ -64,10 +70,13 @@ router.get('/api/m/mentors', requireToken, async (req, res) => {
                  WHERE c.teacher_id = u.id AND cs.status = 'active')::int AS student_count,
               (SELECT COUNT(l.id)
                  FROM lessons l JOIN classrooms c ON c.id = l.classroom_id
-                 WHERE c.teacher_id = u.id)::int AS task_count
+                 WHERE c.teacher_id = u.id)::int AS task_count,
+              EXISTS(SELECT 1 FROM classroom_students cs2 JOIN classrooms c2 ON c2.id = cs2.classroom_id
+                     WHERE c2.teacher_id = u.id AND cs2.student_id = $1 AND cs2.status = 'active') AS joined
        FROM users u
        WHERE u.role = 'teacher' AND u.mentor_listed = TRUE
-       ORDER BY student_count DESC, u.name ASC`
+       ORDER BY student_count DESC, u.name ASC`,
+      [req.tokenUser.id]
     );
     const mentors = rows.map((m) => {
       const links = Array.isArray(m.mentor_links) ? m.mentor_links : [];
@@ -78,6 +87,7 @@ router.get('/api/m/mentors', requireToken, async (req, res) => {
         session_currency: m.session_currency || 'EUR',
         years_experience: m.years_experience, mentor_bio: m.mentor_bio,
         student_count: m.student_count, task_count: m.task_count,
+        joined: m.joined === true,
         link: links[0] || null,
       };
     });
@@ -249,6 +259,85 @@ router.post('/api/m/mentors/:id/join', requireToken, async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+//  RAIL B — packages de cours payants (achat Stripe, EUR, plateforme encaisse).
+//  Le package/crédits sont créés au webhook (checkout.session.completed), pas ici.
+// ════════════════════════════════════════════════════════════════════════════
+
+// GET /api/m/student/mentors/:teacherId/credits : solde + tarif pour l'UI d'achat.
+router.get('/api/m/student/mentors/:teacherId/credits', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const teacherId = parseInt(req.params.teacherId, 10);
+    if (!teacherId) return res.status(400).json({ error: 'Invalid teacher' });
+    const { rows } = await pool.query(
+      "SELECT session_price, connect_payouts_enabled FROM users WHERE id = $1 AND role = 'teacher'", [teacherId]);
+    if (!rows.length) return res.status(404).json({ error: 'Teacher not found' });
+    const unitPrice = rows[0].session_price != null ? Number(rows[0].session_price) : null;
+    const paidEnabled = rows[0].connect_payouts_enabled === true && unitPrice != null && unitPrice > 0;
+    const balance = await creditsBalance(uid, teacherId);
+    const exp = await pool.query(
+      `SELECT MIN(expires_at) AS next FROM lesson_packages
+        WHERE student_id = $1 AND teacher_id = $2 AND status = 'active' AND credits_left > 0 AND expires_at > NOW()`,
+      [uid, teacherId]);
+    res.json({ paidEnabled, unitPrice, currency: 'EUR', balance, packSizes: PACK_SIZES, nextExpiry: exp.rows[0]?.next || null });
+  } catch (e) { console.error('m/student credits:', e); res.status(500).json({ error: 'Server error' }); }
+});
+
+// POST /api/m/student/mentors/:teacherId/packages/checkout : { credits, returnUrl } → { url }
+router.post('/api/m/student/mentors/:teacherId/packages/checkout', requireToken, async (req, res) => {
+  try {
+    const uid = req.tokenUser.id;
+    const teacherId = parseInt(req.params.teacherId, 10);
+    const credits = parseInt(req.body?.credits, 10);
+    if (!teacherId) return res.status(400).json({ error: 'Invalid teacher' });
+    if (!PACK_SIZES.includes(credits) || credits > MAX_CREDITS) return res.status(400).json({ error: 'Invalid pack size' });
+    if (!(await studentLinkedToTeacher(uid, teacherId))) {
+      return res.status(403).json({ error: 'Join the teacher before buying lessons.', needJoin: true });
+    }
+    const t = await pool.query(
+      "SELECT name, session_price, connect_payouts_enabled FROM users WHERE id = $1 AND role = 'teacher'", [teacherId]);
+    if (!t.rows.length) return res.status(404).json({ error: 'Teacher not found' });
+    const unitPrice = t.rows[0].session_price != null ? Number(t.rows[0].session_price) : null;
+    if (t.rows[0].connect_payouts_enabled !== true || !unitPrice || unitPrice <= 0) {
+      return res.status(409).json({ error: 'This teacher is not set up for paid lessons yet.' });
+    }
+    const pro = await isTeacherPro(teacherId);
+    const commission = pro ? RAILB_COMMISSION.pro : RAILB_COMMISSION.free;
+    const amountCents = Math.round(unitPrice * credits * 100);
+
+    const ALLOWED = ['https://app.jiayou.fr', 'https://jiayou.fr', 'http://localhost:8081'];
+    const raw = String(req.body?.returnUrl || '').replace(/\/+$/, '');
+    const base = ALLOWED.includes(raw) ? raw : (process.env.BASE_URL || 'https://app.jiayou.fr');
+
+    const { rows: me } = await pool.query('SELECT email FROM users WHERE id = $1', [uid]);
+    const teacherName = (t.rows[0].name || 'teacher').slice(0, 60);
+    const meta = {
+      planName: 'lesson_package', studentId: String(uid), teacherId: String(teacherId),
+      credits: String(credits), unitPrice: String(unitPrice), commissionRate: String(commission),
+      validDays: String(PACKAGE_VALID_DAYS),
+    };
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [{
+        quantity: 1,
+        price_data: {
+          currency: 'eur',
+          unit_amount: amountCents,
+          product_data: { name: `${credits} lesson${credits > 1 ? 's' : ''} with ${teacherName}` },
+        },
+      }],
+      success_url: `${base}/?lesson_pack=success&teacher=${teacherId}`,
+      cancel_url: `${base}/?lesson_pack=cancel&teacher=${teacherId}`,
+      customer_email: me[0]?.email || undefined,
+      metadata: meta,
+      payment_intent_data: { metadata: meta },
+    });
+    res.json({ url: session.url });
+  } catch (e) { console.error('m/student packages checkout:', e.message); res.status(500).json({ error: 'Could not start checkout' }); }
 });
 
 // ── GET /api/m/student/classes : mentors rejoints + tasks en cours ───────────

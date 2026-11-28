@@ -522,6 +522,66 @@ const pool = new Pool({
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS timezone TEXT`); // fuseau IANA du prof (ex. Asia/Shanghai)
     console.log("✅ Colonnes profil prof (years_experience/languages_spoken/mentor_links/teaching_languages/session_price/presentation_video) vérifiées.");
 
+    // ── Migration: Rail B (cours payants) — Stripe Connect + durée de cours ────
+    // Compte Stripe Connect Express du prof (payouts) + flags miroir du statut
+    // renvoyé par Stripe (accounts.retrieve). lesson_duration_min = durée d'un
+    // cours payant (pour le futur achat de package élève). Prod, additif.
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_connect_id TEXT`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS connect_payouts_enabled BOOLEAN NOT NULL DEFAULT FALSE`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS connect_details_submitted BOOLEAN NOT NULL DEFAULT FALSE`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS lesson_duration_min SMALLINT`);
+    console.log("✅ Colonnes Rail B (stripe_connect_id/connect_payouts_enabled/connect_details_submitted/lesson_duration_min) vérifiées.");
+
+    // ── Entitlement Teacher Pro (abonnement prof) — miroir de rc_expires_at ────
+    // Ajoutées historiquement à la main en prod ; codifiées ici pour que toute DB
+    // (branche dev, DB fraîche) les possède. /api/m/me et isTeacherPro en dépendent.
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS teacher_pro_expires_at TIMESTAMPTZ`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS teacher_pro_will_renew BOOLEAN NOT NULL DEFAULT FALSE`);
+    console.log("✅ Colonnes Teacher Pro (teacher_pro_expires_at/teacher_pro_will_renew) vérifiées.");
+
+    // ── Rail B / Phase 2 : packages de cours payants + ledger de crédits ──────
+    // L'élève achète N crédits (cours) chez un prof (paiement unique Stripe, EUR,
+    // encaissé par la plateforme). Réserver un cours payant consomme 1 crédit.
+    // Reversement au prof (escrow) = Phase 3. Prix/commission figés à l'achat.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lesson_packages (
+        id SERIAL PRIMARY KEY,
+        student_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        teacher_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        credits_total INT NOT NULL,
+        credits_left INT NOT NULL,
+        unit_price NUMERIC(8,2) NOT NULL,
+        currency VARCHAR(3) NOT NULL DEFAULT 'EUR',
+        commission_rate NUMERIC(4,3) NOT NULL,
+        status VARCHAR(16) NOT NULL DEFAULT 'active',  -- active | expired | refunded
+        stripe_checkout_session_id TEXT,
+        stripe_payment_intent_id TEXT,
+        paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_lesson_packages_student_teacher ON lesson_packages(student_id, teacher_id, status)`);
+    // Idempotence webhook : une session Checkout ne crée qu'un package.
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_lesson_packages_session ON lesson_packages(stripe_checkout_session_id) WHERE stripe_checkout_session_id IS NOT NULL`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS lesson_credits_ledger (
+        id SERIAL PRIMARY KEY,
+        package_id INT NOT NULL REFERENCES lesson_packages(id) ON DELETE CASCADE,
+        student_id INT NOT NULL,
+        delta INT NOT NULL,
+        reason VARCHAR(16) NOT NULL,  -- purchase | consume | refund | expire
+        slot_id INT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_credits_ledger_package ON lesson_credits_ledger(package_id)`);
+    // Lien slot → package consommé (+ futur payout escrow en Phase 3).
+    await pool.query(`ALTER TABLE teacher_slots ADD COLUMN IF NOT EXISTS package_id INT`);
+    await pool.query(`ALTER TABLE teacher_slots ADD COLUMN IF NOT EXISTS payout_status VARCHAR(16)`);
+    await pool.query(`ALTER TABLE teacher_slots ADD COLUMN IF NOT EXISTS stripe_transfer_id TEXT`);
+    console.log("✅ Rail B Phase 2 (lesson_packages / lesson_credits_ledger / teacher_slots.package_id) vérifiés.");
+
     // ── Migration: parrainage (referral) ──────────────────────────────────────
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(12)`);
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS users_referral_code_key ON users(referral_code) WHERE referral_code IS NOT NULL`);

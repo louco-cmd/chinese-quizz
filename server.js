@@ -31,6 +31,7 @@ const { sendPasswordResetEmail, sendVerificationEmail, sendReengagementEmail } =
 const { initVapid, sendPushToUser, sendExpoPush } = require('./middleware/push.service');
 initVapid();
 const cron = require('node-cron');
+const { processDuePayouts } = require('./lib/payouts'); // Rail B Phase 3 : reversement escrow
 require('dotenv').config();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
@@ -1754,6 +1755,8 @@ async function handleCheckoutSessionCompleted(session) {
 
     // Abonnement PROF (teacher_pro) → entitlement + colonnes dédiés, pas premium.
     if (session.metadata?.planName === 'teacher_pro') return handleTeacherProCheckout(session);
+    // Achat d'un package de cours payants (Rail B) → crédits, pas d'abonnement.
+    if (session.metadata?.planName === 'lesson_package') return handleLessonPackageCheckout(session);
 
     // ── Résolution FIABLE de l'utilisateur ──────────────────────────────────
     // `metadata.userId` (posé par nos endpoints create-checkout) EN PRIORITÉ.
@@ -1811,6 +1814,43 @@ async function handleCheckoutSessionCompleted(session) {
   } catch (error) {
     console.error('❌ Erreur handleCheckoutSessionCompleted:', error);
   }
+}
+
+// ==========================================
+// 🎟️ RAIL B — achat d'un package de cours payants (crédits élève)
+// ==========================================
+// Crée le package + le crédit d'ouverture. Idempotent via l'index unique sur
+// stripe_checkout_session_id (ON CONFLICT DO NOTHING). Prix/commission figés à l'achat.
+async function handleLessonPackageCheckout(session) {
+  try {
+    const m = session.metadata || {};
+    const studentId = parseInt(m.studentId, 10);
+    const teacherId = parseInt(m.teacherId, 10);
+    const credits = parseInt(m.credits, 10);
+    const unitPrice = parseFloat(m.unitPrice);
+    const commissionRate = parseFloat(m.commissionRate);
+    const validDays = parseInt(m.validDays, 10) || 30;
+    if (!studentId || !teacherId || !credits || !(unitPrice >= 0) || !(commissionRate >= 0)) {
+      console.error('🚨 [lesson_pack] metadata incomplète', session.id, m);
+      return;
+    }
+    const paymentIntentId = typeof session.payment_intent === 'string'
+      ? session.payment_intent : (session.payment_intent?.id || null);
+    const ins = await pool.query(
+      `INSERT INTO lesson_packages
+         (student_id, teacher_id, credits_total, credits_left, unit_price, currency, commission_rate,
+          status, stripe_checkout_session_id, stripe_payment_intent_id, paid_at, expires_at)
+       VALUES ($1,$2,$3,$3,$4,'EUR',$5,'active',$6,$7, NOW(), NOW() + make_interval(days => $8))
+       ON CONFLICT (stripe_checkout_session_id) WHERE stripe_checkout_session_id IS NOT NULL DO NOTHING
+       RETURNING id`,
+      [studentId, teacherId, credits, unitPrice, commissionRate, session.id, paymentIntentId, validDays]);
+    if (!ins.rows.length) { console.log('↩️ [lesson_pack] déjà traité', session.id); return; }
+    const pkgId = ins.rows[0].id;
+    await pool.query(
+      `INSERT INTO lesson_credits_ledger (package_id, student_id, delta, reason) VALUES ($1,$2,$3,'purchase')`,
+      [pkgId, studentId, credits]);
+    console.log('✅ [lesson_pack] package', pkgId, '=', credits, 'crédits · student', studentId, '→ teacher', teacherId);
+  } catch (e) { console.error('❌ handleLessonPackageCheckout:', e); }
 }
 
 // ==========================================
@@ -2435,6 +2475,14 @@ const DUEL_EXPIRED_COPY = {
   zh: { title: '对战已过期 ⌛', body: (o, bet) => bet > 0 ? `你和 ${o} 的对战已过期——你们都失去了 ${bet} 枚金币的赌注。` : `你和 ${o} 的对战已过期。` },
 };
 const nameOr = (n) => n || 'your opponent';
+
+// ── RAIL B Phase 3 : reversement escrow des cours payants terminés (horaire) ──
+// Transfère au prof sa part (prix × (1 − commission)) pour chaque cours payant
+// passé où il s'est présenté (reward_given). Idempotent, retries automatiques.
+cron.schedule('15 * * * *', async () => {
+  try { await processDuePayouts(); }
+  catch (e) { console.error('[payouts cron]', e.message); }
+});
 
 cron.schedule('0 17 * * *', async () => {
   try {

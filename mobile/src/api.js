@@ -258,6 +258,11 @@ export function teacherStudentClassContext(studentId) { return request(`/api/m/t
 export function teacherStudents() { return request('/api/m/teacher/students'); }
 export function teacherGetProfile() { return request('/api/m/teacher/profile'); }
 export function teacherSaveProfile(payload) { return request('/api/m/teacher/profile', { method: 'POST', body: payload }); }
+// Rail B : onboarding Stripe Connect (payouts prof) + statut.
+export function teacherConnectOnboard(returnUrl) { return request('/api/m/teacher/connect/onboard', { method: 'POST', body: { returnUrl } }); }
+export function teacherConnectStatus() { return request('/api/m/teacher/connect/status'); }
+// Rail B Phase 3 : gains du prof (reversés + à venir).
+export function teacherEarnings() { return request('/api/m/teacher/earnings'); }
 
 // Onboarding : sauve le profil (rôle, nom, pays, direction, langue) + marque fini.
 // `ref` optionnel = code de parrainage capté côté client.
@@ -710,6 +715,14 @@ export function getStudentSlots(teacherId) {
 }
 export function bookSlot(teacherId, startsAt) {
   return request('/api/m/student/slots/book', { method: 'POST', body: { teacher_id: teacherId, starts_at: startsAt } });
+}
+// Rail B : solde de crédits de cours payants + tarif chez un prof.
+export function getTeacherCredits(teacherId) {
+  return request(`/api/m/student/mentors/${teacherId}/credits`);
+}
+// Rail B : achète un pack de N cours (Stripe Checkout) → { url }.
+export function buyLessonPackage(teacherId, credits, returnUrl) {
+  return request(`/api/m/student/mentors/${teacherId}/packages/checkout`, { method: 'POST', body: { credits, returnUrl } });
 }
 // Créneaux hebdo libres sur toute la durée (pour l'onglet « Recurring classes »).
 export function getRecurringSlots(teacherId, weeks) {

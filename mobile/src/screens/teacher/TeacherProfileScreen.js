@@ -1,17 +1,35 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TextInput, Pressable, Platform, useWindowDimensions } from 'react-native';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, ScrollView, TextInput, Pressable, Platform, Linking, AppState, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toggle from '../../ui/Toggle';
 import { ErrorRetry } from '../../components/ErrorRetry';
 import MentorCard from '../../components/teachers/MentorCard';
 import MentorFilters from '../../components/teachers/MentorFilters';
-import { teacherGetProfile, teacherSaveProfile, getMentors, getTeacherStats } from '../../api';
-import { Modal, Button } from '../../ui';
+import { teacherGetProfile, teacherSaveProfile, getMentors, getTeacherStats, teacherConnectOnboard, teacherConnectStatus, teacherEarnings } from '../../api';
+import { Button } from '../../ui';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SHADOW_CARD } from '../../theme';
 import CatLoader from '../../components/CatLoader';
 
-const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'CNY', 'JPY', 'CAD', 'AUD', 'SGD', 'HKD'];
+// Empreinte normalisée du formulaire → pour détecter une modif (dirty).
+function snapOf(v) {
+  return JSON.stringify({
+    name: (v.name || '').trim(), bio: (v.bio || '').trim(), years: String(v.years || ''),
+    langs: (v.langs || '').trim(), teach: [...(v.teach || [])].sort(),
+    price: String(v.price || ''), duration: v.duration || 60,
+    links: (v.links || []).map((l) => ({ label: (l.label || '').trim(), url: (l.url || '').trim() })),
+    video: (v.video || '').trim(), listed: !!v.listed,
+  });
+}
+
 const TEACH_LANGS = ['English', 'Chinese'];
+const DURATIONS = [30, 45, 60, 90]; // minutes d'un cours payant (Rail B)
+// Origine de retour Stripe (allowlistée côté serveur). En web dev → localhost:8081,
+// sinon l'app web de prod. Le natif repasse par AppState pour re-checker.
+function returnOrigin() {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) return window.location.origin;
+  return 'https://app.jiayou.fr';
+}
 const inputCls = 'bg-surface-page border border-line rounded-xl px-3.5 h-12 text-[15px] text-ink';
 
 function Card({ children }) {
@@ -77,7 +95,12 @@ export default function TeacherProfileScreen() {
   const { width, height } = useWindowDimensions();
   const isDesktop = width >= 992;
   // Hauteur dispo pour le téléphone = écran − (offset sticky + bouton Publish + marges).
-  const phoneH = Math.max(380, Math.min(PHONE_H, height - 16 - 56 - 24 - 16));
+  // Hauteur réelle de la zone scrollable (entre header et footer), mesurée au layout.
+  const [vpH, setVpH] = useState(0);
+  const vp = vpH || height;
+  const phoneH = Math.max(360, Math.min(PHONE_H, vp - 32));
+  // Offset sticky → centre le téléphone dans cette zone (pas dans la fenêtre entière).
+  const stickyTop = Math.max(16, Math.round((vp - phoneH) / 2));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -89,13 +112,16 @@ export default function TeacherProfileScreen() {
   const [langs, setLangs] = useState('');
   const [teach, setTeach] = useState([]);
   const [price, setPrice] = useState('');
-  const [currency, setCurrency] = useState('EUR');
   const [links, setLinks] = useState([]);
   const [video, setVideo] = useState('');
   const [listed, setListed] = useState(false);
-  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [duration, setDuration] = useState(60);      // durée d'un cours payant (min)
+  const [payouts, setPayouts] = useState(null);      // { connected, payoutsEnabled, detailsSubmitted, ready }
+  const [earnings, setEarnings] = useState(null);    // { paidTotal, pendingTotal, ... } (Rail B Phase 3)
+  const [connectBusy, setConnectBusy] = useState(false);
   const [others, setOthers] = useState([]); // autres mentors pour la preview
   const [stats, setStats] = useState(null);  // { students, courses_given, rating, rating_count }
+  const pristineRef = useRef('');            // empreinte du profil chargé → détecte les modifs
 
   const load = useCallback(async () => {
     setError('');
@@ -107,10 +133,22 @@ export default function TeacherProfileScreen() {
       setLangs(profile.languages_spoken || '');
       setTeach((profile.teaching_languages || '').split(',').map((s) => s.trim()).filter(Boolean));
       setPrice(profile.session_price == null ? '' : String(profile.session_price));
-      setCurrency(profile.session_currency || 'EUR');
+      setDuration(DURATIONS.includes(profile.lesson_duration_min) ? profile.lesson_duration_min : 60);
+      setPayouts(profile.payouts || null);
       setLinks(Array.isArray(profile.mentor_links) ? profile.mentor_links : []);
       setVideo(profile.presentation_video || '');
       setListed(!!profile.mentor_listed);
+      // Empreinte de référence : état « propre » juste après chargement.
+      pristineRef.current = snapOf({
+        name: profile.name || '', bio: profile.mentor_bio || '',
+        years: profile.years_experience == null ? '' : String(profile.years_experience),
+        langs: profile.languages_spoken || '',
+        teach: (profile.teaching_languages || '').split(',').map((s) => s.trim()).filter(Boolean),
+        price: profile.session_price == null ? '' : String(profile.session_price),
+        duration: DURATIONS.includes(profile.lesson_duration_min) ? profile.lesson_duration_min : 60,
+        links: Array.isArray(profile.mentor_links) ? profile.mentor_links : [],
+        video: profile.presentation_video || '', listed: !!profile.mentor_listed,
+      });
       // Preview : quelques autres mentors de l'annuaire (hors soi).
       try {
         const md = await getMentors();
@@ -118,6 +156,7 @@ export default function TeacherProfileScreen() {
         setOthers(list);
       } catch { /* preview facultative */ }
       try { setStats(await getTeacherStats()); } catch { /* stats facultatives */ }
+      try { const { earnings: e } = await teacherEarnings(); setEarnings(e); } catch { /* gains facultatifs */ }
     } catch (e) { setError(e.message); } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -132,13 +171,40 @@ export default function TeacherProfileScreen() {
       await teacherSaveProfile({
         name: name.trim(), bio: bio.trim(), languages: langs.trim(),
         years_experience: years, teaching_languages: teach,
-        session_price: price, session_currency: currency,
+        session_price: price, session_currency: 'EUR',
+        lesson_duration_min: duration,
         links: links.filter((l) => (l.url || '').trim()), mentor_listed: listed,
         presentation_video: video.trim(),
       });
+      pristineRef.current = snapOf({ name, bio, years, langs, teach, price, duration, links, video, listed });
       setSaved(true); setTimeout(() => setSaved(false), 1600);
     } catch (e) { setError(e.message); } finally { setSaving(false); }
   }
+
+  // ── Rail B : onboarding Stripe Connect (payouts) ───────────────────────────
+  const refreshPayouts = useCallback(async () => {
+    try { const { status } = await teacherConnectStatus(); setPayouts(status); } catch { /* silencieux */ }
+  }, []);
+
+  async function startConnect() {
+    setConnectBusy(true); setError('');
+    try {
+      const { url } = await teacherConnectOnboard(returnOrigin());
+      await Linking.openURL(url);
+    } catch (e) { setError(e.message || 'Could not start payout setup'); }
+    finally { setConnectBusy(false); }
+  }
+
+  // Re-vérifie le statut quand l'app revient au premier plan (retour du navigateur
+  // Stripe), tant que les payouts ne sont pas encore prêts.
+  const payoutsRef = useRef(payouts);
+  payoutsRef.current = payouts;
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active' && payoutsRef.current && !payoutsRef.current.ready) refreshPayouts();
+    });
+    return () => sub.remove();
+  }, [refreshPayouts]);
 
   if (loading) return <View className="flex-1 items-center justify-center bg-surface-page"><CatLoader size={110} /></View>;
   if (error && !name) return <View className="flex-1 bg-surface-page"><ErrorRetry error={error} onRetry={load} /></View>;
@@ -152,15 +218,27 @@ export default function TeacherProfileScreen() {
     languages_spoken: langs,
     mentor_bio: bio,
     session_price: price ? Number(price) : null,
-    session_currency: currency,
+    session_currency: 'EUR',
     student_count: 0,
     task_count: 0,
     years_experience: years ? Number(years) : null,
     link: firstLink ? { label: firstLink.label || 'Contact', url: firstLink.url } : null,
   };
 
-  const saveBtn = (
-    <Button onPress={save} loading={saving} size="lg" fullWidth title={saved ? 'Published ✓' : 'Publish changes'} />
+  // Modifié depuis le chargement ? → n'affiche Publish qu'en cas de vraie modif.
+  const dirty = snapOf({ name, bio, years, langs, teach, price, duration, links, video, listed }) !== pristineRef.current;
+
+  // Publish sur un voile dégradé (transparent → fond de page) pour masquer ce qui
+  // scrolle derrière. Rendu seulement si `dirty`.
+  const publishBar = !dirty ? null : (
+    <View style={{ paddingTop: 28, paddingBottom: 12, paddingHorizontal: 2 }}>
+      <LinearGradient
+        colors={['rgba(248,249,250,0)', COLORS.page]}
+        style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}
+        pointerEvents="none"
+      />
+      <Button onPress={save} loading={saving} size="lg" fullWidth title={saved ? 'Published ✓' : 'Publish changes'} />
+    </View>
   );
 
   const form = (
@@ -201,20 +279,62 @@ export default function TeacherProfileScreen() {
             );
           })}
         </View>
-        <Label>Price per session</Label>
-        <View className="flex-row gap-2 items-center">
-          <Pressable onPress={() => setCurrencyOpen(true)} className="flex-row items-center justify-between bg-surface-page border border-line rounded-xl px-3 h-12" style={{ width: 96 }}>
-            <Text className="text-ink text-[14px] font-semibold">{currency}</Text>
-            <Ionicons name="chevron-down" size={16} color={COLORS.muted} />
-          </Pressable>
-          <TextInput value={price} onChangeText={(t) => setPrice(t.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="e.g. 25" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputCls}`} />
-        </View>
-        <Text className="text-muted-light text-[12px] mt-2">Indicative price for one lesson. Leave empty to hide it.</Text>
-
-        <View className="h-px bg-line-soft my-4" />
         <Label>Presentation video</Label>
         <TextInput value={video} onChangeText={setVideo} autoCapitalize="none" placeholder="https://youtube.com/… · bilibili.com/… · vimeo.com/…" placeholderTextColor={COLORS.mutedLight} className={inputCls} />
         <Text className="text-muted-light text-[12px] mt-2">YouTube, Bilibili or Vimeo (https). Shown as a player on your public profile.</Text>
+      </Card>
+
+      <Card>
+        <Text className="text-ink font-extrabold text-[18px] mb-1">Paid lessons</Text>
+        <Text className="text-muted text-[12.5px] mb-4">Get paid for lessons directly in the app. Students buy lesson credits; you receive your share after each completed lesson.</Text>
+
+        <Label>Price per hour</Label>
+        <View className="flex-row gap-2 items-center">
+          <View className="flex-row items-center justify-center bg-surface-page border border-line rounded-xl px-3 h-12" style={{ width: 56 }}>
+            <Text className="text-ink text-[16px] font-semibold">€</Text>
+          </View>
+          <TextInput value={price} onChangeText={(t) => setPrice(t.replace(/[^0-9.]/g, ''))} keyboardType="decimal-pad" placeholder="e.g. 25" placeholderTextColor={COLORS.mutedLight} className={`flex-1 ${inputCls}`} />
+        </View>
+        <Text className="text-muted-light text-[12px] mt-2">What a student pays for one 1-hour lesson. Leave empty to hide it.</Text>
+
+        <View className="h-px bg-line-soft my-4" />
+        <Label>Payouts</Label>
+        {payouts && payouts.ready ? (
+          <View>
+            <View className="flex-row items-center gap-2 bg-surface-page border border-line-soft rounded-xl px-3.5 py-3">
+              <Ionicons name="checkmark-circle" size={20} color={COLORS.jiayou} />
+              <Text className="text-ink text-[14px] font-semibold flex-1">Payouts enabled — you can receive payments.</Text>
+            </View>
+            {earnings ? (
+              <View className="flex-row gap-2.5 mt-2.5">
+                <View className="flex-1 items-center bg-surface-page border border-line-soft rounded-xl py-3">
+                  <Text className="text-ink font-extrabold text-[18px]">{`€${(earnings.paidTotal || 0).toFixed(2)}`}</Text>
+                  <Text className="text-muted-light text-[11px] uppercase tracking-wide mt-0.5">Earned</Text>
+                </View>
+                <View className="flex-1 items-center bg-surface-page border border-line-soft rounded-xl py-3">
+                  <Text className="text-ink font-extrabold text-[18px]">{`€${(earnings.pendingTotal || 0).toFixed(2)}`}</Text>
+                  <Text className="text-muted-light text-[11px] uppercase tracking-wide mt-0.5">Upcoming</Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+        ) : payouts && payouts.connected ? (
+          <View>
+            <View className="flex-row items-center gap-2 mb-2.5">
+              <Ionicons name="time" size={18} color={COLORS.warning || '#f5b301'} />
+              <Text className="text-muted text-[13px] flex-1">Setup not finished yet. Complete it to receive payments.</Text>
+            </View>
+            <Button onPress={startConnect} loading={connectBusy} variant="secondary" fullWidth title="Finish payout setup" />
+            <Pressable onPress={refreshPayouts} hitSlop={6} className="self-center mt-2.5">
+              <Text className="text-jiayou text-[13px] font-semibold">Refresh status</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View>
+            <Text className="text-muted-light text-[12px] mb-2.5">Connect a Stripe account to get paid. Takes ~2 minutes.</Text>
+            <Button onPress={startConnect} loading={connectBusy} fullWidth title="Set up payouts" />
+          </View>
+        )}
       </Card>
 
       <Card>
@@ -243,37 +363,38 @@ export default function TeacherProfileScreen() {
       </Card>
 
       {error ? <Text className="text-danger text-[13px] font-semibold mb-2">{error}</Text> : null}
-      {!isDesktop ? saveBtn : null}
     </>
   );
 
   return (
     <View className="flex-1 bg-surface-page">
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      <ScrollView onLayout={(e) => setVpH(e.nativeEvent.layout.height)} contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
         <View style={{ width: '100%', maxWidth: isDesktop ? 1000 : 560, alignSelf: 'center' }}>
           {isDesktop ? (
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: 36 }}>
-              <View style={{ flex: 1, maxWidth: 600 }}>{form}</View>
-              {/* Colonne droite STICKY : téléphone + Publish */}
-              <View style={[{ width: PHONE_W }, Platform.OS === 'web' ? { position: 'sticky', top: 16 } : null]}>
+              <View style={{ flex: 1, maxWidth: 600 }}>
+                {form}
+                {/* Publish ancré en bas de la colonne gauche (sticky bottom sur web),
+                    sur un voile dégradé, visible seulement si modif. */}
+                {publishBar ? (
+                  <View style={Platform.OS === 'web' ? { position: 'sticky', bottom: 0, zIndex: 5 } : null}>{publishBar}</View>
+                ) : null}
+              </View>
+              {/* Colonne droite : téléphone centré verticalement, non-interactif
+                  (pas de capture de scroll). */}
+              <View pointerEvents="none" style={[{ width: PHONE_W }, Platform.OS === 'web' ? { position: 'sticky', top: stickyTop } : null]}>
                 <PhonePreview mentor={previewMentor} others={others} height={phoneH} />
-                <View className="mt-4">{saveBtn}</View>
               </View>
             </View>
           ) : form}
         </View>
       </ScrollView>
 
-      <Modal visible={currencyOpen} onClose={() => setCurrencyOpen(false)} maxWidth={300}>
-        <Text className="text-[16px] font-bold text-ink mb-2">Currency</Text>
-        {CURRENCIES.map((c, i) => (
-          <Pressable key={c} onPress={() => { setCurrency(c); setCurrencyOpen(false); }}
-            className={`flex-row items-center justify-between py-3 ${i === CURRENCIES.length - 1 ? '' : 'border-b border-line-soft'}`}>
-            <Text className={`text-[15px] ${currency === c ? 'text-jiayou font-bold' : 'text-ink'}`}>{c}</Text>
-            {currency === c ? <Ionicons name="checkmark" size={18} color={COLORS.jiayou} /> : null}
-          </Pressable>
-        ))}
-      </Modal>
+      {/* Mobile : barre Publish collée en bas de l'écran (au-dessus de la tab bar),
+          visible seulement si modif. */}
+      {!isDesktop && publishBar ? (
+        <View className="px-4">{publishBar}</View>
+      ) : null}
     </View>
   );
 }

@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, Linking, Alert, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, ScrollView, Pressable, Linking, Alert, AppState, useWindowDimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
 import BottomSheet from '../ui/BottomSheet';
-import { getMentor, getMentorSlots, bookTrial, bookSlot, joinTeacher } from '../api';
+import { getMentor, getMentorSlots, bookTrial, bookSlot, joinTeacher, getTeacherCredits } from '../api';
 import { Button } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
+import BuyLessonsSheet from '../components/teachers/BuyLessonsSheet';
 
 const CURRENCY = { EUR: '€', USD: '$', GBP: '£', CHF: 'CHF', CNY: '¥', JPY: '¥', CAD: 'C$', AUD: 'A$', SGD: 'S$', HKD: 'HK$' };
 function money(p, c) {
@@ -68,8 +69,11 @@ function StatTile({ icon, value, label, accent }) {
 
 // Popup de réservation d'essai : créneaux du prof affichés dans le fuseau de l'ÉLÈVE
 // (le device formate les instants UTC en heure locale), groupés par jour.
-function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked, mode = 'trial' }) {
+function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked, onNeedCredits, credits, onBuy, mode = 'trial' }) {
   const isTrial = mode === 'trial';
+  const paidLesson = !isTrial && credits?.paidEnabled;
+  const balance = credits?.balance || 0;
+  const noCredits = paidLesson && balance <= 0;
   const [state, setState] = useState(null); // { slots, timezone, teacher_name }
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(null);
@@ -102,27 +106,43 @@ function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked, m
       Alert.alert('', isTrial ? "Trial booked! You'll find it in your upcoming sessions."
         : "Lesson booked! You'll find it in your upcoming sessions.");
     } catch (e) {
-      const msg = (e.already || /already/i.test(e.message || '')) ? 'You already have an upcoming lesson with this teacher.'
-        : e.taken ? 'This slot was just taken — pick another.' : (e.message || 'Error');
+      if (e.data?.needCredits) {
+        setSelected(null); onClose?.();
+        Alert.alert('', 'You have no lesson credits left. Buy lessons to book.');
+        onNeedCredits?.();
+        return;
+      }
+      const taken = e.data?.taken || e.taken;
+      const already = e.data?.already || e.already;
+      const msg = (already || /already/i.test(e.message || '')) ? 'You already have an upcoming lesson with this teacher.'
+        : taken ? 'This slot was just taken — pick another.' : (e.message || 'Error');
       Alert.alert('', msg); setSelected(null); reload();
     } finally { setBusy(null); }
   }
 
   const fmtDay = (d) => d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  const fmtDayShort = (d) => d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
   const fmtTime = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
-  // En-tête mentor commun aux deux étapes : avatar + nom + badge essai gratuit.
+  // En-tête épuré : avatar à gauche + nom + pastille (crédits ou essai) + fuseau.
   const name = mentorName || state?.teacher_name || 'Teacher';
+  const pill = isTrial ? 'Free trial' : (paidLesson ? `${balance} lesson${balance !== 1 ? 's' : ''}` : null);
   const MentorHeader = (
-    <View style={{ alignItems: 'center', marginBottom: 20 }}>
-      <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 19 }}>{initials(name)}</Text>
+    <View style={{ marginBottom: 18 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 18 }}>{initials(name)}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 22, fontWeight: '800', color: '#1a1a2e' }} numberOfLines={1}>{name}</Text>
+          {pill ? (
+            <View style={{ alignSelf: 'flex-start', backgroundColor: COLORS.jiayouSoft, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 4, marginTop: 5 }}>
+              <Text style={{ color: COLORS.jiayou, fontSize: 12.5, fontWeight: '800' }}>{pill}</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
-      <Text style={{ fontSize: 18, fontWeight: '800', color: '#1a1a2e', marginTop: 10, textAlign: 'center' }}>{name}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: COLORS.jiayouSoft, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, marginTop: 8 }}>
-        <Ionicons name={isTrial ? 'gift' : 'videocam'} size={12} color={COLORS.jiayou} />
-        <Text style={{ color: COLORS.jiayou, fontSize: 12, fontWeight: '800' }}>{isTrial ? 'Free trial · 1 hour' : 'Lesson · 1 hour'}</Text>
-      </View>
+      {localTz ? <Text style={{ fontSize: 13, color: '#8a93a5', marginTop: 14 }}>Time zone - {localTz}</Text> : null}
     </View>
   );
 
@@ -138,12 +158,6 @@ function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked, m
           <Text style={{ fontSize: 24, fontWeight: '800', color: COLORS.jiayou, marginTop: 2 }}>{fmtTime(selected.starts_at)}</Text>
           {localTz ? <Text style={{ fontSize: 11.5, color: COLORS.muted, marginTop: 4 }}>{localTz}</Text> : null}
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 16 }}>
-          <Ionicons name="videocam-outline" size={15} color={COLORS.mutedLight} style={{ marginTop: 1 }} />
-          <Text style={{ flex: 1, fontSize: 13, color: COLORS.muted, lineHeight: 19 }}>
-            The video link will appear in your upcoming sessions once confirmed.
-          </Text>
-        </View>
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
           <Button title="Back" variant="outline" onPress={() => setSelected(null)} style={{ flex: 1, justifyContent: 'center' }} />
           <Button title="Confirm booking" icon="checkmark-circle" loading={!!busy} onPress={confirm} style={{ flex: 2, justifyContent: 'center' }} />
@@ -155,12 +169,15 @@ function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked, m
   return (
     <BottomSheet visible={visible} onClose={onClose} maxHeightRatio={0.88}>
       {MentorHeader}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 2 }}>
-        <Ionicons name="time-outline" size={15} color="#1a1a2e" />
-        <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e' }}>Pick a time</Text>
-      </View>
-      {localTz ? <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, textAlign: 'center', marginTop: 2 }}>Shown in your timezone · {localTz}</Text> : null}
-      <View style={{ marginTop: 14 }}>
+      {noCredits ? (
+        <View style={{ marginBottom: 6, backgroundColor: '#fdeef0', borderRadius: 14, padding: 16, alignItems: 'center' }}>
+          <Text style={{ fontSize: 13, color: '#c0392b', fontWeight: '700', textAlign: 'center', marginBottom: 12 }}>
+            You need a credit to book a class.
+          </Text>
+          <Button icon="card" title="Buy credits to book a class" fullWidth onPress={() => { onClose?.(); onBuy?.(); }} />
+        </View>
+      ) : null}
+      <View>
         {err ? <ErrorRetry error={err} onRetry={reload} />
           : !state ? <View style={{ paddingVertical: 30, alignItems: 'center' }}><CatLoader size={80} /></View>
             : groups.length === 0 ? (
@@ -172,14 +189,14 @@ function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked, m
               : (
                 <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
                   {groups.map((g, i) => (
-                    <View key={i} style={{ marginBottom: 16 }}>
-                      <Text style={{ fontSize: 12.5, fontWeight: '800', color: COLORS.mutedLight, marginBottom: 9, textTransform: 'uppercase', letterSpacing: 0.4 }}>{fmtDay(g.date)}</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    <View key={i} style={{ marginBottom: 18 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e', marginBottom: 10 }}>{fmtDayShort(g.date)}</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
                         {g.items.map((s) => (
-                          <Pressable key={s.starts_at} onPress={() => setSelected(s)} disabled={busy === s.starts_at}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.jiayouSoft, borderWidth: 1, borderColor: '#cfe0ff' }}>
-                            <Ionicons name="time" size={13} color={COLORS.jiayou} />
-                            <Text style={{ fontSize: 13.5, fontWeight: '800', color: COLORS.jiayou }}>{fmtTime(s.starts_at)}</Text>
+                          <Pressable key={s.starts_at} onPress={() => { if (!noCredits) setSelected(s); }} disabled={busy === s.starts_at || noCredits}
+                            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, width: 96, paddingVertical: 11, borderRadius: 999, backgroundColor: noCredits ? '#f0f2f5' : '#eef4ff', opacity: noCredits ? 0.55 : 1 }}>
+                            <Ionicons name="time" size={14} color={noCredits ? COLORS.mutedLight : COLORS.jiayou} />
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: noCredits ? COLORS.mutedLight : '#1a1a2e' }}>{fmtTime(s.starts_at)}</Text>
                           </Pressable>
                         ))}
                       </View>
@@ -192,6 +209,7 @@ function TrialBookingSheet({ mentorId, mentorName, visible, onClose, onBooked, m
   );
 }
 
+
 export default function MentorProfileScreen({ id, initial, onBack }) {
   const { width } = useWindowDimensions();
   const wide = width >= 900;
@@ -201,6 +219,8 @@ export default function MentorProfileScreen({ id, initial, onBack }) {
   const [booking, setBooking] = useState(false);
   const [rel, setRel] = useState('none'); // none | trial_booked | trial_done | joined
   const [joining, setJoining] = useState(false);
+  const [credits, setCredits] = useState(null); // { paidEnabled, unitPrice, balance, packSizes, nextExpiry }
+  const [buyOpen, setBuyOpen] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -209,6 +229,16 @@ export default function MentorProfileScreen({ id, initial, onBack }) {
     finally { setLoading(false); }
   }, [id]);
   useEffect(() => { load(); }, [load]);
+
+  // Rail B : charge le solde de crédits une fois l'élève rattaché, et le rafraîchit
+  // au retour au premier plan (retour du checkout Stripe).
+  const refreshCredits = useCallback(() => { getTeacherCredits(id).then(setCredits).catch(() => {}); }, [id]);
+  useEffect(() => {
+    if (rel !== 'joined') { setCredits(null); return; }
+    refreshCredits();
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') refreshCredits(); });
+    return () => sub.remove();
+  }, [rel, refreshCredits]);
 
   async function onJoin() {
     setJoining(true);
@@ -265,11 +295,20 @@ export default function MentorProfileScreen({ id, initial, onBack }) {
       {/* CTA selon l'état de la relation : trial → join → book a lesson */}
       {rel === 'joined' ? (
         <>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 }}>
-            <Ionicons name="checkmark-circle" size={16} color="#1a9e5c" />
-            <Text style={{ color: '#1a9e5c', fontWeight: '800', fontSize: 13 }}>You're enrolled with this teacher</Text>
-          </View>
-          <Button onPress={() => setBooking(true)} icon="calendar" title="Book a lesson" fullWidth style={{ marginTop: 10 }} />
+          {credits?.paidEnabled ? (
+            <View style={{ marginTop: 16, backgroundColor: credits.balance > 0 ? '#eaf6ef' : '#fdeef0', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12, alignItems: 'center' }}>
+              <Text style={{ fontSize: 13.5, fontWeight: '800', color: credits.balance > 0 ? '#1a9e5c' : '#c0392b' }}>
+                {credits.balance > 0 ? `${credits.balance} lesson${credits.balance > 1 ? 's' : ''} left` : 'No lessons left'}
+              </Text>
+              {credits.balance > 0 && credits.nextExpiry ? (
+                <Text style={{ fontSize: 11, color: COLORS.mutedLight, marginTop: 2 }}>Expires {new Date(credits.nextExpiry).toLocaleDateString()}</Text>
+              ) : null}
+            </View>
+          ) : null}
+          <Button onPress={() => setBooking(true)} icon="calendar" title="Book a lesson" fullWidth style={{ marginTop: credits?.paidEnabled ? 10 : 16 }} />
+          {credits?.paidEnabled ? (
+            <Button onPress={() => setBuyOpen(true)} variant="outline" icon="card" title="Buy lessons" fullWidth style={{ marginTop: 8 }} />
+          ) : null}
         </>
       ) : rel === 'trial_done' ? (
         <>
@@ -344,7 +383,20 @@ export default function MentorProfileScreen({ id, initial, onBack }) {
           )}
         </View>
       </ScrollView>
-      <TrialBookingSheet mentorId={m.id} mentorName={m.name} visible={booking} onClose={() => setBooking(false)} onBooked={load} mode={rel === 'joined' ? 'lesson' : 'trial'} />
+      <TrialBookingSheet
+        mentorId={m.id} mentorName={m.name} visible={booking}
+        onClose={() => setBooking(false)}
+        onBooked={() => { load(); refreshCredits(); }}
+        onNeedCredits={() => setBuyOpen(true)}
+        credits={credits}
+        onBuy={() => setBuyOpen(true)}
+        mode={rel === 'joined' ? 'lesson' : 'trial'}
+      />
+      <BuyLessonsSheet
+        teacherId={m.id} teacherName={m.name} info={credits}
+        visible={buyOpen} onClose={() => setBuyOpen(false)}
+        onBought={refreshCredits}
+      />
     </View>
   );
 }

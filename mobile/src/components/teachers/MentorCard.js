@@ -50,6 +50,12 @@ export default function MentorCard({ mentor: m, onPress }) {
       ) : null}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+        {m.joined ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#eaf6ef', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Ionicons name="checkmark-circle" size={13} color="#1a9e5c" />
+            <Text style={{ color: '#1a9e5c', fontSize: 12.5, fontWeight: '800' }}>Joined</Text>
+          </View>
+        ) : null}
         {m.session_price != null ? (
           <View style={{ backgroundColor: '#e8f0ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
             <Text style={{ color: COLORS.jiayou, fontSize: 12.5, fontWeight: '700' }}>{money(m.session_price, m.session_currency)} / session</Text>

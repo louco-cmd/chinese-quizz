@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, Platform, AppState, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import CatLoader from '../components/CatLoader';
 import { ErrorRetry } from '../components/ErrorRetry';
@@ -7,7 +7,8 @@ import BottomSheet from '../ui/BottomSheet';
 import CoursePage from './CoursePage';
 import StudentLessonRows from '../components/teachers/StudentLessonRows';
 import StudentLessonSheet from '../components/teachers/StudentLessonSheet';
-import { getStudentMentor, getStudentSlots, getRecurringSlots, bookSlot, bookRecurringSlots, rateMentor, leaveMentor } from '../api';
+import BuyLessonsSheet from '../components/teachers/BuyLessonsSheet';
+import { getStudentMentor, getStudentSlots, getRecurringSlots, bookSlot, bookRecurringSlots, rateMentor, leaveMentor, getTeacherCredits } from '../api';
 import { useT } from '../i18n';
 import { Button, Input, Chip, SegmentedControl } from '../ui';
 import { COLORS, SHADOW_CARD, TAB_CLEARANCE } from '../theme';
@@ -163,7 +164,8 @@ function recurSentence(iso, weeks) {
   return `Every ${day} at ${time} · ${weeks} weeks`;
 }
 
-function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked }) {
+function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked, credits, onBuy }) {
+  const noCredits = credits?.paidEnabled && (credits?.balance || 0) <= 0;
   const [slots, setSlots] = useState(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(null);
@@ -207,7 +209,8 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
       setSelOnce(null);
       setDone({ title: 'Lesson booked 🎉', message: "You'll find it in your upcoming sessions." });
     } catch (e) {
-      Alert.alert('', e.taken || /available|taken/i.test(e.message || '') ? 'This slot was just taken — pick another.' : (e.message || 'Error'));
+      if (e.data?.needCredits) { setSelOnce(null); onClose?.(); onBuy?.(); return; }
+      Alert.alert('', (e.data?.taken || e.taken) || /available|taken/i.test(e.message || '') ? 'This slot was just taken — pick another.' : (e.message || 'Error'));
       setSelOnce(null); reload();
     } finally { setBusy(null); }
   }
@@ -239,6 +242,7 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
   }
 
   const fmtDay = (d) => d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  const fmtDayShort = (d) => d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
   const fmtTime = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
   return (
@@ -289,14 +293,36 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
         </View>
       ) : (
       <>
-      <View style={{ alignItems: 'center', marginBottom: 16 }}>
-        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 18 }}>{initials(teacherName)}</Text>
+      <View style={{ marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <View style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: '#e3f0ff', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: COLORS.jiayou, fontWeight: '800', fontSize: 18 }}>{initials(teacherName)}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 22, fontWeight: '800', color: '#1a1a2e' }} numberOfLines={1}>{teacherName || 'Your teacher'}</Text>
+            {credits?.paidEnabled ? (
+              <View style={{ alignSelf: 'flex-start', backgroundColor: credits.balance > 0 ? COLORS.jiayouSoft : '#fdeef0', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 4, marginTop: 5 }}>
+                <Text style={{ fontSize: 12.5, fontWeight: '800', color: credits.balance > 0 ? COLORS.jiayou : '#c0392b' }}>
+                  {credits.balance > 0 ? `${credits.balance} lesson${credits.balance > 1 ? 's' : ''}` : 'No lessons left'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
         </View>
-        <Text style={{ fontSize: 17, fontWeight: '800', color: '#1a1a2e', marginTop: 10 }}>Book a class</Text>
-        {localTz ? <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginTop: 3 }}>Shown in your timezone · {localTz}</Text> : null}
+        {localTz ? <Text style={{ fontSize: 13, color: '#8a93a5', marginTop: 14 }}>Time zone - {localTz}</Text> : null}
       </View>
 
+      {noCredits ? (
+        <View style={{ backgroundColor: '#fdeef0', borderRadius: 14, padding: 18, alignItems: 'center' }}>
+          <Ionicons name="card-outline" size={26} color="#c0392b" style={{ marginBottom: 8 }} />
+          <Text style={{ fontSize: 14, color: '#c0392b', fontWeight: '800', textAlign: 'center' }}>You need a credit to book</Text>
+          <Text style={{ fontSize: 12.5, color: COLORS.muted, textAlign: 'center', marginTop: 6, marginBottom: 14 }}>
+            Buy credits to book a class with {teacherName || 'this teacher'}.
+          </Text>
+          <Button icon="card" title="Buy credits to book a class" fullWidth onPress={() => { onClose?.(); onBuy?.(); }} />
+        </View>
+      ) : (
+      <>
       {/* 2 onglets : cours récurrent (chaque semaine) vs cours ponctuel. */}
       <SegmentedControl
         style={{ marginBottom: 12 }}
@@ -317,7 +343,6 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
         </>
       ) : (
         <>
-          <Text style={{ fontSize: 11.5, color: COLORS.mutedLight, marginBottom: 14, textAlign: 'center' }}>Pick a time below for a single class.</Text>
           {err ? <ErrorRetry error={err} onRetry={reload} />
             : !slots ? <View style={{ paddingVertical: 30, alignItems: 'center' }}><CatLoader size={80} /></View>
               : groups.length === 0 ? (
@@ -328,16 +353,16 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
               ) : (
                 <ScrollView style={{ maxHeight: 440 }} showsVerticalScrollIndicator={false}>
                   {groups.map((g, i) => (
-                    <View key={i} style={{ marginBottom: 16 }}>
-                      <Text style={{ fontSize: 12.5, fontWeight: '800', color: COLORS.mutedLight, marginBottom: 9, textTransform: 'uppercase', letterSpacing: 0.4 }}>{fmtDay(g.date)}</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    <View key={i} style={{ marginBottom: 18 }}>
+                      <Text style={{ fontSize: 15, fontWeight: '800', color: '#1a1a2e', marginBottom: 10 }}>{fmtDayShort(g.date)}</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
                         {g.items.map((s) => {
                           const sel = selOnce === s.starts_at;
                           return (
                             <Pressable key={s.starts_at} onPress={() => setSelOnce(sel ? null : s.starts_at)}
-                              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 999, backgroundColor: sel ? COLORS.jiayou : COLORS.jiayouSoft, borderWidth: 1, borderColor: sel ? COLORS.jiayou : '#cfe0ff' }}>
-                              <Ionicons name={sel ? 'checkmark' : 'time'} size={13} color={sel ? '#fff' : COLORS.jiayou} />
-                              <Text style={{ fontSize: 13.5, fontWeight: '800', color: sel ? '#fff' : COLORS.jiayou }}>{fmtTime(s.starts_at)}</Text>
+                              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, width: 96, paddingVertical: 11, borderRadius: 999, backgroundColor: sel ? COLORS.jiayou : '#eef4ff' }}>
+                              <Ionicons name={sel ? 'checkmark' : 'time'} size={14} color={sel ? '#fff' : COLORS.jiayou} />
+                              <Text style={{ fontSize: 14, fontWeight: '700', color: sel ? '#fff' : '#1a1a2e' }}>{fmtTime(s.starts_at)}</Text>
                             </Pressable>
                           );
                         })}
@@ -347,6 +372,8 @@ function BookLessonSheet({ teacherId, teacherName, visible, onClose, onBooked })
                 </ScrollView>
               )}
         </>
+      )}
+      </>
       )}
       </>
       )}
@@ -413,6 +440,8 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
   const [leaveBusy, setLeaveBusy] = useState(false);
   const [lessonSheet, setLessonSheet] = useState(null); // cours visio tapé → drawer
   const [course, setCourse] = useState(null); // { id, readOnly } cours ouvert
+  const [credits, setCredits] = useState(null); // Rail B : solde de crédits chez ce prof
+  const [buyOpen, setBuyOpen] = useState(false);
 
   useAndroidBack(() => {
     if (course) { setCourse(null); return true; }
@@ -426,6 +455,14 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
     finally { setLoading(false); }
   }, [teacherId]);
   useEffect(() => { load(); }, [load]);
+
+  // Rail B : solde de crédits chez ce prof, rafraîchi au retour du checkout Stripe.
+  const refreshCredits = useCallback(() => { getTeacherCredits(teacherId).then(setCredits).catch(() => {}); }, [teacherId]);
+  useEffect(() => {
+    refreshCredits();
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') refreshCredits(); });
+    return () => sub.remove();
+  }, [refreshCredits]);
 
   if (course) {
     return <CoursePage lessonId={course.id} readOnly={course.readOnly} onBack={() => { setCourse(null); load(); }} />;
@@ -479,8 +516,20 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
             <Text style={{ color: COLORS.jiayou, fontSize: 13, fontWeight: '800' }}>{money(t.session_price, t.session_currency)} / session</Text>
           </View>
         ) : null}
+        {credits?.paidEnabled ? (
+          <View style={{ backgroundColor: credits.balance > 0 ? '#eaf6ef' : '#fdeef0', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, marginTop: 8 }}>
+            <Text style={{ fontSize: 12.5, fontWeight: '800', color: credits.balance > 0 ? '#1a9e5c' : '#c0392b' }}>
+              {credits.balance > 0 ? `${credits.balance} lesson${credits.balance > 1 ? 's' : ''} left` : 'No lessons left'}
+            </Text>
+          </View>
+        ) : null}
         {/* Action principale « Book a class », juste sous le nom. */}
         {BookBtn ? <View style={{ alignSelf: 'stretch', marginTop: 16 }}>{BookBtn}</View> : null}
+        {credits?.paidEnabled ? (
+          <View style={{ alignSelf: 'stretch', marginTop: 8 }}>
+            <Button onPress={() => setBuyOpen(true)} variant="outline" icon="card" title="Buy lessons" fullWidth />
+          </View>
+        ) : null}
       </View>
       <View style={{ flexDirection: 'row', gap: 8, marginTop: 18 }}>
         <StatTile icon="people" value={t.student_count ?? 0} label="Students" />
@@ -582,7 +631,14 @@ export default function MyTeacherScreen({ teacherId, teacherName, onBack, onVide
         onCancelled={load}
       />
 
-      <BookLessonSheet teacherId={teacherId} teacherName={name} visible={booking} onClose={() => setBooking(false)} onBooked={load} />
+      <BookLessonSheet
+        teacherId={teacherId} teacherName={name} visible={booking}
+        onClose={() => setBooking(false)}
+        onBooked={() => { load(); refreshCredits(); }}
+        credits={credits}
+        onBuy={() => setBuyOpen(true)}
+      />
+      <BuyLessonsSheet teacherId={teacherId} teacherName={name} info={credits} visible={buyOpen} onClose={() => setBuyOpen(false)} onBought={refreshCredits} />
       <RateSheet teacherId={teacherId} teacherName={name} initial={data.my_rating} visible={rating} onClose={() => setRating(false)} onSaved={load} />
 
       <BottomSheet visible={leaving} onClose={() => setLeaving(false)} maxHeightRatio={0.5}>

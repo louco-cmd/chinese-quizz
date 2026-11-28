@@ -22,7 +22,7 @@ function priceMatches(price, active) {
   return true;
 }
 
-export default function TeachersScreen({ onBack }) {
+export default function TeachersScreen({ onBack, initialMentorId, onOpenedInitial }) {
   const [mentors, setMentors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,6 +53,12 @@ export default function TeachersScreen({ onBack }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-ouverture d'un prof (retour d'achat Stripe) : on ouvre une fois puis on
+  // signale au parent de vider l'id (sinon réouverture au re-montage de l'onglet).
+  useEffect(() => {
+    if (initialMentorId) { setOpenMentor({ id: initialMentorId }); onOpenedInitial?.(); }
+  }, [initialMentorId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const languages = useMemo(() => {
     const set = new Set();

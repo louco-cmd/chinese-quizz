@@ -69,6 +69,7 @@ function App() {
   const [videoCallLesson, setVideoCallLesson] = useState(null); // visio plein-écran : number (élève) | slot {id, student_id, student_name} (prof)
   const [endCourse, setEndCourse] = useState(null); // slot du cours terminé → page « fin de cours » (prof)
   const [teacherView, setTeacherView] = useState(null); // prof ouvert depuis Settings (« My teacher »)
+  const [teachersMentorId, setTeachersMentorId] = useState(null); // prof à auto-ouvrir dans l'annuaire (retour achat Stripe)
 
   // Ouvre la page « mon prof » depuis les réglages (lien My teacher).
   const openTeacher = (teacher) => { setTeacherView(teacher); setBankReturn('settings'); setTab('myteacher'); };
@@ -223,6 +224,11 @@ function App() {
         setResetToken(token); setAuthView('reset');
       } else if (url.pathname.includes('welcome-jiayou-premium') || url.searchParams.get('session_id')) {
         setShowWelcome(true);
+      } else if (url.searchParams.get('lesson_pack') === 'success') {
+        // Retour d'achat de crédits de cours → rouvre la page du prof (annuaire).
+        const t = parseInt(url.searchParams.get('teacher'), 10);
+        if (t) { setTeachersMentorId(t); setTab('teachers'); }
+        if (window.history?.replaceState) window.history.replaceState({}, '', '/');
       }
       // Parrainage : ?ref=CODE → on persiste (survit au redirect Google OAuth) et
       // on retire le paramètre de l'URL pour ne pas le rejouer.
@@ -411,7 +417,7 @@ function App() {
 
   function renderScreen() {
     switch (tab) {
-      case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} />;
+      case 'teachers': return <TeachersScreen onBack={() => setTab(bankReturn)} initialMentorId={teachersMentorId} onOpenedInitial={() => setTeachersMentorId(null)} />;
       case 'myteacher': return <MyTeacherScreen teacherId={teacherView?.teacher_id || teacherView?.id} teacherName={teacherView?.name} onBack={() => setTab('settings')} onVideoCall={setVideoCallLesson} />;
       case 'messages': return <MessagesScreen onBack={() => setTab('settings')} initialConvId={msgConvId} onInitialConsumed={() => setMsgConvId(null)} underTabBar />;
       case 'collection': return <CollectionScreen onNavigate={setTab} onOpenCredits={() => { setBankReturn('collection'); setTab('credits'); }} />;
